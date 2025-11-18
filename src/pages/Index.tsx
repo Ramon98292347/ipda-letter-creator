@@ -17,7 +17,7 @@ import { createCarta } from "@/services/letterService";
 import { format, parse } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useUser } from "@/context/UserContext";
-import { getIgrejaByTotvs } from "@/services/userService";
+import { getIgrejaByTotvs, getUsuarioByTelefone } from "@/services/userService";
 import { useNavigate } from "react-router-dom";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
@@ -126,9 +126,47 @@ const Index = () => {
     })();
   }, [usuario, telefone, setValue]);
 
+  const [redirectOnReload] = useState(() => {
+    const entries = performance.getEntriesByType("navigation") as any[];
+    return Boolean(entries[0] && entries[0].type === "reload");
+  });
   useEffect(() => {
-    if (!usuario && !telefone) nav("/");
-  }, [usuario, telefone, nav]);
+    if (redirectOnReload && !usuario && !telefone) nav("/");
+  }, [redirectOnReload, usuario, telefone, nav]);
+
+  useEffect(() => {
+    const t = setTimeout(async () => {
+      const telDigits = (watch("telefone") || "").replace(/\D/g, "");
+      if (telDigits.length >= 10) {
+        try {
+          const u = await getUsuarioByTelefone(telDigits);
+          if (u) {
+            setUsuario({ id: u.id, nome: u.nome, telefone: u.telefone, totvs: u.totvs ?? null, igreja_nome: u.igreja_nome ?? null });
+            setValue("pregadorNome", u.nome, { shouldValidate: true });
+            setValue("telefone", u.telefone, { shouldValidate: true });
+            if (u.totvs) {
+              try {
+                const found = await getIgrejaByTotvs(u.totvs);
+                if (found) {
+                  const c: Church = { id: Number(found.codigoTotvs) || Date.now(), codigoTotvs: found.codigoTotvs, nome: found.nome, cidade: "", uf: "", carimboIgreja: "", carimboPastor: "" };
+                  setIgrejaOrigem(c);
+                  setValue("origemId", c.id, { shouldValidate: true });
+                }
+              } catch {}
+            } else if (u.igreja_nome) {
+              const c: Church = { id: Date.now(), codigoTotvs: "", nome: u.igreja_nome, cidade: "", uf: "", carimboIgreja: "", carimboPastor: "" };
+              setIgrejaOrigem(c);
+              setValue("origemId", c.id, { shouldValidate: true });
+            }
+          }
+        } catch {}
+      }
+    }, 400);
+    return () => clearTimeout(t);
+  }, [watch("telefone"), setUsuario, setValue]);
+
+  const phoneDigits = (watch("telefone") || "").replace(/\D/g, "");
+  const phoneEmpty = phoneDigits.length < 10;
 
   const onSubmit = async (values: {
     pregadorNome: string;
@@ -266,6 +304,8 @@ const Index = () => {
                     type="text"
                     placeholder="Digite o nome completo"
                     {...register("pregadorNome")}
+                    onFocus={(e) => { if (phoneEmpty) { toast.info("Digite seu telefone"); e.currentTarget.blur(); } }}
+                    disabled={phoneEmpty}
                     className="bg-card border-input focus:border-primary focus:ring-primary transition-colors"
                     required
                   />
@@ -297,6 +337,8 @@ const Index = () => {
                     setValue("origemId", c.id, { shouldValidate: true });
                   }}
                   value={igrejaOrigem ? (igrejaOrigem.codigoTotvs ? `${igrejaOrigem.codigoTotvs} - ${igrejaOrigem.nome}` : igrejaOrigem.nome) : (usuario?.igreja_nome ?? "")}
+                  disabled={phoneEmpty}
+                  onDisabledClickMessage="Digite seu telefone"
                   inputId="church-origem"
                 />
                 {errors.origemId && <p className="text-xs text-destructive">Selecione a igreja de origem</p>}
@@ -313,7 +355,8 @@ const Index = () => {
                     setValue("destinoOutros", "", { shouldValidate: true });
                   }}
                   value={igrejaDestino ? `${igrejaDestino.codigoTotvs} - ${igrejaDestino.nome}` : ""}
-                  disabled={Boolean(destinoOutros.trim())}
+                  disabled={phoneEmpty || Boolean(destinoOutros.trim())}
+                  onDisabledClickMessage="Digite seu telefone"
                   inputId="church-destino"
                 />
                 <div className="space-y-2">
@@ -330,8 +373,9 @@ const Index = () => {
                         setValue("destinoId", undefined as unknown as number, { shouldValidate: true });
                       }
                     }}
+                    onFocus={(e) => { if (phoneEmpty) { toast.info("Digite seu telefone"); e.currentTarget.blur(); } }}
                     placeholder="Digite a igreja manualmente"
-                    disabled={Boolean(igrejaDestino)}
+                    disabled={phoneEmpty || Boolean(igrejaDestino)}
                     className="bg-card border-input focus:border-primary focus:ring-primary transition-colors"
                   />
                   {errors.destinoId && <p className="text-xs text-destructive">Selecione a igreja de destino ou informe em Outros</p>}
@@ -360,6 +404,7 @@ const Index = () => {
                               const iso = brToIso(e.target.value);
                               setValue("dataPregacao", iso, { shouldValidate: true });
                             }}
+                            onFocus={(e) => { if (phoneEmpty) { toast.info("Digite seu telefone"); e.currentTarget.blur(); } }}
                             className="bg-card border-input focus:border-primary focus:ring-primary transition-colors flex-1"
                             required
                           />
@@ -367,7 +412,7 @@ const Index = () => {
                       })()}
                       <Popover>
                         <PopoverTrigger asChild>
-                          <Button type="button" variant="outline" className="whitespace-nowrap">
+                          <Button type="button" variant="outline" className="whitespace-nowrap" onClick={() => { if (phoneEmpty) { toast.info("Digite seu telefone"); } }}>
                             <CalendarIcon className="h-4 w-4 mr-2" />
                             Calendário
                           </Button>

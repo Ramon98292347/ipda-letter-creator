@@ -24,9 +24,12 @@ interface ChurchSearchProps {
   value?: string;
   inputId?: string;
   disabled?: boolean;
+  onDisabledClickMessage?: string;
 }
 
-export function ChurchSearch({ label, placeholder, onSelect, churches, value, inputId, disabled }: ChurchSearchProps) {
+import { toast } from "sonner";
+
+export function ChurchSearch({ label, placeholder, onSelect, churches, value, inputId, disabled, onDisabledClickMessage }: ChurchSearchProps) {
   const [searchTerm, setSearchTerm] = useState(value || "");
   const [isOpen, setIsOpen] = useState(false);
   const [filteredChurches, setFilteredChurches] = useState<Church[]>([]);
@@ -100,7 +103,15 @@ export function ChurchSearch({ label, placeholder, onSelect, churches, value, in
   };
 
   return (
-    <div ref={wrapperRef} className="relative space-y-2">
+    <div
+      ref={wrapperRef}
+      className="relative space-y-2"
+      onClick={() => {
+        if (disabled && onDisabledClickMessage) {
+          toast.info(onDisabledClickMessage);
+        }
+      }}
+    >
       <Label htmlFor={inputId} className="text-sm font-medium text-foreground">
         {label}
       </Label>
