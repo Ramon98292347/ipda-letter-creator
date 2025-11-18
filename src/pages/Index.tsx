@@ -106,8 +106,22 @@ const Index = () => {
             const c: Church = { id: Number(found.codigoTotvs) || Date.now(), codigoTotvs: found.codigoTotvs, nome: found.nome, cidade: "", uf: "", carimboIgreja: "", carimboPastor: "" };
             setIgrejaOrigem(c);
             setValue("origemId", c.id, { shouldValidate: true });
+          } else if (usuario?.igreja_nome) {
+            const c: Church = { id: Date.now(), codigoTotvs: "", nome: usuario.igreja_nome, cidade: "", uf: "", carimboIgreja: "", carimboPastor: "" };
+            setIgrejaOrigem(c);
+            setValue("origemId", c.id, { shouldValidate: true });
           }
-        } catch {}
+        } catch {
+          if (usuario?.igreja_nome) {
+            const c: Church = { id: Date.now(), codigoTotvs: "", nome: usuario.igreja_nome, cidade: "", uf: "", carimboIgreja: "", carimboPastor: "" };
+            setIgrejaOrigem(c);
+            setValue("origemId", c.id, { shouldValidate: true });
+          }
+        }
+      } else if (usuario?.igreja_nome) {
+        const c: Church = { id: Date.now(), codigoTotvs: "", nome: usuario.igreja_nome, cidade: "", uf: "", carimboIgreja: "", carimboPastor: "" };
+        setIgrejaOrigem(c);
+        setValue("origemId", c.id, { shouldValidate: true });
       }
     })();
   }, [usuario, telefone, setValue]);
@@ -125,7 +139,9 @@ const Index = () => {
     destinoId?: number;
     destinoOutros?: string;
   }) => {
-    const origemText = igrejaOrigem ? `${igrejaOrigem.codigoTotvs} - ${igrejaOrigem.nome}` : "";
+    const origemText = igrejaOrigem
+      ? (igrejaOrigem.codigoTotvs ? `${igrejaOrigem.codigoTotvs} - ${igrejaOrigem.nome}` : igrejaOrigem.nome)
+      : (usuario?.igreja_nome ?? "");
     const destinoText = (watch("destinoOutros") && watch("destinoOutros")!.trim())
       ? watch("destinoOutros")!.trim()
       : (igrejaDestino ? `${igrejaDestino.codigoTotvs} - ${igrejaDestino.nome}` : "");
@@ -280,7 +296,7 @@ const Index = () => {
                     setIgrejaOrigem(c);
                     setValue("origemId", c.id, { shouldValidate: true });
                   }}
-                  value={igrejaOrigem ? `${igrejaOrigem.codigoTotvs} - ${igrejaOrigem.nome}` : ""}
+                  value={igrejaOrigem ? (igrejaOrigem.codigoTotvs ? `${igrejaOrigem.codigoTotvs} - ${igrejaOrigem.nome}` : igrejaOrigem.nome) : (usuario?.igreja_nome ?? "")}
                   inputId="church-origem"
                 />
                 {errors.origemId && <p className="text-xs text-destructive">Selecione a igreja de origem</p>}
