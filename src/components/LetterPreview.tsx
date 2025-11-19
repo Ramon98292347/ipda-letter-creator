@@ -1,5 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { FileText, User, Calendar, Building2, ArrowRight } from "lucide-react";
+import { FileText, User, Calendar, Building2, ArrowRight, Mail, BadgeCheck } from "lucide-react";
 import { Church } from "./ChurchSearch";
 import { format, parse } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -10,6 +10,9 @@ interface LetterPreviewProps {
   igrejaDestino?: Church;
   dataPregacao: string;
   dataEmissao: string;
+  email?: string;
+  ministerial?: string;
+  dataSeparacao?: string; // ISO 'yyyy-MM-dd'
 }
 
 export function LetterPreview({
@@ -18,6 +21,9 @@ export function LetterPreview({
   igrejaDestino,
   dataPregacao,
   dataEmissao,
+  email,
+  ministerial,
+  dataSeparacao,
 }: LetterPreviewProps) {
   const hasData = pregadorNome || igrejaOrigem || igrejaDestino || dataPregacao || dataEmissao;
 
@@ -54,6 +60,16 @@ export function LetterPreview({
             <div>
               <p className="text-xs font-medium text-muted-foreground uppercase">Pregador</p>
               <p className="text-sm font-semibold text-foreground">{pregadorNome}</p>
+              {email && (
+                <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                  <Mail className="h-3 w-3 text-primary" /> {email}
+                </p>
+              )}
+              {ministerial && (
+                <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                  <BadgeCheck className="h-3 w-3 text-primary" /> {ministerial}
+                </p>
+              )}
             </div>
           </div>
         )}
@@ -122,6 +138,24 @@ export function LetterPreview({
                       return format(parse(dataEmissao, "yyyy-MM-dd", new Date()), "dd/MM/yyyy", { locale: ptBR });
                     } catch {
                       return dataEmissao;
+                    }
+                  })()}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {dataSeparacao && (
+            <div className="flex items-start gap-3 p-3 bg-secondary/30 rounded-lg">
+              <Calendar className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+              <div>
+                <p className="text-xs font-medium text-muted-foreground uppercase">Data de Separação</p>
+                <p className="text-sm font-semibold text-foreground">
+                  {(() => {
+                    try {
+                      return format(parse(dataSeparacao, "yyyy-MM-dd", new Date()), "dd/MM/yyyy", { locale: ptBR });
+                    } catch {
+                      return dataSeparacao;
                     }
                   })()}
                 </p>

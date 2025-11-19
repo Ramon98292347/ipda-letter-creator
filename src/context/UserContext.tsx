@@ -6,6 +6,9 @@ export type Usuario = {
   telefone: string;
   totvs?: string | null;
   igreja_nome?: string | null;
+  email?: string | null;
+  ministerial?: string | null;
+  data_separacao?: string | null;
 };
 
 type UserState = {

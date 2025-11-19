@@ -28,6 +28,9 @@ const Index = () => {
   const [igrejaOrigem, setIgrejaOrigem] = useState<Church | undefined>();
   const [igrejaDestino, setIgrejaDestino] = useState<Church | undefined>();
   const [destinoOutros, setDestinoOutros] = useState("");
+  const [usuarioEmail, setUsuarioEmail] = useState<string>("");
+  const [usuarioMinisterial, setUsuarioMinisterial] = useState<string>("");
+  const [usuarioDataSeparacao, setUsuarioDataSeparacao] = useState<string>("");
   const schema = useMemo(
     () =>
       z
@@ -126,13 +129,7 @@ const Index = () => {
     })();
   }, [usuario, telefone, setValue]);
 
-  const [redirectOnReload] = useState(() => {
-    const entries = performance.getEntriesByType("navigation") as any[];
-    return Boolean(entries[0] && entries[0].type === "reload");
-  });
-  useEffect(() => {
-    if (redirectOnReload && !usuario && !telefone) nav("/");
-  }, [redirectOnReload, usuario, telefone, nav]);
+  // redirecionamento agora é tratado via guarda de rota em App.tsx
 
   useEffect(() => {
     const t = setTimeout(async () => {
@@ -141,9 +138,21 @@ const Index = () => {
         try {
           const u = await getUsuarioByTelefone(telDigits);
           if (u) {
-            setUsuario({ id: u.id, nome: u.nome, telefone: u.telefone, totvs: u.totvs ?? null, igreja_nome: u.igreja_nome ?? null });
+            setUsuario({
+              id: u.id,
+              nome: u.nome,
+              telefone: u.telefone,
+              totvs: u.totvs ?? null,
+              igreja_nome: u.igreja_nome ?? null,
+              email: u.email ?? null,
+              ministerial: u.ministerial ?? null,
+              data_separacao: u.data_separacao ?? null,
+            });
             setValue("pregadorNome", u.nome, { shouldValidate: true });
             setValue("telefone", u.telefone, { shouldValidate: true });
+            if (u.email) setUsuarioEmail(u.email);
+            if (u.ministerial) setUsuarioMinisterial(u.ministerial);
+            if (u.data_separacao) setUsuarioDataSeparacao(u.data_separacao);
             if (u.totvs) {
               try {
                 const found = await getIgrejaByTotvs(u.totvs);
@@ -167,6 +176,19 @@ const Index = () => {
 
   const phoneDigits = (watch("telefone") || "").replace(/\D/g, "");
   const phoneEmpty = phoneDigits.length < 10;
+  const hasUsuario = Boolean(usuario);
+  const disableByPhone = phoneEmpty && !hasUsuario;
+
+  useEffect(() => {
+    if (usuario) {
+      const u = usuario as any;
+      if (u?.email) setUsuarioEmail(u.email);
+      if (u?.ministerial) setUsuarioMinisterial(u.ministerial);
+      if (u?.data_separacao) setUsuarioDataSeparacao(u.data_separacao);
+      if (usuario.telefone) setValue("telefone", usuario.telefone, { shouldValidate: true });
+      if (usuario.nome) setValue("pregadorNome", usuario.nome, { shouldValidate: true });
+    }
+  }, [usuario, setValue]);
 
   const onSubmit = async (values: {
     pregadorNome: string;
@@ -304,8 +326,8 @@ const Index = () => {
                     type="text"
                     placeholder="Digite o nome completo"
                     {...register("pregadorNome")}
-                    onFocus={(e) => { if (phoneEmpty) { toast.info("Digite seu telefone"); e.currentTarget.blur(); } }}
-                    disabled={phoneEmpty}
+                    onFocus={(e) => { if (disableByPhone) { toast.info("Digite seu telefone"); e.currentTarget.blur(); } }}
+                    disabled={disableByPhone}
                     className="bg-card border-input focus:border-primary focus:ring-primary transition-colors"
                     required
                   />
@@ -337,7 +359,7 @@ const Index = () => {
                     setValue("origemId", c.id, { shouldValidate: true });
                   }}
                   value={igrejaOrigem ? (igrejaOrigem.codigoTotvs ? `${igrejaOrigem.codigoTotvs} - ${igrejaOrigem.nome}` : igrejaOrigem.nome) : (usuario?.igreja_nome ?? "")}
-                  disabled={phoneEmpty}
+                  disabled={disableByPhone}
                   onDisabledClickMessage="Digite seu telefone"
                   inputId="church-origem"
                 />
@@ -355,7 +377,7 @@ const Index = () => {
                     setValue("destinoOutros", "", { shouldValidate: true });
                   }}
                   value={igrejaDestino ? `${igrejaDestino.codigoTotvs} - ${igrejaDestino.nome}` : ""}
-                  disabled={phoneEmpty || Boolean(destinoOutros.trim())}
+                  disabled={disableByPhone || Boolean(destinoOutros.trim())}
                   onDisabledClickMessage="Digite seu telefone"
                   inputId="church-destino"
                 />
@@ -373,9 +395,9 @@ const Index = () => {
                         setValue("destinoId", undefined as unknown as number, { shouldValidate: true });
                       }
                     }}
-                    onFocus={(e) => { if (phoneEmpty) { toast.info("Digite seu telefone"); e.currentTarget.blur(); } }}
+                    onFocus={(e) => { if (disableByPhone) { toast.info("Digite seu telefone"); e.currentTarget.blur(); } }}
                     placeholder="Digite a igreja manualmente"
-                    disabled={phoneEmpty || Boolean(igrejaDestino)}
+                    disabled={disableByPhone || Boolean(igrejaDestino)}
                     className="bg-card border-input focus:border-primary focus:ring-primary transition-colors"
                   />
                   {errors.destinoId && <p className="text-xs text-destructive">Selecione a igreja de destino ou informe em Outros</p>}
@@ -404,7 +426,7 @@ const Index = () => {
                               const iso = brToIso(e.target.value);
                               setValue("dataPregacao", iso, { shouldValidate: true });
                             }}
-                            onFocus={(e) => { if (phoneEmpty) { toast.info("Digite seu telefone"); e.currentTarget.blur(); } }}
+                            onFocus={(e) => { if (disableByPhone) { toast.info("Digite seu telefone"); e.currentTarget.blur(); } }}
                             className="bg-card border-input focus:border-primary focus:ring-primary transition-colors flex-1"
                             required
                           />
@@ -412,7 +434,19 @@ const Index = () => {
                       })()}
                       <Popover>
                         <PopoverTrigger asChild>
-                          <Button type="button" variant="outline" className="whitespace-nowrap" onClick={() => { if (phoneEmpty) { toast.info("Digite seu telefone"); } }}>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="whitespace-nowrap"
+                            onClick={(e) => {
+                              if (disableByPhone) {
+                                toast.info("Digite seu telefone");
+                                e.preventDefault();
+                                e.stopPropagation();
+                              }
+                            }}
+                          >
+                            {/* manter aviso pelo telefone */}
                             <CalendarIcon className="h-4 w-4 mr-2" />
                             Calendário
                           </Button>
@@ -484,13 +518,16 @@ const Index = () => {
 
           {/* Preview Card */}
           <div className="lg:sticky lg:top-8 h-fit">
-            <LetterPreview
-              pregadorNome={watch("pregadorNome")}
-              igrejaOrigem={igrejaOrigem}
-              igrejaDestino={destinoOutros.trim() ? { id: 0, codigoTotvs: "", nome: destinoOutros.trim(), cidade: "", uf: "", carimboIgreja: "", carimboPastor: "" } : igrejaDestino}
-              dataPregacao={watch("dataPregacao")}
-              dataEmissao={watch("dataEmissao")}
-            />
+          <LetterPreview
+            pregadorNome={watch("pregadorNome")}
+            igrejaOrigem={igrejaOrigem}
+            igrejaDestino={destinoOutros.trim() ? { id: 0, codigoTotvs: "", nome: destinoOutros.trim(), cidade: "", uf: "", carimboIgreja: "", carimboPastor: "" } : igrejaDestino}
+            dataPregacao={watch("dataPregacao")}
+            dataEmissao={watch("dataEmissao")}
+            email={usuarioEmail || (usuario as any)?.email || undefined}
+            ministerial={usuarioMinisterial || (usuario as any)?.ministerial || undefined}
+            dataSeparacao={usuarioDataSeparacao || (usuario as any)?.data_separacao || undefined}
+          />
           </div>
         </div>
       </main>

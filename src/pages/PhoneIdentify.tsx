@@ -28,7 +28,16 @@ export default function PhoneIdentify() {
     try {
       const u = await getUsuarioByTelefone(telefoneRaw);
       if (u) {
-        setUsuario({ nome: u.nome, telefone: u.telefone, totvs: u.totvs ?? null, igreja_nome: u.igreja_nome ?? null, id: u.id });
+        setUsuario({
+          id: u.id,
+          nome: u.nome,
+          telefone: u.telefone,
+          totvs: u.totvs ?? null,
+          igreja_nome: u.igreja_nome ?? null,
+          email: u.email ?? null,
+          ministerial: u.ministerial ?? null,
+          data_separacao: u.data_separacao ?? null,
+        });
         setTelefone(undefined);
         if (u.totvs) {
           try {
