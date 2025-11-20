@@ -8,6 +8,7 @@ import { useUser } from "@/context/UserContext";
 import { insertUsuario } from "@/services/userService";
 import { useQuery } from "@tanstack/react-query";
 import { fetchChurches } from "@/services/churchService";
+import { fetchCentralChurches } from "@/services/centralChurchService";
 import { toast } from "sonner";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
@@ -25,10 +26,14 @@ export default function CadastroRapido() {
   const [dataSeparacaoStr, setDataSeparacaoStr] = useState<string>(""); // ISO 'yyyy-MM-dd'
   const [igreja, setIgreja] = useState<Church | undefined>(undefined);
   const [igrejaOutros, setIgrejaOutros] = useState("");
+  const [igrejaCentral, setIgrejaCentral] = useState<Church | undefined>(undefined);
+  const [igrejaCentralOutros, setIgrejaCentralOutros] = useState("");
   const [isSepCalOpen, setIsSepCalOpen] = useState(false);
   const months = ["janeiro","fevereiro","março","abril","maio","junho","julho","agosto","setembro","outubro","novembro","dezembro"];
   const [sepViewMonth, setSepViewMonth] = useState<Date>(new Date());
   const { data: churches = [] } = useQuery({ queryKey: ["churches"], queryFn: fetchChurches, staleTime: 60_000 });
+  const { data: centralChurches = [] } = useQuery({ queryKey: ["central-churches"], queryFn: fetchCentralChurches, staleTime: 60_000 });
+
   const logo = "/Polish_20220810_001501268%20(2).png";
 
   const toBr = (iso: string) => {
@@ -47,6 +52,8 @@ export default function CadastroRapido() {
         email: email || null,
         data_separacao: dataSeparacaoStr || null,
         ministerial: ministerial || null,
+        central_totvs: igrejaCentral?.codigoTotvs ?? null,
+        central_nome: (igrejaCentral?.nome ?? igrejaCentralOutros) || null,
       });
       setUsuario({
         id: novo.id,
@@ -57,6 +64,8 @@ export default function CadastroRapido() {
         email: novo.email ?? null,
         ministerial: novo.ministerial ?? null,
         data_separacao: novo.data_separacao ?? null,
+        central_totvs: novo.central_totvs ?? null,
+        central_nome: novo.central_nome ?? null,
       });
       setTelefone(novo.telefone);
       nav("/carta");
@@ -182,6 +191,28 @@ export default function CadastroRapido() {
             onFocus={(e) => { if (igreja) { toast.info("Preencha apenas um dos campos"); e.currentTarget.blur(); } }}
             placeholder="Descreva a igreja"
             disabled={Boolean(igreja)}
+          />
+        </div>
+
+        <ChurchSearch
+          label="Igreja Estadual, Setorial e central que você pertence"
+          placeholder="Buscar por nome ou código TOTVS"
+          churches={centralChurches}
+          onSelect={(c) => { setIgrejaCentral(c); setIgrejaCentralOutros(""); }}
+          value={igrejaCentral ? `${igrejaCentral.codigoTotvs} - ${igrejaCentral.nome}` : ""}
+          inputId="igreja-central-cadastro"
+          disabled={Boolean(igrejaCentralOutros.trim())}
+          onDisabledClickMessage="Preencha apenas um dos campos"
+        />
+        <div className="space-y-2">
+          <Label htmlFor="igrejaCentralOutros">Outros (se não encontrar) – Igreja Central</Label>
+          <Input
+            id="igrejaCentralOutros"
+            value={igrejaCentralOutros}
+            onChange={(e) => { setIgrejaCentralOutros(e.target.value); if (e.target.value.trim()) setIgrejaCentral(undefined); }}
+            onFocus={(e) => { if (igrejaCentral) { toast.info("Preencha apenas um dos campos"); e.currentTarget.blur(); } }}
+            placeholder="Descreva a igreja central"
+            disabled={Boolean(igrejaCentral)}
           />
         </div>
         <Button onClick={handleSave} className="w-full">Salvar e continuar</Button>

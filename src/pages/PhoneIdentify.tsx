@@ -18,13 +18,15 @@ export default function PhoneIdentify() {
   const { setUsuario, setTelefone } = useUser();
   const logo = "/Polish_20220810_001501268%20(2).png";
   const [tel, setTel] = useState("");
+  const [loading, setLoading] = useState(false);
 
   async function handleContinue() {
     const telefoneRaw = tel.replace(/\D/g, "");
-    if (!telefoneRaw) {
+    if (!telefoneRaw || telefoneRaw.length < 10) {
       toast.error("Informe o telefone");
       return;
     }
+    setLoading(true);
     try {
       const u = await getUsuarioByTelefone(telefoneRaw);
       if (u) {
@@ -37,6 +39,8 @@ export default function PhoneIdentify() {
           email: u.email ?? null,
           ministerial: u.ministerial ?? null,
           data_separacao: u.data_separacao ?? null,
+          central_totvs: (u as any)?.central_totvs ?? null,
+          central_nome: (u as any)?.central_nome ?? null,
         });
         setTelefone(undefined);
         if (u.totvs) {
@@ -50,9 +54,16 @@ export default function PhoneIdentify() {
         setTelefone(telefoneRaw);
         nav("/cadastro");
       }
-    } catch {
-      toast.error("Falha ao consultar. Tente novamente.");
+    } catch (err: any) {
+      console.error("consulta-telefone-erro", err);
+      const msg = String(err?.message || "");
+      if (msg.includes("supabase-not-configured")) {
+        toast.error("Configuração do Supabase ausente. Verifique VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY.");
+      } else {
+        toast.error("Falha ao consultar. Verifique conexão e permissões.");
+      }
     }
+    setLoading(false);
   }
 
   return (
@@ -64,7 +75,9 @@ export default function PhoneIdentify() {
           <Label htmlFor="telefone">Telefone</Label>
           <Input id="telefone" type="tel" value={maskTel(tel)} onChange={(e) => setTel(e.target.value)} placeholder="(99) 99999-9999" />
         </div>
-        <Button onClick={handleContinue} className="w-full">Continuar</Button>
+        <Button onClick={handleContinue} className="w-full" disabled={loading}>
+          {loading ? "Consultando..." : "Continuar"}
+        </Button>
       </div>
     </div>
   );

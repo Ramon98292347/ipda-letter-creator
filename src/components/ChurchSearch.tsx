@@ -116,7 +116,22 @@ export function ChurchSearch({ label, placeholder, onSelect, churches, value, in
         {label}
       </Label>
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <button
+          type="button"
+          className="absolute left-1.5 top-1/2 -translate-y-1/2 h-7 w-7 inline-flex items-center justify-center rounded-md border border-input bg-background text-muted-foreground hover:bg-secondary/30"
+          onClick={() => {
+            if (disabled) {
+              if (onDisabledClickMessage) toast.info(onDisabledClickMessage);
+              return;
+            }
+            const list = churches || [];
+            setFilteredChurches(list);
+            setIsOpen(list.length > 0);
+            setHighlightIndex(list.length ? 0 : -1);
+          }}
+        >
+          <Search className="h-4 w-4" />
+        </button>
         <Input
           id={inputId}
           type="text"
@@ -144,7 +159,7 @@ export function ChurchSearch({ label, placeholder, onSelect, churches, value, in
             }
           }}
           disabled={disabled}
-          className="pl-9 bg-card border-input focus:border-primary focus:ring-primary transition-colors"
+          className="pl-11 bg-card border-input focus:border-primary focus:ring-primary transition-colors"
         />
       </div>
 

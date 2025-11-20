@@ -24,3 +24,16 @@ export async function fetchChurches() {
     classificacao: d.classificacao ?? undefined,
   }));
 }
+
+export async function getPastorByTotvs(totvs: string) {
+  if (!supabase) throw new Error("supabase-not-configured");
+  const { data, error } = await supabase
+    .from("igreja")
+    .select('totvs:"TOtvs", pastor:"Nome completo do Pastor", telefone:"Telefone"')
+    .eq('"TOtvs"', totvs)
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) return null;
+  return { totvs: (data as any).totvs as string, pastor: (data as any).pastor as string | null, telefone: (data as any).telefone as string | null };
+}

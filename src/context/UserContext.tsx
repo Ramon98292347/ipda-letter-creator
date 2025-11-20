@@ -9,6 +9,8 @@ export type Usuario = {
   email?: string | null;
   ministerial?: string | null;
   data_separacao?: string | null;
+  central_totvs?: string | null;
+  central_nome?: string | null;
 };
 
 type UserState = {

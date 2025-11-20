@@ -18,6 +18,7 @@ import { format, parse } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useUser } from "@/context/UserContext";
 import { getIgrejaByTotvs, getUsuarioByTelefone } from "@/services/userService";
+import { getPastorByTotvs } from "@/services/churchService";
 import { useNavigate } from "react-router-dom";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
@@ -32,6 +33,13 @@ const Index = () => {
   const [usuarioMinisterial, setUsuarioMinisterial] = useState<string>("");
   const [usuarioDataSeparacao, setUsuarioDataSeparacao] = useState<string>("");
   const [isPregacaoCalOpen, setIsPregacaoCalOpen] = useState(false);
+  const [pastorResponsavel, setPastorResponsavel] = useState<string>("");
+  const [telefonePastorResponsavel, setTelefonePastorResponsavel] = useState<string>("");
+  const computeTotvs = (nome?: string) => {
+    const s = (nome || "").trim();
+    const m = s.match(/\b\d{3,6}\b/);
+    return m ? m[0] : "";
+  };
   const schema = useMemo(
     () =>
       z
@@ -191,6 +199,27 @@ const Index = () => {
     }
   }, [usuario, setValue]);
 
+  useEffect(() => {
+    (async () => {
+      const u = usuario as any;
+      const centralTotvs: string | undefined = u?.central_totvs || undefined;
+      const origemTotvs: string | undefined = igrejaOrigem?.codigoTotvs || computeTotvs(u?.igreja_nome);
+      const totvs = centralTotvs || origemTotvs || undefined;
+      if (totvs) {
+        try {
+          const r = await getPastorByTotvs(totvs);
+          if (r) {
+            setPastorResponsavel(r.pastor || "");
+            setTelefonePastorResponsavel(r.telefone || "");
+          }
+        } catch {}
+      } else {
+        setPastorResponsavel("");
+        setTelefonePastorResponsavel("");
+      }
+    })();
+  }, [usuario, igrejaOrigem]);
+
   const onSubmit = async (values: {
     pregadorNome: string;
     telefone: string;
@@ -227,6 +256,7 @@ const Index = () => {
     try {
       const webhookUrl = (import.meta as any).env?.VITE_WEBHOOK_CARTA_PREGACAO || "https://n8n-n8n.ynlng8.easypanel.host/webhook/carta-pregacao";
       const ac = new AbortController();
+      const origemTotvsComputed = igrejaOrigem?.codigoTotvs || computeTotvs(origemText);
       const payload = {
         nome: values.pregadorNome,
         telefone: values.telefone,
@@ -236,7 +266,7 @@ const Index = () => {
         destino: destinoText,
         dia_pregacao: values.dataPregacao ? format(parse(values.dataPregacao, "yyyy-MM-dd", new Date()), "dd/MM/yyyy", { locale: ptBR }) : "",
         data_emissao: values.dataEmissao ? format(parse(values.dataEmissao, "yyyy-MM-dd", new Date()), "dd/MM/yyyy", { locale: ptBR }) : "",
-        origem_totvs: igrejaOrigem?.codigoTotvs,
+        origem_totvs: origemTotvsComputed || undefined,
         destino_totvs: (watch("destinoOutros") && watch("destinoOutros")!.trim()) ? undefined : igrejaDestino?.codigoTotvs,
         origem_nome: igrejaOrigem?.nome,
         destino_nome: (watch("destinoOutros") && watch("destinoOutros")!.trim()) ? watch("destinoOutros")!.trim() : igrejaDestino?.nome,
@@ -250,6 +280,8 @@ const Index = () => {
         data_da_separacao: (usuarioDataSeparacao || (usuario as any)?.data_separacao)
           ? format(parse((usuarioDataSeparacao || (usuario as any)?.data_separacao) as string, "yyyy-MM-dd", new Date()), "dd/MM/yyyy", { locale: ptBR })
           : "",
+        pastor_responsavel: pastorResponsavel || "",
+        telefone_pastor: telefonePastorResponsavel || "",
       };
       // eslint-disable-next-line no-console
       console.log("webhook_payload", payload);
@@ -555,6 +587,8 @@ const Index = () => {
             email={usuarioEmail || (usuario as any)?.email || undefined}
             ministerial={usuarioMinisterial || (usuario as any)?.ministerial || undefined}
             dataSeparacao={usuarioDataSeparacao || (usuario as any)?.data_separacao || undefined}
+            pastorResponsavel={pastorResponsavel || undefined}
+            telefonePastorResponsavel={telefonePastorResponsavel || undefined}
           />
           </div>
         </div>

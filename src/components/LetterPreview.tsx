@@ -13,6 +13,8 @@ interface LetterPreviewProps {
   email?: string;
   ministerial?: string;
   dataSeparacao?: string; // ISO 'yyyy-MM-dd'
+  pastorResponsavel?: string;
+  telefonePastorResponsavel?: string;
 }
 
 export function LetterPreview({
@@ -24,6 +26,8 @@ export function LetterPreview({
   email,
   ministerial,
   dataSeparacao,
+  pastorResponsavel,
+  telefonePastorResponsavel,
 }: LetterPreviewProps) {
   const hasData = pregadorNome || igrejaOrigem || igrejaDestino || dataPregacao || dataEmissao;
 
@@ -164,10 +168,14 @@ export function LetterPreview({
           )}
         </div>
 
-        {igrejaOrigem && (
+        {(pastorResponsavel || telefonePastorResponsavel) && (
           <div className="pt-3 border-t border-border space-y-1">
-            <p className="text-xs text-muted-foreground">Carimbo da Igreja: {igrejaOrigem.carimboIgreja}</p>
-            <p className="text-xs text-muted-foreground">Carimbo do Pastor: {igrejaOrigem.carimboPastor}</p>
+            {pastorResponsavel && (
+              <p className="text-xs text-muted-foreground">Pastor responsável: {pastorResponsavel}</p>
+            )}
+            {telefonePastorResponsavel && (
+              <p className="text-xs text-muted-foreground">Telefone do Pastor: {telefonePastorResponsavel}</p>
+            )}
           </div>
         )}
       </CardContent>
