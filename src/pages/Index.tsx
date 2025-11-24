@@ -35,11 +35,6 @@ const Index = () => {
   const [isPregacaoCalOpen, setIsPregacaoCalOpen] = useState(false);
   const [pastorResponsavel, setPastorResponsavel] = useState<string>("");
   const [telefonePastorResponsavel, setTelefonePastorResponsavel] = useState<string>("");
-  const computeTotvs = (nome?: string) => {
-    const s = (nome || "").trim();
-    const m = s.match(/\b\d{3,6}\b/);
-    return m ? m[0] : "";
-  };
   const schema = useMemo(
     () =>
       z
@@ -156,6 +151,8 @@ const Index = () => {
               email: u.email ?? null,
               ministerial: u.ministerial ?? null,
               data_separacao: u.data_separacao ?? null,
+              central_totvs: (u as any)?.central_totvs ?? null,
+              central_nome: (u as any)?.central_nome ?? null,
             });
             setValue("pregadorNome", u.nome, { shouldValidate: true });
             setValue("telefone", u.telefone, { shouldValidate: true });
@@ -202,13 +199,13 @@ const Index = () => {
   useEffect(() => {
     (async () => {
       const u = usuario as any;
-      const centralTotvs: string | undefined = u?.central_totvs || undefined;
-      const origemTotvs: string | undefined = igrejaOrigem?.codigoTotvs || computeTotvs(u?.igreja_nome);
-      const totvs = centralTotvs || origemTotvs || undefined;
-      if (totvs) {
+      const centralTotvs: string | undefined = (u?.central_totvs ? String(u.central_totvs).trim() : undefined);
+      if (centralTotvs) {
         try {
-          const r = await getPastorByTotvs(totvs);
+          console.info("pastor-lookup", { centralTotvs });
+          const r = await getPastorByTotvs(centralTotvs);
           if (r) {
+            console.info("pastor-lookup-result", r);
             setPastorResponsavel(r.pastor || "");
             setTelefonePastorResponsavel(r.telefone || "");
           }
@@ -218,7 +215,7 @@ const Index = () => {
         setTelefonePastorResponsavel("");
       }
     })();
-  }, [usuario, igrejaOrigem]);
+  }, [usuario]);
 
   const onSubmit = async (values: {
     pregadorNome: string;

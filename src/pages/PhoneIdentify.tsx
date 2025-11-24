@@ -9,8 +9,14 @@ import { toast } from "sonner";
 
 function maskTel(v: string) {
   const d = v.replace(/\D/g, "");
-  if (d.length <= 10) return d.replace(/(\d{2})(\d{4})(\d{0,4})/, "($1) $2-$3");
-  return d.replace(/(\d{2})(\d{5})(\d{0,4})/, "($1) $2-$3");
+  const digits = d.slice(0, 11);
+  if (digits.length <= 10) return digits.replace(/(\d{0,2})(\d{0,4})(\d{0,4})/, (m, a, b, c) => {
+    if (!a && !b && !c) return "";
+    if (a && !b) return `(${a}`;
+    if (a && b && !c) return `(${a}) ${b}`;
+    return `(${a}) ${b}-${c}`;
+  });
+  return digits.replace(/(\d{2})(\d{5})(\d{0,4})/, "($1) $2-$3");
 }
 
 export default function PhoneIdentify() {
@@ -18,12 +24,19 @@ export default function PhoneIdentify() {
   const { setUsuario, setTelefone } = useUser();
   const logo = "/Polish_20220810_001501268%20(2).png";
   const [tel, setTel] = useState("");
+  const [telError, setTelError] = useState<string>("");
   const [loading, setLoading] = useState(false);
 
   async function handleContinue() {
     const telefoneRaw = tel.replace(/\D/g, "");
-    if (!telefoneRaw || telefoneRaw.length < 10) {
-      toast.error("Informe o telefone");
+    if (!telefoneRaw) {
+      setTelError("Informe o telefone com 11 dígitos (DDD + número)");
+      toast.error("Informe o telefone com 11 dígitos (DDD + número)");
+      return;
+    }
+    if (telefoneRaw.length !== 11) {
+      setTelError("Telefone deve ter 11 dígitos (DDD + número)");
+      toast.error("Telefone deve ter 11 dígitos (DDD + número)");
       return;
     }
     setLoading(true);
@@ -73,7 +86,27 @@ export default function PhoneIdentify() {
         <h1 className="text-2xl font-bold text-center">Sistema de Cartas – IPDA</h1>
         <div className="space-y-2">
           <Label htmlFor="telefone">Telefone</Label>
-          <Input id="telefone" type="tel" value={maskTel(tel)} onChange={(e) => setTel(e.target.value)} placeholder="(99) 99999-9999" />
+          <Input
+            id="telefone"
+            type="tel"
+            value={maskTel(tel)}
+            onChange={(e) => {
+              const raw = e.target.value.replace(/\D/g, "");
+              if (raw.length > 11) {
+                setTelError("Telefone deve ter no máximo 11 dígitos (DDD + número)");
+                toast.error("Telefone deve ter no máximo 11 dígitos (DDD + número)");
+              } else {
+                setTelError("");
+              }
+              setTel(raw.slice(0, 11));
+            }}
+            onBlur={() => {
+              const len = tel.replace(/\D/g, "").length;
+              if (len > 0 && len !== 11) setTelError("Telefone deve ter 11 dígitos (DDD + número)");
+            }}
+            placeholder="(99) 99999-9999"
+          />
+          {telError ? (<p className="text-sm text-red-600">{telError}</p>) : null}
         </div>
         <Button onClick={handleContinue} className="w-full" disabled={loading}>
           {loading ? "Consultando..." : "Continuar"}

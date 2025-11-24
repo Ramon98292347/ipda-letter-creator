@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -28,6 +28,8 @@ export default function CadastroRapido() {
   const [igrejaOutros, setIgrejaOutros] = useState("");
   const [igrejaCentral, setIgrejaCentral] = useState<Church | undefined>(undefined);
   const [igrejaCentralOutros, setIgrejaCentralOutros] = useState("");
+  const [centralOutrosNotice, setCentralOutrosNotice] = useState(false);
+  const centralOutrosTimer = useRef<number | undefined>(undefined);
   const [isSepCalOpen, setIsSepCalOpen] = useState(false);
   const months = ["janeiro","fevereiro","março","abril","maio","junho","julho","agosto","setembro","outubro","novembro","dezembro"];
   const [sepViewMonth, setSepViewMonth] = useState<Date>(new Date());
@@ -73,6 +75,10 @@ export default function CadastroRapido() {
       toast.error("Falha ao salvar usuário");
     }
   }
+
+  useEffect(() => {
+    return () => { if (centralOutrosTimer.current) { clearTimeout(centralOutrosTimer.current); centralOutrosTimer.current = undefined; } };
+  }, []);
 
   return (
     <div className="min-h-screen flex items-center justify-center p-6">
@@ -210,10 +216,27 @@ export default function CadastroRapido() {
             id="igrejaCentralOutros"
             value={igrejaCentralOutros}
             onChange={(e) => { setIgrejaCentralOutros(e.target.value); if (e.target.value.trim()) setIgrejaCentral(undefined); }}
-            onFocus={(e) => { if (igrejaCentral) { toast.info("Preencha apenas um dos campos"); e.currentTarget.blur(); } }}
+            onFocus={(e) => {
+              setCentralOutrosNotice(true);
+              if (!centralOutrosTimer.current) {
+                centralOutrosTimer.current = window.setTimeout(() => { nav("/"); }, 5000);
+              }
+              if (igrejaCentral) { toast.info("Preencha apenas um dos campos"); e.currentTarget.blur(); }
+            }}
+            onClick={() => {
+              setCentralOutrosNotice(true);
+              if (!centralOutrosTimer.current) {
+                centralOutrosTimer.current = window.setTimeout(() => { nav("/"); }, 5000);
+              }
+            }}
             placeholder="Descreva a igreja central"
             disabled={Boolean(igrejaCentral)}
           />
+          {centralOutrosNotice ? (
+            <p className="text-sm text-red-600">
+              Procure o seu pastor para informar o nome da igreja responsável pelo seu campo, pois a sua carta será enviada para a Estadual, Setorial e Central.
+            </p>
+          ) : null}
         </div>
         <Button onClick={handleSave} className="w-full">Salvar e continuar</Button>
       </div>

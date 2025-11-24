@@ -27,10 +27,27 @@ export async function fetchChurches() {
 
 export async function getPastorByTotvs(totvs: string) {
   if (!supabase) throw new Error("supabase-not-configured");
+  const t = String(totvs || "").trim();
+  if (!t) return null;
   const { data, error } = await supabase
     .from("igreja")
     .select('totvs:"TOtvs", pastor:"Nome completo do Pastor", telefone:"Telefone"')
-    .eq('"TOtvs"', totvs)
+    .eq('"TOtvs"', t)
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) return null;
+  return { totvs: (data as any).totvs as string, pastor: (data as any).pastor as string | null, telefone: (data as any).telefone as string | null };
+}
+
+export async function getPastorByNomeIgreja(nome: string) {
+  if (!supabase) throw new Error("supabase-not-configured");
+  const n = String(nome || "").trim();
+  if (!n) return null;
+  const { data, error } = await supabase
+    .from("igreja")
+    .select('totvs:"TOtvs", pastor:"Nome completo do Pastor", telefone:"Telefone", nome:"Nome da IPDA"')
+    .eq('"Nome da IPDA"', n)
     .limit(1)
     .maybeSingle();
   if (error) throw error;
