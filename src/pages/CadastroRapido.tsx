@@ -30,6 +30,8 @@ export default function CadastroRapido() {
   const [igrejaCentralOutros, setIgrejaCentralOutros] = useState("");
   const [centralOutrosNotice, setCentralOutrosNotice] = useState(false);
   const centralOutrosTimer = useRef<number | undefined>(undefined);
+  const [igrejaOutrosError, setIgrejaOutrosError] = useState("");
+  const [igrejaCentralOutrosError, setIgrejaCentralOutrosError] = useState("");
   const [isSepCalOpen, setIsSepCalOpen] = useState(false);
   const months = ["janeiro","fevereiro","março","abril","maio","junho","julho","agosto","setembro","outubro","novembro","dezembro"];
   const [sepViewMonth, setSepViewMonth] = useState<Date>(new Date());
@@ -46,16 +48,32 @@ export default function CadastroRapido() {
   async function handleSave() {
     if (!nome || !telefone) { toast.error("Preencha nome e telefone"); return; }
     try {
+      let totvsValue: string | null = igreja?.codigoTotvs ?? null;
+      let igrejaNomeValue: string | null = igreja?.nome ?? null;
+      if (!igreja && igrejaOutros.trim()) {
+        const m = igrejaOutros.match(/^(\d+)\s*-\s+(.+)$/);
+        if (!m) { setIgrejaOutrosError("Use o formato 'CODIGO - NOME' (ex.: 12345 - IGREJA EXEMPLO)"); toast.error("Formato inválido em 'Outros (se não encontrar)'"); return; }
+        totvsValue = m[1];
+        igrejaNomeValue = m[2].trim();
+      }
+      let centralTotvsValue: string | null = igrejaCentral?.codigoTotvs ?? null;
+      let centralNomeValue: string | null = igrejaCentral?.nome ?? null;
+      if (!igrejaCentral && igrejaCentralOutros.trim()) {
+        const m2 = igrejaCentralOutros.match(/^(\d+)\s*-\s+(.+)$/);
+        if (!m2) { setIgrejaCentralOutrosError("Use o formato 'CODIGO - NOME' (ex.: 12345 - IGREJA EXEMPLO)"); toast.error("Formato inválido em 'Outros – Igreja Central'"); return; }
+        centralTotvsValue = m2[1];
+        centralNomeValue = m2[2].trim();
+      }
       const novo = await insertUsuario({
         nome,
         telefone,
-        totvs: igreja?.codigoTotvs ?? null,
-        igreja_nome: (igreja?.nome ?? igrejaOutros) || null,
+        totvs: totvsValue,
+        igreja_nome: igrejaNomeValue,
         email: email || null,
         data_separacao: dataSeparacaoStr || null,
         ministerial: ministerial || null,
-        central_totvs: igrejaCentral?.codigoTotvs ?? null,
-        central_nome: (igrejaCentral?.nome ?? igrejaCentralOutros) || null,
+        central_totvs: centralTotvsValue,
+        central_nome: centralNomeValue,
       });
       setUsuario({
         id: novo.id,
@@ -85,6 +103,7 @@ export default function CadastroRapido() {
       <div className="w-full max-w-xl space-y-6">
         <img src={logo} alt="Logo" className="mx-auto h-16 object-contain" />
         <h1 className="text-2xl font-bold text-center">Cadastro rápido do pregador</h1>
+        <Button type="button" variant="outline" className="w-full" onClick={() => nav("/")}>Fechar e voltar</Button>
         <div className="space-y-2">
           <Label htmlFor="nome">Nome completo</Label>
           <Input
@@ -193,11 +212,24 @@ export default function CadastroRapido() {
           <Input
             id="igrejaOutros"
             value={igrejaOutros}
-            onChange={(e) => { setIgrejaOutros(e.target.value); if (e.target.value.trim()) setIgreja(undefined); }}
-            onFocus={(e) => { if (igreja) { toast.info("Preencha apenas um dos campos"); e.currentTarget.blur(); } }}
+            onChange={(e) => {
+              const v = e.target.value;
+              setIgrejaOutros(v);
+              if (v.trim()) setIgreja(undefined);
+              if (v.trim()) {
+                setIgrejaOutrosError(/^\d+\s*-\s+.+$/.test(v) ? "" : "Use o formato 'CODIGO - NOME' (ex.: 12345 - IGREJA EXEMPLO)");
+              } else {
+                setIgrejaOutrosError("");
+              }
+            }}
+            onBlur={() => {
+              const v = igrejaOutros;
+              if (v.trim() && !/^\d+\s*-\s+.+$/.test(v)) setIgrejaOutrosError("Use o formato 'CODIGO - NOME' (ex.: 12345 - IGREJA EXEMPLO)");
+            }}
             placeholder="Descreva a igreja"
             disabled={Boolean(igreja)}
           />
+          {igrejaOutrosError ? (<p className="text-sm text-red-600">{igrejaOutrosError}</p>) : null}
         </div>
 
         <ChurchSearch
@@ -215,7 +247,16 @@ export default function CadastroRapido() {
           <Input
             id="igrejaCentralOutros"
             value={igrejaCentralOutros}
-            onChange={(e) => { setIgrejaCentralOutros(e.target.value); if (e.target.value.trim()) setIgrejaCentral(undefined); }}
+            onChange={(e) => {
+              const v = e.target.value;
+              setIgrejaCentralOutros(v);
+              if (v.trim()) setIgrejaCentral(undefined);
+              if (v.trim()) {
+                setIgrejaCentralOutrosError(/^\d+\s*-\s+.+$/.test(v) ? "" : "Use o formato 'CODIGO - NOME' (ex.: 12345 - IGREJA EXEMPLO)");
+              } else {
+                setIgrejaCentralOutrosError("");
+              }
+            }}
             onFocus={(e) => {
               setCentralOutrosNotice(true);
               if (!centralOutrosTimer.current) {
@@ -237,6 +278,7 @@ export default function CadastroRapido() {
               Procure o seu pastor para informar o nome da igreja responsável pelo seu campo, pois a sua carta será enviada para a Estadual, Setorial e Central.
             </p>
           ) : null}
+          {igrejaCentralOutrosError ? (<p className="text-sm text-red-600">{igrejaCentralOutrosError}</p>) : null}
         </div>
         <Button onClick={handleSave} className="w-full">Salvar e continuar</Button>
       </div>

@@ -168,16 +168,14 @@ export function LetterPreview({
           )}
         </div>
 
-        {(pastorResponsavel || telefonePastorResponsavel) && (
-          <div className="pt-3 border-t border-border space-y-1">
-            {pastorResponsavel && (
-              <p className="text-xs text-muted-foreground">Pastor responsável: {pastorResponsavel}</p>
-            )}
-            {telefonePastorResponsavel && (
-              <p className="text-xs text-muted-foreground">Telefone do Pastor: {telefonePastorResponsavel}</p>
-            )}
-          </div>
-        )}
+        <div className="pt-3 border-t border-border space-y-1">
+          <p className="text-xs text-muted-foreground">
+            Pastor responsável: {pastorResponsavel || ""}
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Telefone do Pastor: {telefonePastorResponsavel || ""}
+          </p>
+        </div>
       </CardContent>
     </Card>
   );
