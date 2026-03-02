@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
 import { getPastorByTotvsPublic, getSignedPdfUrl, requestRelease, updateMyProfile, workerDashboard, type PastorLetter } from "@/services/saasService";
-import { Share2, Download, Unlock, LogOut, Bell, RefreshCw, MoreHorizontal } from "lucide-react";
+import { Share2, Download, Unlock, LogOut, Bell, RefreshCw, MoreHorizontal, Eye } from "lucide-react";
 
 function statusClass(status: string) {
   if (status === "LIBERADA") return "bg-emerald-100 text-emerald-700 border-emerald-200";
@@ -211,40 +211,60 @@ export default function UsuarioDashboard() {
   return (
     <div className="min-h-screen bg-[#f3f5f9]">
       <header className="bg-[#2f63d4] text-white shadow-md">
-        <div className="mx-auto flex w-full max-w-[1600px] flex-wrap items-center justify-between gap-3 px-4 py-4">
+        <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-xl font-bold sm:hidden">Cartas de Pregacao</h1>
             <h1 className="hidden text-2xl font-bold sm:block">Sistema de Cartas de Pregacao</h1>
             <p className="text-sm text-white/90">Dashboard do Usuario</p>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="flex items-center gap-2 rounded-xl bg-white/10 px-2 py-1">
-              {profile?.avatar_url ? (
-                <img
-                  src={profile.avatar_url}
-                  alt="Avatar usuario"
-                  className="mt-px h-8 w-8 rounded-full border border-white/30 object-cover object-[center_top] sm:h-9 sm:w-9 md:h-11 md:w-11"
-                />
-              ) : (
-                <div className="flex h-8 w-8 items-center justify-center rounded-full border border-white/30 bg-white/20 text-sm font-semibold sm:h-9 sm:w-9 md:h-11 md:w-11">
-                  {(profile?.full_name || usuario?.nome || "U").charAt(0).toUpperCase()}
-                </div>
-              )}
-              <span className="hidden max-w-[220px] truncate text-sm font-medium sm:inline">
-                {profile?.full_name || usuario?.nome || "Usuario"}
-              </span>
-            </div>
-            <Button variant="outline" size="icon" className="relative h-9 w-9 border-white/30 bg-white/10 text-white hover:bg-white/20 sm:h-10 sm:w-10">
-              <Bell className="h-4 w-4 sm:h-5 sm:w-5" />
-              {stats.liberadas > 0 ? (
-                <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-rose-500 text-xs font-semibold text-white">
-                  {stats.liberadas}
+          <div className="w-full sm:w-auto">
+            <div className="mt-2 flex items-center justify-between gap-2 sm:mt-0">
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-9 w-9 border-white/30 bg-white/10 text-white hover:bg-white/20 sm:hidden"
+                  onClick={() => setOpenCadastroModal(true)}
+                  aria-label="Visualizar cadastro"
+                >
+                  <Eye className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  className="hidden h-10 border-white/30 bg-white/10 px-3 text-white hover:bg-white/20 sm:inline-flex sm:px-4"
+                  onClick={() => setOpenCadastroModal(true)}
+                >
+                  Visualizar cadastro
+                </Button>
+                <Button variant="outline" size="icon" className="relative h-9 w-9 border-white/30 bg-white/10 text-white hover:bg-white/20 sm:h-10 sm:w-10">
+                  <Bell className="h-4 w-4 sm:h-5 sm:w-5" />
+                  {stats.liberadas > 0 ? (
+                    <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-rose-500 text-xs font-semibold text-white">
+                      {stats.liberadas}
+                    </span>
+                  ) : null}
+                </Button>
+                <Button variant="outline" className="h-9 border-white/30 bg-white/10 px-3 text-white hover:bg-white/20 sm:h-10 sm:px-4" onClick={logout}>
+                  <LogOut className="h-4 w-4 sm:mr-2" /> <span className="hidden sm:inline">Sair</span>
+                </Button>
+              </div>
+              <div className="flex items-center gap-2 rounded-xl bg-white/10 px-2 py-1">
+                {profile?.avatar_url ? (
+                  <img
+                    src={profile.avatar_url}
+                    alt="Avatar usuario"
+                    className="mt-px h-11 w-11 rounded-full border border-white/30 object-cover object-[center_top] sm:h-9 sm:w-9 md:h-12 md:w-12"
+                  />
+                ) : (
+                  <div className="flex h-11 w-11 items-center justify-center rounded-full border border-white/30 bg-white/20 text-base font-semibold sm:h-9 sm:w-9 md:h-12 md:w-12">
+                    {(profile?.full_name || usuario?.nome || "U").charAt(0).toUpperCase()}
+                  </div>
+                )}
+                <span className="max-w-[120px] truncate text-xs font-medium sm:max-w-[220px] sm:text-sm">
+                  {profile?.full_name || usuario?.nome || "Usuario"}
                 </span>
-              ) : null}
-            </Button>
-            <Button variant="outline" className="h-9 border-white/30 bg-white/10 px-3 text-white hover:bg-white/20 sm:h-10 sm:px-4" onClick={logout}>
-              <LogOut className="h-4 w-4 sm:mr-2" /> <span className="hidden sm:inline">Sair</span>
-            </Button>
+              </div>
+            </div>
           </div>
         </div>
       </header>
@@ -253,9 +273,6 @@ export default function UsuarioDashboard() {
         <section className="mt-[5px] rounded-2xl border border-slate-200 bg-white p-3">
           <div className="hidden gap-2 md:grid md:grid-cols-2">
             <Button onClick={() => nav("/carta")} className="w-full">Gerar carta</Button>
-            <Button variant="outline" onClick={() => setOpenCadastroModal(true)} className="w-full">
-              Visualizar cadastro
-            </Button>
             <Button variant="outline" onClick={pedirPrimeiraLiberacao} className="w-full">
               <Unlock className="mr-2 h-4 w-4" /> Pedir liberacao de carta
             </Button>
@@ -268,9 +285,6 @@ export default function UsuarioDashboard() {
           </div>
           <div className="space-y-2 md:hidden">
             <Button onClick={() => nav("/carta")} className="w-full">Gerar carta</Button>
-            <Button variant="outline" className="w-full" onClick={() => setOpenCadastroModal(true)}>
-              Visualizar cadastro
-            </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" className="w-full">Outras acoes</Button>
