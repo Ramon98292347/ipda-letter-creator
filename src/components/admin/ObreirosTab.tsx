@@ -75,6 +75,7 @@ export function ObreirosTab({ activeTotvsId }: { activeTotvsId: string }) {
   const [openModal, setOpenModal] = useState(false);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState<WorkerForm>(initialForm);
+  const [pendingAvatarFile, setPendingAvatarFile] = useState<File | null>(null);
 
   const [openResetModal, setOpenResetModal] = useState(false);
   const [selectedWorker, setSelectedWorker] = useState<UserListItem | null>(null);
@@ -112,6 +113,7 @@ export function ObreirosTab({ activeTotvsId }: { activeTotvsId: string }) {
 
   function openNew() {
     setForm(initialForm);
+    setPendingAvatarFile(null);
     setOpenModal(true);
   }
 
@@ -134,6 +136,7 @@ export function ObreirosTab({ activeTotvsId }: { activeTotvsId: string }) {
       address_state: "",
       is_active: worker.is_active !== false,
     });
+    setPendingAvatarFile(null);
     setOpenModal(true);
   }
 
@@ -166,69 +169,6 @@ export function ObreirosTab({ activeTotvsId }: { activeTotvsId: string }) {
     }
   }
 
-  async function uploadAvatar(file: File) {
-    if (!supabase) {
-      toast.error("Supabase nao configurado para upload.");
-      return;
-    }
-
-    const ext = (file.name.split(".").pop() || "png").toLowerCase();
-    const baseId = normalizeCpf(form.cpf) || `tmp-${Date.now()}`;
-    const path = `users/${baseId}.${ext}`;
-
-    const { error } = await supabase.storage.from("avatars").upload(path, file, {
-      upsert: true,
-      contentType: file.type || undefined,
-      cacheControl: "3600",
-    });
-
-    if (error) {
-      const msg = [error.message, (error as any)?.statusCode, (error as any)?.error].filter(Boolean).join(" | ");
-      throw new Error(msg || "avatar_upload_failed");
-    }
-
-    const { data } = supabase.storage.from("avatars").getPublicUrl(path);
-    const publicUrl = data?.publicUrl || "";
-    if (!publicUrl) throw new Error("avatar_url_not_generated");
-
-    setForm((prev) => ({ ...prev, avatar_url: publicUrl }));
-
-    // Comentário: se já tiver dados mínimos, salva no banco imediatamente.
-    const hasMinimumToPersist =
-      !!activeTotvsId &&
-      normalizeCpf(form.cpf).length === 11 &&
-      !!form.full_name.trim() &&
-      !!form.minister_role.trim();
-
-    if (hasMinimumToPersist) {
-      await upsertWorkerByPastor({
-        id: form.id,
-        active_totvs_id: activeTotvsId,
-        cpf: form.cpf,
-        full_name: form.full_name,
-        minister_role: form.minister_role,
-        phone: form.phone || undefined,
-        email: form.email || undefined,
-        birth_date: form.birth_date || undefined,
-        avatar_url: publicUrl,
-        cep: form.cep || undefined,
-        address_street: form.address_street || undefined,
-        address_number: form.address_number || undefined,
-        address_complement: form.address_complement || undefined,
-        address_neighborhood: form.address_neighborhood || undefined,
-        address_city: form.address_city || undefined,
-        address_state: form.address_state || undefined,
-        is_active: form.is_active,
-        password: null,
-      });
-      await refresh();
-      toast.success("Foto enviada e salva no cadastro.");
-      return;
-    }
-
-    toast.success("Foto enviada. Complete os dados e clique em Salvar.");
-  }
-
   async function save(e: FormEvent) {
     e.preventDefault();
     if (!activeTotvsId) {
@@ -250,6 +190,24 @@ export function ObreirosTab({ activeTotvsId }: { activeTotvsId: string }) {
 
     setSaving(true);
     try {
+      let avatarUrlToSave = form.avatar_url || undefined;
+      if (pendingAvatarFile) {
+        if (!supabase) throw new Error("supabase_not_configured");
+        const ext = (pendingAvatarFile.name.split(".").pop() || "png").toLowerCase();
+        const path = `users/${normalizeCpf(form.cpf)}.${ext}`;
+        const { error } = await supabase.storage.from("avatars").upload(path, pendingAvatarFile, {
+          upsert: true,
+          contentType: pendingAvatarFile.type || undefined,
+          cacheControl: "3600",
+        });
+        if (error) {
+          const msg = [error.message, (error as any)?.statusCode, (error as any)?.error].filter(Boolean).join(" | ");
+          throw new Error(msg || "avatar_upload_failed");
+        }
+        const { data } = supabase.storage.from("avatars").getPublicUrl(path);
+        avatarUrlToSave = data?.publicUrl || undefined;
+      }
+
       await upsertWorkerByPastor({
         id: form.id,
         active_totvs_id: activeTotvsId,
@@ -259,7 +217,7 @@ export function ObreirosTab({ activeTotvsId }: { activeTotvsId: string }) {
         phone: form.phone || undefined,
         email: form.email || undefined,
         birth_date: form.birth_date || undefined,
-        avatar_url: form.avatar_url || undefined,
+        avatar_url: avatarUrlToSave,
         cep: form.cep || undefined,
         address_street: form.address_street || undefined,
         address_number: form.address_number || undefined,
@@ -272,6 +230,7 @@ export function ObreirosTab({ activeTotvsId }: { activeTotvsId: string }) {
       });
       toast.success(form.id ? "Obreiro atualizado." : "Obreiro cadastrado.");
       addAuditLog("worker_toggled", { worker_id: form.id || null, action: form.id ? "updated" : "created" });
+      setPendingAvatarFile(null);
       setOpenModal(false);
       await refresh();
     } catch (err: any) {
@@ -491,15 +450,20 @@ export function ObreirosTab({ activeTotvsId }: { activeTotvsId: string }) {
                       const inputEl = e.currentTarget;
                       const file = e.target.files?.[0];
                       if (!file) return;
-                      try {
-                        await uploadAvatar(file);
-                      } catch (err: any) {
-                        toast.error(String(err?.message || "Falha ao enviar foto."));
-                      } finally {
+                      if (!file.type.startsWith("image/")) {
+                        toast.error("Selecione um arquivo de imagem.");
                         if (inputEl) inputEl.value = "";
+                        return;
                       }
+                      setPendingAvatarFile(file);
+                      setForm((p) => ({ ...p, avatar_url: "" }));
+                      toast.success("Foto selecionada. Clique em Salvar para cadastrar.");
+                      if (inputEl) inputEl.value = "";
                     }}
                   />
+                  {pendingAvatarFile ? (
+                    <span className="text-xs text-emerald-700">Arquivo pronto: {pendingAvatarFile.name}</span>
+                  ) : null}
                   {form.avatar_url ? (
                     <a href={form.avatar_url} target="_blank" rel="noreferrer" className="text-xs text-blue-600 underline">
                       Ver foto atual
