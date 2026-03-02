@@ -1,4 +1,4 @@
-import { FormEvent, useMemo, useState } from "react";
+﻿import { FormEvent, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,11 +9,18 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
-import { deleteAnnouncement, listAnnouncements, upsertAnnouncement, type AnnouncementItem } from "@/services/saasService";
+import {
+  deleteAnnouncement,
+  listAnnouncements,
+  upsertAnnouncement,
+  upsertStamps,
+  type AnnouncementItem,
+} from "@/services/saasService";
 import { ArrowLeft, Trash2 } from "lucide-react";
 import { getFriendlyError } from "@/lib/error-map";
 import { addAuditLog } from "@/lib/audit";
 import { supabase } from "@/lib/supabase";
+import { useUser } from "@/context/UserContext";
 
 type FormState = {
   id?: string;
@@ -43,10 +50,24 @@ const initialForm: FormState = {
 export default function ConfiguracoesPage() {
   const nav = useNavigate();
   const queryClient = useQueryClient();
+  const { usuario } = useUser();
+
   const [form, setForm] = useState<FormState>(initialForm);
   const [mediaSource, setMediaSource] = useState<"url" | "file">("url");
   const [pendingMediaFile, setPendingMediaFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
+
+  const [savingStamps, setSavingStamps] = useState(false);
+  const [signatureFile, setSignatureFile] = useState<File | null>(null);
+  const [stampPastorFile, setStampPastorFile] = useState<File | null>(null);
+  const [stampChurchFile, setStampChurchFile] = useState<File | null>(null);
+  const [stampUrls, setStampUrls] = useState({
+    signature_url: "",
+    stamp_pastor_url: "",
+    stamp_church_url: "",
+  });
+
+  const isPastorOrAdmin = usuario?.role === "admin" || usuario?.role === "pastor";
 
   function toDateInputValue(value?: string | null) {
     if (!value) return "";
@@ -66,10 +87,7 @@ export default function ConfiguracoesPage() {
     queryFn: () => listAnnouncements(10),
   });
 
-  const ordered = useMemo(
-    () => [...announcements].sort((a, b) => (a.position || 999) - (b.position || 999)),
-    [announcements],
-  );
+  const ordered = useMemo(() => [...announcements].sort((a, b) => (a.position || 999) - (b.position || 999)), [announcements]);
 
   async function refresh() {
     await queryClient.invalidateQueries({ queryKey: ["announcements-config"] });
@@ -112,48 +130,40 @@ export default function ConfiguracoesPage() {
     toast.success("Arquivo pronto. Clique em Salvar para enviar.");
   }
 
+  async function uploadAnnouncementMedia(file: File, type: "image" | "video") {
+    if (!supabase) throw new Error("supabase-not-configured");
+
+    const ext = (file.name.split(".").pop() || "bin").toLowerCase();
+    const folder = type === "video" ? "video" : "image";
+    const path = `${folder}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+
+    const { error } = await supabase.storage.from("announcements").upload(path, file, {
+      upsert: false,
+      contentType: file.type || undefined,
+      cacheControl: "3600",
+    });
+
+    if (error) throw new Error(error.message || "storage_upload_failed");
+
+    const { data } = supabase.storage.from("announcements").getPublicUrl(path);
+    return data.publicUrl || null;
+  }
+
   async function submit(e: FormEvent) {
     e.preventDefault();
-    if (!form.title.trim()) {
-      toast.error("Informe o titulo.");
-      return;
-    }
-    if (form.type === "text" && !form.body_text.trim()) {
-      toast.error("Para tipo text, body_text e obrigatorio.");
-      return;
-    }
+
+    if (!form.title.trim()) return toast.error("Informe o titulo.");
+    if (form.type === "text" && !form.body_text.trim()) return toast.error("Para tipo text, body_text e obrigatorio.");
     if ((form.type === "image" || form.type === "video") && !form.media_url.trim() && !(mediaSource === "file" && pendingMediaFile)) {
-      toast.error("Para image/video, media_url e obrigatorio.");
-      return;
+      return toast.error("Para image/video, media_url e obrigatorio.");
     }
-    if (form.starts_at && form.ends_at && form.ends_at < form.starts_at) {
-      toast.error("Data fim deve ser maior ou igual a data inicio.");
-      return;
-    }
+    if (form.starts_at && form.ends_at && form.ends_at < form.starts_at) return toast.error("Data fim deve ser maior ou igual a data inicio.");
 
     setSaving(true);
     try {
       let mediaUrlToSave = form.media_url.trim() || null;
       if (mediaSource === "file" && pendingMediaFile) {
-        if (!supabase) {
-          toast.error("Supabase nao configurado para upload.");
-          setSaving(false);
-          return;
-        }
-        const ext = (pendingMediaFile.name.split(".").pop() || "bin").toLowerCase();
-        const folder = form.type === "video" ? "video" : "image";
-        const path = `${folder}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-        const { error } = await supabase.storage.from("announcements").upload(path, pendingMediaFile, {
-          upsert: false,
-          contentType: pendingMediaFile.type || undefined,
-          cacheControl: "3600",
-        });
-        if (error) {
-          const details = [error.message].filter(Boolean).join(" | ");
-          throw new Error(details || "storage_upload_failed");
-        }
-        const { data } = supabase.storage.from("announcements").getPublicUrl(path);
-        mediaUrlToSave = data.publicUrl || null;
+        mediaUrlToSave = await uploadAnnouncementMedia(pendingMediaFile, form.type === "video" ? "video" : "image");
       }
 
       await upsertAnnouncement({
@@ -168,6 +178,7 @@ export default function ConfiguracoesPage() {
         ends_at: toEndAt(form.ends_at),
         is_active: form.is_active,
       });
+
       toast.success(form.id ? "Divulgacao atualizada." : "Divulgacao criada.");
       addAuditLog("announcement_saved", { announcement_id: form.id || null, type: form.type });
       setForm(initialForm);
@@ -175,9 +186,7 @@ export default function ConfiguracoesPage() {
       setPendingMediaFile(null);
       await refresh();
     } catch (err: unknown) {
-      const rawMessage = err instanceof Error ? err.message : "";
-      if (rawMessage) console.error("Erro upload divulgação:", rawMessage);
-      toast.error(getFriendlyError(err, "announcements") || rawMessage || "Falha ao salvar divulgação.");
+      toast.error(getFriendlyError(err, "announcements"));
     } finally {
       setSaving(false);
     }
@@ -195,15 +204,120 @@ export default function ConfiguracoesPage() {
     }
   }
 
+  async function uploadStampFile(file: File, folder: "assinatura" | "carimbos/pastor" | "carimbos/igreja") {
+    if (!supabase) throw new Error("supabase-not-configured");
+    if (!file.type.startsWith("image/")) throw new Error("invalid-image");
+    if (file.size > 10 * 1024 * 1024) throw new Error("stamp-file-too-large");
+
+    const ext = (file.name.split(".").pop() || "png").toLowerCase();
+    const fileName = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+    const path = `users/${folder}/${fileName}`;
+
+    const { error } = await supabase.storage.from("assinat_carimbo").upload(path, file, {
+      upsert: true,
+      contentType: file.type || undefined,
+      cacheControl: "3600",
+    });
+    if (error) throw new Error(`stamp_upload_failed: ${error.message || "erro de upload"}`);
+
+    const { data } = supabase.storage.from("assinat_carimbo").getPublicUrl(path);
+    return data.publicUrl;
+  }
+
+  async function saveStamps() {
+    if (!isPastorOrAdmin) {
+      toast.error("Apenas pastor/admin pode salvar assinatura e carimbos.");
+      return;
+    }
+
+    setSavingStamps(true);
+    try {
+      let signatureUrl = stampUrls.signature_url || null;
+      let stampPastorUrl = stampUrls.stamp_pastor_url || null;
+      let stampChurchUrl = stampUrls.stamp_church_url || null;
+
+      if (signatureFile) signatureUrl = await uploadStampFile(signatureFile, "assinatura");
+      if (stampPastorFile) stampPastorUrl = await uploadStampFile(stampPastorFile, "carimbos/pastor");
+      if (stampChurchFile) stampChurchUrl = await uploadStampFile(stampChurchFile, "carimbos/igreja");
+
+      await upsertStamps({
+        signature_url: signatureUrl,
+        stamp_pastor_url: stampPastorUrl,
+        stamp_church_url: stampChurchUrl,
+      });
+
+      setStampUrls({
+        signature_url: signatureUrl || "",
+        stamp_pastor_url: stampPastorUrl || "",
+        stamp_church_url: stampChurchUrl || "",
+      });
+      setSignatureFile(null);
+      setStampPastorFile(null);
+      setStampChurchFile(null);
+
+      toast.success("Assinatura e carimbos salvos com sucesso.");
+      addAuditLog("stamps_upserted", { by_role: usuario?.role || null });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : getFriendlyError(err, "generic");
+      console.error("Erro ao salvar assinatura/carimbos:", err);
+      toast.error(message);
+    } finally {
+      setSavingStamps(false);
+    }
+  }
+
   return (
     <div className="min-h-screen bg-[#f3f5f9] p-4">
       <div className="mx-auto max-w-6xl space-y-4">
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-slate-900">Configurações - Divulgação</h1>
+          <h1 className="text-2xl font-bold text-slate-900">Configuracoes - Divulgacao</h1>
           <Button variant="outline" onClick={() => nav(-1)}>
             <ArrowLeft className="mr-2 h-4 w-4" /> Voltar
           </Button>
         </div>
+
+        {isPastorOrAdmin ? (
+          <Card className="border border-slate-200 bg-white">
+            <CardHeader>
+              <CardTitle>Assinatura e Carimbos</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid gap-4 md:grid-cols-3">
+                <div className="space-y-2">
+                  <Label>Assinatura</Label>
+                  <Input type="file" accept="image/*" onChange={(e) => setSignatureFile(e.target.files?.[0] || null)} />
+                  {stampUrls.signature_url ? (
+                    <a href={stampUrls.signature_url} target="_blank" rel="noreferrer" className="text-xs text-blue-600 underline">
+                      Ver assinatura atual
+                    </a>
+                  ) : null}
+                </div>
+                <div className="space-y-2">
+                  <Label>Carimbo pastor</Label>
+                  <Input type="file" accept="image/*" onChange={(e) => setStampPastorFile(e.target.files?.[0] || null)} />
+                  {stampUrls.stamp_pastor_url ? (
+                    <a href={stampUrls.stamp_pastor_url} target="_blank" rel="noreferrer" className="text-xs text-blue-600 underline">
+                      Ver carimbo pastor
+                    </a>
+                  ) : null}
+                </div>
+                <div className="space-y-2">
+                  <Label>Carimbo igreja</Label>
+                  <Input type="file" accept="image/*" onChange={(e) => setStampChurchFile(e.target.files?.[0] || null)} />
+                  {stampUrls.stamp_church_url ? (
+                    <a href={stampUrls.stamp_church_url} target="_blank" rel="noreferrer" className="text-xs text-blue-600 underline">
+                      Ver carimbo igreja
+                    </a>
+                  ) : null}
+                </div>
+              </div>
+
+              <Button onClick={saveStamps} disabled={savingStamps}>
+                {savingStamps ? "Salvando..." : "Salvar assinatura/carimbos"}
+              </Button>
+            </CardContent>
+          </Card>
+        ) : null}
 
         <div className="grid gap-4 lg:grid-cols-2">
           <Card className="border border-slate-200 bg-white">
@@ -220,7 +334,9 @@ export default function ConfiguracoesPage() {
                 <div className="space-y-1">
                   <Label>Tipo</Label>
                   <Select value={form.type} onValueChange={(v) => setForm((p) => ({ ...p, type: v as "text" | "image" | "video" }))}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="text">text</SelectItem>
                       <SelectItem value="image">image</SelectItem>
@@ -248,30 +364,20 @@ export default function ConfiguracoesPage() {
                     >
                       URL
                     </Button>
-                    <Button
-                      type="button"
-                      variant={mediaSource === "file" ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => setMediaSource("file")}
-                    >
+                    <Button type="button" variant={mediaSource === "file" ? "default" : "outline"} size="sm" onClick={() => setMediaSource("file")}>
                       Importar arquivo
                     </Button>
                   </div>
+
                   {mediaSource === "url" ? (
-                    <Input
-                      key="media-url"
-                      value={form.media_url ?? ""}
-                      onChange={(e) => setForm((p) => ({ ...p, media_url: e.target.value }))}
-                      placeholder="https://..."
-                    />
+                    <Input value={form.media_url ?? ""} onChange={(e) => setForm((p) => ({ ...p, media_url: e.target.value }))} placeholder="https://..." />
                   ) : (
                     <div className="space-y-1">
                       <input
-                      key="media-file"
-                      type="file"
-                      accept={form.type === "video" ? "video/*" : "image/*"}
-                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-slate-100 file:px-3 file:py-1 file:text-sm file:font-medium"
-                      onChange={(e) => onFileSelected(e.target.files?.[0] || null)}
+                        type="file"
+                        accept={form.type === "video" ? "video/*" : "image/*"}
+                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-slate-100 file:px-3 file:py-1 file:text-sm file:font-medium"
+                        onChange={(e) => onFileSelected(e.target.files?.[0] || null)}
                       />
                       <p className="text-xs text-slate-500">{pendingMediaFile ? `Arquivo selecionado: ${pendingMediaFile.name}` : "Nenhum arquivo selecionado."}</p>
                     </div>
@@ -304,8 +410,20 @@ export default function ConfiguracoesPage() {
                 </div>
 
                 <div className="flex gap-2">
-                  <Button type="submit" disabled={saving}>{saving ? "Salvando..." : "Salvar"}</Button>
-                  <Button type="button" variant="outline" onClick={() => { setForm(initialForm); setMediaSource("url"); setPendingMediaFile(null); }}>Limpar</Button>
+                  <Button type="submit" disabled={saving}>
+                    {saving ? "Salvando..." : "Salvar"}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setForm(initialForm);
+                      setMediaSource("url");
+                      setPendingMediaFile(null);
+                    }}
+                  >
+                    Limpar
+                  </Button>
                 </div>
               </form>
             </CardContent>
@@ -323,20 +441,26 @@ export default function ConfiguracoesPage() {
                   <Skeleton className="h-14 rounded-lg" />
                 </div>
               ) : null}
+
               {ordered.map((item) => (
                 <div key={item.id} className="flex items-start justify-between gap-2 rounded-lg border p-3">
                   <div>
-                    <p className="font-semibold text-slate-900">{item.position || "-"} - {item.title}</p>
+                    <p className="font-semibold text-slate-900">
+                      {item.position || "-"} - {item.title}
+                    </p>
                     <p className="text-xs text-slate-500">{item.type}</p>
                   </div>
                   <div className="flex gap-2">
-                    <Button size="sm" variant="outline" onClick={() => edit(item)}>Editar</Button>
+                    <Button size="sm" variant="outline" onClick={() => edit(item)}>
+                      Editar
+                    </Button>
                     <Button size="sm" variant="destructive" onClick={() => remove(item.id)}>
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
                 </div>
               ))}
+
               {!isLoading && !ordered.length ? <p className="text-sm text-slate-500">Sem anuncios.</p> : null}
             </CardContent>
           </Card>

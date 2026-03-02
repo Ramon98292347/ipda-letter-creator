@@ -46,4 +46,6 @@ export const api = {
   birthdaysToday: () => post("birthdays-today", {}),
   upsertAnnouncement: (body: JsonBody) => post("upsert-announcement", body),
   deleteAnnouncement: (body: { id: string }) => post("delete-announcement", body),
+  upsertStamps: (body: { signature_url?: string | null; stamp_pastor_url?: string | null; stamp_church_url?: string | null }) =>
+    post("upsert-stamps", body),
 };

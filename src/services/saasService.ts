@@ -1287,6 +1287,17 @@ export async function deleteAnnouncement(id: string) {
   }
 }
 
+export async function upsertStamps(payload: {
+  signature_url?: string | null;
+  stamp_pastor_url?: string | null;
+  stamp_church_url?: string | null;
+}) {
+  if (!isMockMode()) {
+    await api.upsertStamps(payload);
+    return;
+  }
+}
+
 export async function createLetterByPastor(payload: LetterCreatePayload) {
   if (!payload.preacher_name.trim()) throw new Error("preacher-required");
   if (!payload.minister_role.trim()) throw new Error("minister-role-required");

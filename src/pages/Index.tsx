@@ -22,6 +22,7 @@ import { getPastorByTotvs } from "@/services/churchService";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
+import { getFriendlyError } from "@/lib/error-map";
 
 type LegacyUsuarioExtra = {
   central_totvs?: string | null;
@@ -316,8 +317,8 @@ const Index = () => {
       setTelefone(undefined);
       setDestinoOutros("");
       nav("/");
-    } catch {
-      toast.error("Falha ao criar carta.");
+    } catch (err: unknown) {
+      toast.error(getFriendlyError(err, "letters"));
     }
   };
 
