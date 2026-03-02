@@ -1,12 +1,13 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ChurchSearch, Church } from "@/components/ChurchSearch";
 import { LetterPreview } from "@/components/LetterPreview";
 import { igrejasMock } from "@/data/mockChurches";
-import { FileText, RotateCcw, Send, Calendar as CalendarIcon } from "lucide-react";
+import { FileText, RotateCcw, Send, Calendar as CalendarIcon, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -15,16 +16,16 @@ import { useQuery } from "@tanstack/react-query";
 import { fetchChurches } from "@/services/churchService";
 import { createLetterByPastor } from "@/services/saasService";
 import { format, parse } from "date-fns";
-import { ptBR } from "date-fns/locale";
 import { useUser } from "@/context/UserContext";
-import { getIgrejaByTotvs, getUsuarioByTelefone } from "@/services/userService";
-import { getPastorByTotvs } from "@/services/churchService";
+import { getIgrejaByTotvs } from "@/services/userService";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { getFriendlyError } from "@/lib/error-map";
+import { getFriendlyErrorMessage } from "@/services/api";
 
 type LegacyUsuarioExtra = {
+  phone?: string | null;
+  telefone?: string | null;
   central_totvs?: string | null;
   central_nome?: string | null;
   ministerial?: string | null;
@@ -38,19 +39,55 @@ type CreateLetterResult = {
   n8n?: { ok?: boolean };
 };
 
+type PreachPeriod = "MANHA" | "TARDE" | "NOITE" | "";
+
+type FormData = {
+  pregadorNome: string;
+  telefone: string;
+  dataPregacao: string;
+  dataEmissao: string;
+  origemId: number;
+  destinoId?: number;
+  destinoOutros?: string;
+};
+
+function toBrDate(iso?: string | null) {
+  if (!iso) return "";
+  const [y, m, d] = String(iso).split("-");
+  if (!y || !m || !d) return iso;
+  return `${d}/${m}/${y}`;
+}
+
 const Index = () => {
   const { usuario, telefone, setUsuario, setTelefone } = useUser();
   const nav = useNavigate();
   const loc = useLocation();
+
+  const now = new Date();
+  const todayIso = format(now, "yyyy-MM-dd");
+  const lastDayOfMonthIso = format(new Date(now.getFullYear(), now.getMonth() + 1, 0), "yyyy-MM-dd");
+
   const [igrejaOrigem, setIgrejaOrigem] = useState<Church | undefined>();
   const [igrejaDestino, setIgrejaDestino] = useState<Church | undefined>();
   const [destinoOutros, setDestinoOutros] = useState("");
   const [usuarioEmail, setUsuarioEmail] = useState<string>("");
   const [usuarioMinisterial, setUsuarioMinisterial] = useState<string>("");
   const [usuarioDataSeparacao, setUsuarioDataSeparacao] = useState<string>("");
+  const [preachPeriod, setPreachPeriod] = useState<PreachPeriod>("");
   const [isPregacaoCalOpen, setIsPregacaoCalOpen] = useState(false);
-  const [pastorResponsavel, setPastorResponsavel] = useState<string>("");
-  const [telefonePastorResponsavel, setTelefonePastorResponsavel] = useState<string>("");
+  const [savingLetter, setSavingLetter] = useState(false);
+
+  const pastorResponsavel = usuario?.nome || "";
+  const telefonePastorResponsavel = usuario?.telefone || "";
+  const telefoneUsuarioLogado =
+    String(
+      usuario?.telefone ||
+      (usuario as unknown as LegacyUsuarioExtra | null)?.phone ||
+      (usuario as unknown as LegacyUsuarioExtra | null)?.telefone ||
+      telefone ||
+      "",
+    ).trim();
+
   const schema = useMemo(
     () =>
       z
@@ -76,6 +113,7 @@ const Index = () => {
         ),
     [],
   );
+
   const {
     register,
     handleSubmit,
@@ -83,34 +121,23 @@ const Index = () => {
     setValue,
     watch,
     formState: { errors },
-  } = useForm<{
-    pregadorNome: string;
-    telefone: string;
-    dataPregacao: string;
-    dataEmissao: string;
-    origemId: number;
-    destinoId?: number;
-    destinoOutros?: string;
-  }>({
+  } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
       pregadorNome: "",
       telefone: "",
       dataPregacao: "",
-      dataEmissao: format(new Date(), "yyyy-MM-dd", { locale: ptBR }),
+      dataEmissao: todayIso,
       destinoOutros: "",
     },
   });
-  const watchedTelefone = watch("telefone");
-  const { data: churches = igrejasMock } = useQuery({ queryKey: ["churches"], queryFn: fetchChurches, staleTime: 60_000 });
-  const toBr = (iso: string) => {
-    if (!iso) return "";
-    try {
-      return format(parse(iso, "yyyy-MM-dd", new Date()), "dd/MM/yyyy", { locale: ptBR });
-    } catch {
-      return iso;
-    }
-  };
+
+  const { data: churches = igrejasMock } = useQuery({
+    queryKey: ["churches"],
+    queryFn: fetchChurches,
+    staleTime: 60_000,
+  });
+
   const brToIso = (br: string) => {
     try {
       const d = parse(br, "dd/MM/yyyy", new Date());
@@ -119,206 +146,170 @@ const Index = () => {
       return br;
     }
   };
+
   useEffect(() => {
     if (usuario?.nome) setValue("pregadorNome", usuario.nome, { shouldValidate: true });
-    if (usuario?.telefone || telefone) setValue("telefone", usuario?.telefone || telefone || "", { shouldValidate: true });
+    if (telefoneUsuarioLogado) setValue("telefone", telefoneUsuarioLogado, { shouldValidate: true });
+
     (async () => {
       if (usuario?.totvs) {
         try {
           const found = await getIgrejaByTotvs(usuario.totvs);
           if (found) {
-            const c: Church = { id: Number(found.codigoTotvs) || Date.now(), codigoTotvs: found.codigoTotvs, nome: found.nome, cidade: "", uf: "", carimboIgreja: "", carimboPastor: "" };
+            const c: Church = {
+              id: Number(found.codigoTotvs) || Date.now(),
+              codigoTotvs: found.codigoTotvs,
+              nome: found.nome,
+              cidade: "",
+              uf: "",
+              carimboIgreja: "",
+              carimboPastor: "",
+            };
             setIgrejaOrigem(c);
             setValue("origemId", c.id, { shouldValidate: true });
           } else if (usuario?.igreja_nome) {
-            const c: Church = { id: Date.now(), codigoTotvs: "", nome: usuario.igreja_nome, cidade: "", uf: "", carimboIgreja: "", carimboPastor: "" };
+            const c: Church = {
+              id: Date.now(),
+              codigoTotvs: "",
+              nome: usuario.igreja_nome,
+              cidade: "",
+              uf: "",
+              carimboIgreja: "",
+              carimboPastor: "",
+            };
             setIgrejaOrigem(c);
             setValue("origemId", c.id, { shouldValidate: true });
           }
         } catch {
           if (usuario?.igreja_nome) {
-            const c: Church = { id: Date.now(), codigoTotvs: "", nome: usuario.igreja_nome, cidade: "", uf: "", carimboIgreja: "", carimboPastor: "" };
+            const c: Church = {
+              id: Date.now(),
+              codigoTotvs: "",
+              nome: usuario.igreja_nome,
+              cidade: "",
+              uf: "",
+              carimboIgreja: "",
+              carimboPastor: "",
+            };
             setIgrejaOrigem(c);
             setValue("origemId", c.id, { shouldValidate: true });
           }
         }
       } else if (usuario?.igreja_nome) {
-        const c: Church = { id: Date.now(), codigoTotvs: "", nome: usuario.igreja_nome, cidade: "", uf: "", carimboIgreja: "", carimboPastor: "" };
+        const c: Church = {
+          id: Date.now(),
+          codigoTotvs: "",
+          nome: usuario.igreja_nome,
+          cidade: "",
+          uf: "",
+          carimboIgreja: "",
+          carimboPastor: "",
+        };
         setIgrejaOrigem(c);
         setValue("origemId", c.id, { shouldValidate: true });
       }
     })();
-  }, [usuario, telefone, setValue]);
-
-  // redirecionamento agora é tratado via guarda de rota em App.tsx
+  }, [usuario, telefone, setValue, telefoneUsuarioLogado]);
 
   useEffect(() => {
-    const st = loc.state as unknown as { reemitir?: { nome?: string; igreja_origem?: string; igreja_destino?: string; ["dia_pregação"]?: string; data_emissao?: string } } | null;
+    const st = loc.state as unknown as {
+      reemitir?: {
+        nome?: string;
+        igreja_origem?: string;
+        igreja_destino?: string;
+        ["dia_pregação"]?: string;
+        data_emissao?: string;
+      };
+    } | null;
+
     const r = st?.reemitir;
-    if (r) {
-      if (r.nome) setValue("pregadorNome", r.nome, { shouldValidate: true });
-      if (r["dia_pregação"]) setValue("dataPregacao", brToIso(r["dia_pregação"]), { shouldValidate: true });
-      if (r.data_emissao) setValue("dataEmissao", r.data_emissao, { shouldValidate: true });
-      if (r.igreja_destino) {
-        setDestinoOutros(r.igreja_destino);
-        setValue("destinoOutros", r.igreja_destino, { shouldValidate: true });
-        setIgrejaDestino(undefined);
-        setValue("destinoId", undefined as unknown as number, { shouldValidate: true });
-      }
-      if (r.igreja_origem) {
-        const m = r.igreja_origem.match(/^\\s*(\\d+)/);
-        const code = m ? m[1] : "";
-        if (code) {
-          const found = churches.find((c) => (c.codigoTotvs || "") === code);
-          if (found) {
-            setIgrejaOrigem(found);
-            setValue("origemId", found.id, { shouldValidate: true });
-          }
-        }
+    if (!r) return;
+
+    if (r.nome) setValue("pregadorNome", r.nome, { shouldValidate: true });
+    if (r["dia_pregação"]) setValue("dataPregacao", brToIso(r["dia_pregação"]), { shouldValidate: true });
+    if (r.data_emissao) setValue("dataEmissao", r.data_emissao, { shouldValidate: true });
+
+    if (r.igreja_destino) {
+      setDestinoOutros(r.igreja_destino);
+      setValue("destinoOutros", r.igreja_destino, { shouldValidate: true });
+      setIgrejaDestino(undefined);
+      setValue("destinoId", undefined as unknown as number, { shouldValidate: true });
+    }
+
+    if (r.igreja_origem) {
+      const m = r.igreja_origem.match(/^\s*(\d+)/);
+      const code = m ? m[1] : "";
+      if (!code) return;
+      const found = churches.find((c) => (c.codigoTotvs || "") === code);
+      if (found) {
+        setIgrejaOrigem(found);
+        setValue("origemId", found.id, { shouldValidate: true });
       }
     }
   }, [loc.state, churches, setValue]);
 
-  useEffect(() => {
-    const t = setTimeout(async () => {
-      const telDigits = (watchedTelefone || "").replace(/\D/g, "");
-      if (telDigits.length >= 10) {
-        try {
-          const u = await getUsuarioByTelefone(telDigits);
-          if (u) {
-            setUsuario({
-              id: u.id,
-              nome: u.nome,
-              telefone: u.telefone,
-              totvs: u.totvs ?? null,
-              igreja_nome: u.igreja_nome ?? null,
-              email: u.email ?? null,
-              ministerial: u.ministerial ?? null,
-              data_separacao: u.data_separacao ?? null,
-              central_totvs: (u as LegacyUsuarioExtra)?.central_totvs ?? null,
-              central_nome: (u as LegacyUsuarioExtra)?.central_nome ?? null,
-            });
-            setValue("pregadorNome", u.nome, { shouldValidate: true });
-            setValue("telefone", u.telefone, { shouldValidate: true });
-            if (u.email) setUsuarioEmail(u.email);
-            if (u.ministerial) setUsuarioMinisterial(u.ministerial);
-            if (u.data_separacao) setUsuarioDataSeparacao(u.data_separacao);
-            if (u.totvs) {
-              try {
-                const found = await getIgrejaByTotvs(u.totvs);
-                if (found) {
-                  const c: Church = { id: Number(found.codigoTotvs) || Date.now(), codigoTotvs: found.codigoTotvs, nome: found.nome, cidade: "", uf: "", carimboIgreja: "", carimboPastor: "" };
-                  setIgrejaOrigem(c);
-                  setValue("origemId", c.id, { shouldValidate: true });
-                }
-              } catch {
-                // Comentario: erro ignorado de forma controlada.
-              }
-            } else if (u.igreja_nome) {
-              const c: Church = { id: Date.now(), codigoTotvs: "", nome: u.igreja_nome, cidade: "", uf: "", carimboIgreja: "", carimboPastor: "" };
-              setIgrejaOrigem(c);
-              setValue("origemId", c.id, { shouldValidate: true });
-            }
-          }
-        } catch {
-                // Comentario: erro ignorado de forma controlada.
-              }
-      }
-    }, 400);
-    return () => clearTimeout(t);
-  }, [watchedTelefone, setUsuario, setValue]);
-
-  const phoneDigits = (watchedTelefone || "").replace(/\D/g, "");
-  const phoneEmpty = phoneDigits.length < 10;
-  const hasUsuario = Boolean(usuario);
-  const disableByPhone = phoneEmpty && !hasUsuario;
+  const disableByPhone = false;
 
   useEffect(() => {
-    if (usuario) {
-      const u = usuario as LegacyUsuarioExtra | null;
-      if (u?.email) setUsuarioEmail(u.email);
-      if (u?.ministerial) setUsuarioMinisterial(u.ministerial);
-      if (u?.data_separacao) setUsuarioDataSeparacao(u.data_separacao);
-      if (usuario.telefone) setValue("telefone", usuario.telefone, { shouldValidate: true });
-      if (usuario.nome) setValue("pregadorNome", usuario.nome, { shouldValidate: true });
+    if (!usuario) return;
+
+    const u = usuario as LegacyUsuarioExtra | null;
+    if (u?.email) setUsuarioEmail(u.email);
+    if (u?.ministerial) setUsuarioMinisterial(u.ministerial);
+    if (u?.data_separacao) setUsuarioDataSeparacao(u.data_separacao);
+    if (telefoneUsuarioLogado) setValue("telefone", telefoneUsuarioLogado, { shouldValidate: true });
+    if (usuario.nome) setValue("pregadorNome", usuario.nome, { shouldValidate: true });
+  }, [usuario, setValue, telefoneUsuarioLogado]);
+
+  const onSubmit = async (values: FormData) => {
+    if (!preachPeriod) {
+      toast.error("Selecione o horário da pregação: Manhã, Tarde ou Noite.");
+      return;
     }
-  }, [usuario, setValue]);
 
-  useEffect(() => {
-    (async () => {
-      const u = usuario as LegacyUsuarioExtra | null;
-      const centralTotvs: string | undefined = (u?.central_totvs ? String(u.central_totvs).trim() : undefined);
-      if (centralTotvs) {
-        try {
-          console.info("pastor-lookup", { centralTotvs });
-          const r = await getPastorByTotvs(centralTotvs);
-          if (r) {
-            console.info("pastor-lookup-result", r);
-            setPastorResponsavel(r.pastor || "");
-            setTelefonePastorResponsavel(r.telefone || "");
-          }
-        } catch {
-                // Comentario: erro ignorado de forma controlada.
-              }
-      } else {
-        setPastorResponsavel("");
-        setTelefonePastorResponsavel("");
-      }
-    })();
-  }, [usuario]);
+    if (values.dataPregacao < todayIso || values.dataPregacao > lastDayOfMonthIso) {
+      toast.error(`A data de pregação deve ser dentro do mês vigente. Máximo: ${toBrDate(lastDayOfMonthIso)}.`);
+      return;
+    }
 
-  const onSubmit = async (values: {
-    pregadorNome: string;
-    telefone: string;
-    dataPregacao: string;
-    dataEmissao: string;
-    origemId: number;
-    destinoId?: number;
-    destinoOutros?: string;
-  }) => {
-    // Comentario: o front chama apenas `create-letter`.
-    // A Edge Function salva no banco e dispara o n8n.
     const origemText = igrejaOrigem
-      ? (igrejaOrigem.codigoTotvs ? `${igrejaOrigem.codigoTotvs} - ${igrejaOrigem.nome}` : igrejaOrigem.nome)
+      ? igrejaOrigem.codigoTotvs
+        ? `${igrejaOrigem.codigoTotvs} - ${igrejaOrigem.nome}`
+        : igrejaOrigem.nome
       : (usuario?.igreja_nome ?? "");
-    const destinoText = (watch("destinoOutros") && watch("destinoOutros")!.trim())
+
+    const destinoText = watch("destinoOutros")?.trim()
       ? watch("destinoOutros")!.trim()
-      : (igrejaDestino ? `${igrejaDestino.codigoTotvs} - ${igrejaDestino.nome}` : "");
+      : igrejaDestino
+        ? `${igrejaDestino.codigoTotvs} - ${igrejaDestino.nome}`
+        : "";
 
     try {
+      setSavingLetter(true);
+
       const result = (await createLetterByPastor({
         church_totvs_id: String((usuario as LegacyUsuarioExtra | null)?.totvs || (usuario as LegacyUsuarioExtra | null)?.default_totvs_id || ""),
         preacher_name: values.pregadorNome,
         minister_role: usuarioMinisterial || (usuario as LegacyUsuarioExtra | null)?.ministerial || "Obreiro",
         preach_date: values.dataPregacao,
+        preach_period: preachPeriod as "MANHA" | "TARDE" | "NOITE",
         church_origin: origemText,
         church_destination: destinoText,
         phone: (values.telefone || "").replace(/\D/g, ""),
         email: usuarioEmail || (usuario as LegacyUsuarioExtra | null)?.email || null,
       })) as CreateLetterResult;
 
-      if ((result as CreateLetterResult)?.n8n?.ok === false) {
-        toast.warning("Carta criada, mas houve falha ao enviar para gera??o do PDF.");
+      if (result?.n8n?.ok === false) {
+        toast.warning("Carta criada, mas houve falha ao enviar para geração do PDF.");
       } else {
-        toast.success("Carta enviada para gera??o. Aguarde o PDF.");
+        toast.success("Carta criada e enviada para geração do PDF.");
       }
 
-      setIgrejaOrigem(undefined);
-      setIgrejaDestino(undefined);
-      reset({
-        pregadorNome: "",
-        telefone: "",
-        dataPregacao: "",
-        dataEmissao: format(new Date(), "yyyy-MM-dd", { locale: ptBR }),
-        origemId: undefined as unknown as number,
-        destinoId: undefined as unknown as number,
-      });
-      setUsuario(undefined);
-      setTelefone(undefined);
-      setDestinoOutros("");
-      nav("/");
+      nav("/usuario");
     } catch (err: unknown) {
-      toast.error(getFriendlyError(err, "letters"));
+      toast.error(getFriendlyErrorMessage(err));
+    } finally {
+      setSavingLetter(false);
     }
   };
 
@@ -329,13 +320,15 @@ const Index = () => {
       pregadorNome: "",
       telefone: "",
       dataPregacao: "",
-      dataEmissao: format(new Date(), "yyyy-MM-dd", { locale: ptBR }),
+      dataEmissao: todayIso,
       origemId: undefined as unknown as number,
       destinoId: undefined as unknown as number,
       destinoOutros: "",
     });
     setTelefone(undefined);
     setDestinoOutros("");
+    setPreachPeriod("");
+    setUsuario(undefined);
   };
 
   return (
@@ -361,10 +354,8 @@ const Index = () => {
         </div>
       </header>
 
-      {/* Main Content */}
       <main className="container mx-auto px-4 py-8 max-w-6xl">
         <div className="grid lg:grid-cols-2 gap-6">
-          {/* Form Card */}
           <Card className="card-shadow hover:card-shadow-hover transition-shadow duration-300 border-border bg-card">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-2xl text-foreground">
@@ -377,7 +368,6 @@ const Index = () => {
             </CardHeader>
             <CardContent>
               <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-                {/* Nome do Pregador */}
                 <div className="space-y-2">
                   <Label htmlFor="pregador" className="text-sm font-medium text-foreground">
                     Nome do pregador
@@ -387,8 +377,7 @@ const Index = () => {
                     type="text"
                     placeholder="Digite o nome completo"
                     {...register("pregadorNome")}
-                    onFocus={(e) => { if (disableByPhone) { toast.info("Digite seu telefone"); e.currentTarget.blur(); } }}
-                    disabled={disableByPhone}
+                    disabled
                     className="bg-card border-input focus:border-primary focus:ring-primary transition-colors"
                     required
                   />
@@ -404,13 +393,13 @@ const Index = () => {
                     type="tel"
                     placeholder="Digite o telefone"
                     {...register("telefone")}
+                    disabled={Boolean(telefoneUsuarioLogado)}
                     className="bg-card border-input focus:border-primary focus:ring-primary transition-colors"
                     required
                   />
                   {errors.telefone && <p className="text-xs text-destructive">{errors.telefone.message as string}</p>}
                 </div>
 
-                {/* Igreja Origem */}
                 <ChurchSearch
                   label="Igreja que faz a carta (origem)"
                   placeholder="Buscar por nome ou código TOTVS"
@@ -426,7 +415,6 @@ const Index = () => {
                 />
                 {errors.origemId && <p className="text-xs text-destructive">Selecione a igreja de origem</p>}
 
-                {/* Igreja Destino */}
                 <ChurchSearch
                   label="Igreja que vai pregar (destino)"
                   placeholder="Buscar por nome ou código TOTVS"
@@ -442,6 +430,7 @@ const Index = () => {
                   onDisabledClickMessage="Digite seu telefone"
                   inputId="church-destino"
                 />
+
                 <div className="space-y-2">
                   <Label htmlFor="destinoOutros" className="text-sm font-medium text-foreground">Outros (se não encontrar)</Label>
                   <Input
@@ -464,8 +453,6 @@ const Index = () => {
                   {errors.destinoId && <p className="text-xs text-destructive">Selecione a igreja de destino ou informe em Outros</p>}
                 </div>
 
-
-                {/* Datas */}
                 <div className="grid md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="dataPregacao" className="text-sm font-medium text-foreground">
@@ -477,17 +464,14 @@ const Index = () => {
                         return (
                           <Input
                             id="dataPregacao"
-                            type="text"
-                            inputMode="numeric"
-                            placeholder="dd/mm/aaaa"
+                            type="date"
                             name={name}
                             ref={ref}
                             onBlur={onBlur}
-                            value={toBr(watch("dataPregacao"))}
-                            onChange={(e) => {
-                              const iso = brToIso(e.target.value);
-                              setValue("dataPregacao", iso, { shouldValidate: true });
-                            }}
+                            value={watch("dataPregacao") || ""}
+                            min={todayIso}
+                            max={lastDayOfMonthIso}
+                            onChange={(e) => setValue("dataPregacao", e.target.value, { shouldValidate: true })}
                             onFocus={(e) => { if (disableByPhone) { toast.info("Digite seu telefone"); e.currentTarget.blur(); } }}
                             className="bg-card border-input focus:border-primary focus:ring-primary transition-colors flex-1"
                             required
@@ -497,7 +481,10 @@ const Index = () => {
                       <Popover
                         open={isPregacaoCalOpen}
                         onOpenChange={(open) => {
-                          if (disableByPhone) { setIsPregacaoCalOpen(false); return; }
+                          if (disableByPhone) {
+                            setIsPregacaoCalOpen(false);
+                            return;
+                          }
                           setIsPregacaoCalOpen(open);
                         }}
                       >
@@ -524,10 +511,18 @@ const Index = () => {
                             selected={watch("dataPregacao") ? parse(watch("dataPregacao"), "yyyy-MM-dd", new Date()) : undefined}
                             onSelect={(d) => {
                               if (!d) return;
-                              setValue("dataPregacao", format(d, "yyyy-MM-dd"), { shouldValidate: true });
+                              const pickedIso = format(d, "yyyy-MM-dd");
+                              if (pickedIso < todayIso || pickedIso > lastDayOfMonthIso) {
+                                toast.error(`A data de pregação deve ser dentro do mês vigente. Máximo: ${toBrDate(lastDayOfMonthIso)}.`);
+                                return;
+                              }
+                              setValue("dataPregacao", pickedIso, { shouldValidate: true });
                               setIsPregacaoCalOpen(false);
                             }}
-                            disabled={{ before: new Date() }}
+                            disabled={(date) => {
+                              const current = format(date, "yyyy-MM-dd");
+                              return current < todayIso || current > lastDayOfMonthIso;
+                            }}
                             initialFocus
                           />
                         </PopoverContent>
@@ -541,17 +536,14 @@ const Index = () => {
                       Data de emissão da carta
                     </Label>
                     {(() => {
-                      const { name, ref, onBlur } = register("dataEmissao");
+                      const { name, ref } = register("dataEmissao");
                       return (
                         <Input
                           id="dataEmissao"
-                          type="text"
-                          inputMode="numeric"
-                          placeholder="dd/mm/aaaa"
+                          type="date"
                           name={name}
                           ref={ref}
-                          onBlur={onBlur}
-                          value={toBr(watch("dataEmissao"))}
+                          value={watch("dataEmissao") || todayIso}
                           disabled
                           className="bg-card border-input focus:border-primary focus:ring-primary transition-colors"
                           required
@@ -562,19 +554,34 @@ const Index = () => {
                   </div>
                 </div>
 
-                {/* Buttons */}
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-foreground">Horário da pregação</Label>
+                  <Select value={preachPeriod} onValueChange={(v) => setPreachPeriod(v as PreachPeriod)}>
+                    <SelectTrigger className="bg-card border-input focus:border-primary focus:ring-primary transition-colors h-10">
+                      <SelectValue placeholder="Selecione o horário" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="MANHA">Manhã</SelectItem>
+                      <SelectItem value="TARDE">Tarde</SelectItem>
+                      <SelectItem value="NOITE">Noite</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
                 <div className="flex flex-col sm:flex-row gap-3 pt-4">
                   <Button
                     type="submit"
+                    disabled={savingLetter}
                     className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold shadow-md hover:shadow-lg transition-all"
                   >
-                    <Send className="h-4 w-4 mr-2" />
-                    Registrar Carta de Pregação
+                    {savingLetter ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Send className="h-4 w-4 mr-2" />}
+                    {savingLetter ? "Preenchendo carta..." : "Registrar Carta de Pregação"}
                   </Button>
                   <Button
                     type="button"
                     variant="outline"
                     onClick={handleClear}
+                    disabled={savingLetter}
                     className="border-border hover:bg-secondary/50 text-foreground transition-colors"
                   >
                     <RotateCcw className="h-4 w-4 mr-2" />
@@ -585,23 +592,31 @@ const Index = () => {
             </CardContent>
           </Card>
 
-          {/* Preview Card */}
           <div className="lg:sticky lg:top-8 h-fit">
-          <LetterPreview
-            pregadorNome={watch("pregadorNome")}
-            igrejaOrigem={igrejaOrigem}
-            igrejaDestino={destinoOutros.trim() ? { id: 0, codigoTotvs: "", nome: destinoOutros.trim(), cidade: "", uf: "", carimboIgreja: "", carimboPastor: "" } : igrejaDestino}
-            dataPregacao={watch("dataPregacao")}
-            dataEmissao={watch("dataEmissao")}
-            email={usuarioEmail || (usuario as LegacyUsuarioExtra | null)?.email || undefined}
-            ministerial={usuarioMinisterial || (usuario as LegacyUsuarioExtra | null)?.ministerial || undefined}
-            dataSeparacao={usuarioDataSeparacao || (usuario as LegacyUsuarioExtra | null)?.data_separacao || undefined}
-            pastorResponsavel={pastorResponsavel || undefined}
-            telefonePastorResponsavel={telefonePastorResponsavel || undefined}
-          />
+            <LetterPreview
+              pregadorNome={watch("pregadorNome")}
+              igrejaOrigem={igrejaOrigem}
+              igrejaDestino={destinoOutros.trim() ? { id: 0, codigoTotvs: "", nome: destinoOutros.trim(), cidade: "", uf: "", carimboIgreja: "", carimboPastor: "" } : igrejaDestino}
+              dataPregacao={watch("dataPregacao")}
+              dataEmissao={watch("dataEmissao")}
+              email={usuarioEmail || (usuario as LegacyUsuarioExtra | null)?.email || undefined}
+              ministerial={usuarioMinisterial || (usuario as LegacyUsuarioExtra | null)?.ministerial || undefined}
+              dataSeparacao={usuarioDataSeparacao || (usuario as LegacyUsuarioExtra | null)?.data_separacao || undefined}
+              pastorResponsavel={pastorResponsavel || undefined}
+              telefonePastorResponsavel={telefonePastorResponsavel || undefined}
+            />
           </div>
         </div>
       </main>
+
+      {savingLetter && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="rounded-xl bg-white px-6 py-5 shadow-xl flex items-center gap-3">
+            <Loader2 className="h-5 w-5 animate-spin text-primary" />
+            <p className="text-sm font-medium text-slate-800">Carta sendo preenchida e enviada...</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

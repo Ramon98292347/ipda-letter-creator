@@ -44,7 +44,7 @@ function getAddressCity(addressJson: unknown) {
 }
 
 export default function UsuarioDashboard() {
-  const { usuario, session, clearAuth } = useUser();
+  const { usuario, session, clearAuth, setUsuario, setTelefone } = useUser();
   const nav = useNavigate();
   const queryClient = useQueryClient();
   const [dateStart, setDateStart] = useState("");
@@ -115,6 +115,15 @@ export default function UsuarioDashboard() {
       address_city: cityFromProfile,
     });
   }, [profile?.phone, profile?.email, cityFromProfile]);
+
+  useEffect(() => {
+    if (!profile?.phone) return;
+    setTelefone(profile.phone);
+    setUsuario({
+      ...(usuario || { nome: profile.full_name || "Usuário", telefone: "" }),
+      telefone: profile.phone || "",
+    });
+  }, [profile?.phone, profile?.full_name, setTelefone, setUsuario, usuario]);
 
   const stats = useMemo(() => {
     const now = new Date();

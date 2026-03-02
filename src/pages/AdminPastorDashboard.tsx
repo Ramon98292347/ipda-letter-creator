@@ -65,6 +65,24 @@ export default function AdminPastorDashboard() {
     },
     enabled: scopeTotvsIds.length > 0,
   });
+  const phonesByUserId = useMemo(() => {
+    const map: Record<string, string> = {};
+    obreiros.forEach((u) => {
+      const id = String(u?.id || "");
+      const phone = String(u?.phone || "");
+      if (id && phone) map[id] = phone;
+    });
+    return map;
+  }, [obreiros]);
+  const phonesByName = useMemo(() => {
+    const map: Record<string, string> = {};
+    obreiros.forEach((u) => {
+      const nome = String(u?.full_name || "").trim().toLowerCase();
+      const phone = String(u?.phone || "");
+      if (nome && phone) map[nome] = phone;
+    });
+    return map;
+  }, [obreiros]);
 
   const { data: churchRows = [] } = useQuery({
     queryKey: ["admin-church-summary", scopeTotvsIds.join("|")],
@@ -236,7 +254,7 @@ export default function AdminPastorDashboard() {
         </section>
 
         {tab === "cartas" ? (
-          <CartasTab letters={letters} scopeTotvsIds={scopeTotvsIds} />
+          <CartasTab letters={letters} scopeTotvsIds={scopeTotvsIds} phonesByUserId={phonesByUserId} phonesByName={phonesByName} />
         ) : tab === "igrejas" ? (
           <AdminChurchesTab
             rows={churchesInScope}
@@ -257,7 +275,7 @@ export default function AdminPastorDashboard() {
       <Dialog open={openReleases} onOpenChange={setOpenReleases}>
         <DialogContent className="max-w-3xl">
           <DialogHeader>
-            <DialogTitle>Notificacoes</DialogTitle>
+            <DialogTitle>Notificações</DialogTitle>
           </DialogHeader>
           <div className="mb-2 flex justify-end">
             <Button variant="outline" size="sm" onClick={readAllNotifications}>
@@ -265,7 +283,7 @@ export default function AdminPastorDashboard() {
             </Button>
           </div>
           <div className="space-y-2">
-            {notifications.length === 0 ? <p className="text-sm text-slate-500">Sem notificacoes.</p> : null}
+            {notifications.length === 0 ? <p className="text-sm text-slate-500">Sem notificações.</p> : null}
             {notifications.map((item) => (
               <div key={item.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border p-3 text-sm">
                 <div>

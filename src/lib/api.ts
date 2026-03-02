@@ -22,12 +22,24 @@ const TOKEN_KEY = "ipda_token";
 const SESSION_KEY = "ipda_session";
 const USER_KEY = "ipda_user";
 
+function normalizeToken(raw: string) {
+  return raw.replace(/^Bearer\s+/i, "").trim();
+}
+
+function isJwtLike(token: string) {
+  // Comentario: JWT deve ter 3 partes separadas por ponto.
+  return token.split(".").length === 3;
+}
+
 export function getToken(): string | null {
-  return localStorage.getItem(TOKEN_KEY);
+  const raw = localStorage.getItem(TOKEN_KEY);
+  if (!raw) return null;
+  const token = normalizeToken(raw);
+  return token || null;
 }
 
 export function setToken(token: string) {
-  localStorage.setItem(TOKEN_KEY, token);
+  localStorage.setItem(TOKEN_KEY, normalizeToken(token));
 }
 
 export function clearToken() {
@@ -116,6 +128,10 @@ export async function post<T = unknown>(
   if (!opts?.skipAuth) {
     if (!token) {
       throw new ApiError("Sem token. Faça login novamente.", 401, "missing_token");
+    }
+    if (!isJwtLike(token)) {
+      logout();
+      throw new ApiError("Token de sessão inválido. Faça login novamente.", 401, "invalid_token_format");
     }
     headers.Authorization = `Bearer ${token}`;
   }

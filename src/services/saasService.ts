@@ -1,6 +1,7 @@
-﻿import { getSession } from "@/lib/api";
+import { getSession } from "@/lib/api";
 import { api } from "@/lib/endpoints";
 import { supabase } from "@/lib/supabase";
+import { apiFetch } from "@/services/api";
 import type { AppSession, PendingChurch } from "@/context/UserContext";
 
 export type AppRole = "admin" | "pastor" | "obreiro";
@@ -59,6 +60,7 @@ export type PastorLetter = {
   minister_role: string | null;
   status: string;
   storage_path: string | null;
+  phone?: string | null;
   block_reason?: string | null;
   preacher_user_id?: string | null;
 };
@@ -229,6 +231,7 @@ export type LetterCreatePayload = {
   preacher_name: string;
   minister_role: string;
   preach_date: string;
+  preach_period?: "MANHA" | "TARDE" | "NOITE";
   church_origin: string;
   church_destination: string;
   preacher_user_id?: string;
@@ -414,6 +417,7 @@ function mapLetterLike(raw: Record<string, unknown> | null | undefined): PastorL
     minister_role: raw?.minister_role || null,
     status: String(raw?.status || "AUTORIZADO"),
     storage_path: raw?.storage_path || null,
+    phone: raw?.phone ? String(raw.phone) : null,
     block_reason: raw?.block_reason || null,
     preacher_user_id: raw?.preacher_user_id || null,
   };
@@ -1302,14 +1306,16 @@ export async function createLetterByPastor(payload: LetterCreatePayload) {
   if (!payload.preacher_name.trim()) throw new Error("preacher-required");
   if (!payload.minister_role.trim()) throw new Error("minister-role-required");
   if (!payload.preach_date) throw new Error("preach-date-required");
+  if (!payload.preach_period) throw new Error("invalid_preach_period");
   if (!payload.church_origin.trim()) throw new Error("origin-required");
   if (!payload.church_destination.trim()) throw new Error("destination-required");
 
   if (!isMockMode()) {
-    return await api.createLetter({
+    return await apiFetch("/create-letter", {
       preacher_name: payload.preacher_name.trim(),
       minister_role: payload.minister_role.trim(),
       preach_date: payload.preach_date,
+      preach_period: payload.preach_period,
       church_origin: payload.church_origin.trim(),
       church_destination: payload.church_destination.trim(),
       preacher_user_id: payload.preacher_user_id || null,
@@ -1338,3 +1344,5 @@ export async function createLetterByPastor(payload: LetterCreatePayload) {
     n8n: { ok: true, status: 200 },
   };
 }
+
+

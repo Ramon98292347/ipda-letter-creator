@@ -29,6 +29,7 @@ const CODE_MAP: Record<string, string> = {
   cannot_release_without_pdf: "Não é possível liberar carta sem PDF pronto.",
   letter_not_released: "Carta ainda não liberada.",
   weekly_limit_reached: "Limite semanal de cartas atingido.",
+  inactive_user: "Seu cadastro está bloqueado. Procure a secretaria da igreja para normalizar o cadastro.",
 };
 
 const DEFAULT_MAP: Record<ErrorContext, string> = {
