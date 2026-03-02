@@ -18,6 +18,14 @@ export const api = {
   updateMyProfile: (body: { phone?: string; email?: string; address_city?: string }) => post("update-my-profile", body),
   listWorkers: (body: { search?: string; minister_role?: string; is_active?: boolean; include_pastor?: boolean; page?: number; page_size?: number }) =>
     post("list-workers", body),
+  listMembers: (body: {
+    search?: string;
+    minister_role?: string;
+    is_active?: boolean;
+    roles?: Array<"pastor" | "obreiro">;
+    page?: number;
+    page_size?: number;
+  }) => post("list-members", body),
   listPastors: (body: any) => post("list-pastors", body),
   setChurchPastor: (body: { church_totvs_id: string; pastor_user_id: string }) => post("set-church-pastor", body),
   toggleWorkerActive: (body: { worker_id: string; is_active: boolean }) => post("toggle-worker-active", body),

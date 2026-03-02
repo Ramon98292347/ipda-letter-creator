@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { FileText, Bell, LogOut, CalendarDays, LineChart, Users, Megaphone } from "lucide-react";
 import { useUser } from "@/context/UserContext";
-import { getPastorMetrics, listAdminChurchSummary, listChurchesInScopePaged, listNotifications, listPastorLetters, listWorkers, markAllNotificationsRead, markNotificationRead } from "@/services/saasService";
+import { getPastorMetrics, listAdminChurchSummary, listChurchesInScopePaged, listMembers, listNotifications, listPastorLetters, markAllNotificationsRead, markNotificationRead } from "@/services/saasService";
 import { CartasTab } from "@/components/admin/CartasTab";
 import { ObreirosTab } from "@/components/admin/ObreirosTab";
 import { AdminChurchesTab } from "@/components/admin/AdminChurchesTab";
@@ -59,7 +59,7 @@ export default function AdminPastorDashboard() {
   const { data: obreiros = [] } = useQuery({
     queryKey: ["pastor-obreiros", scopeTotvsIds.join("|")],
     queryFn: async () => {
-      const res = await listWorkers({ page: 1, page_size: 200 });
+      const res = await listMembers({ page: 1, page_size: 200, roles: ["pastor", "obreiro"] });
       return res.workers;
     },
     enabled: scopeTotvsIds.length > 0,

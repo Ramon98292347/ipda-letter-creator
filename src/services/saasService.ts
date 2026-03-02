@@ -93,6 +93,15 @@ export type WorkerListParams = {
   page_size?: number;
 };
 
+export type MemberListParams = {
+  search?: string;
+  minister_role?: string;
+  is_active?: boolean;
+  roles?: Array<"pastor" | "obreiro">;
+  page?: number;
+  page_size?: number;
+};
+
 export type WorkerListResponse = {
   workers: UserListItem[];
   total: number;
@@ -174,6 +183,14 @@ export type AnnouncementItem = {
 export type BirthdayItem = {
   full_name: string;
   avatar_url?: string | null;
+};
+
+export type PastorContact = {
+  full_name: string;
+  phone?: string | null;
+  email?: string | null;
+  avatar_url?: string | null;
+  minister_role?: string | null;
 };
 
 type MinisterRoleFront = "Pastor" | "Presbitero" | "Diacono" | "Obreiro" | "Membro";
@@ -490,8 +507,49 @@ export async function listPastorLetters(_activeTotvsId: string, filters: PastorF
 }
 
 export async function listObreiros(_scopeTotvsIds: string[]): Promise<UserListItem[]> {
-  const res = await listWorkers({ page: 1, page_size: 200 });
+  const res = await listMembers({ page: 1, page_size: 200, roles: ["pastor", "obreiro"] });
   return res.workers;
+}
+
+export async function listMembers(params: MemberListParams): Promise<WorkerListResponse> {
+  if (!useMockMode()) {
+    const data = await api.listMembers({
+      search: params.search || undefined,
+      minister_role: params.minister_role || undefined,
+      is_active: typeof params.is_active === "boolean" ? params.is_active : undefined,
+      roles: params.roles?.length ? params.roles : undefined,
+      page: params.page || 1,
+      page_size: params.page_size || 20,
+    });
+
+    const rows = Array.isArray(data?.members) ? data.members : [];
+    return {
+      workers: rows.map((w: any) => ({
+        id: String(w?.id || ""),
+        full_name: String(w?.full_name || ""),
+        role: (w?.role || null) as AppRole | null,
+        cpf: w?.cpf || null,
+        phone: w?.phone || null,
+        email: w?.email || null,
+        minister_role: w?.minister_role || null,
+        default_totvs_id: w?.default_totvs_id || null,
+        totvs_access: w?.totvs_access || null,
+        is_active: typeof w?.is_active === "boolean" ? w.is_active : true,
+      })),
+      total: Number(data?.total || rows.length),
+      page: Number(data?.page || params.page || 1),
+      page_size: Number(data?.page_size || params.page_size || 20),
+    };
+  }
+
+  return listWorkers({
+    search: params.search,
+    minister_role: params.minister_role,
+    is_active: params.is_active,
+    include_pastor: true,
+    page: params.page,
+    page_size: params.page_size,
+  });
 }
 
 export async function listWorkers(params: WorkerListParams): Promise<WorkerListResponse> {
@@ -841,6 +899,30 @@ export async function listBirthdaysTodayPublicByTotvs(churchTotvsId: string, lim
       avatar_url: u?.avatar_url || null,
     }))
     .filter((x: BirthdayItem) => x.full_name);
+}
+
+export async function getPastorByTotvsPublic(churchTotvsId: string): Promise<PastorContact | null> {
+  const totvs = String(churchTotvsId || "").trim();
+  if (!totvs || !supabase) return null;
+
+  const { data, error } = await supabase
+    .from("users")
+    .select("full_name,phone,email,avatar_url,minister_role")
+    .eq("role", "pastor")
+    .eq("default_totvs_id", totvs)
+    .eq("is_active", true)
+    .order("updated_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error || !data) return null;
+  return {
+    full_name: String((data as any).full_name || ""),
+    phone: (data as any).phone || null,
+    email: (data as any).email || null,
+    avatar_url: (data as any).avatar_url || null,
+    minister_role: (data as any).minister_role || null,
+  };
 }
 
 export async function approveRelease(requestId: string) {

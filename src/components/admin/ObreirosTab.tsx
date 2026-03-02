@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Search, PlusCircle, Upload } from "lucide-react";
 import { toast } from "sonner";
-import { listWorkers, resetWorkerPassword, setWorkerActive, upsertWorkerByPastor, type UserListItem } from "@/services/saasService";
+import { listMembers, resetWorkerPassword, setWorkerActive, upsertWorkerByPastor, type UserListItem } from "@/services/saasService";
 import { getFriendlyError } from "@/lib/error-map";
 import { addAuditLog } from "@/lib/audit";
 import { supabase } from "@/lib/supabase";
@@ -85,11 +85,11 @@ export function ObreirosTab({ activeTotvsId }: { activeTotvsId: string }) {
   const { data, isLoading } = useQuery({
     queryKey: ["workers", search, ministerRole, activeFilter, page, pageSize],
     queryFn: () =>
-      listWorkers({
+      listMembers({
         search: search || undefined,
         minister_role: ministerRole === "all" ? undefined : ministerRole,
         is_active: activeFilter === "all" ? undefined : activeFilter === "active",
-        include_pastor: true,
+        roles: ["pastor", "obreiro"],
         page,
         page_size: pageSize,
       }),
@@ -333,33 +333,41 @@ export function ObreirosTab({ activeTotvsId }: { activeTotvsId: string }) {
 
           <div className="overflow-x-auto rounded-xl border border-slate-200">
             <div className="min-w-[1100px]">
-              <div className="grid grid-cols-[220px_150px_160px_160px_100px_1fr] border-b bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700">
+              <div className="grid grid-cols-[220px_150px_160px_160px_130px_100px_1fr] border-b bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700">
                 <span>Nome</span>
                 <span>CPF</span>
                 <span>Telefone</span>
                 <span>Cargo</span>
+                <span>Tipo</span>
                 <span>Ativo</span>
                 <span>Acoes</span>
               </div>
               {isLoading ? <div className="px-4 py-4 text-sm text-slate-500">Carregando...</div> : null}
-              {!isLoading && workers.length === 0 ? <div className="px-4 py-4 text-sm text-slate-500">Nenhum obreiro encontrado.</div> : null}
+              {!isLoading && workers.length === 0 ? <div className="px-4 py-4 text-sm text-slate-500">Nenhum membro encontrado.</div> : null}
               {workers.map((w) => (
-                <div key={w.id} className="grid grid-cols-[220px_150px_160px_160px_100px_1fr] items-center border-b px-4 py-3 text-sm">
+                <div key={w.id} className="grid grid-cols-[220px_150px_160px_160px_130px_100px_1fr] items-center border-b px-4 py-3 text-sm">
                   <span className="truncate">{w.full_name}</span>
                   <span>{maskCpf(w.cpf || "")}</span>
                   <span>{w.phone || "-"}</span>
                   <span>{w.minister_role || "-"}</span>
+                  <span className="capitalize">{w.role || "-"}</span>
                   <span>
                     <span className={`rounded-full px-2 py-1 text-xs ${w.is_active === false ? "bg-rose-100 text-rose-700" : "bg-emerald-100 text-emerald-700"}`}>
                       {w.is_active === false ? "Nao" : "Sim"}
                     </span>
                   </span>
                   <div className="flex flex-wrap gap-2">
-                    <Button size="sm" variant="outline" onClick={() => openEdit(w)}>Editar</Button>
-                    <Button size="sm" variant="secondary" onClick={() => openResetPassword(w)}>Resetar senha</Button>
-                    <Button size="sm" variant={w.is_active === false ? "default" : "destructive"} onClick={() => toggle(w)}>
-                      {w.is_active === false ? "Ativar" : "Excluir"}
-                    </Button>
+                    {w.role === "obreiro" ? (
+                      <>
+                        <Button size="sm" variant="outline" onClick={() => openEdit(w)}>Editar</Button>
+                        <Button size="sm" variant="secondary" onClick={() => openResetPassword(w)}>Resetar senha</Button>
+                        <Button size="sm" variant={w.is_active === false ? "default" : "destructive"} onClick={() => toggle(w)}>
+                          {w.is_active === false ? "Ativar" : "Excluir"}
+                        </Button>
+                      </>
+                    ) : (
+                      <span className="text-xs text-slate-400">Somente visualizacao</span>
+                    )}
                   </div>
                 </div>
               ))}
