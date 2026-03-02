@@ -473,12 +473,21 @@ export async function selectChurchSession(cpfInput: string, totvsId: string): Pr
 export async function getPastorMetrics(): Promise<PastorMetrics> {
   if (!isMockMode()) {
     const data = await api.dashboardStats();
+    const pickNumber = (...values: unknown[]) => {
+      for (const value of values) {
+        const n = Number(value);
+        if (Number.isFinite(n)) return n;
+      }
+      return 0;
+    };
+
     return {
-      totalCartas: Number(data?.total_letters || 0),
-      cartasHoje: Number(data?.today_letters || 0),
-      ultimos7Dias: Number(data?.last7_letters || 0),
-      totalObreiros: Number(data?.total_workers || 0),
-      pendentesLiberacao: Number(data?.pending_release || 0),
+      // Comentario: aceita variacoes de nome retornadas pelo backend.
+      totalCartas: pickNumber(data?.total_letters, data?.totalLetters, data?.total_cartas),
+      cartasHoje: pickNumber(data?.today_letters, data?.todayLetters, data?.cartas_hoje),
+      ultimos7Dias: pickNumber(data?.last7_letters, data?.last7Letters, data?.ultimos_7_dias),
+      totalObreiros: pickNumber(data?.total_workers, data?.totalWorkers, data?.total_membros),
+      pendentesLiberacao: pickNumber(data?.pending_release, data?.pendingRelease, data?.pendentes_liberacao),
     };
   }
 

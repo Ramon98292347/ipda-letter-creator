@@ -11,7 +11,17 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
-import { getPastorByTotvsPublic, getSignedPdfUrl, requestRelease, updateMyProfile, workerDashboard, type PastorLetter } from "@/services/saasService";
+import {
+  getPastorByTotvsPublic,
+  getSignedPdfUrl,
+  listNotifications,
+  markAllNotificationsRead,
+  markNotificationRead,
+  requestRelease,
+  updateMyProfile,
+  workerDashboard,
+  type PastorLetter,
+} from "@/services/saasService";
 import { Share2, Download, Unlock, LogOut, Bell, RefreshCw, MoreHorizontal, Eye } from "lucide-react";
 import { usePwaInstall } from "@/hooks/usePwaInstall";
 
@@ -52,6 +62,7 @@ export default function UsuarioDashboard() {
   const [quickRange, setQuickRange] = useState<QuickRange>("7");
   const [openUpdateModal, setOpenUpdateModal] = useState(false);
   const [openCadastroModal, setOpenCadastroModal] = useState(false);
+  const [openNotificationsModal, setOpenNotificationsModal] = useState(false);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [profileForm, setProfileForm] = useState({ phone: "", email: "", address_city: "" });
@@ -85,6 +96,11 @@ export default function UsuarioDashboard() {
     queryFn: () => workerDashboard(dateStart || undefined, dateEnd || undefined, 1, 50),
     enabled: Boolean(userId),
   });
+  const { data: notificationsData } = useQuery({
+    queryKey: ["worker-notifications", 1, 50],
+    queryFn: () => listNotifications(1, 50, false),
+    enabled: Boolean(session?.totvs_id || session?.root_totvs_id),
+  });
 
   const letters = useMemo(() => (data?.letters || []).sort((a, b) => (a.created_at < b.created_at ? 1 : -1)), [data?.letters]);
   const filteredLetters = useMemo(() => {
@@ -99,6 +115,8 @@ export default function UsuarioDashboard() {
   const profile = data?.user;
   const church = data?.church;
   const activeTotvs = String(session?.totvs_id || church?.totvs_id || "");
+  const notifications = notificationsData?.notifications || [];
+  const unreadCount = notificationsData?.unread_count || 0;
 
   const { data: pastorFromUsers } = useQuery({
     queryKey: ["pastor-by-totvs", activeTotvs],
@@ -144,6 +162,28 @@ export default function UsuarioDashboard() {
   function logout() {
     clearAuth();
     nav("/");
+  }
+
+  async function refreshNotifications() {
+    await queryClient.invalidateQueries({ queryKey: ["worker-notifications"] });
+  }
+
+  async function readNotification(id: string) {
+    try {
+      await markNotificationRead(id);
+      await refreshNotifications();
+    } catch {
+      toast.error("Falha ao marcar notificação como lida.");
+    }
+  }
+
+  async function readAllNotifications() {
+    try {
+      await markAllNotificationsRead();
+      await refreshNotifications();
+    } catch {
+      toast.error("Falha ao marcar notificações.");
+    }
   }
 
   async function openPdf(letter: PastorLetter) {
@@ -277,11 +317,16 @@ export default function UsuarioDashboard() {
                     <Download className="mr-2 h-4 w-4" /> Instalar app
                   </Button>
                 ) : null}
-                <Button variant="outline" size="icon" className="relative h-9 w-9 border-white/30 bg-white/10 text-white hover:bg-white/20 sm:h-10 sm:w-10">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="relative h-9 w-9 border-white/30 bg-white/10 text-white hover:bg-white/20 sm:h-10 sm:w-10"
+                  onClick={() => setOpenNotificationsModal(true)}
+                >
                   <Bell className="h-4 w-4 sm:h-5 sm:w-5" />
-                  {stats.liberadas > 0 ? (
+                  {unreadCount > 0 ? (
                     <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-rose-500 text-xs font-semibold text-white">
-                      {stats.liberadas}
+                      {unreadCount}
                     </span>
                   ) : null}
                 </Button>
@@ -610,6 +655,33 @@ export default function UsuarioDashboard() {
             <Button className="w-full" onClick={salvarPerfil} disabled={savingProfile}>
               {savingProfile ? "Salvando..." : "Atualizar perfil"}
             </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={openNotificationsModal} onOpenChange={setOpenNotificationsModal}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Notificações</DialogTitle>
+          </DialogHeader>
+          <div className="mb-2 flex justify-end">
+            <Button variant="outline" size="sm" onClick={readAllNotifications}>
+              Marcar todas como lidas
+            </Button>
+          </div>
+          <div className="space-y-2">
+            {notifications.length === 0 ? <p className="text-sm text-slate-500">Sem notificações.</p> : null}
+            {notifications.map((item) => (
+              <div key={item.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border p-3 text-sm">
+                <div>
+                  <p className="font-semibold">{item.title}</p>
+                  <p className="text-slate-600">{item.message || "Sem mensagem"}</p>
+                </div>
+                <Button variant="outline" onClick={() => readNotification(item.id)} disabled={item.is_read}>
+                  {item.is_read ? "Lida" : "Marcar lida"}
+                </Button>
+              </div>
+            ))}
           </div>
         </DialogContent>
       </Dialog>

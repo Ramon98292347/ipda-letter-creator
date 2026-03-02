@@ -137,10 +137,42 @@ export default function AdminPastorDashboard() {
     await install();
   }
 
-  const totalCartas = isAdmin ? churchRows.reduce((acc, r) => acc + r.total_cartas, 0) : (metrics?.totalCartas || 0);
-  const cartasHoje = isAdmin ? churchRows.length : (metrics?.cartasHoje || 0);
-  const ultimos7 = isAdmin ? churchRows.reduce((acc, r) => acc + r.cartas_liberadas, 0) : (metrics?.ultimos7Dias || 0);
-  const totalObreiros = isAdmin ? churchRows.reduce((acc, r) => acc + r.total_obreiros, 0) : (metrics?.totalObreiros || obreiros.length);
+  // Comentario: calcula localmente para evitar cards zerados quando a metrica externa nao vier.
+  const now = Date.now();
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+  const validLetters = letters.filter((l) => String(l.status || "").toUpperCase() !== "EXCLUIDA");
+  const totalCartasLocal = validLetters.length;
+  const cartasHojeLocal = validLetters.filter((l) => {
+    if (!l.created_at) return false;
+    const created = new Date(l.created_at).getTime();
+    return Number.isFinite(created) && created >= startOfToday.getTime();
+  }).length;
+  const ultimos7Local = validLetters.filter((l) => {
+    if (!l.created_at) return false;
+    const created = new Date(l.created_at).getTime();
+    return Number.isFinite(created) && created >= now - 7 * 24 * 60 * 60 * 1000;
+  }).length;
+  const totalMembrosLocal = obreiros.length;
+
+  const preferApiOrLocal = (apiValue: number, localValue: number) => {
+    if (apiValue > 0) return apiValue;
+    if (apiValue === 0 && localValue > 0) return localValue;
+    return apiValue || localValue || 0;
+  };
+
+  const totalCartas = isAdmin
+    ? churchRows.reduce((acc, r) => acc + r.total_cartas, 0)
+    : preferApiOrLocal(metrics?.totalCartas || 0, totalCartasLocal);
+  const cartasHoje = isAdmin
+    ? churchRows.length
+    : preferApiOrLocal(metrics?.cartasHoje || 0, cartasHojeLocal);
+  const ultimos7 = isAdmin
+    ? churchRows.reduce((acc, r) => acc + r.cartas_liberadas, 0)
+    : preferApiOrLocal(metrics?.ultimos7Dias || 0, ultimos7Local);
+  const totalObreiros = isAdmin
+    ? churchRows.reduce((acc, r) => acc + r.total_obreiros, 0)
+    : preferApiOrLocal(metrics?.totalObreiros || 0, totalMembrosLocal);
   const pendentes = unreadCount || (isAdmin ? churchRows.reduce((acc, r) => acc + r.pendentes_liberacao, 0) : (metrics?.pendentesLiberacao || 0));
   const pastorDaLista = obreiros.find((m) => m?.role === "pastor");
   const headerAvatarUrl = usuario?.avatar_url || pastorDaLista?.avatar_url || null;
