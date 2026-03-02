@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { CheckCircle2, FileText, Bell, LogOut, CalendarDays, LineChart, Users, Megaphone } from "lucide-react";
+import { FileText, Bell, LogOut, CalendarDays, LineChart, Users, Megaphone } from "lucide-react";
 import { useUser } from "@/context/UserContext";
 import { getPastorMetrics, listAdminChurchSummary, listChurchesInScopePaged, listNotifications, listPastorLetters, listWorkers, markAllNotificationsRead, markNotificationRead } from "@/services/saasService";
 import { CartasTab } from "@/components/admin/CartasTab";
@@ -122,40 +122,41 @@ export default function AdminPastorDashboard() {
   return (
     <div className="min-h-screen bg-[#f3f5f9]">
       <header className="sticky top-0 z-40 border-b border-slate-200 bg-white">
-        <div className="mx-auto flex w-full max-w-[1600px] items-center justify-between gap-3 px-4 py-4">
-          <div className="flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#2f63d4] text-white">
-              <FileText className="h-6 w-6" />
+        <div className="mx-auto w-full max-w-[1600px] px-3 py-3 sm:px-4 sm:py-4">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#2f63d4] text-white sm:h-12 sm:w-12">
+                <FileText className="h-5 w-5 sm:h-6 sm:w-6" />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold leading-none text-slate-900 sm:text-3xl">Painel de Gestao</h1>
+                <p className="text-base text-slate-500 sm:text-xl">Cartas e Obreiros</p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-3xl font-bold leading-none text-slate-900">Painel de Gestao</h1>
-              <p className="text-xl text-slate-500">Cartas e Obreiros</p>
-            </div>
-          </div>
 
-          <div className="flex items-center gap-2">
-            <Button variant="outline" className="h-11 px-4" onClick={() => nav("/config")}>
-              <Megaphone className="mr-2 h-4 w-4" /> Divulgação
-            </Button>
-            <Button variant="outline" className="relative h-11 w-11 p-0" onClick={() => setOpenReleases(true)}>
-              <Bell className="h-5 w-5" />
-              {pendentes > 0 ? (
-                <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-rose-500 text-xs font-semibold text-white">
-                  {pendentes}
-                </span>
-              ) : null}
-            </Button>
-            <Button variant="outline" className="h-11 px-4" onClick={logout}>
-              <LogOut className="mr-2 h-4 w-4" /> Sair
-            </Button>
-            <div className="hidden rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-600 md:block">
-              Igreja: {session?.church_name || usuario?.church_name || "-"}
-              <br />
-              Pastor: {usuario?.nome || "-"}
-              <br />
-              Raiz TOTVS: {session?.root_totvs_id || session?.totvs_id || "-"}
+            <div className="flex w-full flex-wrap items-center gap-2 lg:w-auto lg:flex-nowrap lg:justify-end">
+              <Button variant="outline" className="h-10 px-3 sm:h-11 sm:px-4" onClick={() => nav("/config")}>
+                <Megaphone className="mr-2 h-4 w-4" /> Divulgacao
+              </Button>
+              <Button variant="outline" className="relative h-10 w-10 p-0 sm:h-11 sm:w-11" onClick={() => setOpenReleases(true)}>
+                <Bell className="h-5 w-5" />
+                {pendentes > 0 ? (
+                  <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-rose-500 text-xs font-semibold text-white">
+                    {pendentes}
+                  </span>
+                ) : null}
+              </Button>
+              <Button variant="outline" className="h-10 px-3 sm:h-11 sm:px-4" onClick={logout}>
+                <LogOut className="mr-2 h-4 w-4" /> Sair
+              </Button>
+              <div className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs text-slate-600 sm:text-sm lg:w-auto">
+                Igreja: {session?.church_name || usuario?.church_name || "-"}
+                <br />
+                Pastor: {usuario?.nome || "-"}
+                <br />
+                Raiz TOTVS: {session?.root_totvs_id || session?.totvs_id || "-"}
+              </div>
             </div>
-            <CheckCircle2 className="h-6 w-6 text-emerald-500" />
           </div>
         </div>
       </header>

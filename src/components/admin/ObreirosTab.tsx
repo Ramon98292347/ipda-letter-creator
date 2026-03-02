@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { listWorkers, resetWorkerPassword, setWorkerActive, upsertWorkerByPastor, type UserListItem } from "@/services/saasService";
 import { getFriendlyError } from "@/lib/error-map";
 import { addAuditLog } from "@/lib/audit";
+import { useUser } from "@/context/UserContext";
 
 function normalizeCpf(v: string) {
   return (v || "").replace(/\D/g, "").slice(0, 11);
@@ -62,6 +63,7 @@ const initialForm: WorkerForm = {
 };
 
 export function ObreirosTab({ activeTotvsId }: { activeTotvsId: string }) {
+  const { usuario } = useUser();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [ministerRole, setMinisterRole] = useState("all");
@@ -90,8 +92,30 @@ export function ObreirosTab({ activeTotvsId }: { activeTotvsId: string }) {
       }),
   });
 
-  const workers = data?.workers || [];
-  const total = data?.total || 0;
+  const workersApi = data?.workers || [];
+  const hasPastorFromApi = workersApi.some((w) => String(w.id) === String(usuario?.id || ""));
+  const pastorHasAccess =
+    usuario?.role === "pastor" &&
+    !!activeTotvsId &&
+    (String(usuario?.default_totvs_id || usuario?.totvs || "") === activeTotvsId ||
+      (Array.isArray(usuario?.totvs_access) && usuario.totvs_access.includes(activeTotvsId)));
+
+  const injectedPastor: UserListItem | null =
+    pastorHasAccess && !hasPastorFromApi
+      ? {
+          id: String(usuario?.id || ""),
+          full_name: String(usuario?.full_name || usuario?.nome || "Pastor"),
+          role: "pastor",
+          cpf: usuario?.cpf || null,
+          minister_role: usuario?.ministerial || "Pastor",
+          default_totvs_id: activeTotvsId,
+          totvs_access: [activeTotvsId],
+          is_active: true,
+        }
+      : null;
+
+  const workers = injectedPastor ? [injectedPastor, ...workersApi] : workersApi;
+  const total = (data?.total || 0) + (injectedPastor ? 1 : 0);
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   const roleOptions = useMemo(() => {
@@ -317,7 +341,9 @@ export function ObreirosTab({ activeTotvsId }: { activeTotvsId: string }) {
               </div>
               {isLoading ? <div className="px-4 py-4 text-sm text-slate-500">Carregando...</div> : null}
               {!isLoading && workers.length === 0 ? <div className="px-4 py-4 text-sm text-slate-500">Nenhum obreiro encontrado.</div> : null}
-              {workers.map((w) => (
+              {workers.map((w) => {
+                const isPastorRow = String(w.role || "") === "pastor";
+                return (
                 <div key={w.id} className="grid grid-cols-[220px_150px_160px_160px_100px_1fr] items-center border-b px-4 py-3 text-sm">
                   <span className="truncate">{w.full_name}</span>
                   <span>{maskCpf(w.cpf || "")}</span>
@@ -329,14 +355,20 @@ export function ObreirosTab({ activeTotvsId }: { activeTotvsId: string }) {
                     </span>
                   </span>
                   <div className="flex flex-wrap gap-2">
-                    <Button size="sm" variant="outline" onClick={() => openEdit(w)}>Editar</Button>
-                    <Button size="sm" variant="secondary" onClick={() => openResetPassword(w)}>Resetar senha</Button>
-                    <Button size="sm" variant={w.is_active === false ? "default" : "destructive"} onClick={() => toggle(w)}>
-                      {w.is_active === false ? "Ativar" : "Excluir"}
-                    </Button>
+                    {isPastorRow ? (
+                      <span className="rounded-md bg-slate-100 px-2 py-1 text-xs font-medium text-slate-700">Pastor</span>
+                    ) : (
+                      <>
+                        <Button size="sm" variant="outline" onClick={() => openEdit(w)}>Editar</Button>
+                        <Button size="sm" variant="secondary" onClick={() => openResetPassword(w)}>Resetar senha</Button>
+                        <Button size="sm" variant={w.is_active === false ? "default" : "destructive"} onClick={() => toggle(w)}>
+                          {w.is_active === false ? "Ativar" : "Excluir"}
+                        </Button>
+                      </>
+                    )}
                   </div>
                 </div>
-              ))}
+              )})}
             </div>
           </div>
 
