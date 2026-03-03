@@ -21,6 +21,7 @@ const FUNCTIONS_BASE = `${SUPABASE_URL?.replace(/\/$/, "")}/functions/v1`;
 const TOKEN_KEY = "ipda_token";
 const SESSION_KEY = "ipda_session";
 const USER_KEY = "ipda_user";
+const AUTH_CLEARED_EVENT = "ipda-auth-cleared";
 
 function normalizeToken(raw: string) {
   return raw.replace(/^Bearer\s+/i, "").trim();
@@ -86,6 +87,9 @@ export function logout() {
   clearToken();
   clearSession();
   clearUser();
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event(AUTH_CLEARED_EVENT));
+  }
 }
 
 export class ApiError extends Error {

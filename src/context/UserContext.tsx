@@ -63,6 +63,14 @@ const LS_TOKEN = "ipda_token";
 const LS_SESSION = "ipda_session";
 const LS_PENDING_CPF = "ipda_pending_cpf";
 const LS_CHURCHES = "ipda_pending_churches";
+const AUTH_CLEARED_EVENT = "ipda-auth-cleared";
+
+function normalizeJwtToken(raw?: string | null): string | undefined {
+  const value = String(raw || "").replace(/^Bearer\s+/i, "").trim();
+  if (!value || value === "undefined" || value === "null") return undefined;
+  if (value.split(".").length !== 3) return undefined;
+  return value;
+}
 
 export function UserProvider({ children }: { children: React.ReactNode }) {
   const [usuario, setUsuario] = useState<Usuario | undefined>(() => {
@@ -74,7 +82,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       return undefined;
     }
   });
-  const [token, setToken] = useState<string | undefined>(() => localStorage.getItem(LS_TOKEN) || undefined);
+  const [token, setToken] = useState<string | undefined>(() => normalizeJwtToken(localStorage.getItem(LS_TOKEN)));
   const [session, setSession] = useState<AppSession | undefined>(() => {
     try {
       const raw = localStorage.getItem(LS_SESSION);
@@ -145,6 +153,14 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     if (token) localStorage.setItem(LS_TOKEN, token);
     else localStorage.removeItem(LS_TOKEN);
   }, [token]);
+
+  useEffect(() => {
+    function onAuthCleared() {
+      clearAuth();
+    }
+    window.addEventListener(AUTH_CLEARED_EVENT, onAuthCleared);
+    return () => window.removeEventListener(AUTH_CLEARED_EVENT, onAuthCleared);
+  }, []);
 
   useEffect(() => {
     if (session) localStorage.setItem(LS_SESSION, JSON.stringify(session));
