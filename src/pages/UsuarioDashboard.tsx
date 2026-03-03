@@ -54,7 +54,7 @@ function getAddressCity(addressJson: unknown) {
 }
 
 export default function UsuarioDashboard() {
-  const { usuario, session, clearAuth, setUsuario, setTelefone } = useUser();
+  const { usuario, session, token, clearAuth, setUsuario, setTelefone } = useUser();
   const nav = useNavigate();
   const queryClient = useQueryClient();
   const [dateStart, setDateStart] = useState("");
@@ -99,19 +99,25 @@ export default function UsuarioDashboard() {
   const { data: notificationsData } = useQuery({
     queryKey: ["worker-notifications", 1, 50],
     queryFn: () => listNotifications(1, 50, false),
-    enabled: Boolean(session?.totvs_id || session?.root_totvs_id),
+    enabled: Boolean((session?.totvs_id || session?.root_totvs_id) && token),
   });
 
   const letters = useMemo(() => (data?.letters || []).sort((a, b) => (a.created_at < b.created_at ? 1 : -1)), [data?.letters]);
   const filteredLetters = useMemo(() => {
     const q = search.trim().toLowerCase();
     return letters.filter((l) => {
+      // Comentario: aplica periodo local para os filtros Hoje/7/15/30 dias funcionarem
+      // mesmo quando o backend retornar um conjunto maior de cartas.
+      const createdDate = toInputDate(new Date(l.created_at));
+      if (dateStart && createdDate < dateStart) return false;
+      if (dateEnd && createdDate > dateEnd) return false;
+
       const matchesStatus = statusFilter === "all" || l.status === statusFilter;
       const haystack = `${l.preacher_name || ""} ${l.church_origin || ""} ${l.church_destination || ""} ${l.preach_date || ""}`.toLowerCase();
       const matchesSearch = !q || haystack.includes(q);
       return matchesStatus && matchesSearch;
     });
-  }, [letters, search, statusFilter]);
+  }, [letters, search, statusFilter, dateStart, dateEnd]);
   const profile = data?.user;
   const church = data?.church;
   const activeTotvs = String(session?.totvs_id || church?.totvs_id || "");

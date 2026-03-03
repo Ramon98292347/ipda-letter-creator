@@ -15,6 +15,7 @@ export type AuthSessionData = {
   email?: string | null;
   minister_role?: string | null;
   birth_date?: string | null;
+  ordination_date?: string | null;
   avatar_url?: string | null;
   default_totvs_id?: string | null;
   totvs_access?: string[] | null;
@@ -82,6 +83,7 @@ export type UserListItem = {
   email?: string | null;
   minister_role?: string | null;
   birth_date?: string | null;
+  ordination_date?: string | null;
   avatar_url?: string | null;
   cep?: string | null;
   address_street?: string | null;
@@ -220,6 +222,7 @@ export type UserCreatePayload = {
   phone?: string;
   email?: string;
   birth_date?: string;
+  ordination_date?: string;
   minister_role?: string;
   address_json?: Record<string, unknown>;
   is_active?: boolean;
@@ -395,6 +398,7 @@ function mapUserLike(raw: Record<string, unknown> | null | undefined): AuthSessi
     email: raw?.email || null,
     minister_role: raw?.minister_role || null,
     birth_date: raw?.birth_date || null,
+    ordination_date: raw?.ordination_date || null,
     avatar_url: raw?.avatar_url || null,
     default_totvs_id: raw?.default_totvs_id || raw?.totvs_id || null,
     totvs_access: Array.isArray(raw?.totvs_access) ? raw.totvs_access : null,
@@ -555,6 +559,7 @@ export async function listMembers(params: MemberListParams): Promise<WorkerListR
         email: w?.email || null,
         minister_role: w?.minister_role || null,
         birth_date: w?.birth_date || null,
+        ordination_date: w?.ordination_date || null,
         avatar_url: w?.avatar_url || null,
         cep: w?.cep || null,
         address_street: w?.address_street || null,
@@ -604,6 +609,7 @@ export async function listWorkers(params: WorkerListParams): Promise<WorkerListR
         email: w?.email || null,
         minister_role: w?.minister_role || null,
         birth_date: w?.birth_date || null,
+        ordination_date: w?.ordination_date || null,
         avatar_url: w?.avatar_url || null,
         cep: w?.cep || null,
         address_street: w?.address_street || null,
@@ -779,12 +785,21 @@ export async function listReleaseRequests(status: "PENDENTE" | "APROVADO" | "NEG
 export async function listNotifications(page = 1, pageSize = 20, unreadOnly = false): Promise<{ notifications: AppNotification[]; unread_count: number; total: number }> {
   const currentSession = getSession();
   const rootTotvs = currentSession?.root_totvs_id || currentSession?.totvs_id;
-  const data = await api.listNotifications({
-    page,
-    page_size: pageSize,
-    unread_only: unreadOnly,
-    church_totvs_id: rootTotvs,
-  });
+  let data: Record<string, unknown> = {};
+  try {
+    data = await api.listNotifications({
+      page,
+      page_size: pageSize,
+      unread_only: unreadOnly,
+      church_totvs_id: rootTotvs,
+    });
+  } catch (err: unknown) {
+    const e = err as { status?: number; code?: string };
+    if (e?.status === 401 || e?.status === 403 || e?.code === "unauthorized" || e?.code === "forbidden") {
+      return { notifications: [], unread_count: 0, total: 0 };
+    }
+    throw err;
+  }
   const rows = Array.isArray(data?.notifications)
     ? data.notifications
     : Array.isArray(data?.items)
@@ -808,13 +823,25 @@ export async function listNotifications(page = 1, pageSize = 20, unreadOnly = fa
 export async function markNotificationRead(id: string) {
   const currentSession = getSession();
   const rootTotvs = currentSession?.root_totvs_id || currentSession?.totvs_id;
-  await api.markNotificationRead({ id, church_totvs_id: rootTotvs });
+  try {
+    await api.markNotificationRead({ id, church_totvs_id: rootTotvs });
+  } catch (err: unknown) {
+    const e = err as { status?: number; code?: string };
+    if (e?.status === 401 || e?.status === 403 || e?.code === "unauthorized" || e?.code === "forbidden") return;
+    throw err;
+  }
 }
 
 export async function markAllNotificationsRead() {
   const currentSession = getSession();
   const rootTotvs = currentSession?.root_totvs_id || currentSession?.totvs_id;
-  await api.markAllNotificationsRead({ church_totvs_id: rootTotvs });
+  try {
+    await api.markAllNotificationsRead({ church_totvs_id: rootTotvs });
+  } catch (err: unknown) {
+    const e = err as { status?: number; code?: string };
+    if (e?.status === 401 || e?.status === 403 || e?.code === "unauthorized" || e?.code === "forbidden") return;
+    throw err;
+  }
 }
 
 export async function listAnnouncements(limit = 10): Promise<AnnouncementItem[]> {
@@ -1081,6 +1108,7 @@ export async function createUserByPastor(payload: UserCreatePayload, actorRole: 
       phone: payload.phone || null,
       email: payload.email || null,
       birth_date: payload.birth_date || null,
+      ordination_date: payload.ordination_date || null,
       minister_role: payload.minister_role || null,
       is_active: payload.is_active ?? true,
       password: payload.password || null,
@@ -1100,6 +1128,7 @@ export async function createUserByPastor(payload: UserCreatePayload, actorRole: 
     phone: payload.phone || null,
     email: payload.email || null,
     birth_date: payload.birth_date || null,
+    ordination_date: payload.ordination_date || null,
     minister_role: payload.minister_role || null,
     address_json: payload.address_json || null,
     church_name: null,
@@ -1117,6 +1146,7 @@ export async function upsertWorkerByPastor(payload: {
   phone?: string;
   email?: string;
   birth_date?: string;
+  ordination_date?: string;
   avatar_url?: string;
   cep?: string;
   address_street?: string;
@@ -1147,6 +1177,7 @@ export async function upsertWorkerByPastor(payload: {
     phone: payload.phone || null,
     email: payload.email || null,
     birth_date: payload.birth_date || null,
+    ordination_date: payload.ordination_date || null,
     minister_role: ministerRole,
     avatar_url: payload.avatar_url || null,
     cep: payload.cep || null,
@@ -1177,6 +1208,7 @@ export async function upsertWorkerByPastor(payload: {
         phone: body.phone,
         email: body.email,
         birth_date: body.birth_date,
+        ordination_date: body.ordination_date,
         avatar_url: body.avatar_url,
         default_totvs_id: body.default_totvs_id,
         totvs_access: [payload.active_totvs_id],
@@ -1208,6 +1240,7 @@ export async function upsertWorkerByPastor(payload: {
     phone: body.phone,
     email: body.email,
     birth_date: body.birth_date,
+    ordination_date: body.ordination_date,
     avatar_url: body.avatar_url,
     address_json: {
       cep: body.cep,

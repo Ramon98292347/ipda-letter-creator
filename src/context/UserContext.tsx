@@ -66,10 +66,22 @@ const LS_CHURCHES = "ipda_pending_churches";
 const AUTH_CLEARED_EVENT = "ipda-auth-cleared";
 
 function normalizeJwtToken(raw?: string | null): string | undefined {
-  const value = String(raw || "").replace(/^Bearer\s+/i, "").trim();
+  const value = String(raw || "")
+    .replace(/^Bearer\s+/i, "")
+    .trim()
+    .replace(/^"+|"+$/g, "");
   if (!value || value === "undefined" || value === "null") return undefined;
-  if (value.split(".").length !== 3) return undefined;
-  return value;
+  const parts = value.split(".");
+  if (parts.length !== 3) return undefined;
+  try {
+    const payload = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    const padded = payload + "=".repeat((4 - (payload.length % 4)) % 4);
+    const data = JSON.parse(atob(padded));
+    if (!data?.sub || !data?.role || !data?.active_totvs_id) return undefined;
+    return value;
+  } catch {
+    return undefined;
+  }
 }
 
 export function UserProvider({ children }: { children: React.ReactNode }) {

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+﻿import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -18,7 +18,7 @@ type Tab = "cartas" | "igrejas" | "obreiros";
 export default function AdminPastorDashboard() {
   const nav = useNavigate();
   const queryClient = useQueryClient();
-  const { usuario, session, clearAuth } = useUser();
+  const { usuario, session, token, clearAuth } = useUser();
   const isAdmin = usuario?.role === "admin";
   const [tab, setTab] = useState<Tab>(isAdmin ? "igrejas" : "cartas");
   const [openReleases, setOpenReleases] = useState(false);
@@ -103,7 +103,7 @@ export default function AdminPastorDashboard() {
   const { data: notificationsData } = useQuery({
     queryKey: ["notifications", 1, 50],
     queryFn: () => listNotifications(1, 50, false),
-    enabled: Boolean(session?.totvs_id),
+    enabled: Boolean((session?.totvs_id || session?.root_totvs_id) && token),
   });
   const notifications = notificationsData?.notifications || [];
   const unreadCount = notificationsData?.unread_count || 0;
@@ -176,7 +176,7 @@ export default function AdminPastorDashboard() {
   const pendentes = unreadCount || (isAdmin ? churchRows.reduce((acc, r) => acc + r.pendentes_liberacao, 0) : (metrics?.pendentesLiberacao || 0));
   const pastorDaLista = obreiros.find((m) => m?.role === "pastor");
   const headerAvatarUrl = usuario?.avatar_url || pastorDaLista?.avatar_url || null;
-  const headerNome = usuario?.nome || pastorDaLista?.full_name || "Usuário";
+  const headerNome = usuario?.nome || pastorDaLista?.full_name || "UsuÃ¡rio";
 
   return (
     <div className="min-h-screen bg-[#f3f5f9]">
@@ -189,7 +189,7 @@ export default function AdminPastorDashboard() {
               </div>
               <div>
                 <h1 className="text-2xl font-bold leading-none text-slate-900 sm:text-3xl">Painel de Gestão</h1>
-                <p className="text-base text-slate-500 sm:text-xl">Cartas e Obreiros</p>
+                <p className="text-base text-slate-500 sm:text-xl">IPDA</p>
               </div>
             </div>
 
@@ -244,8 +244,11 @@ export default function AdminPastorDashboard() {
                 Fazer Carta
               </Button>
             ) : null}
-            <Button variant="outline" className="h-10 px-3 sm:h-11 sm:px-4" onClick={() => nav("/config")}>
+            <Button variant="outline" className="h-10 px-3 sm:h-11 sm:px-4" onClick={() => nav("/divulgacao")}>
               <Megaphone className="mr-2 h-4 w-4" /> Divulgação
+            </Button>
+            <Button variant="outline" className="h-10 px-3 sm:h-11 sm:px-4" onClick={() => nav("/config")}>
+              Configuração
             </Button>
           </div>
         </section>
@@ -262,7 +265,7 @@ export default function AdminPastorDashboard() {
             items={[
               { label: "Total de Cartas", value: totalCartas, icon: FileText, gradient: "bg-gradient-to-r from-[#2f63d4] to-[#4b77d5]" },
               { label: isAdmin ? "Total de Igrejas" : "Cartas Hoje", value: cartasHoje, icon: CalendarDays, gradient: "bg-gradient-to-r from-[#2fa86f] to-[#49c280]" },
-              { label: isAdmin ? "Cartas Liberadas" : "Últimos 7 dias", value: ultimos7, icon: LineChart, gradient: "bg-gradient-to-r from-[#f39b1c] to-[#f3b12c]" },
+              { label: isAdmin ? "Cartas Liberadas" : "Ãšltimos 7 dias", value: ultimos7, icon: LineChart, gradient: "bg-gradient-to-r from-[#f39b1c] to-[#f3b12c]" },
               { label: "Total de Membros", value: totalObreiros, icon: Users, gradient: "bg-gradient-to-r from-[#8f3fd4] to-[#a957e4]" },
             ]}
           />
@@ -307,7 +310,7 @@ export default function AdminPastorDashboard() {
       <Dialog open={openReleases} onOpenChange={setOpenReleases}>
         <DialogContent className="max-w-3xl">
           <DialogHeader>
-            <DialogTitle>Notificações</DialogTitle>
+            <DialogTitle>NotificaÃ§Ãµes</DialogTitle>
           </DialogHeader>
           <div className="mb-2 flex justify-end">
             <Button variant="outline" size="sm" onClick={readAllNotifications}>
@@ -315,7 +318,7 @@ export default function AdminPastorDashboard() {
             </Button>
           </div>
           <div className="space-y-2">
-            {notifications.length === 0 ? <p className="text-sm text-slate-500">Sem notificações.</p> : null}
+            {notifications.length === 0 ? <p className="text-sm text-slate-500">Sem notificaÃ§Ãµes.</p> : null}
             {notifications.map((item) => (
               <div key={item.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border p-3 text-sm">
                 <div>

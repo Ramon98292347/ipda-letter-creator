@@ -24,19 +24,28 @@ const USER_KEY = "ipda_user";
 const AUTH_CLEARED_EVENT = "ipda-auth-cleared";
 
 function normalizeToken(raw: string) {
-  return raw.replace(/^Bearer\s+/i, "").trim();
+  return raw.replace(/^Bearer\s+/i, "").trim().replace(/^"+|"+$/g, "");
 }
 
 function isJwtLike(token: string) {
-  // Comentario: JWT deve ter 3 partes separadas por ponto.
-  return token.split(".").length === 3;
+  const parts = token.split(".");
+  if (parts.length !== 3) return false;
+  try {
+    const payload = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    const padded = payload + "=".repeat((4 - (payload.length % 4)) % 4);
+    const json = JSON.parse(atob(padded));
+    return Boolean(json?.sub && json?.role && json?.active_totvs_id);
+  } catch {
+    return false;
+  }
 }
 
 export function getToken(): string | null {
   const raw = localStorage.getItem(TOKEN_KEY);
   if (!raw) return null;
   const token = normalizeToken(raw);
-  return token || null;
+  if (!token || !isJwtLike(token)) return null;
+  return token;
 }
 
 export function setToken(token: string) {
@@ -154,7 +163,6 @@ export async function post<T = unknown>(
       String(data.detail || data.message || "") ||
       (typeof data === "string" ? data : "Erro na requisição");
 
-    if (res.status === 401) logout();
     throw new ApiError(msg, res.status, code, data);
   }
 

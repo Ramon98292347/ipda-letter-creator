@@ -33,6 +33,7 @@ type WorkerForm = {
   phone: string;
   email: string;
   birth_date: string;
+  ordination_date: string;
   avatar_url: string;
   cep: string;
   address_street: string;
@@ -51,6 +52,7 @@ const initialForm: WorkerForm = {
   phone: "",
   email: "",
   birth_date: "",
+  ordination_date: "",
   avatar_url: "",
   cep: "",
   address_street: "",
@@ -127,6 +129,7 @@ export function ObreirosTab({ activeTotvsId }: { activeTotvsId: string }) {
       phone: worker.phone || "",
       email: worker.email || "",
       birth_date: worker.birth_date || "",
+      ordination_date: worker.ordination_date || "",
       avatar_url: worker.avatar_url || "",
       cep: worker.cep || "",
       address_street: worker.address_street || "",
@@ -220,6 +223,7 @@ export function ObreirosTab({ activeTotvsId }: { activeTotvsId: string }) {
         phone: form.phone || undefined,
         email: form.email || undefined,
         birth_date: form.birth_date || undefined,
+        ordination_date: form.ordination_date || undefined,
         avatar_url: avatarUrlToSave,
         cep: form.cep || undefined,
         address_street: form.address_street || undefined,
@@ -303,8 +307,8 @@ export function ObreirosTab({ activeTotvsId }: { activeTotvsId: string }) {
           <Button onClick={openNew}><PlusCircle className="mr-2 h-4 w-4" /> Novo Obreiro</Button>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid gap-3 md:grid-cols-4">
-            <div className="flex items-center gap-2 rounded-xl border border-slate-200 px-3">
+          <div className="flex flex-nowrap items-center gap-3 overflow-x-auto pb-1">
+            <div className="flex min-w-[240px] flex-1 items-center gap-2 rounded-xl border border-slate-200 px-3">
               <Search className="h-4 w-4 text-slate-400" />
               <input
                 className="w-full bg-transparent py-2 text-sm outline-none"
@@ -317,21 +321,21 @@ export function ObreirosTab({ activeTotvsId }: { activeTotvsId: string }) {
               />
             </div>
             <Select value={ministerRole} onValueChange={(v) => { setMinisterRole(v); setPage(1); }}>
-              <SelectTrigger><SelectValue placeholder="Cargo" /></SelectTrigger>
+              <SelectTrigger className="min-w-[160px]"><SelectValue placeholder="Cargo" /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Todos cargos</SelectItem>
+                <SelectItem value="all">Cargos</SelectItem>
                 {roleOptions.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
               </SelectContent>
             </Select>
             <Select value={activeFilter} onValueChange={(v) => { setActiveFilter(v as "all" | "active" | "inactive"); setPage(1); }}>
-              <SelectTrigger><SelectValue placeholder="Ativo" /></SelectTrigger>
+              <SelectTrigger className="min-w-[140px]"><SelectValue placeholder="Ativo" /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Todos</SelectItem>
+                <SelectItem value="all">Status</SelectItem>
                 <SelectItem value="active">Ativos</SelectItem>
                 <SelectItem value="inactive">Inativos</SelectItem>
               </SelectContent>
             </Select>
-            <Button variant="outline" onClick={resetFilters}>Resetar filtros</Button>
+            <Button className="shrink-0" variant="outline" onClick={resetFilters}>Limpar</Button>
           </div>
 
           <div className="overflow-x-auto rounded-xl border border-slate-200">
@@ -395,7 +399,7 @@ export function ObreirosTab({ activeTotvsId }: { activeTotvsId: string }) {
       </Card>
 
       <Dialog open={openModal} onOpenChange={setOpenModal}>
-        <DialogContent className="max-w-3xl">
+        <DialogContent className="max-h-[85vh] max-w-3xl overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{form.id ? "Editar Obreiro" : "Novo Obreiro"}</DialogTitle>
           </DialogHeader>
@@ -435,10 +439,14 @@ export function ObreirosTab({ activeTotvsId }: { activeTotvsId: string }) {
               </div>
             </div>
 
-            <div className="grid gap-3 md:grid-cols-3">
+            <div className="grid gap-3 md:grid-cols-4">
               <div className="space-y-1">
                 <Label>Nascimento</Label>
                 <Input type="date" value={form.birth_date} onChange={(e) => setForm((p) => ({ ...p, birth_date: e.target.value }))} />
+              </div>
+              <div className="space-y-1">
+                <Label>Ordenação</Label>
+                <Input type="date" value={form.ordination_date} onChange={(e) => setForm((p) => ({ ...p, ordination_date: e.target.value }))} />
               </div>
               <div className="space-y-1 md:col-span-2">
                 <Label>Foto</Label>
@@ -544,6 +552,7 @@ export function ObreirosTab({ activeTotvsId }: { activeTotvsId: string }) {
                 <p><span className="font-semibold">Telefone:</span> {selectedWorker.phone || "-"}</p>
                 <p><span className="font-semibold">Email:</span> {selectedWorker.email || "-"}</p>
                 <p><span className="font-semibold">Nascimento:</span> {selectedWorker.birth_date || "-"}</p>
+                <p><span className="font-semibold">Ordenação:</span> {selectedWorker.ordination_date || "-"}</p>
                 <p><span className="font-semibold">CEP:</span> {selectedWorker.cep || "-"}</p>
                 <p><span className="font-semibold">Rua:</span> {selectedWorker.address_street || "-"}</p>
                 <p><span className="font-semibold">Numero:</span> {selectedWorker.address_number || "-"}</p>

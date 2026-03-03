@@ -20,7 +20,22 @@ export class ApiError extends Error {
 }
 
 function getToken() {
-  return localStorage.getItem("ipda_token") || "";
+  const raw = String(localStorage.getItem("ipda_token") || "")
+    .replace(/^Bearer\s+/i, "")
+    .trim()
+    .replace(/^"+|"+$/g, "");
+  if (!raw) return "";
+  const parts = raw.split(".");
+  if (parts.length !== 3) return "";
+  try {
+    const payload = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    const padded = payload + "=".repeat((4 - (payload.length % 4)) % 4);
+    const data = JSON.parse(atob(padded));
+    if (!data?.sub || !data?.role || !data?.active_totvs_id) return "";
+    return raw;
+  } catch {
+    return "";
+  }
 }
 
 export function getFriendlyErrorMessage(err: unknown): string {

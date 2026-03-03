@@ -11,7 +11,7 @@ import {
   softDeleteLetter,
   type PastorLetter,
 } from "@/services/saasService";
-import { ArrowUpRight, Filter, Search, Share2, Trash2 } from "lucide-react";
+import { ArrowUpRight, Filter, RotateCcw, Search, Share2, Trash2 } from "lucide-react";
 import { FiltersBar } from "@/components/shared/FiltersBar";
 import { getFriendlyError } from "@/lib/error-map";
 import { addAuditLog } from "@/lib/audit";
@@ -23,8 +23,6 @@ const STATUS_OPTIONS = [
   "BLOQUEADO",
   "AGUARDANDO_LIBERACAO",
   "LIBERADA",
-  "ENVIADA",
-  "EXCLUIDA",
 ] as const;
 
 function formatDate(value?: string | null) {
@@ -233,14 +231,52 @@ export function CartasTab({
           <div className="text-xs text-slate-500">Escopo TOTVS: {scopeMode === "scope" ? scopeTotvsIds.join(", ") : "ativo"}</div>
         </div>
 
-        <div className="mb-3 flex flex-wrap items-center gap-2">
-          <Button variant={period === "today" ? "default" : "outline"} onClick={() => setQuick("today")}>Hoje</Button>
-          <Button variant={period === "7" ? "default" : "outline"} onClick={() => setQuick("7")}>7 dias</Button>
-          <Button variant={period === "30" ? "default" : "outline"} onClick={() => setQuick("30")}>30 dias</Button>
-          <Button variant="ghost" onClick={() => setQuick("clear")}>Limpar periodo</Button>
+        <div className="mb-3 flex items-center gap-2 overflow-x-auto whitespace-nowrap pb-1">
+          <div className="flex items-center gap-2">
+            <Button variant={period === "today" ? "default" : "outline"} onClick={() => setQuick("today")}>Hoje</Button>
+            <Button variant={period === "7" ? "default" : "outline"} onClick={() => setQuick("7")}>7 dias</Button>
+            <Button variant={period === "30" ? "default" : "outline"} onClick={() => setQuick("30")}>30 dias</Button>
+          </div>
+
+          <div className="min-w-[140px]">
+            <Select value={filters.church} onValueChange={(value) => setFilters((p) => ({ ...p, church: value }))}>
+              <SelectTrigger><SelectValue placeholder="Igreja" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Igrejas</SelectItem>
+                {churchOptions.map((item) => <SelectItem key={item} value={item}>{item}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="min-w-[130px]">
+            <Select value={filters.role} onValueChange={(value) => setFilters((p) => ({ ...p, role: value }))}>
+              <SelectTrigger><SelectValue placeholder="Cargo" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Cargos</SelectItem>
+                {roleOptions.map((item) => <SelectItem key={item} value={item}>{item}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="min-w-[120px]">
+            <Select value={filters.status} onValueChange={(value) => setFilters((p) => ({ ...p, status: value }))}>
+              <SelectTrigger><SelectValue placeholder="Status" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Status</SelectItem>
+                {STATUS_OPTIONS.map((item) => <SelectItem key={item} value={item}>{item}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="shrink-0">
+            <Button variant="ghost" onClick={() => setQuick("clear")} title="Limpar período">
+              <RotateCcw className="h-4 w-4" />
+              <span className="ml-2 hidden sm:inline">Limpar período</span>
+            </Button>
+          </div>
         </div>
 
-        <div className="grid gap-3 md:grid-cols-6">
+        <div className="grid gap-3 md:grid-cols-3">
           <Input type="date" value={filters.dateStart} onChange={(e) => { setPeriod("custom"); setFilters((p) => ({ ...p, dateStart: e.target.value })); }} />
           <Input type="date" value={filters.dateEnd} onChange={(e) => { setPeriod("custom"); setFilters((p) => ({ ...p, dateEnd: e.target.value })); }} />
           <Select value={scopeMode} onValueChange={(v) => setScopeMode(v as "active" | "scope")}>
@@ -248,27 +284,6 @@ export function CartasTab({
             <SelectContent>
               <SelectItem value="active">Somente igreja logada</SelectItem>
               <SelectItem value="scope">Todas do escopo</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={filters.church} onValueChange={(value) => setFilters((p) => ({ ...p, church: value }))}>
-            <SelectTrigger><SelectValue placeholder="Igreja" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todas</SelectItem>
-              {churchOptions.map((item) => <SelectItem key={item} value={item}>{item}</SelectItem>)}
-            </SelectContent>
-          </Select>
-          <Select value={filters.role} onValueChange={(value) => setFilters((p) => ({ ...p, role: value }))}>
-            <SelectTrigger><SelectValue placeholder="Cargo" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos cargos</SelectItem>
-              {roleOptions.map((item) => <SelectItem key={item} value={item}>{item}</SelectItem>)}
-            </SelectContent>
-          </Select>
-          <Select value={filters.status} onValueChange={(value) => setFilters((p) => ({ ...p, status: value }))}>
-            <SelectTrigger><SelectValue placeholder="Status" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos status</SelectItem>
-              {STATUS_OPTIONS.map((item) => <SelectItem key={item} value={item}>{item}</SelectItem>)}
             </SelectContent>
           </Select>
         </div>

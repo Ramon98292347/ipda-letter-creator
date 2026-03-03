@@ -86,6 +86,16 @@ const App = () => (
               }
             />
             <Route
+              path="/divulgacao"
+              element={
+                <RequireAnyRole roles={["admin", "pastor"]}>
+                  <Suspense fallback={<div />}>
+                    <DivulgacaoPage />
+                  </Suspense>
+                </RequireAnyRole>
+              }
+            />
+            <Route
               path="/carta"
               element={
                 <RequireAuth>
@@ -154,3 +164,4 @@ const UsuarioDashboardPage = lazy(() => import("./pages/UsuarioDashboard"));
 const AdminPastorDashboardPage = lazy(() => import("./pages/AdminPastorDashboard"));
 const SelectChurchPage = lazy(() => import("./pages/SelectChurch"));
 const ConfiguracoesPage = lazy(() => import("./pages/Configuracoes"));
+const DivulgacaoPage = lazy(() => import("./pages/Divulgacao"));
