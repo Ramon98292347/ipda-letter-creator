@@ -23,6 +23,7 @@ export type Usuario = {
   data_separacao?: string | null;
   central_totvs?: string | null;
   central_nome?: string | null;
+  registration_status?: "APROVADO" | "PENDENTE" | null;
 };
 
 export type AppSession = {

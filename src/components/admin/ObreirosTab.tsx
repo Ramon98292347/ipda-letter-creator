@@ -6,9 +6,18 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Search, PlusCircle, Upload } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Search, PlusCircle, Upload, MoreHorizontal } from "lucide-react";
 import { toast } from "sonner";
-import { listMembers, resetWorkerPassword, setWorkerActive, setWorkerDirectRelease, upsertWorkerByPastor, type UserListItem } from "@/services/saasService";
+import {
+  listMembers,
+  resetWorkerPassword,
+  setUserRegistrationStatus,
+  setWorkerActive,
+  setWorkerDirectRelease,
+  upsertWorkerByPastor,
+  type UserListItem,
+} from "@/services/saasService";
 import { getFriendlyError } from "@/lib/error-map";
 import { addAuditLog } from "@/lib/audit";
 import { supabase } from "@/lib/supabase";
@@ -248,6 +257,10 @@ export function ObreirosTab({ activeTotvsId }: { activeTotvsId: string }) {
   }
 
   async function toggle(worker: UserListItem) {
+    if (worker.can_manage === false) {
+      toast.error("Sem permissao para alterar este usuario.");
+      return;
+    }
     const next = worker.is_active === false;
     if (!window.confirm(next ? "Tem certeza que deseja ativar este membro?" : "Tem certeza que deseja desativar este membro?")) return;
     try {
@@ -261,6 +274,10 @@ export function ObreirosTab({ activeTotvsId }: { activeTotvsId: string }) {
   }
 
   async function toggleDirectRelease(worker: UserListItem) {
+    if (worker.can_manage === false) {
+      toast.error("Sem permissao para alterar este usuario.");
+      return;
+    }
     const next = !(worker.can_create_released_letter === true);
     const msg = next
       ? "Ativar liberação direta para este obreiro?"
@@ -270,6 +287,27 @@ export function ObreirosTab({ activeTotvsId }: { activeTotvsId: string }) {
       await setWorkerDirectRelease(String(worker.id), next);
       toast.success(next ? "Obreiro liberado para criar carta já liberada." : "Liberação direta removida.");
       addAuditLog("worker_direct_release_toggled", { worker_id: String(worker.id), enabled: next });
+      await refresh();
+    } catch (err: unknown) {
+      toast.error(getFriendlyError(err, "workers"));
+    }
+  }
+
+  async function toggleRegistration(worker: UserListItem) {
+    if (worker.can_manage === false) {
+      toast.error("Sem permissao para alterar este usuario.");
+      return;
+    }
+    const current = worker.registration_status === "PENDENTE" ? "PENDENTE" : "APROVADO";
+    const next = current === "PENDENTE" ? "APROVADO" : "PENDENTE";
+    const msg = next === "APROVADO"
+      ? "Liberar cadastro deste membro?"
+      : "Voltar este cadastro para pendente?";
+    if (!window.confirm(msg)) return;
+
+    try {
+      await setUserRegistrationStatus(String(worker.id), next);
+      toast.success(next === "APROVADO" ? "Cadastro liberado." : "Cadastro marcado como pendente.");
       await refresh();
     } catch (err: unknown) {
       toast.error(getFriendlyError(err, "workers"));
@@ -315,6 +353,36 @@ export function ObreirosTab({ activeTotvsId }: { activeTotvsId: string }) {
     setPage(1);
   }
 
+  function renderWorkerActions(worker: UserListItem) {
+    return (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button size="sm" variant="outline">
+            <MoreHorizontal className="mr-2 h-4 w-4" />
+            Acoes
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onClick={() => openEdit(worker)} disabled={worker.can_manage === false}>
+            Editar
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => toggle(worker)} disabled={worker.can_manage === false}>
+            {worker.is_active === false ? "Ativar" : "Desativar"}
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => toggleDirectRelease(worker)} disabled={worker.can_manage === false}>
+            {worker.can_create_released_letter ? "Remover liberacao direta" : "Liberar direto"}
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => toggleRegistration(worker)} disabled={worker.can_manage === false}>
+            {worker.registration_status === "PENDENTE" ? "Liberar cadastro" : "Bloquear cadastro"}
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => openResetPassword(worker)} disabled={worker.can_manage === false}>
+            Resetar senha
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    );
+  }
+
   return (
     <div className="space-y-4">
       <Card className="border border-slate-200 bg-white shadow-sm">
@@ -323,7 +391,7 @@ export function ObreirosTab({ activeTotvsId }: { activeTotvsId: string }) {
           <Button onClick={openNew}><PlusCircle className="mr-2 h-4 w-4" /> Novo Obreiro</Button>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex flex-nowrap items-center gap-3 overflow-x-auto pb-1">
+          <div className="flex flex-wrap items-center gap-3">
             <div className="flex min-w-[240px] flex-1 items-center gap-2 rounded-xl border border-slate-200 px-3">
               <Search className="h-4 w-4 text-slate-400" />
               <input
@@ -355,24 +423,23 @@ export function ObreirosTab({ activeTotvsId }: { activeTotvsId: string }) {
           </div>
 
           <div className="hidden overflow-x-auto rounded-xl border border-slate-200 md:block">
-            <div className="min-w-[1290px]">
-              <div className="grid grid-cols-[92px_210px_150px_150px_150px_120px_150px_150px_120px_100px_130px] border-b bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700">
+            <div className="min-w-[1160px]">
+              <div className="grid grid-cols-[92px_200px_150px_140px_140px_120px_120px_120px_120px_140px] border-b bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700">
                 <span>Avatar</span>
                 <span>Nome</span>
                 <span>CPF</span>
                 <span>Telefone</span>
                 <span>Cargo</span>
                 <span>Tipo</span>
-                <span>Ativo</span>
-                <span>Liberação direta</span>
-                <span>Visualizar</span>
-                <span>Editar</span>
-                <span>Resetar senha</span>
+                <span>Status</span>
+                <span>Cadastro</span>
+                <span>Ver</span>
+                <span>Acoes</span>
               </div>
               {isLoading ? <div className="px-4 py-4 text-sm text-slate-500">Carregando...</div> : null}
               {!isLoading && workers.length === 0 ? <div className="px-4 py-4 text-sm text-slate-500">Nenhum membro encontrado.</div> : null}
               {workers.map((w) => (
-                <div key={w.id} className="grid grid-cols-[92px_210px_150px_150px_150px_120px_150px_150px_120px_100px_130px] items-center border-b px-4 py-3 text-sm">
+                <div key={w.id} className="grid grid-cols-[92px_200px_150px_140px_140px_120px_120px_120px_120px_140px] items-center border-b px-4 py-3 text-sm">
                   <span>
                     {w.avatar_url ? (
                       <img src={w.avatar_url} alt={`Avatar de ${w.full_name}`} className="h-10 w-10 rounded-full border border-slate-200 object-cover object-[center_top]" />
@@ -387,33 +454,14 @@ export function ObreirosTab({ activeTotvsId }: { activeTotvsId: string }) {
                   <span>{w.phone || "-"}</span>
                   <span>{w.minister_role || "-"}</span>
                   <span className="capitalize">{w.role || "-"}</span>
-                  <span>
-                    {w.role === "obreiro" ? (
-                      <Button size="sm" variant={w.is_active === false ? "default" : "destructive"} onClick={() => toggle(w)}>
-                        {w.is_active === false ? "Ativar" : "Desativar"}
-                      </Button>
-                    ) : (
-                      <span className={`rounded-full px-2 py-1 text-xs ${w.is_active === false ? "bg-rose-100 text-rose-700" : "bg-emerald-100 text-emerald-700"}`}>
-                        {w.is_active === false ? "Não" : "Sim"}
-                      </span>
-                    )}
+                  <span className={`inline-flex w-fit rounded-full px-2 py-1 text-xs ${w.is_active === false ? "bg-rose-100 text-rose-700" : "bg-emerald-100 text-emerald-700"}`}>
+                    {w.is_active === false ? "Inativo" : "Ativo"}
                   </span>
-                  <span>
-                    {w.role === "obreiro" ? (
-                      <Button
-                        size="sm"
-                        variant={w.can_create_released_letter ? "default" : "outline"}
-                        onClick={() => toggleDirectRelease(w)}
-                      >
-                        {w.can_create_released_letter ? "Direta ativa" : "Liberar direto"}
-                      </Button>
-                    ) : (
-                      <span className="text-xs text-slate-400">-</span>
-                    )}
+                  <span className={`inline-flex w-fit rounded-full px-2 py-1 text-xs ${w.registration_status === "PENDENTE" ? "bg-amber-100 text-amber-700" : "bg-blue-100 text-blue-700"}`}>
+                    {w.registration_status === "PENDENTE" ? "Pendente" : "Liberado"}
                   </span>
                   <div><Button size="sm" variant="outline" onClick={() => openView(w)}>Visualizar</Button></div>
-                  <div>{w.role === "obreiro" ? <Button size="sm" variant="outline" onClick={() => openEdit(w)}>Editar</Button> : <span className="text-xs text-slate-400">-</span>}</div>
-                  <div>{w.role === "obreiro" ? <Button size="sm" variant="secondary" onClick={() => openResetPassword(w)}>Resetar</Button> : <span className="text-xs text-slate-400">-</span>}</div>
+                  <div>{renderWorkerActions(w)}</div>
                 </div>
               ))}
             </div>
@@ -438,40 +486,24 @@ export function ObreirosTab({ activeTotvsId }: { activeTotvsId: string }) {
                       <p className="text-slate-600">CPF: {maskCpf(w.cpf || "")}</p>
                       <p className="text-slate-600">Telefone: {w.phone || "-"}</p>
                       <p className="text-slate-600">Cargo: {w.minister_role || "-"}</p>
+                      <p className="text-slate-600">
+                        Cadastro: {w.registration_status === "PENDENTE" ? "Pendente" : "Liberado"}
+                      </p>
                     </div>
                   </div>
 
                   <div className="grid grid-cols-2 gap-2">
                     <Button size="sm" variant="outline" onClick={() => openView(w)}>Visualizar</Button>
-                    {w.role === "obreiro" ? <Button size="sm" variant="outline" onClick={() => openEdit(w)}>Editar</Button> : <Button size="sm" variant="outline" disabled>-</Button>}
-                    {w.role === "obreiro" ? (
-                      <Button size="sm" variant={w.is_active === false ? "default" : "destructive"} onClick={() => toggle(w)}>
-                        {w.is_active === false ? "Ativar" : "Desativar"}
-                      </Button>
-                    ) : (
-                      <Button size="sm" variant="outline" disabled>{w.is_active === false ? "Inativo" : "Ativo"}</Button>
-                    )}
-                    {w.role === "obreiro" ? (
-                      <Button
-                        size="sm"
-                        variant={w.can_create_released_letter ? "default" : "outline"}
-                        onClick={() => toggleDirectRelease(w)}
-                      >
-                        {w.can_create_released_letter ? "Direta ativa" : "Liberar direto"}
-                      </Button>
-                    ) : (
-                      <Button size="sm" variant="outline" disabled>-</Button>
-                    )}
-                    {w.role === "obreiro" ? <Button size="sm" variant="secondary" onClick={() => openResetPassword(w)}>Resetar senha</Button> : <Button size="sm" variant="outline" disabled>-</Button>}
+                    {renderWorkerActions(w)}
                   </div>
                 </CardContent>
               </Card>
             ))}
           </div>
 
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-sm text-slate-500">Total: {total}</p>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <Select value={String(pageSize)} onValueChange={(v) => { setPageSize(Number(v)); setPage(1); }}>
                 <SelectTrigger className="w-24"><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -481,7 +513,7 @@ export function ObreirosTab({ activeTotvsId }: { activeTotvsId: string }) {
                 </SelectContent>
               </Select>
               <Button variant="outline" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>Anterior</Button>
-              <span className="text-sm">Pagina {page} / {totalPages}</span>
+              <span className="text-sm whitespace-nowrap">Pagina {page} / {totalPages}</span>
               <Button variant="outline" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>Proxima</Button>
             </div>
           </div>
@@ -716,3 +748,5 @@ export function ObreirosTab({ activeTotvsId }: { activeTotvsId: string }) {
     </div>
   );
 }
+
+

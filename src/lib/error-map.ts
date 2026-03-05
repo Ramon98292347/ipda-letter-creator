@@ -30,6 +30,10 @@ const CODE_MAP: Record<string, string> = {
   letter_not_released: "Carta ainda não liberada.",
   weekly_limit_reached: "Limite semanal de cartas atingido.",
   inactive_user: "Seu cadastro está bloqueado. Procure a secretaria da igreja para normalizar o cadastro.",
+  missing_identifier: "Informe CPF ou e-mail para recuperar a senha.",
+  church_not_found: "Sua igreja não existe no cadastro. Peça ao pastor para cadastrar primeiro.",
+  cpf_already_registered: "CPF já cadastrado no sistema.",
+  password_too_short: "A senha precisa ter pelo menos 6 caracteres.",
 };
 
 const DEFAULT_MAP: Record<ErrorContext, string> = {

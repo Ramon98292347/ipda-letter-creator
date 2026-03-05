@@ -1,12 +1,17 @@
+﻿import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { toast } from "sonner";
+import { KeyRound, UserPlus } from "lucide-react";
+
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useUser } from "@/context/UserContext";
-import { toast } from "sonner";
 import {
+  forgotPasswordRequest,
+  getMyRegistrationStatus,
   listAnnouncementsPublicByTotvs,
   listBirthdaysTodayPublicByTotvs,
   loginWithCpfPassword,
@@ -14,12 +19,12 @@ import {
 import { AnnouncementCarousel } from "@/components/shared/AnnouncementCarousel";
 import { getFriendlyError } from "@/lib/error-map";
 
-function maskCpf(v: string) {
-  const d = v.replace(/\D/g, "").slice(0, 11);
-  if (d.length <= 3) return d;
-  if (d.length <= 6) return `${d.slice(0, 3)}.${d.slice(3)}`;
-  if (d.length <= 9) return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6)}`;
-  return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6, 9)}-${d.slice(9)}`;
+function maskCpf(value: string) {
+  const digits = String(value || "").replace(/\D/g, "").slice(0, 11);
+  if (digits.length <= 3) return digits;
+  if (digits.length <= 6) return `${digits.slice(0, 3)}.${digits.slice(3)}`;
+  if (digits.length <= 9) return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6)}`;
+  return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9)}`;
 }
 
 function routeByRole(role: "admin" | "pastor" | "obreiro") {
@@ -31,11 +36,16 @@ function routeByRole(role: "admin" | "pastor" | "obreiro") {
 export default function PhoneIdentify() {
   const nav = useNavigate();
   const { setUsuario, setTelefone, setToken, setSession, setPendingCpf, setAvailableChurches } = useUser();
-  const logo = "/Polish_20220810_001501268%20(2).png";
 
   const [cpf, setCpf] = useState("");
   const [senha, setSenha] = useState("");
   const [loading, setLoading] = useState(false);
+
+  const [forgotOpen, setForgotOpen] = useState(false);
+  const [forgotLoading, setForgotLoading] = useState(false);
+  const [forgotCpf, setForgotCpf] = useState("");
+  const [forgotEmail, setForgotEmail] = useState("");
+
   const cachedTotvs = typeof window !== "undefined" ? localStorage.getItem("ipda_last_totvs") || "" : "";
 
   const { data: announcements = [] } = useQuery({
@@ -43,16 +53,17 @@ export default function PhoneIdentify() {
     queryFn: () => listAnnouncementsPublicByTotvs(cachedTotvs, 10),
     enabled: Boolean(cachedTotvs),
   });
+
   const { data: birthdays = [] } = useQuery({
     queryKey: ["birthdays-today-login", cachedTotvs],
     queryFn: () => listBirthdaysTodayPublicByTotvs(cachedTotvs, 10),
     enabled: Boolean(cachedTotvs),
   });
 
-  async function handleContinue() {
+  async function handleLogin() {
     const cpfRaw = cpf.replace(/\D/g, "");
     if (cpfRaw.length !== 11) {
-      toast.error("Informe um CPF válido com 11 dígitos.");
+      toast.error("Informe um CPF valido com 11 digitos.");
       return;
     }
     if (!senha.trim()) {
@@ -63,6 +74,7 @@ export default function PhoneIdentify() {
     setLoading(true);
     try {
       const result = await loginWithCpfPassword(cpfRaw, senha);
+
       if (result.mode === "select_church") {
         setPendingCpf(result.cpf);
         setAvailableChurches(result.churches);
@@ -73,28 +85,37 @@ export default function PhoneIdentify() {
         return;
       }
 
-      const logged = result.user;
       const fixedSession = {
         ...result.session,
         root_totvs_id: result.session.root_totvs_id || result.session.totvs_id,
       };
+
       setToken(result.token);
       setSession(fixedSession);
       if (fixedSession.totvs_id) localStorage.setItem("ipda_last_totvs", fixedSession.totvs_id);
       setPendingCpf(undefined);
       setAvailableChurches([]);
+
+      let registrationStatus: "APROVADO" | "PENDENTE" = "APROVADO";
+      try {
+        registrationStatus = await getMyRegistrationStatus();
+      } catch {
+        // Comentario: fallback seguro caso a function ainda nao esteja implantada.
+      }
+
       setUsuario({
-        id: logged.id,
-        nome: logged.full_name,
-        full_name: logged.full_name,
-        telefone: logged.phone || "",
-        cpf: logged.cpf,
-        role: logged.role,
-        email: logged.email || null,
-        avatar_url: logged.avatar_url || null,
-        birth_date: logged.birth_date || null,
-        address_json: logged.address_json || null,
-        ministerial: logged.minister_role || null,
+        id: result.user.id,
+        nome: result.user.full_name,
+        full_name: result.user.full_name,
+        telefone: result.user.phone || "",
+        cpf: result.user.cpf,
+        role: result.user.role,
+        email: result.user.email || null,
+        avatar_url: result.user.avatar_url || null,
+        birth_date: result.user.birth_date || null,
+        address_json: result.user.address_json || null,
+        ministerial: result.user.minister_role || null,
+        registration_status: registrationStatus,
         data_separacao: null,
         totvs: fixedSession.totvs_id || null,
         default_totvs_id: fixedSession.totvs_id || null,
@@ -103,74 +124,128 @@ export default function PhoneIdentify() {
         totvs_access: fixedSession.scope_totvs_ids || null,
         igreja_nome: fixedSession.church_name || null,
       });
+
       setTelefone(undefined);
-      nav(routeByRole(logged.role));
-    } catch (err: unknown) {
+
+      if (registrationStatus === "PENDENTE" && result.user.role === "obreiro") {
+        toast.message("Cadastro pendente. Cartas e documentos ficam bloqueados ate liberacao.");
+      }
+
+      nav(routeByRole(result.user.role));
+    } catch (err) {
       toast.error(getFriendlyError(err, "auth"));
     } finally {
       setLoading(false);
     }
   }
 
+  async function handleForgotPassword() {
+    const cpfRaw = forgotCpf.replace(/\D/g, "");
+    const email = forgotEmail.trim();
+    if (cpfRaw.length !== 11 && !email) {
+      toast.error("Informe CPF ou e-mail.");
+      return;
+    }
+
+    setForgotLoading(true);
+    try {
+      await forgotPasswordRequest({
+        cpf: cpfRaw.length === 11 ? cpfRaw : undefined,
+        email: email || undefined,
+      });
+      toast.success("Solicitacao enviada. Verifique seu WhatsApp/E-mail.");
+      setForgotOpen(false);
+      setForgotCpf("");
+      setForgotEmail("");
+    } catch (err) {
+      toast.error(getFriendlyError(err, "auth"));
+    } finally {
+      setForgotLoading(false);
+    }
+  }
+
   return (
-    <div className="min-h-screen flex items-center justify-center p-6 bg-[#f3f5f9]">
-      <div className="w-full max-w-5xl grid gap-4 lg:grid-cols-[1fr_620px]">
-      <form
-        className="w-full space-y-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-lg"
-        onSubmit={(e) => {
-          e.preventDefault();
-          handleContinue();
-        }}
-      >
-        <img src={logo} alt="Logo" className="mx-auto h-16 object-contain" />
-        <h1 className="text-2xl font-bold text-center">Sistema de Cartas - IPDA</h1>
-
-        <div className="space-y-2">
-          <Label htmlFor="cpf">CPF</Label>
-          <Input
-            id="cpf"
-            type="text"
-            value={maskCpf(cpf)}
-            onChange={(e) => setCpf(e.target.value.replace(/\D/g, "").slice(0, 11))}
-            placeholder="000.000.000-00"
-            inputMode="numeric"
-          />
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="senha">Senha</Label>
-          <Input
-            id="senha"
-            type="password"
-            value={senha}
-            onChange={(e) => setSenha(e.target.value)}
-            placeholder="Digite sua senha"
-          />
-        </div>
-
-        <Button type="submit" className="w-full" disabled={loading}>
-          {loading ? "Entrando..." : "Entrar"}
-        </Button>
-      </form>
-      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-lg lg:h-[700px]">
-        <p className="mb-3 text-sm font-semibold text-slate-700">Área de Divulgação</p>
-        <AnnouncementCarousel
-          items={announcements}
-          birthdays={birthdays.slice(0, 10).map((b) => b.full_name)}
-          heightClass="h-[610px]"
-        />
-      </div>
-      <div className="mt-4 text-center text-xs text-slate-500">
-        <p>Desenvolvedor Ramon Rodrigues</p>
-        <a
-          href="https://wa.me/5527998292347?text=Eu%20gostei%20do%20seu%20sistema%20e%20quero%20colocar%20na%20minha%20igreja."
-          target="_blank"
-          rel="noreferrer"
-          className="inline-flex text-emerald-600 hover:underline"
+    <div className="min-h-screen bg-[#f3f5f9] p-6">
+      <div className="mx-auto grid w-full max-w-5xl gap-4 lg:grid-cols-[1fr_620px]">
+        <form
+          className="space-y-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-lg"
+          onSubmit={(e) => {
+            e.preventDefault();
+            handleLogin();
+          }}
         >
-          WhatsApp 27998292347
-        </a>
-      </div>
+          <img src="/Polish_20220810_001501268%20(2).png" alt="Logo" className="mx-auto h-16 object-contain" />
+          <h1 className="text-center text-2xl font-bold">Sistema de Cartas - IPDA</h1>
+
+          <div className="space-y-2">
+            <Label htmlFor="cpf">CPF</Label>
+            <Input
+              id="cpf"
+              type="text"
+              value={maskCpf(cpf)}
+              onChange={(e) => setCpf(e.target.value.replace(/\D/g, "").slice(0, 11))}
+              placeholder="000.000.000-00"
+              inputMode="numeric"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="senha">Senha</Label>
+            <Input
+              id="senha"
+              type="password"
+              value={senha}
+              onChange={(e) => setSenha(e.target.value)}
+              placeholder="Digite sua senha"
+            />
+          </div>
+
+          <Button type="submit" className="w-full" disabled={loading}>
+            {loading ? "Entrando..." : "Entrar"}
+          </Button>
+
+          <div className="grid gap-2 sm:grid-cols-2">
+            <Dialog open={forgotOpen} onOpenChange={setForgotOpen}>
+              <DialogTrigger asChild>
+                <Button type="button" variant="outline" className="w-full">
+                  <KeyRound className="mr-2 h-4 w-4" /> Esquecer senha
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Recuperar senha</DialogTitle>
+                  <DialogDescription>Informe CPF ou e-mail para enviar a solicitacao.</DialogDescription>
+                </DialogHeader>
+                <div className="space-y-3">
+                  <div className="space-y-1">
+                    <Label>CPF</Label>
+                    <Input value={maskCpf(forgotCpf)} onChange={(e) => setForgotCpf(e.target.value)} placeholder="000.000.000-00" />
+                  </div>
+                  <div className="space-y-1">
+                    <Label>E-mail</Label>
+                    <Input value={forgotEmail} onChange={(e) => setForgotEmail(e.target.value)} placeholder="email@exemplo.com" />
+                  </div>
+                  <Button type="button" className="w-full" onClick={handleForgotPassword} disabled={forgotLoading}>
+                    {forgotLoading ? "Enviando..." : "Enviar solicitacao"}
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+
+            <Button type="button" variant="outline" onClick={() => nav("/cadastro")}>
+              <UserPlus className="mr-2 h-4 w-4" /> Cadastro rapido
+            </Button>
+          </div>
+        </form>
+
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-lg lg:h-[700px]">
+          <p className="mb-3 text-sm font-semibold text-slate-700">Area de divulgacao</p>
+          <AnnouncementCarousel
+            items={announcements}
+            birthdays={birthdays.slice(0, 10).map((b) => b.full_name)}
+            heightClass="h-[610px]"
+          />
+        </div>
       </div>
     </div>
   );

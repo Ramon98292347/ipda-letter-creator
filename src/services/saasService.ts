@@ -5,6 +5,7 @@ import { apiFetch } from "@/services/api";
 import type { AppSession, PendingChurch } from "@/context/UserContext";
 
 export type AppRole = "admin" | "pastor" | "obreiro";
+export type RegistrationStatus = "APROVADO" | "PENDENTE";
 
 export type AuthSessionData = {
   id: string;
@@ -24,6 +25,7 @@ export type AuthSessionData = {
   pastor_name?: string | null;
   address_json?: Record<string, unknown> | null;
   can_create_released_letter?: boolean | null;
+  registration_status?: RegistrationStatus | null;
 };
 
 export type LoginResult =
@@ -102,6 +104,8 @@ export type UserListItem = {
   totvs_access?: string[] | null;
   is_active?: boolean | null;
   can_create_released_letter?: boolean | null;
+  can_manage?: boolean | null;
+  registration_status?: RegistrationStatus | null;
 };
 
 export type WorkerListParams = {
@@ -145,6 +149,16 @@ export type ChurchInScopeItem = {
   church_name: string;
   church_class?: string | null;
   parent_totvs_id?: string | null;
+  contact_email?: string | null;
+  contact_phone?: string | null;
+  cep?: string | null;
+  address_street?: string | null;
+  address_number?: string | null;
+  address_complement?: string | null;
+  address_neighborhood?: string | null;
+  address_city?: string | null;
+  address_state?: string | null;
+  address_country?: string | null;
   is_active?: boolean;
   workers_count?: number;
   pastor_user_id?: string | null;
@@ -326,6 +340,7 @@ export type PastorContact = {
   email?: string | null;
   avatar_url?: string | null;
   minister_role?: string | null;
+  signature_url?: string | null;
 };
 
 type MinisterRoleFront = "Pastor" | "Presbitero" | "Diacono" | "Obreiro" | "Membro";
@@ -510,6 +525,28 @@ function mapSessionLike(raw: Record<string, unknown> | null | undefined): AppSes
   };
 }
 
+function resolveRegistrationStatus(raw: Record<string, unknown> | null | undefined): RegistrationStatus | null {
+  const direct = String(raw?.registration_status || "").trim().toUpperCase();
+  if (direct === "APROVADO" || direct === "PENDENTE") return direct as RegistrationStatus;
+
+  const access = Array.isArray(raw?.totvs_access) ? raw?.totvs_access : [];
+  for (const item of access as Array<Record<string, unknown>>) {
+    const status = String(item?.registration_status || "").trim().toUpperCase();
+    if (status === "APROVADO" || status === "PENDENTE") return status as RegistrationStatus;
+  }
+
+  return null;
+}
+
+function resolveRegistrationStatusFromTotvsAccess(totvsAccess: unknown): RegistrationStatus | null {
+  if (!Array.isArray(totvsAccess)) return null;
+  for (const item of totvsAccess as Array<Record<string, unknown>>) {
+    const status = String(item?.registration_status || "").trim().toUpperCase();
+    if (status === "APROVADO" || status === "PENDENTE") return status as RegistrationStatus;
+  }
+  return null;
+}
+
 function mapUserLike(raw: Record<string, unknown> | null | undefined): AuthSessionData {
   return {
     id: String(raw?.id || ""),
@@ -529,6 +566,7 @@ function mapUserLike(raw: Record<string, unknown> | null | undefined): AuthSessi
     pastor_name: raw?.pastor_name || null,
     address_json: raw?.address_json || null,
     can_create_released_letter: Boolean(raw?.can_create_released_letter),
+    registration_status: resolveRegistrationStatus(raw),
   };
 }
 
@@ -700,6 +738,13 @@ export async function listMembers(params: MemberListParams): Promise<WorkerListR
         totvs_access: w?.totvs_access || null,
         is_active: typeof w?.is_active === "boolean" ? w.is_active : true,
         can_create_released_letter: typeof w?.can_create_released_letter === "boolean" ? w.can_create_released_letter : false,
+        can_manage: typeof w?.can_manage === "boolean" ? w.can_manage : true,
+        registration_status:
+          (String(w?.registration_status || "").toUpperCase() === "PENDENTE"
+            ? "PENDENTE"
+            : String(w?.registration_status || "").toUpperCase() === "APROVADO"
+              ? "APROVADO"
+              : resolveRegistrationStatusFromTotvsAccess(w?.totvs_access || null)),
       })),
       total: Number(data?.total || rows.length),
       page: Number(data?.page || params.page || 1),
@@ -756,6 +801,13 @@ export async function listWorkers(params: WorkerListParams): Promise<WorkerListR
         totvs_access: w?.totvs_access || null,
         is_active: typeof w?.is_active === "boolean" ? w.is_active : true,
         can_create_released_letter: typeof w?.can_create_released_letter === "boolean" ? w.can_create_released_letter : false,
+        can_manage: typeof w?.can_manage === "boolean" ? w.can_manage : true,
+        registration_status:
+          (String(w?.registration_status || "").toUpperCase() === "PENDENTE"
+            ? "PENDENTE"
+            : String(w?.registration_status || "").toUpperCase() === "APROVADO"
+              ? "APROVADO"
+              : resolveRegistrationStatusFromTotvsAccess(w?.totvs_access || null)),
       })),
       total: Number(data?.total || rows.length),
       page: Number(data?.page || params.page || 1),
@@ -785,6 +837,8 @@ export async function listWorkers(params: WorkerListParams): Promise<WorkerListR
     is_active: (u as AuthSessionData & { is_active?: boolean }).is_active ?? true,
     can_create_released_letter:
       (u as AuthSessionData & { can_create_released_letter?: boolean }).can_create_released_letter ?? false,
+    registration_status:
+      (u as AuthSessionData).registration_status || "APROVADO",
   })) as UserListItem[];
 
   if (params.search) {
@@ -845,6 +899,16 @@ export async function listChurchesInScope(page = 1, pageSize = 200): Promise<Chu
     church_name: String(item?.church_name || item?.name || "-"),
     church_class: item?.church_class || item?.class || null,
     parent_totvs_id: item?.parent_totvs_id || null,
+    contact_email: item?.contact_email || null,
+    contact_phone: item?.contact_phone || null,
+    cep: item?.cep || null,
+    address_street: item?.address_street || null,
+    address_number: item?.address_number || null,
+    address_complement: item?.address_complement || null,
+    address_neighborhood: item?.address_neighborhood || null,
+    address_city: item?.address_city || null,
+    address_state: item?.address_state || null,
+    address_country: item?.address_country || null,
     is_active: typeof item?.is_active === "boolean" ? item.is_active : true,
     workers_count: Number(item?.workers_count || 0),
     pastor_user_id: item?.pastor_user_id || item?.pastor?.id || null,
@@ -871,6 +935,16 @@ export async function listChurchesInScopePaged(page = 1, pageSize = 20): Promise
     church_name: String(item?.church_name || item?.name || "-"),
     church_class: item?.church_class || item?.class || null,
     parent_totvs_id: item?.parent_totvs_id || null,
+    contact_email: item?.contact_email || null,
+    contact_phone: item?.contact_phone || null,
+    cep: item?.cep || null,
+    address_street: item?.address_street || null,
+    address_number: item?.address_number || null,
+    address_complement: item?.address_complement || null,
+    address_neighborhood: item?.address_neighborhood || null,
+    address_city: item?.address_city || null,
+    address_state: item?.address_state || null,
+    address_country: item?.address_country || null,
     is_active: typeof item?.is_active === "boolean" ? item.is_active : true,
     workers_count: Number(item?.workers_count || 0),
     pastor_user_id: item?.pastor_user_id || item?.pastor?.id || null,
@@ -890,7 +964,23 @@ export async function listChurchesInScopePaged(page = 1, pageSize = 20): Promise
   };
 }
 
-export async function createChurch(payload: { totvs_id: string; parent_totvs_id?: string; church_name: string; class: string }) {
+export async function createChurch(payload: {
+  totvs_id: string;
+  parent_totvs_id?: string;
+  church_name: string;
+  class: string;
+  contact_email?: string;
+  contact_phone?: string;
+  cep?: string;
+  address_street?: string;
+  address_number?: string;
+  address_complement?: string;
+  address_neighborhood?: string;
+  address_city?: string;
+  address_state?: string;
+  address_country?: string;
+  is_active?: boolean;
+}) {
   if (!payload.totvs_id?.trim()) throw new Error("totvs_id_required");
   if (!payload.church_name?.trim()) throw new Error("church_name_required");
   if (!payload.class?.trim()) throw new Error("class_required");
@@ -900,6 +990,17 @@ export async function createChurch(payload: { totvs_id: string; parent_totvs_id?
     parent_totvs_id: payload.parent_totvs_id?.trim() || null,
     church_name: payload.church_name.trim(),
     class: payload.class.trim(),
+    contact_email: payload.contact_email?.trim() || null,
+    contact_phone: payload.contact_phone?.trim() || null,
+    cep: payload.cep?.trim() || null,
+    address_street: payload.address_street?.trim() || null,
+    address_number: payload.address_number?.trim() || null,
+    address_complement: payload.address_complement?.trim() || null,
+    address_neighborhood: payload.address_neighborhood?.trim() || null,
+    address_city: payload.address_city?.trim() || null,
+    address_state: payload.address_state?.trim() || null,
+    address_country: payload.address_country?.trim() || "BR",
+    is_active: typeof payload.is_active === "boolean" ? payload.is_active : true,
   });
 }
 
@@ -955,7 +1056,8 @@ export async function listNotifications(page = 1, pageSize = 20, unreadOnly = fa
       id: String(item?.id || ""),
       title: String(item?.title || "Notificacao"),
       message: item?.message || null,
-      is_read: Boolean(item?.is_read),
+      // Comentario: alguns registros antigos podem ter apenas read_at preenchido.
+      is_read: Boolean(item?.is_read) || Boolean(item?.read_at),
       created_at: item?.created_at || null,
       type: item?.type || null,
     })),
@@ -1118,7 +1220,7 @@ export async function getPastorByTotvsPublic(churchTotvsId: string): Promise<Pas
 
   const { data, error } = await supabase
     .from("users")
-    .select("full_name,phone,email,avatar_url,minister_role")
+    .select("full_name,phone,email,avatar_url,minister_role,signature_url")
     .eq("role", "pastor")
     .eq("default_totvs_id", totvs)
     .eq("is_active", true)
@@ -1133,7 +1235,43 @@ export async function getPastorByTotvsPublic(churchTotvsId: string): Promise<Pas
     email: (data as Record<string, unknown>).email || null,
     avatar_url: (data as Record<string, unknown>).avatar_url || null,
     minister_role: (data as Record<string, unknown>).minister_role || null,
+    signature_url: (data as Record<string, unknown>).signature_url || null,
   };
+}
+
+export async function forgotPasswordRequest(payload: { cpf?: string; email?: string }) {
+  return await api.forgotPasswordRequest(payload);
+}
+
+export async function publicRegisterMember(payload: {
+  cpf: string;
+  full_name: string;
+  phone?: string | null;
+  email?: string | null;
+  password: string;
+  totvs_id: string;
+}) {
+  const cpf = normalizeCpf(payload.cpf);
+  if (cpf.length !== 11) throw new Error("cpf-invalid");
+  if (!payload.full_name.trim()) throw new Error("name-required");
+  if (!payload.totvs_id.trim()) throw new Error("totvs-required");
+  if (String(payload.password || "").length < 6) throw new Error("password-too-short");
+
+  return await api.publicRegisterMember({
+    cpf,
+    full_name: payload.full_name.trim(),
+    phone: payload.phone || null,
+    email: payload.email || null,
+    password: payload.password,
+    totvs_id: payload.totvs_id.trim(),
+  });
+}
+
+export async function getMyRegistrationStatus(): Promise<RegistrationStatus> {
+  const data = await api.getMyRegistrationStatus();
+  const status = String(data?.registration_status || "").toUpperCase();
+  if (status === "PENDENTE") return "PENDENTE";
+  return "APROVADO";
 }
 
 export async function approveRelease(requestId: string) {
@@ -1424,6 +1562,20 @@ export async function setWorkerDirectRelease(workerId: string, enabled: boolean)
   const user = MOCK_USERS.find((u) => u.id === workerId);
   if (user) {
     (user as AuthSessionData & { can_create_released_letter?: boolean }).can_create_released_letter = enabled;
+  }
+}
+
+export async function setUserRegistrationStatus(userId: string, registrationStatus: RegistrationStatus) {
+  if (!isMockMode()) {
+    await api.setUserRegistrationStatus({
+      user_id: userId,
+      registration_status: registrationStatus,
+    });
+    return;
+  }
+  const user = MOCK_USERS.find((u) => u.id === userId);
+  if (user) {
+    (user as AuthSessionData).registration_status = registrationStatus;
   }
 }
 

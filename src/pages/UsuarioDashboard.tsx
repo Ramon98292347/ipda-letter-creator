@@ -7,7 +7,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
@@ -22,7 +22,7 @@ import {
   workerDashboard,
   type PastorLetter,
 } from "@/services/saasService";
-import { Share2, Download, Unlock, LogOut, Bell, RefreshCw, MoreHorizontal, Eye } from "lucide-react";
+import { Share2, Download, Unlock, LogOut, Bell, RefreshCw, MoreHorizontal, Eye, IdCard } from "lucide-react";
 import { usePwaInstall } from "@/hooks/usePwaInstall";
 
 function statusClass(status: string) {
@@ -47,11 +47,20 @@ function toInputDate(date: Date) {
 }
 
 type QuickRange = "today" | "7" | "15" | "30" | "all";
-
 function getAddressCity(addressJson: unknown) {
   const address = (addressJson || {}) as Record<string, unknown>;
   return String(address.city || "");
 }
+
+function buildPublicCartaUrl(storagePath: string) {
+  const supabaseUrl = String(import.meta.env.VITE_SUPABASE_URL || "").replace(/\/$/, "");
+  const raw = String(storagePath || "").trim();
+  if (!raw) return "";
+  if (raw.startsWith("http://") || raw.startsWith("https://")) return raw;
+  const cleaned = raw.replace(/^\/+/, "");
+  return `${supabaseUrl}/storage/v1/object/public/cartas/${cleaned}`;
+}
+
 
 export default function UsuarioDashboard() {
   const { usuario, session, token, clearAuth, setUsuario, setTelefone } = useUser();
@@ -123,6 +132,7 @@ export default function UsuarioDashboard() {
   const activeTotvs = String(session?.totvs_id || church?.totvs_id || "");
   const notifications = notificationsData?.notifications || [];
   const unreadCount = notificationsData?.unread_count || 0;
+  const isCadastroPendente = usuario?.registration_status === "PENDENTE";
 
   const { data: pastorFromUsers } = useQuery({
     queryKey: ["pastor-by-totvs", activeTotvs],
@@ -193,6 +203,10 @@ export default function UsuarioDashboard() {
   }
 
   async function openPdf(letter: PastorLetter) {
+    if (isCadastroPendente) {
+      toast.error("Cadastro pendente. Procure a secretaria da igreja para liberar acesso.");
+      return;
+    }
     if (letter.status !== "LIBERADA") {
       toast.error("Carta bloqueada.");
       return;
@@ -202,21 +216,33 @@ export default function UsuarioDashboard() {
       return;
     }
     try {
-      const url = await getSignedPdfUrl(letter.id);
+      const url = letter.storage_path ? buildPublicCartaUrl(letter.storage_path) : await getSignedPdfUrl(letter.id);
       if (!url) throw new Error("signed-url-empty");
       window.open(url, "_blank");
     } catch {
+      if (letter.storage_path) {
+        const fallbackUrl = buildPublicCartaUrl(letter.storage_path);
+        if (fallbackUrl) {
+          window.open(fallbackUrl, "_blank");
+          toast.message("PDF aberto com link público.");
+          return;
+        }
+      }
       toast.error("Falha ao abrir PDF.");
     }
   }
 
   async function shareLetter(letter: PastorLetter) {
+    if (isCadastroPendente) {
+      toast.error("Cadastro pendente. Compartilhamento bloqueado ate a liberacao.");
+      return;
+    }
     if (letter.status !== "LIBERADA") {
       toast.error("Carta bloqueada.");
       return;
     }
     try {
-      const url = await getSignedPdfUrl(letter.id);
+      const url = letter.storage_path ? buildPublicCartaUrl(letter.storage_path) : await getSignedPdfUrl(letter.id);
       if (url) {
         window.open(`https://wa.me/?text=${encodeURIComponent(`Carta de pregacao: ${url}`)}`, "_blank");
       }
@@ -226,6 +252,10 @@ export default function UsuarioDashboard() {
   }
 
   async function pedirLiberacao(letter: PastorLetter) {
+    if (isCadastroPendente) {
+      toast.error("Cadastro pendente. Solicite liberacao na secretaria da igreja.");
+      return;
+    }
     try {
       await requestRelease(letter.id, userId, session?.totvs_id || "");
       toast.success("Pedido enviado.");
@@ -276,12 +306,12 @@ export default function UsuarioDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-100">
+    <div className="min-h-screen bg-[#f6f8fc]">
       <header className="border-b border-slate-200 bg-white shadow-sm">
         <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-xl font-bold text-slate-900 sm:hidden">Gestão Eclesiástica</h1>
-            <h1 className="hidden bg-gradient-to-r from-emerald-500 to-cyan-500 bg-clip-text text-3xl font-extrabold text-transparent sm:block">Sistema de Gestão Eclesiástica</h1>
+            <h1 className="hidden text-3xl font-extrabold text-slate-900 sm:block">Sistema de Gestão Eclesiástica</h1>
             <p className="text-sm text-slate-600">Painel do Obreiro</p>
           </div>
           <div className="w-full sm:w-auto">
@@ -363,30 +393,27 @@ export default function UsuarioDashboard() {
 
       <main className="mx-auto w-full max-w-[1600px] space-y-5 px-4 py-4">
         <section className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
-          <div className="hidden gap-2 md:grid md:grid-cols-2">
-            <Button onClick={() => nav("/carta/formulario")} className="w-full">Gerar carta</Button>
-            <Button variant="outline" onClick={pedirPrimeiraLiberacao} className="w-full">
-              <Unlock className="mr-2 h-4 w-4" /> Pedir liberacao de carta
+          {isCadastroPendente ? (
+            <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+              Seu cadastro esta pendente de liberacao. Cartas e documentos ficam bloqueados ate aprovacao.
+            </div>
+          ) : null}
+          <div className="grid gap-2 md:grid-cols-2">
+            <Button variant="outline" onClick={pedirPrimeiraLiberacao} className="w-full" disabled={isCadastroPendente}>
+              <Unlock className="mr-2 h-4 w-4" /> Pedir liberação de carta
             </Button>
-            <Button variant="outline" onClick={baixarPrimeiraLiberada} className="w-full">
-              <Download className="mr-2 h-4 w-4" /> Baixar carta
-            </Button>
-            <Button variant="outline" onClick={() => setOpenUpdateModal(true)} className="w-full">
-              <RefreshCw className="mr-2 h-4 w-4" /> Atualizar cadastro
-            </Button>
-          </div>
-          <div className="space-y-2 md:hidden">
-            <Button onClick={() => nav("/carta/formulario")} className="w-full">Gerar carta</Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="w-full">Outras acoes</Button>
+                <Button variant="outline" className="w-full" disabled={isCadastroPendente}>
+                  <MoreHorizontal className="mr-2 h-4 w-4" /> Ações
+                </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent className="w-64">
-                <DropdownMenuItem onClick={pedirPrimeiraLiberacao}>
-                  <Unlock className="mr-2 h-4 w-4" /> Pedir liberacao de carta
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={baixarPrimeiraLiberada}>
+                <DropdownMenuItem onClick={baixarPrimeiraLiberada} disabled={isCadastroPendente}>
                   <Download className="mr-2 h-4 w-4" /> Baixar carta
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => nav("/usuario/documentos")} disabled={isCadastroPendente}>
+                  <IdCard className="mr-2 h-4 w-4" /> Documentos
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setOpenUpdateModal(true)}>
                   <RefreshCw className="mr-2 h-4 w-4" /> Atualizar cadastro
@@ -418,7 +445,7 @@ export default function UsuarioDashboard() {
           </Card>
           <Card className="border-0 bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-sm">
             <CardContent className="pt-4">
-              <p className="text-sm opacity-90">Aguardando liberacao</p>
+              <p className="text-sm opacity-90">Aguardando liberação</p>
               <p className="text-3xl font-bold">{stats.aguardando}</p>
             </CardContent>
           </Card>
@@ -464,7 +491,7 @@ export default function UsuarioDashboard() {
                     <span>Origem</span>
                     <span>Destino</span>
                     <span>Status</span>
-                    <span>Acoes</span>
+                    <span>Ações</span>
                   </div>
 
                   {filteredLetters.map((letter) => {
@@ -521,19 +548,19 @@ export default function UsuarioDashboard() {
                         </div>
                         <p className="text-xs text-slate-600">Origem: {letter.church_origin || "-"}</p>
                         <div className="flex gap-2">
-                          <Button variant="outline" className="flex-1" disabled={!canOpen} onClick={() => openPdf(letter)}>
-                            Ver PDF
-                          </Button>
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                              <Button variant="outline" size="icon"><MoreHorizontal className="h-4 w-4" /></Button>
+                              <Button variant="outline" className="flex-1"><MoreHorizontal className="mr-2 h-4 w-4" /> Ações</Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent>
+                              <DropdownMenuItem disabled={!canOpen} onClick={() => openPdf(letter)}>
+                                <Download className="mr-2 h-4 w-4" /> Abrir PDF
+                              </DropdownMenuItem>
                               <DropdownMenuItem disabled={!canOpen} onClick={() => shareLetter(letter)}>
                                 <Share2 className="mr-2 h-4 w-4" /> Compartilhar
                               </DropdownMenuItem>
                               <DropdownMenuItem disabled={!canRequest} onClick={() => pedirLiberacao(letter)}>
-                                <Unlock className="mr-2 h-4 w-4" /> Pedir liberacao
+                                <Unlock className="mr-2 h-4 w-4" /> Pedir liberação
                               </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
@@ -553,6 +580,7 @@ export default function UsuarioDashboard() {
         <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Cadastro</DialogTitle>
+            <DialogDescription>Dados do usuário e do pastor responsável.</DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 md:grid-cols-2">
             <Card className="border border-slate-200 bg-white shadow-sm">
@@ -630,6 +658,7 @@ export default function UsuarioDashboard() {
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>Atualizar cadastro</DialogTitle>
+            <DialogDescription>Atualize telefone, e-mail e cidade.</DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
             <div className="grid gap-2 md:grid-cols-2">
@@ -669,6 +698,7 @@ export default function UsuarioDashboard() {
         <DialogContent className="max-w-3xl">
           <DialogHeader>
             <DialogTitle>Notificações</DialogTitle>
+            <DialogDescription>Mensagens recentes do sistema.</DialogDescription>
           </DialogHeader>
           <div className="mb-2 flex justify-end">
             <Button variant="outline" size="sm" onClick={readAllNotifications}>

@@ -29,11 +29,7 @@ const App = () => (
             />
             <Route
               path="/cadastro"
-              element={
-                <RequireAuth>
-                  <CadastroRapido />
-                </RequireAuth>
-              }
+              element={<CadastroRapido />}
             />
             <Route
               path="/usuario"
@@ -41,6 +37,16 @@ const App = () => (
                 <RequireAuth>
                   <Suspense fallback={<div />}>
                     <UsuarioDashboardPage />
+                  </Suspense>
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/usuario/documentos"
+              element={
+                <RequireAuth>
+                  <Suspense fallback={<div />}>
+                    <UsuarioDocumentosPage />
                   </Suspense>
                 </RequireAuth>
               }
@@ -207,8 +213,10 @@ function OnReloadRedirect() {
       const entries = performance.getEntriesByType("navigation") as PerformanceEntry[];
       const last = entries && entries.length ? entries[entries.length - 1] : undefined;
       const type = (last && (last as unknown as { type?: string }).type) ?? undefined;
+      const publicPaths = new Set(["/", "/cadastro"]);
+      const isPublicPath = publicPaths.has(loc.pathname);
       const isSelectChurchValid = loc.pathname === "/select-church" && !!pendingCpf && availableChurches.length > 0;
-      if (type === "reload" && loc.pathname !== "/" && (!usuario || !token) && !isSelectChurchValid) {
+      if (type === "reload" && !isPublicPath && (!usuario || !token) && !isSelectChurchValid) {
         nav("/", { replace: true });
       }
     } catch { return; }
@@ -219,6 +227,7 @@ function OnReloadRedirect() {
 const CartaPage = lazy(() => import("./pages/Index"));
 const CartasDashboardPage = lazy(() => import("./pages/CartasDashboardPage"));
 const UsuarioDashboardPage = lazy(() => import("./pages/UsuarioDashboard"));
+const UsuarioDocumentosPage = lazy(() => import("./pages/UsuarioDocumentosPage"));
 const PastorDashboardPage = lazy(() => import("./pages/PastorDashboardPage"));
 const PastorIgrejasPage = lazy(() => import("./pages/PastorIgrejasPage"));
 const PastorMembrosPage = lazy(() => import("./pages/PastorMembrosPage"));
