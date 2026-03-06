@@ -205,7 +205,7 @@ export default function UsuarioDocumentosPage() {
     });
   }, [profile, usuario?.nome, addressStreet, addressNumber, addressNeighborhood, city, state, zip, session?.church_name, church?.church_name, church?.address_full]);
 
-  async function enviarParaConfeccao(documentType: "ficha_membro" | "carteirinha") {
+  async function enviarParaConfeccao() {
     if (isCadastroPendente) {
       toast.error("Cadastro pendente. Aguarde aprova??o para enviar documentos.");
       return;
@@ -214,15 +214,10 @@ export default function UsuarioDocumentosPage() {
       toast.error("Dados de sess?o inv?lidos.");
       return;
     }
-    if (documentType === "carteirinha" && !fichaPronta) {
-      toast.error("A carteirinha s? pode ser enviada ap?s a ficha pronta.");
-      return;
-    }
-
     setSendingDoc(true);
     try {
       await generateMemberDocs({
-        document_type: documentType,
+        document_type: "ficha_carteirinha",
         member_id: userId,
         church_totvs_id: activeTotvs,
         dados: {
@@ -266,10 +261,7 @@ export default function UsuarioDocumentosPage() {
             <div className="flex gap-2">
               <Button variant={docTab === "carteirinha" ? "default" : "outline"} onClick={() => setDocTab("carteirinha")}>Carteirinha</Button>
               <Button variant={docTab === "ficha" ? "default" : "outline"} onClick={() => setDocTab("ficha")}>Ficha do membro</Button>
-              <Button
-                onClick={() => void enviarParaConfeccao(docTab === "ficha" ? "ficha_membro" : "carteirinha")}
-                disabled={sendingDoc || fetchingDocsStatus || isCadastroPendente || (docTab === "carteirinha" && !fichaPronta)}
-              >
+              <Button onClick={() => void enviarParaConfeccao()} disabled={sendingDoc || fetchingDocsStatus || isCadastroPendente}>
                 <Send className="mr-2 h-4 w-4" />
                 {sendingDoc ? "Enviando..." : "Enviar para confecção"}
               </Button>

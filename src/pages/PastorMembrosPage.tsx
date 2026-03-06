@@ -737,15 +737,11 @@ export default function PastorMembrosPage() {
       toast.error("Preencha nome, cargo e CPF.");
       return;
     }
-    if (tab === "carteirinha" && !fichaPronta) {
-      toast.error("A carteirinha só pode ser enviada depois da ficha pronta.");
-      return;
-    }
-
     setSending(true);
     try {
+      const documentType = tab === "ficha_obreiro" ? "ficha_obreiro" : "ficha_carteirinha";
       await generateMemberDocs({
-        document_type: tab,
+        document_type: documentType,
         member_id: selectedMemberId,
         church_totvs_id: activeTotvsId,
         dados: {
@@ -1236,7 +1232,7 @@ export default function PastorMembrosPage() {
               <Button variant="outline" onClick={saveDraft} disabled={savingDraft}>
                 <Save className="mr-2 h-4 w-4" /> {savingDraft ? "Salvando..." : "Salvar rascunho"}
               </Button>
-              <Button onClick={sendToGenerateDocs} disabled={sending || fetchingDocsStatus || (tab === "carteirinha" && !fichaPronta)}>
+              <Button onClick={sendToGenerateDocs} disabled={sending || fetchingDocsStatus}>
                 <Send className="mr-2 h-4 w-4" /> {sending ? "Enviando..." : "Enviar para confecção"}
               </Button>
             </div>

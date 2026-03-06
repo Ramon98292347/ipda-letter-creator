@@ -16,7 +16,8 @@ function json(obj: unknown, status = 200) {
 }
 
 type Role = "admin" | "pastor" | "obreiro";
-type DocumentType = "ficha_membro" | "carteirinha" | "ficha_obreiro";
+type SingleDocumentType = "ficha_membro" | "carteirinha" | "ficha_obreiro";
+type DocumentType = SingleDocumentType | "ficha_carteirinha";
 type SessionClaims = { user_id: string; role: Role; active_totvs_id: string };
 type Body = {
   document_type?: DocumentType;
@@ -49,10 +50,62 @@ async function verifySessionJWT(req: Request): Promise<SessionClaims | null> {
   }
 }
 
-function tableByDocumentType(documentType: DocumentType) {
-  if (documentType === "ficha_membro") return "member_ficha_documents";
-  if (documentType === "carteirinha") return "member_carteirinha_documents";
-  return "member_ficha_documents";
+function tableByType(documentType: "ficha_membro" | "carteirinha") {
+  return documentType === "ficha_membro" ? "member_ficha_documents" : "member_carteirinha_documents";
+}
+
+async function upsertDocStatus(
+  sb: ReturnType<typeof createClient>,
+  documentType: "ficha_membro" | "carteirinha",
+  memberId: string,
+  churchTotvsId: string,
+  requestedByUserId: string,
+  requestPayload: Record<string, unknown>,
+  fichaUrlQr: string | null,
+) {
+  const payload: Record<string, unknown> = {
+    member_id: memberId,
+    church_totvs_id: churchTotvsId,
+    status: "ENVIADO_CONFECCAO",
+    request_payload: requestPayload,
+    requested_by_user_id: requestedByUserId,
+    requested_at: new Date().toISOString(),
+    final_url: null,
+    error_message: null,
+    webhook_response: {},
+    updated_at: new Date().toISOString(),
+  };
+
+  if (documentType === "carteirinha") {
+    payload.ficha_url_qr = fichaUrlQr;
+  }
+
+  const table = tableByType(documentType);
+  const { error } = await sb.from(table).upsert(payload, {
+    onConflict: "member_id,church_totvs_id",
+  });
+  return error;
+}
+
+async function updateWebhookStatus(
+  sb: ReturnType<typeof createClient>,
+  documentType: "ficha_membro" | "carteirinha",
+  memberId: string,
+  churchTotvsId: string,
+  webhookData: unknown,
+  webhookOk: boolean,
+) {
+  const table = tableByType(documentType);
+  await sb
+    .from(table)
+    .update({
+      webhook_response: webhookData as Record<string, unknown>,
+      status: webhookOk ? "ENVIADO_CONFECCAO" : "ERRO",
+      error_message: webhookOk ? null : "webhook_failed",
+      updated_at: new Date().toISOString(),
+    })
+    .eq("member_id", memberId)
+    .eq("church_totvs_id", churchTotvsId);
 }
 
 Deno.serve(async (req) => {
@@ -69,7 +122,7 @@ Deno.serve(async (req) => {
     const churchTotvsId = String(body.church_totvs_id || session.active_totvs_id || "").trim();
     const dados = body.dados || {};
 
-    if (!["ficha_membro", "carteirinha", "ficha_obreiro"].includes(documentType)) {
+    if (!["ficha_membro", "carteirinha", "ficha_obreiro", "ficha_carteirinha"].includes(documentType)) {
       return json({ ok: false, error: "invalid_document_type" }, 400);
     }
     if (!memberId) return json({ ok: false, error: "missing_member_id" }, 400);
@@ -91,38 +144,54 @@ Deno.serve(async (req) => {
     if (String(member.default_totvs_id || "") !== churchTotvsId) {
       return json({ ok: false, error: "forbidden_wrong_church" }, 403);
     }
-
     if (session.role === "obreiro" && memberId !== session.user_id) {
       return json({ ok: false, error: "forbidden_only_own_member" }, 403);
     }
 
-    let fichaRow: { final_url?: string | null; status?: string | null } | null = null;
-    if (documentType === "carteirinha") {
-      const { data: ficha, error: fichaErr } = await sb
-        .from("member_ficha_documents")
-        .select("final_url, status")
-        .eq("member_id", memberId)
-        .eq("church_totvs_id", churchTotvsId)
-        .maybeSingle();
-      if (fichaErr) return json({ ok: false, error: "db_error_ficha_status", details: fichaErr.message }, 500);
+    const { data: church, error: churchErr } = await sb
+      .from("churches")
+      .select("pastor_user_id")
+      .eq("totvs_id", churchTotvsId)
+      .maybeSingle();
+    if (churchErr) return json({ ok: false, error: "db_error_church", details: churchErr.message }, 500);
 
-      fichaRow = ficha;
-      const fichaReady = String(ficha?.final_url || "").trim().length > 0;
-      if (!fichaReady) {
-        return json(
-          {
-            ok: false,
-            error: "ficha_required_before_carteirinha",
-            detail: "A carteirinha so pode ser gerada depois que a ficha estiver pronta.",
-          },
-          409,
-        );
-      }
+    let pastorSignatureUrl = "";
+    if (church?.pastor_user_id) {
+      const { data: pastor, error: pastorErr } = await sb
+        .from("users")
+        .select("signature_url, full_name, phone, email")
+        .eq("id", String(church.pastor_user_id))
+        .maybeSingle();
+      if (pastorErr) return json({ ok: false, error: "db_error_pastor_signature", details: pastorErr.message }, 500);
+      pastorSignatureUrl = String(pastor?.signature_url || "");
+      if (!dados.assinatura_pastor_url) dados.assinatura_pastor_url = pastorSignatureUrl;
+      if (!dados.pastor_responsavel_nome) dados.pastor_responsavel_nome = String(pastor?.full_name || "");
+      if (!dados.pastor_responsavel_telefone) dados.pastor_responsavel_telefone = String(pastor?.phone || "");
+      if (!dados.pastor_responsavel_email) dados.pastor_responsavel_email = String(pastor?.email || "");
     }
 
-    const webhook =
-      Deno.env.get("N8N_MEMBER_DOCS_WEBHOOK_URL") ||
-      "https://n8n-n8n.ynlng8.easypanel.host/webhook/ficha-carteirinha";
+    let fichaFinalUrl = "";
+    const { data: fichaSaved, error: fichaSavedErr } = await sb
+      .from("member_ficha_documents")
+      .select("final_url")
+      .eq("member_id", memberId)
+      .eq("church_totvs_id", churchTotvsId)
+      .maybeSingle();
+    if (fichaSavedErr) return json({ ok: false, error: "db_error_ficha_saved", details: fichaSavedErr.message }, 500);
+    fichaFinalUrl = String(fichaSaved?.final_url || "");
+
+    const createBundle = documentType === "ficha_carteirinha";
+
+    if (documentType === "carteirinha" && !createBundle && !fichaFinalUrl) {
+      return json(
+        {
+          ok: false,
+          error: "ficha_required_before_carteirinha",
+          detail: "A carteirinha so pode ser gerada depois que a ficha estiver pronta.",
+        },
+        409,
+      );
+    }
 
     const requestPayload: Record<string, unknown> = {
       ...dados,
@@ -132,40 +201,40 @@ Deno.serve(async (req) => {
       requested_by_user_id: session.user_id,
       requested_by_role: session.role,
       document_type: documentType,
+      assinatura_pastor_url: String(dados.assinatura_pastor_url || pastorSignatureUrl || ""),
     };
-    if (documentType === "carteirinha") {
-      requestPayload.qr_code_url = String(fichaRow?.final_url || "");
+
+    if (fichaFinalUrl) {
+      requestPayload.qr_code_url = fichaFinalUrl;
     }
 
-    if (documentType === "ficha_membro" || documentType === "carteirinha") {
-      const upsertBase: Record<string, unknown> = {
-        member_id: memberId,
-        church_totvs_id: churchTotvsId,
-        status: "ENVIADO_CONFECCAO",
-        request_payload: requestPayload,
-        requested_by_user_id: session.user_id,
-        requested_at: new Date().toISOString(),
-        final_url: null,
-        error_message: null,
-        webhook_response: {},
-        updated_at: new Date().toISOString(),
-      };
+    const docsToUpdate: Array<"ficha_membro" | "carteirinha"> = createBundle
+      ? ["ficha_membro", "carteirinha"]
+      : documentType === "ficha_membro" || documentType === "carteirinha"
+        ? [documentType]
+        : [];
 
-      if (documentType === "carteirinha") {
-        upsertBase.ficha_url_qr = String(fichaRow?.final_url || "");
-      }
-
-      const table = tableByDocumentType(documentType);
-      const { error: upErr } = await sb.from(table).upsert(upsertBase, {
-        onConflict: "member_id,church_totvs_id",
-      });
-
-      if (upErr) return json({ ok: false, error: "db_error_upsert_status", details: upErr.message }, 500);
+    for (const docType of docsToUpdate) {
+      const err = await upsertDocStatus(
+        sb,
+        docType,
+        memberId,
+        churchTotvsId,
+        session.user_id,
+        requestPayload,
+        fichaFinalUrl || null,
+      );
+      if (err) return json({ ok: false, error: "db_error_upsert_status", details: err.message }, 500);
     }
+
+    const webhook =
+      Deno.env.get("N8N_MEMBER_DOCS_WEBHOOK_URL") ||
+      "https://n8n-n8n.ynlng8.easypanel.host/webhook/ficha-carteirinha";
 
     const webhookPayload = {
       action: "generate_member_docs",
       document_type: documentType,
+      create_bundle: createBundle,
       member_id: memberId,
       member_name: member.full_name,
       church_totvs_id: churchTotvsId,
@@ -188,18 +257,8 @@ Deno.serve(async (req) => {
       // resposta textual
     }
 
-    if (documentType === "ficha_membro" || documentType === "carteirinha") {
-      const table = tableByDocumentType(documentType);
-      await sb
-        .from(table)
-        .update({
-          webhook_response: webhookData as Record<string, unknown>,
-          status: resp.ok ? "ENVIADO_CONFECCAO" : "ERRO",
-          error_message: resp.ok ? null : "webhook_failed",
-          updated_at: new Date().toISOString(),
-        })
-        .eq("member_id", memberId)
-        .eq("church_totvs_id", churchTotvsId);
+    for (const docType of docsToUpdate) {
+      await updateWebhookStatus(sb, docType, memberId, churchTotvsId, webhookData, resp.ok);
     }
 
     if (!resp.ok) {

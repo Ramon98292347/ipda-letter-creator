@@ -2011,7 +2011,7 @@ export async function generateChurchContratoPdf(churchTotvsId: string) {
 }
 
 export async function generateMemberDocs(payload: {
-  document_type: "ficha_membro" | "carteirinha" | "ficha_obreiro";
+  document_type: "ficha_membro" | "carteirinha" | "ficha_obreiro" | "ficha_carteirinha";
   member_id: string;
   church_totvs_id?: string;
   dados: Record<string, unknown>;
