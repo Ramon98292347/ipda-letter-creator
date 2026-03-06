@@ -104,4 +104,6 @@ export const api = {
 
   // Comentario: gera ficha/carteirinha de membro via webhook n8n.
   generateMemberDocs: (body: JsonBody) => post("generate-member-docs", body),
+  getMemberDocsStatus: (body: { member_id?: string; church_totvs_id?: string } = {}) =>
+    post("get-member-docs-status", body),
 };

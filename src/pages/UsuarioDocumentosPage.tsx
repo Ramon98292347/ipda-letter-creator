@@ -1,11 +1,12 @@
 ﻿import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { useUser } from "@/context/UserContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, IdCard } from "lucide-react";
-import { getPastorByTotvsPublic, workerDashboard } from "@/services/saasService";
+import { ArrowLeft, IdCard, Send } from "lucide-react";
+import { generateMemberDocs, getMemberDocsStatus, getPastorByTotvsPublic, workerDashboard } from "@/services/saasService";
 
 type DocTab = "carteirinha" | "ficha";
 
@@ -119,6 +120,7 @@ export default function UsuarioDocumentosPage() {
   const { usuario, session } = useUser();
   const isCadastroPendente = usuario?.registration_status === "PENDENTE";
   const [docTab, setDocTab] = useState<DocTab>("carteirinha");
+  const [sendingDoc, setSendingDoc] = useState(false);
 
   const userId = String(usuario?.id || "");
   const { data } = useQuery({
@@ -137,6 +139,19 @@ export default function UsuarioDocumentosPage() {
     enabled: Boolean(activeTotvs),
   });
 
+  const { data: docsStatus, refetch: refetchDocsStatus, isFetching: fetchingDocsStatus } = useQuery({
+    queryKey: ["worker-docs-status", userId, activeTotvs],
+    queryFn: () => getMemberDocsStatus({ member_id: userId, church_totvs_id: activeTotvs }),
+    enabled: Boolean(userId && activeTotvs),
+  });
+
+  const fichaPronta = Boolean(
+    docsStatus?.ficha && String(docsStatus?.ficha?.final_url || "").trim().length > 0,
+  );
+  const carteirinhaPronta = Boolean(
+    docsStatus?.carteirinha && String(docsStatus?.carteirinha?.final_url || "").trim().length > 0,
+  );
+
   const addressStreet = getAddressField(profile?.address_json, "street");
   const addressNumber = getAddressField(profile?.address_json, "number");
   const addressNeighborhood = getAddressField(profile?.address_json, "neighborhood");
@@ -149,7 +164,7 @@ export default function UsuarioDocumentosPage() {
       buildCarteirinhaHtml({
         foto: String(profile?.avatar_url || ""),
         assinatura: String(pastor?.signature_url || ""),
-        qr: "",
+        qr: String(docsStatus?.ficha?.final_url || ""),
         nome: String(profile?.full_name || usuario?.nome || ""),
         funcao: String(profile?.minister_role || ""),
         matricula: String((profile as Record<string, unknown> | undefined)?.matricula || ""),
@@ -157,7 +172,7 @@ export default function UsuarioDocumentosPage() {
         telefone: String(profile?.phone || ""),
         batismo: String((profile as Record<string, unknown> | undefined)?.baptism_date || ""),
       }),
-    [profile, pastor?.signature_url, usuario?.nome],
+    [profile, pastor?.signature_url, usuario?.nome, docsStatus?.ficha?.final_url],
   );
 
   const fichaHtml = useMemo(() => {
@@ -190,6 +205,48 @@ export default function UsuarioDocumentosPage() {
     });
   }, [profile, usuario?.nome, addressStreet, addressNumber, addressNeighborhood, city, state, zip, session?.church_name, church?.church_name, church?.address_full]);
 
+  async function enviarParaConfeccao(documentType: "ficha_membro" | "carteirinha") {
+    if (isCadastroPendente) {
+      toast.error("Cadastro pendente. Aguarde aprova??o para enviar documentos.");
+      return;
+    }
+    if (!userId || !activeTotvs) {
+      toast.error("Dados de sess?o inv?lidos.");
+      return;
+    }
+    if (documentType === "carteirinha" && !fichaPronta) {
+      toast.error("A carteirinha s? pode ser enviada ap?s a ficha pronta.");
+      return;
+    }
+
+    setSendingDoc(true);
+    try {
+      await generateMemberDocs({
+        document_type: documentType,
+        member_id: userId,
+        church_totvs_id: activeTotvs,
+        dados: {
+          nome_completo: String(profile?.full_name || usuario?.nome || ""),
+          funcao_ministerial: String(profile?.minister_role || ""),
+          cpf: String(profile?.cpf || ""),
+          telefone: String(profile?.phone || ""),
+          email: String(profile?.email || ""),
+          foto_3x4_url: String(profile?.avatar_url || ""),
+          assinatura_pastor_url: String(pastor?.signature_url || ""),
+          qr_code_url: String(docsStatus?.ficha?.final_url || ""),
+          igreja_nome: String(session?.church_name || church?.church_name || ""),
+        },
+      });
+      await refetchDocsStatus();
+      toast.success("Documento enviado para confec??o.");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Falha ao enviar documento.";
+      toast.error(message || "Falha ao enviar documento.");
+    } finally {
+      setSendingDoc(false);
+    }
+  }
+
   return (
     <div className="min-h-screen bg-slate-100">
       <main className="mx-auto w-full max-w-[1200px] space-y-4 px-4 py-4">
@@ -209,14 +266,45 @@ export default function UsuarioDocumentosPage() {
             <div className="flex gap-2">
               <Button variant={docTab === "carteirinha" ? "default" : "outline"} onClick={() => setDocTab("carteirinha")}>Carteirinha</Button>
               <Button variant={docTab === "ficha" ? "default" : "outline"} onClick={() => setDocTab("ficha")}>Ficha do membro</Button>
+              <Button
+                onClick={() => void enviarParaConfeccao(docTab === "ficha" ? "ficha_membro" : "carteirinha")}
+                disabled={sendingDoc || fetchingDocsStatus || isCadastroPendente || (docTab === "carteirinha" && !fichaPronta)}
+              >
+                <Send className="mr-2 h-4 w-4" />
+                {sendingDoc ? "Enviando..." : "Enviar para confecção"}
+              </Button>
             </div>
-            <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
-              {docTab === "carteirinha" ? (
-                <iframe title="Carteirinha do membro" className="h-[340px] w-full" srcDoc={isCadastroPendente ? "" : carteirinhaHtml} />
-              ) : (
-                <iframe title="Ficha do membro" className="h-[720px] w-full" srcDoc={isCadastroPendente ? "" : fichaHtml} />
-              )}
-            </div>
+            {docTab === "carteirinha" && carteirinhaPronta ? (
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+                <p className="text-sm font-semibold text-emerald-700">Carteirinha pronta.</p>
+                <p className="mt-1 text-xs text-emerald-700">A pré-visualização foi ocultada porque o arquivo final já está disponível.</p>
+                <div className="mt-3">
+                  <Button size="sm" onClick={() => window.open(String(docsStatus?.carteirinha?.final_url || ""), "_blank", "noopener,noreferrer")}>
+                    Abrir carteirinha
+                  </Button>
+                </div>
+              </div>
+            ) : null}
+            {docTab === "ficha" && fichaPronta ? (
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+                <p className="text-sm font-semibold text-emerald-700">Ficha pronta.</p>
+                <p className="mt-1 text-xs text-emerald-700">A pré-visualização foi ocultada porque o arquivo final já está disponível.</p>
+                <div className="mt-3">
+                  <Button size="sm" onClick={() => window.open(String(docsStatus?.ficha?.final_url || ""), "_blank", "noopener,noreferrer")}>
+                    Abrir ficha
+                  </Button>
+                </div>
+              </div>
+            ) : null}
+            {(docTab === "carteirinha" && !carteirinhaPronta) || (docTab === "ficha" && !fichaPronta) ? (
+              <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+                {docTab === "carteirinha" ? (
+                  <iframe title="Carteirinha do membro" className="h-[340px] w-full" srcDoc={isCadastroPendente ? "" : carteirinhaHtml} />
+                ) : (
+                  <iframe title="Ficha do membro" className="h-[720px] w-full" srcDoc={isCadastroPendente ? "" : fichaHtml} />
+                )}
+              </div>
+            ) : null}
           </CardContent>
         </Card>
       </main>

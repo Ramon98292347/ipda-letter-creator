@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { listChurchesInScope, listMembers, type UserListItem, generateMemberDocs } from "@/services/saasService";
+import { listChurchesInScope, listMembers, type UserListItem, generateMemberDocs, getMemberDocsStatus } from "@/services/saasService";
 import { useUser } from "@/context/UserContext";
 import { fetchAddressByCep, maskCep, onlyDigits } from "@/lib/cep";
 import { PageLoading } from "@/components/shared/PageLoading";
@@ -634,6 +634,20 @@ export default function PastorMembrosPage() {
     [workers, activeTotvsId],
   );
   const churchName = String(session?.church_name || usuario?.church_name || "");
+  const docsTabOpen = tab === "carteirinha" || tab === "ficha_membro";
+  const { data: docsStatus, refetch: refetchDocsStatus, isFetching: fetchingDocsStatus } = useQuery({
+    queryKey: ["pastor-member-docs-status", selectedMemberId, activeTotvsId],
+    queryFn: () => getMemberDocsStatus({ member_id: selectedMemberId, church_totvs_id: activeTotvsId }),
+    enabled: Boolean(docsTabOpen && selectedMemberId && activeTotvsId),
+  });
+  const fichaPronta = Boolean(
+    docsStatus?.ficha &&
+      String(docsStatus?.ficha?.final_url || "").trim().length > 0,
+  );
+  const carteirinhaPronta = Boolean(
+    docsStatus?.carteirinha &&
+      String(docsStatus?.carteirinha?.final_url || "").trim().length > 0,
+  );
 
   useEffect(() => {
     if (tab === "ficha_obreiro") {
@@ -715,15 +729,23 @@ export default function PastorMembrosPage() {
       toast.error("Selecione um membro.");
       return;
     }
+    if (tab !== "ficha_membro" && tab !== "carteirinha" && tab !== "ficha_obreiro") {
+      toast.error("Selecione o tipo de documento.");
+      return;
+    }
     if (!form.nome_completo || !form.funcao_ministerial || !form.cpf) {
       toast.error("Preencha nome, cargo e CPF.");
+      return;
+    }
+    if (tab === "carteirinha" && !fichaPronta) {
+      toast.error("A carteirinha só pode ser enviada depois da ficha pronta.");
       return;
     }
 
     setSending(true);
     try {
       await generateMemberDocs({
-        document_type: tab === "lista" ? "ficha_membro" : tab,
+        document_type: tab,
         member_id: selectedMemberId,
         church_totvs_id: activeTotvsId,
         dados: {
@@ -732,9 +754,10 @@ export default function PastorMembrosPage() {
           pastor_responsavel_telefone: pastorDaIgreja?.phone || "",
         },
       });
-      toast.success("Documento enviado para geração no n8n.");
+      await refetchDocsStatus();
+      toast.success("Documento enviado para confecção.");
     } catch {
-      toast.error("Falha ao enviar para geração.");
+      toast.error("Falha ao enviar para confecção.");
     } finally {
       setSending(false);
     }
@@ -985,20 +1008,50 @@ export default function PastorMembrosPage() {
 
             {tab === "carteirinha" ? (
               <div className="space-y-3 rounded-xl border border-slate-200 p-4">
+                {carteirinhaPronta ? (
+                  <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+                    <p className="text-sm font-semibold text-emerald-700">Carteirinha pronta para uso.</p>
+                    <p className="mt-1 text-xs text-emerald-700">A pré-visualização foi ocultada porque o documento final já foi gerado.</p>
+                    <div className="mt-3">
+                      <Button
+                        size="sm"
+                        onClick={() => window.open(String(docsStatus?.carteirinha?.final_url || ""), "_blank", "noopener,noreferrer")}
+                      >
+                        Abrir carteirinha
+                      </Button>
+                    </div>
+                  </div>
+                ) : null}
                 {manualCarteirinha ? (
                   <div className="space-y-1">
                     <Label>QR Code (URL)</Label>
                     <Input value={form.qr_code_url} onChange={(e) => setForm((prev) => ({ ...prev, qr_code_url: e.target.value }))} />
                   </div>
                 ) : null}
-                <div className="overflow-hidden rounded-xl border border-slate-200">
-                  <iframe title="Pré-visualização carteirinha" className="h-[320px] w-full bg-white" srcDoc={carteirinhaHtml} />
-                </div>
+                {!carteirinhaPronta ? (
+                  <div className="overflow-hidden rounded-xl border border-slate-200">
+                    <iframe title="Pré-visualização carteirinha" className="h-[320px] w-full bg-white" srcDoc={carteirinhaHtml} />
+                  </div>
+                ) : null}
               </div>
             ) : null}
 
             {tab === "ficha_membro" ? (
               <div className="space-y-3 rounded-xl border border-slate-200 p-4">
+                {fichaPronta ? (
+                  <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+                    <p className="text-sm font-semibold text-emerald-700">Ficha do membro pronta para uso.</p>
+                    <p className="mt-1 text-xs text-emerald-700">A pré-visualização foi ocultada porque o documento final já foi gerado.</p>
+                    <div className="mt-3">
+                      <Button
+                        size="sm"
+                        onClick={() => window.open(String(docsStatus?.ficha?.final_url || ""), "_blank", "noopener,noreferrer")}
+                      >
+                        Abrir ficha
+                      </Button>
+                    </div>
+                  </div>
+                ) : null}
                 {manualFichaMembro ? (
                   <div className="grid gap-3 md:grid-cols-3">
                     <div className="space-y-1">
@@ -1015,9 +1068,11 @@ export default function PastorMembrosPage() {
                   </div>
                 </div>
                 ) : null}
-                <div className="overflow-hidden rounded-xl border border-slate-200">
-                  <iframe title="Pré-visualização ficha de membro" className="h-[640px] w-full bg-white" srcDoc={fichaMembroHtml} />
-                </div>
+                {!fichaPronta ? (
+                  <div className="overflow-hidden rounded-xl border border-slate-200">
+                    <iframe title="Pré-visualização ficha de membro" className="h-[640px] w-full bg-white" srcDoc={fichaMembroHtml} />
+                  </div>
+                ) : null}
               </div>
             ) : null}
 
@@ -1181,8 +1236,8 @@ export default function PastorMembrosPage() {
               <Button variant="outline" onClick={saveDraft} disabled={savingDraft}>
                 <Save className="mr-2 h-4 w-4" /> {savingDraft ? "Salvando..." : "Salvar rascunho"}
               </Button>
-              <Button onClick={sendToGenerateDocs} disabled={sending}>
-                <Send className="mr-2 h-4 w-4" /> {sending ? "Enviando..." : "Gerar documento"}
+              <Button onClick={sendToGenerateDocs} disabled={sending || fetchingDocsStatus || (tab === "carteirinha" && !fichaPronta)}>
+                <Send className="mr-2 h-4 w-4" /> {sending ? "Enviando..." : "Enviar para confecção"}
               </Button>
             </div>
           </CardContent>

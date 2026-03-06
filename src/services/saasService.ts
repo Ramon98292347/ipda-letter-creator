@@ -2022,6 +2022,36 @@ export async function generateMemberDocs(payload: {
   return { ok: true };
 }
 
+export type MemberDocStatusItem = {
+  id?: string;
+  status?: "RASCUNHO" | "ENVIADO_CONFECCAO" | "PRONTO" | "ERRO";
+  final_url?: string | null;
+  error_message?: string | null;
+  requested_at?: string | null;
+  finished_at?: string | null;
+};
+
+export type MemberDocsStatusResponse = {
+  ficha: MemberDocStatusItem | null;
+  carteirinha: MemberDocStatusItem | null;
+  rules?: {
+    ficha_pronta?: boolean;
+    carteirinha_pronta?: boolean;
+    can_generate_carteirinha?: boolean;
+  };
+};
+
+export async function getMemberDocsStatus(payload: { member_id?: string; church_totvs_id?: string }) {
+  if (!isMockMode()) {
+    return (await api.getMemberDocsStatus(payload)) as MemberDocsStatusResponse;
+  }
+  return {
+    ficha: null,
+    carteirinha: null,
+    rules: { ficha_pronta: false, carteirinha_pronta: false, can_generate_carteirinha: false },
+  } as MemberDocsStatusResponse;
+}
+
 export async function createLetterByPastor(payload: LetterCreatePayload) {
   if (!payload.preacher_name.trim()) throw new Error("preacher-required");
   if (!payload.minister_role.trim()) throw new Error("minister-role-required");
