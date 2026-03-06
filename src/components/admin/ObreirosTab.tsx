@@ -713,7 +713,7 @@ export function ObreirosTab({ activeTotvsId }: { activeTotvsId: string }) {
                   <Button size="sm" variant="outline" onClick={() => openEdit(selectedWorker)}>Editar</Button>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button size="sm" variant="outline">Ações</Button>
+                      <Button size="sm" variant="outline">Ações ▾</Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                       <DropdownMenuItem onClick={() => openResetPassword(selectedWorker)} disabled={selectedWorker.can_manage === false}>
@@ -735,13 +735,13 @@ export function ObreirosTab({ activeTotvsId }: { activeTotvsId: string }) {
           {selectedWorker ? (
             <Card className="border border-slate-200 shadow-sm">
               <CardContent className="space-y-6 p-5">
-                <div className="flex flex-col gap-4 md:flex-row md:items-center">
-                  <div className="h-36 w-36 shrink-0 overflow-hidden rounded-2xl border border-slate-200 bg-slate-100">
+                <div className="flex flex-col gap-4 md:flex-row md:items-start">
+                  <div className="h-[140px] w-[140px] shrink-0 overflow-hidden rounded-xl border border-slate-200 bg-slate-100">
                     {selectedWorker.avatar_url ? (
                       <img
                         src={selectedWorker.avatar_url}
                         alt="Avatar do membro"
-                        className="h-full w-full object-cover object-top"
+                        className="h-full w-full object-cover"
                       />
                     ) : (
                       <div className="flex h-full w-full items-center justify-center text-5xl font-bold text-slate-400">
@@ -751,7 +751,10 @@ export function ObreirosTab({ activeTotvsId }: { activeTotvsId: string }) {
                   </div>
 
                   <div className="space-y-3">
-                    <h3 className="text-2xl font-bold text-slate-900">{viewValue(selectedWorker.full_name)}</h3>
+                    <h3 className="text-3xl font-extrabold text-slate-900">{viewValue(selectedWorker.full_name)}</h3>
+                    <p className="text-sm text-slate-600">
+                      CPF: {selectedWorker.cpf ? maskCpf(selectedWorker.cpf) : "—"} • Nascimento: {formatDateBr(selectedWorker.birth_date)}
+                    </p>
                     <div className="flex flex-wrap gap-2">
                       <Badge variant="outline" className="border-blue-200 bg-blue-50 text-blue-700">
                         Cargo: {viewValue(selectedWorker.minister_role)}
@@ -766,8 +769,8 @@ export function ObreirosTab({ activeTotvsId }: { activeTotvsId: string }) {
                   </div>
                 </div>
 
-                <section className="space-y-3">
-                  <h4 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Identificação</h4>
+                <section className="rounded-xl border border-slate-200 bg-white p-4">
+                  <h4 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">Identificação</h4>
                   <div className="grid gap-3 md:grid-cols-2">
                     <div>
                       <p className="text-xs text-slate-500">CPF</p>
@@ -788,8 +791,8 @@ export function ObreirosTab({ activeTotvsId }: { activeTotvsId: string }) {
                   </div>
                 </section>
 
-                <section className="space-y-3">
-                  <h4 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Contato</h4>
+                <section className="rounded-xl border border-slate-200 bg-white p-4">
+                  <h4 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">Contato</h4>
                   <div className="grid gap-3 md:grid-cols-2">
                     <div>
                       <p className="text-xs text-slate-500">Telefone</p>
@@ -802,8 +805,8 @@ export function ObreirosTab({ activeTotvsId }: { activeTotvsId: string }) {
                   </div>
                 </section>
 
-                <section className="space-y-3">
-                  <h4 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Endereço</h4>
+                <section className="rounded-xl border border-slate-200 bg-white p-4">
+                  <h4 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">Endereço</h4>
                   <div className="grid gap-3 md:grid-cols-2">
                     <div>
                       <p className="text-xs text-slate-500">CEP</p>
@@ -827,13 +830,17 @@ export function ObreirosTab({ activeTotvsId }: { activeTotvsId: string }) {
                     </div>
                     <div>
                       <p className="text-xs text-slate-500">Cidade / UF</p>
-                      <p className="text-base font-semibold text-slate-900">{`${viewValue(selectedWorker.address_city)} / ${viewValue(selectedWorker.address_state)}`}</p>
+                      <p className="text-base font-semibold text-slate-900">
+                        {viewValue(selectedWorker.address_city) === "—" && viewValue(selectedWorker.address_state) === "—"
+                          ? "—"
+                          : `${viewValue(selectedWorker.address_city)} / ${viewValue(selectedWorker.address_state)}`}
+                      </p>
                     </div>
                   </div>
                 </section>
 
-                <section className="space-y-3">
-                  <h4 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Ministério</h4>
+                <section className="rounded-xl border border-slate-200 bg-white p-4">
+                  <h4 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">Ministério</h4>
                   <div className="grid gap-3 md:grid-cols-2">
                     <div>
                       <p className="text-xs text-slate-500">Cargo ministerial</p>

@@ -299,6 +299,31 @@ function toInputDate(value: string | null | undefined) {
   return String(value).slice(0, 10);
 }
 
+function maskCpf(cpf: string | null | undefined) {
+  const d = String(cpf || "").replace(/\D/g, "").slice(0, 11);
+  if (!d) return "—";
+  if (d.length <= 3) return d;
+  if (d.length <= 6) return `${d.slice(0, 3)}.${d.slice(3)}`;
+  if (d.length <= 9) return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6)}`;
+  return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6, 9)}-${d.slice(9)}`;
+}
+
+function formatPhone(phone: string | null | undefined) {
+  const d = String(phone || "").replace(/\D/g, "");
+  if (!d) return "—";
+  if (d.length === 11) return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`;
+  if (d.length === 10) return `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}`;
+  return String(phone || "—");
+}
+
+function formatDateBr(value: string | null | undefined) {
+  if (!value) return "—";
+  const normalized = /^\d{4}-\d{2}-\d{2}$/.test(String(value)) ? `${value}T00:00:00` : String(value);
+  const dt = new Date(normalized);
+  if (Number.isNaN(dt.getTime())) return String(value);
+  return dt.toLocaleDateString("pt-BR");
+}
+
 function memberToForm(member: UserListItem, churchName: string, pastorSignature: string, churchFooter: string) {
   return {
     nome_completo: member.full_name || "",
@@ -780,25 +805,29 @@ export default function PastorMembrosPage() {
             {workers.map((member) => (
               <Card key={member.id} className="border border-slate-200">
                 <CardContent className="space-y-3 p-4">
-                  <div className="overflow-hidden rounded-md border border-slate-200 bg-slate-50">
+                  <div className="mx-auto w-full max-w-[220px] overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
                     {member.avatar_url ? (
-                      <img src={member.avatar_url} alt={`Foto de ${member.full_name}`} className="h-40 w-full object-contain" />
+                      <img src={member.avatar_url} alt={`Foto de ${member.full_name}`} className="h-[220px] w-full object-cover object-top" />
                     ) : (
-                      <div className="flex h-40 w-full items-center justify-center">
+                      <div className="flex h-[220px] w-full items-center justify-center">
                         <Users className="h-7 w-7 text-slate-400" />
                       </div>
                     )}
                   </div>
                   <div className="min-w-0 space-y-1">
                     <p className="truncate text-base font-semibold text-slate-900">{member.full_name || "Sem nome"}</p>
-                    <p className="text-sm text-slate-500">CPF: {member.cpf || "-"}</p>
-                    <p className="text-sm text-slate-600">Cargo: {member.minister_role || "-"}</p>
-                    <p className="text-sm text-slate-600">Tipo: {member.role || "-"}</p>
-                    <p className="text-sm text-slate-600">Telefone: {member.phone || "-"}</p>
+                    <p className="text-sm text-slate-500">CPF: {maskCpf(member.cpf)}</p>
+                    <p className="text-sm text-slate-500">Nascimento: {formatDateBr(member.birth_date)}</p>
+                    <p className="text-sm text-slate-600">Telefone: {formatPhone(member.phone)}</p>
                   </div>
-                  <Badge variant="outline" className={statusBadge(member.is_active !== false)}>
-                    {member.is_active === false ? "Inativo" : "Ativo"}
-                  </Badge>
+                  <div className="flex flex-wrap gap-2">
+                    <Badge variant="outline" className="border-blue-200 bg-blue-50 text-blue-700">
+                      Cargo: {member.minister_role || "—"}
+                    </Badge>
+                    <Badge variant="outline" className={statusBadge(member.is_active !== false)}>
+                      {member.is_active === false ? "Inativo" : "Ativo"}
+                    </Badge>
+                  </div>
                   <div className="grid grid-cols-2 gap-2">
                     <Button
                       size="sm"

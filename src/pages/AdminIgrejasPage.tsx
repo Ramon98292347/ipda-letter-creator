@@ -142,6 +142,7 @@ export default function AdminIgrejasPage() {
         </section>
 
         <AdminChurchesTab
+          roleMode="admin"
           rows={rows}
           page={page}
           pageSize={pageSize}

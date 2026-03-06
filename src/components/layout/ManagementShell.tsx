@@ -135,6 +135,7 @@ export function ManagementShell({
   async function onReadAllNotifications() {
     await markAllNotificationsRead();
     await queryClient.invalidateQueries({ queryKey: ["topbar-notifications"] });
+    setOpenNotifications(false);
   }
 
   return (
@@ -275,7 +276,7 @@ export function ManagementShell({
           </DialogHeader>
           <div className="mb-2 flex justify-end">
             <Button variant="outline" size="sm" onClick={onReadAllNotifications}>
-              Marcar todas como lidas
+              Limpar notificacoes
             </Button>
           </div>
           <div className="max-h-[55vh] space-y-2 overflow-y-auto">

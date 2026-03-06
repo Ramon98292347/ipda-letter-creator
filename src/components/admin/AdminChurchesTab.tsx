@@ -101,20 +101,20 @@ function getChurchImage(church: ChurchInScopeItem): string | null {
 
 function ChurchAvatar({ church, compact = false }: { church: ChurchInScopeItem; compact?: boolean }) {
   const imageUrl = getChurchImage(church);
-  const cls = compact ? "h-12 w-16" : "h-24 w-full";
+  const cls = compact ? "h-12 w-16" : "h-[220px] w-full max-w-[220px]";
 
   if (imageUrl) {
     return (
       <img
         src={imageUrl}
         alt={`Imagem da igreja ${church.church_name}`}
-        className={`${cls} rounded-lg border border-slate-200 object-cover`}
+        className={`${cls} rounded-xl border border-slate-200 object-cover object-top`}
       />
     );
   }
 
   return (
-    <div className={`flex ${cls} items-center justify-center rounded-lg border border-slate-200 bg-slate-50`}>
+    <div className={`flex ${cls} items-center justify-center rounded-xl border border-slate-200 bg-slate-50`}>
       <Church className="h-8 w-8 text-slate-400" />
     </div>
   );
@@ -127,6 +127,7 @@ export function AdminChurchesTab({
   totalPages,
   onPageChange,
   onPageSizeChange,
+  roleMode,
 }: {
   rows: ChurchInScopeItem[];
   page: number;
@@ -134,8 +135,9 @@ export function AdminChurchesTab({
   totalPages: number;
   onPageChange: (page: number) => void;
   onPageSizeChange: (pageSize: number) => void;
+  roleMode?: "admin" | "pastor";
 }) {
-  const { session } = useUser();
+  const { session, usuario } = useUser();
   const queryClient = useQueryClient();
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedChurch, setSelectedChurch] = useState<ChurchInScopeItem | null>(null);
@@ -160,14 +162,17 @@ export function AdminChurchesTab({
 
   const [tab, setTab] = useState<ChurchTab>("lista");
   const [view, setView] = useState<ChurchView>("lista");
+  const roleLower = String(session?.role || usuario?.role || "").toLowerCase();
+  const isAdmin = roleMode === "admin" || roleLower.includes("admin");
   const userChurchClass = normalizeChurchClass(session?.church_class);
   const parentTotvsFromSession = String(session?.totvs_id || "").trim();
+  const newChurchNeedsParent = !isAdmin && newForm.class !== "estadual";
 
   const allowedCreateClasses = useMemo<ChurchClass[]>(() => {
-    if (!session?.role || session.role === "admin") return classOptions;
+    if (!roleLower || isAdmin) return classOptions;
     if (!userChurchClass) return classOptions;
     return childClassMap[userChurchClass];
-  }, [session?.role, userChurchClass]);
+  }, [roleLower, isAdmin, userChurchClass]);
   const canCreateChurch = allowedCreateClasses.length > 0;
 
   const sortedRows = useMemo(() => {
@@ -274,7 +279,7 @@ export function AdminChurchesTab({
       return;
     }
 
-    if (!newForm.parent_totvs_id.trim()) {
+    if (newChurchNeedsParent && !newForm.parent_totvs_id.trim()) {
       toast.error("Igreja mae obrigatoria para cadastro.");
       return;
     }
@@ -290,7 +295,7 @@ export function AdminChurchesTab({
         totvs_id: newForm.totvs_id.trim(),
         church_name: newForm.church_name.trim(),
         class: newForm.class,
-        parent_totvs_id: newForm.parent_totvs_id.trim() || undefined,
+        parent_totvs_id: isAdmin ? undefined : newChurchNeedsParent ? newForm.parent_totvs_id.trim() || undefined : undefined,
         contact_email: newForm.contact_email,
         contact_phone: newForm.contact_phone,
         cep: newForm.cep,
@@ -404,7 +409,7 @@ export function AdminChurchesTab({
     setNewForm({
       ...initialForm,
       class: nextClass,
-      parent_totvs_id: parentTotvsFromSession,
+      parent_totvs_id: isAdmin ? "" : parentTotvsFromSession,
       address_country: "BR",
       is_active: true,
     });
@@ -420,6 +425,19 @@ export function AdminChurchesTab({
         <p className="text-sm text-slate-600">Pastor: {church.pastor?.full_name || "Nao definido"}</p>
         <p className="text-sm text-slate-600">Obreiros: {church.workers_count ?? 0}</p>
       </>
+    );
+  }
+
+  function renderGridInfo(church: ChurchInScopeItem) {
+    return (
+      <div className="min-w-0 space-y-2">
+        <p className="truncate text-base font-semibold text-slate-900">{viewValue(church.church_name)}</p>
+        <p className="text-sm text-slate-500">
+          TOTVS: {viewValue(church.totvs_id)} • {viewValue(church.address_city)} / {viewValue(church.address_state)}
+        </p>
+        <p className="text-sm text-slate-600">Pastor: {viewValue(church.pastor?.full_name || "Nao definido")}</p>
+        <p className="text-sm text-slate-600">Obreiros: {church.workers_count ?? 0}</p>
+      </div>
     );
   }
 
@@ -548,9 +566,14 @@ export function AdminChurchesTab({
               {sortedRows.map((church) => (
                 <Card key={church.totvs_id} className="border border-slate-200 shadow-sm">
                   <CardContent className="space-y-3 p-4">
-                    <ChurchAvatar church={church} />
-                    {renderCommonInfo(church)}
-                    <div className="pt-2">
+                    <div className="mx-auto">
+                      <ChurchAvatar church={church} />
+                    </div>
+                    {renderGridInfo(church)}
+                    <div className="flex flex-wrap gap-2 pt-1">
+                      <Badge variant="outline" className="border-blue-200 bg-blue-50 text-blue-700 capitalize">
+                        Classe: {viewValue(church.church_class)}
+                      </Badge>
                       <Badge
                         variant="outline"
                         className={church.is_active === false ? "border-rose-200 bg-rose-100 text-rose-700" : "border-emerald-200 bg-emerald-100 text-emerald-700"}
@@ -575,8 +598,21 @@ export function AdminChurchesTab({
               {sortedRows.map((church) => (
                 <Card key={`${tab}-${church.totvs_id}`} className="border border-slate-200 shadow-sm">
                   <CardContent className="space-y-3 p-4">
-                    <ChurchAvatar church={church} />
-                    {renderCommonInfo(church)}
+                    <div className="mx-auto">
+                      <ChurchAvatar church={church} />
+                    </div>
+                    {renderGridInfo(church)}
+                    <div className="flex flex-wrap gap-2 pt-1">
+                      <Badge variant="outline" className="border-blue-200 bg-blue-50 text-blue-700 capitalize">
+                        Classe: {viewValue(church.church_class)}
+                      </Badge>
+                      <Badge
+                        variant="outline"
+                        className={church.is_active === false ? "border-rose-200 bg-rose-100 text-rose-700" : "border-emerald-200 bg-emerald-100 text-emerald-700"}
+                      >
+                        {church.is_active === false ? "Inativa" : "Ativa"}
+                      </Badge>
+                    </div>
                     <Button
                       className="w-full"
                       onClick={() => openChurchDocs(church, tab === "remanejamento" ? "remanejamento" : "contrato")}
@@ -631,7 +667,16 @@ export function AdminChurchesTab({
 
             <div className="space-y-1">
               <Label>Classe *</Label>
-              <Select value={newForm.class} onValueChange={(v) => setNewForm((p) => ({ ...p, class: v as NewChurchForm["class"] }))}>
+              <Select
+                value={newForm.class}
+                onValueChange={(v) =>
+                  setNewForm((p) => ({
+                    ...p,
+                    class: v as NewChurchForm["class"],
+                    parent_totvs_id: isAdmin ? "" : v === "estadual" ? "" : parentTotvsFromSession,
+                  }))
+                }
+              >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -646,18 +691,28 @@ export function AdminChurchesTab({
               {!canCreateChurch ? <p className="text-xs text-amber-700">Seu nivel atual nao permite criar novas igrejas.</p> : null}
             </div>
 
-            <div className="space-y-1">
-              <Label>Igreja mae (TOTVS)</Label>
-              <Input
-                value={newForm.parent_totvs_id}
-                onChange={(e) => setNewForm((p) => ({ ...p, parent_totvs_id: e.target.value }))}
-                readOnly={Boolean(parentTotvsFromSession)}
-                placeholder="TOTVS da igreja mae"
-              />
-              {parentTotvsFromSession ? (
-                <p className="text-xs text-slate-500">Igreja mae definida automaticamente pelo login atual.</p>
-              ) : null}
-            </div>
+            {newChurchNeedsParent ? (
+              <div className="space-y-1">
+                <Label>Igreja mae (TOTVS)</Label>
+                <Input
+                  value={newForm.parent_totvs_id}
+                  onChange={(e) => setNewForm((p) => ({ ...p, parent_totvs_id: e.target.value }))}
+                  readOnly={!isAdmin && Boolean(parentTotvsFromSession)}
+                  placeholder="TOTVS da igreja mae"
+                />
+                {!isAdmin && parentTotvsFromSession ? (
+                  <p className="text-xs text-slate-500">Igreja mae definida automaticamente pelo login atual.</p>
+                ) : null}
+              </div>
+            ) : isAdmin ? (
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600">
+                Como administrador, voce pode cadastrar qualquer classe sem informar TOTVS mae.
+              </div>
+            ) : (
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600">
+                Igreja estadual nao possui igreja mae.
+              </div>
+            )}
 
             <div className="grid gap-3 md:grid-cols-2">
               <div className="space-y-1">

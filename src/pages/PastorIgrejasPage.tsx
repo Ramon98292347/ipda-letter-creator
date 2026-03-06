@@ -142,6 +142,7 @@ export default function PastorIgrejasPage() {
         </section>
 
         <AdminChurchesTab
+          roleMode="pastor"
           rows={rows}
           page={page}
           pageSize={pageSize}
