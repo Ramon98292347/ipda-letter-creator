@@ -2,7 +2,7 @@
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { KeyRound, UserPlus } from "lucide-react";
+import { Eye, EyeOff, KeyRound, UserPlus } from "lucide-react";
 
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -12,7 +12,9 @@ import { useUser } from "@/context/UserContext";
 import {
   forgotPasswordRequest,
   getMyRegistrationStatus,
+  listAnnouncementsPublicByScope,
   listAnnouncementsPublicByTotvs,
+  listBirthdaysTodayPublicByScope,
   listBirthdaysTodayPublicByTotvs,
   loginWithCpfPassword,
 } from "@/services/saasService";
@@ -39,6 +41,7 @@ export default function PhoneIdentify() {
 
   const [cpf, setCpf] = useState("");
   const [senha, setSenha] = useState("");
+  const [showSenha, setShowSenha] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const [forgotOpen, setForgotOpen] = useState(false);
@@ -46,18 +49,43 @@ export default function PhoneIdentify() {
   const [forgotCpf, setForgotCpf] = useState("");
   const [forgotEmail, setForgotEmail] = useState("");
 
+  const cachedUser =
+    typeof window !== "undefined"
+      ? (() => {
+          try {
+            return JSON.parse(localStorage.getItem("ipda_user") || "{}") as { role?: string };
+          } catch {
+            return {};
+          }
+        })()
+      : {};
+  const cachedSession =
+    typeof window !== "undefined"
+      ? (() => {
+          try {
+            return JSON.parse(localStorage.getItem("ipda_session") || "{}") as { scope_totvs_ids?: string[] };
+          } catch {
+            return {};
+          }
+        })()
+      : {};
   const cachedTotvs = typeof window !== "undefined" ? localStorage.getItem("ipda_last_totvs") || "" : "";
+  const isCachedAdmin = String(cachedUser?.role || "").toLowerCase() === "admin";
+  const cachedScope = Array.isArray(cachedSession?.scope_totvs_ids) ? cachedSession.scope_totvs_ids.filter(Boolean).map(String) : [];
+  const announcementScope = isCachedAdmin ? cachedScope : [];
 
   const { data: announcements = [] } = useQuery({
-    queryKey: ["announcements-login", cachedTotvs],
-    queryFn: () => listAnnouncementsPublicByTotvs(cachedTotvs, 10),
-    enabled: Boolean(cachedTotvs),
+    queryKey: ["announcements-login", cachedTotvs, announcementScope.join(",")],
+    queryFn: () =>
+      announcementScope.length ? listAnnouncementsPublicByScope(announcementScope, 30) : listAnnouncementsPublicByTotvs(cachedTotvs, 10),
+    enabled: Boolean(cachedTotvs) || announcementScope.length > 0,
   });
 
   const { data: birthdays = [] } = useQuery({
-    queryKey: ["birthdays-today-login", cachedTotvs],
-    queryFn: () => listBirthdaysTodayPublicByTotvs(cachedTotvs, 10),
-    enabled: Boolean(cachedTotvs),
+    queryKey: ["birthdays-today-login", cachedTotvs, announcementScope.join(",")],
+    queryFn: () =>
+      announcementScope.length ? listBirthdaysTodayPublicByScope(announcementScope, 20) : listBirthdaysTodayPublicByTotvs(cachedTotvs, 10),
+    enabled: Boolean(cachedTotvs) || announcementScope.length > 0,
   });
 
   async function handleLogin() {
@@ -191,13 +219,24 @@ export default function PhoneIdentify() {
 
           <div className="space-y-2">
             <Label htmlFor="senha">Senha</Label>
-            <Input
-              id="senha"
-              type="password"
-              value={senha}
-              onChange={(e) => setSenha(e.target.value)}
-              placeholder="Digite sua senha"
-            />
+            <div className="relative">
+              <Input
+                id="senha"
+                type={showSenha ? "text" : "password"}
+                value={senha}
+                onChange={(e) => setSenha(e.target.value)}
+                placeholder="Digite sua senha"
+                className="pr-10"
+              />
+              <button
+                type="button"
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500"
+                onClick={() => setShowSenha((prev) => !prev)}
+                aria-label={showSenha ? "Ocultar senha" : "Visualizar senha"}
+              >
+                {showSenha ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
           </div>
 
           <Button type="submit" className="w-full" disabled={loading}>

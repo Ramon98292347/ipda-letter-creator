@@ -122,6 +122,7 @@ export type MemberListParams = {
   minister_role?: string;
   is_active?: boolean;
   roles?: Array<"pastor" | "obreiro">;
+  church_totvs_id?: string;
   page?: number;
   page_size?: number;
 };
@@ -705,6 +706,7 @@ export async function listMembers(params: MemberListParams): Promise<WorkerListR
       minister_role: params.minister_role || undefined,
       is_active: typeof params.is_active === "boolean" ? params.is_active : undefined,
       roles: params.roles?.length ? params.roles : undefined,
+      church_totvs_id: params.church_totvs_id || undefined,
       page: params.page || 1,
       page_size: params.page_size || 20,
     });
@@ -1181,6 +1183,42 @@ export async function listAnnouncementsPublicByTotvs(churchTotvsId: string, limi
     }));
 }
 
+export async function listAnnouncementsPublicByScope(totvsIds: string[], limit = 10): Promise<AnnouncementItem[]> {
+  const scope = Array.from(new Set((totvsIds || []).map((id) => String(id || "").trim()).filter(Boolean)));
+  if (!scope.length || !supabase) return [];
+
+  const nowIso = new Date().toISOString();
+  const { data, error } = await supabase
+    .from("announcements")
+    .select("id,title,type,body_text,media_url,link_url,position,starts_at,ends_at,is_active,created_at")
+    .in("church_totvs_id", scope)
+    .eq("is_active", true)
+    .order("position", { ascending: true })
+    .order("created_at", { ascending: false })
+    .limit(Math.max(1, Math.min(30, limit)));
+
+  if (error) return [];
+
+  return (data || [])
+    .filter((item: Record<string, unknown>) => {
+      const startsOk = !item?.starts_at || String(item.starts_at) <= nowIso;
+      const endsOk = !item?.ends_at || String(item.ends_at) >= nowIso;
+      return startsOk && endsOk;
+    })
+    .map((item: Record<string, unknown>) => ({
+      id: String(item?.id || ""),
+      title: String(item?.title || "Aviso"),
+      type: (item?.type || "text") as "text" | "image" | "video",
+      body_text: item?.body_text || null,
+      media_url: toAnnouncementMediaUrl(item?.media_url),
+      link_url: item?.link_url || null,
+      position: typeof item?.position === "number" ? item.position : null,
+      starts_at: item?.starts_at || null,
+      ends_at: item?.ends_at || null,
+      is_active: typeof item?.is_active === "boolean" ? item.is_active : true,
+    }));
+}
+
 export async function listBirthdaysTodayPublicByTotvs(churchTotvsId: string, limit = 10): Promise<BirthdayItem[]> {
   const totvs = String(churchTotvsId || "").trim();
   if (!totvs || !supabase) return [];
@@ -1207,6 +1245,39 @@ export async function listBirthdaysTodayPublicByTotvs(churchTotvsId: string, lim
       return dt.getMonth() + 1 === m && dt.getDate() === d;
     })
     .slice(0, Math.max(1, Math.min(10, limit)))
+    .map((u: Record<string, unknown>) => ({
+      full_name: String(u?.full_name || ""),
+      avatar_url: u?.avatar_url || null,
+    }))
+    .filter((x: BirthdayItem) => x.full_name);
+}
+
+export async function listBirthdaysTodayPublicByScope(totvsIds: string[], limit = 10): Promise<BirthdayItem[]> {
+  const scope = Array.from(new Set((totvsIds || []).map((id) => String(id || "").trim()).filter(Boolean)));
+  if (!scope.length || !supabase) return [];
+
+  const { data, error } = await supabase
+    .from("users")
+    .select("full_name,avatar_url,birth_date")
+    .eq("role", "obreiro")
+    .in("default_totvs_id", scope)
+    .eq("is_active", true)
+    .not("birth_date", "is", null)
+    .limit(1000);
+
+  if (error) return [];
+
+  const today = new Date();
+  const m = today.getMonth() + 1;
+  const d = today.getDate();
+
+  return (data || [])
+    .filter((u: Record<string, unknown>) => {
+      if (!u?.birth_date) return false;
+      const dt = new Date(String(u.birth_date));
+      return dt.getMonth() + 1 === m && dt.getDate() === d;
+    })
+    .slice(0, Math.max(1, Math.min(30, limit)))
     .map((u: Record<string, unknown>) => ({
       full_name: String(u?.full_name || ""),
       avatar_url: u?.avatar_url || null,
@@ -1248,6 +1319,14 @@ export async function publicRegisterMember(payload: {
   full_name: string;
   phone?: string | null;
   email?: string | null;
+  avatar_url?: string | null;
+  cep?: string | null;
+  address_street?: string | null;
+  address_number?: string | null;
+  address_complement?: string | null;
+  address_neighborhood?: string | null;
+  address_city?: string | null;
+  address_state?: string | null;
   password: string;
   totvs_id: string;
 }) {
@@ -1262,6 +1341,14 @@ export async function publicRegisterMember(payload: {
     full_name: payload.full_name.trim(),
     phone: payload.phone || null,
     email: payload.email || null,
+    avatar_url: payload.avatar_url || null,
+    cep: payload.cep || null,
+    address_street: payload.address_street || null,
+    address_number: payload.address_number || null,
+    address_complement: payload.address_complement || null,
+    address_neighborhood: payload.address_neighborhood || null,
+    address_city: payload.address_city || null,
+    address_state: payload.address_state || null,
     password: payload.password,
     totvs_id: payload.totvs_id.trim(),
   });
