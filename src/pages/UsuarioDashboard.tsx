@@ -116,7 +116,7 @@ export default function UsuarioDashboard() {
   const userId = String(usuario?.id || "");
   const activeTotvs = String(session?.totvs_id || "");
   const isCadastroPendente = usuario?.registration_status === "PENDENTE";
-  const isPastor = String(profile?.role || usuario?.role || "").toLowerCase() === "pastor";
+  const isObreiro = String(usuario?.role || profile?.role || "").toLowerCase() === "obreiro";
 
   useEffect(() => {
     const now = new Date();
@@ -138,6 +138,12 @@ export default function UsuarioDashboard() {
     setDateEnd(end);
   }, [quickRange]);
 
+  useEffect(() => {
+    if (isObreiro && statusFilter === "all") {
+      setStatusFilter("LIBERADA");
+    }
+  }, [isObreiro, statusFilter]);
+
   const { data, isLoading } = useQuery({
     queryKey: ["worker-dashboard", userId, dateStart, dateEnd],
     queryFn: () => workerDashboard(dateStart || undefined, dateEnd || undefined, 1, 80),
@@ -155,6 +161,7 @@ export default function UsuarioDashboard() {
     [data?.letters]
   );
   const profile = data?.user;
+  const isPastor = String(profile?.role || usuario?.role || "").toLowerCase() === "pastor";
   const hasDirectRelease = Boolean(profile?.can_create_released_letter);
   const church = data?.church;
   const cityFromProfile = useMemo(() => getAddressCity(profile?.address_json), [profile?.address_json]);
