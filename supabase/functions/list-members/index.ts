@@ -144,7 +144,7 @@ Deno.serve(async (req) => {
     let q = sb
       .from("users")
       .select(
-        "id,full_name,role,cpf,rg,phone,email,minister_role,birth_date,baptism_date,marital_status,matricula,ordination_date,avatar_url,signature_url,cep,address_street,address_number,address_complement,address_neighborhood,address_city,address_state,default_totvs_id,totvs_access,is_active,can_create_released_letter",
+        "id,full_name,role,cpf,rg,phone,email,profession,minister_role,birth_date,baptism_date,marital_status,matricula,ordination_date,avatar_url,signature_url,cep,address_street,address_number,address_complement,address_neighborhood,address_city,address_state,default_totvs_id,totvs_access,is_active,can_create_released_letter",
         { count: "exact" },
       )
       .in("role", roles)

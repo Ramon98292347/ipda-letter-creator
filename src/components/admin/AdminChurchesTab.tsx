@@ -17,6 +17,7 @@ import { createChurch, deactivateChurch, type ChurchInScopeItem } from "@/servic
 import { getFriendlyError } from "@/lib/error-map";
 import { addAuditLog } from "@/lib/audit";
 import { fetchAddressByCep, maskCep, onlyDigits } from "@/lib/cep";
+import { formatCepBr, formatPhoneBr } from "@/lib/br-format";
 
 type ChurchClass = "estadual" | "setorial" | "central" | "regional" | "local";
 
@@ -25,6 +26,7 @@ type NewChurchForm = {
   church_name: string;
   class: ChurchClass;
   parent_totvs_id: string;
+  image_url: string;
   contact_email: string;
   contact_phone: string;
   cep: string;
@@ -46,6 +48,7 @@ const initialForm: NewChurchForm = {
   church_name: "",
   class: "local",
   parent_totvs_id: "",
+  image_url: "",
   contact_email: "",
   contact_phone: "",
   cep: "",
@@ -82,21 +85,8 @@ function viewValue(value: unknown) {
   return safe || "\u2014";
 }
 
-function formatPhoneBr(value: unknown) {
-  const digits = String(value || "").replace(/\D/g, "");
-  if (!digits) return "\u2014";
-  if (digits.length === 11) return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
-  if (digits.length === 10) return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`;
-  return String(value || "\u2014");
-}
-
 function getChurchImage(church: ChurchInScopeItem): string | null {
-  const maybe = church as ChurchInScopeItem & {
-    image_url?: string | null;
-    photo_url?: string | null;
-    cover_url?: string | null;
-  };
-  return String(maybe.image_url || maybe.photo_url || maybe.cover_url || "").trim() || null;
+  return String(church.image_url || "").trim() || null;
 }
 
 function ChurchAvatar({ church, compact = false }: { church: ChurchInScopeItem; compact?: boolean }) {
@@ -296,6 +286,7 @@ export function AdminChurchesTab({
         church_name: newForm.church_name.trim(),
         class: newForm.class,
         parent_totvs_id: isAdmin ? undefined : newChurchNeedsParent ? newForm.parent_totvs_id.trim() || undefined : undefined,
+        image_url: newForm.image_url,
         contact_email: newForm.contact_email,
         contact_phone: newForm.contact_phone,
         cep: newForm.cep,
@@ -342,6 +333,7 @@ export function AdminChurchesTab({
       church_name: church.church_name,
       class: (church.church_class || "local") as NewChurchForm["class"],
       parent_totvs_id: String(church.parent_totvs_id || ""),
+      image_url: String(church.image_url || ""),
       contact_email: String(church.contact_email || ""),
       contact_phone: String(church.contact_phone || ""),
       cep: String(church.cep || ""),
@@ -372,6 +364,7 @@ export function AdminChurchesTab({
         church_name: editForm.church_name.trim(),
         class: editForm.class,
         parent_totvs_id: editForm.parent_totvs_id.trim() || undefined,
+        image_url: editForm.image_url,
         contact_email: editForm.contact_email,
         contact_phone: editForm.contact_phone,
         cep: editForm.cep,
@@ -715,13 +708,25 @@ export function AdminChurchesTab({
             )}
 
             <div className="grid gap-3 md:grid-cols-2">
+              <div className="space-y-1 md:col-span-2">
+                <Label>Foto da igreja (URL)</Label>
+                <Input
+                  value={newForm.image_url}
+                  onChange={(e) => setNewForm((p) => ({ ...p, image_url: e.target.value }))}
+                  placeholder="https://.../imagem-da-igreja.jpg"
+                />
+              </div>
               <div className="space-y-1">
                 <Label>Email de contato</Label>
                 <Input value={newForm.contact_email} onChange={(e) => setNewForm((p) => ({ ...p, contact_email: e.target.value }))} />
               </div>
               <div className="space-y-1">
                 <Label>Telefone de contato</Label>
-                <Input value={newForm.contact_phone} onChange={(e) => setNewForm((p) => ({ ...p, contact_phone: e.target.value }))} />
+                <Input
+                  value={newForm.contact_phone}
+                  onChange={(e) => setNewForm((p) => ({ ...p, contact_phone: formatPhoneBr(e.target.value) }))}
+                  placeholder="(27) 99999-9999"
+                />
               </div>
             </div>
 
@@ -831,13 +836,25 @@ export function AdminChurchesTab({
             </div>
 
             <div className="grid gap-3 md:grid-cols-2">
+              <div className="space-y-1 md:col-span-2">
+                <Label>Foto da igreja (URL)</Label>
+                <Input
+                  value={editForm.image_url}
+                  onChange={(e) => setEditForm((p) => ({ ...p, image_url: e.target.value }))}
+                  placeholder="https://.../imagem-da-igreja.jpg"
+                />
+              </div>
               <div className="space-y-1">
                 <Label>Email de contato</Label>
                 <Input value={editForm.contact_email} onChange={(e) => setEditForm((p) => ({ ...p, contact_email: e.target.value }))} />
               </div>
               <div className="space-y-1">
                 <Label>Telefone de contato</Label>
-                <Input value={editForm.contact_phone} onChange={(e) => setEditForm((p) => ({ ...p, contact_phone: e.target.value }))} />
+                <Input
+                  value={editForm.contact_phone}
+                  onChange={(e) => setEditForm((p) => ({ ...p, contact_phone: formatPhoneBr(e.target.value) }))}
+                  placeholder="(27) 99999-9999"
+                />
               </div>
             </div>
 
@@ -1030,7 +1047,7 @@ export function AdminChurchesTab({
                   <div className="grid gap-3 md:grid-cols-2">
                     <div>
                       <p className="text-xs text-slate-500">CEP</p>
-                      <p className="text-base font-semibold text-slate-900">{viewValue(viewChurch.cep)}</p>
+                      <p className="text-base font-semibold text-slate-900">{formatCepBr(viewChurch.cep) || "\u2014"}</p>
                     </div>
                     <div>
                       <p className="text-xs text-slate-500">Rua</p>

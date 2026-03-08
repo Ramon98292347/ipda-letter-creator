@@ -30,6 +30,18 @@ type Body = {
   church_name?: string;
   class?: ChurchClass;
   parent_totvs_id?: string | null;
+  image_url?: string | null;
+  contact_email?: string | null;
+  contact_phone?: string | null;
+  cep?: string | null;
+  address_street?: string | null;
+  address_number?: string | null;
+  address_complement?: string | null;
+  address_neighborhood?: string | null;
+  address_city?: string | null;
+  address_state?: string | null;
+  address_country?: string | null;
+  is_active?: boolean | null;
 };
 
 type ChurchRow = {
@@ -117,6 +129,18 @@ Deno.serve(async (req) => {
     const church_name = String(body.church_name || "").trim();
     const church_class = normalizeClass(body.class);
     const parent_totvs_id = String(body.parent_totvs_id || "").trim() || null;
+    const image_url = String(body.image_url || "").trim() || null;
+    const contact_email = String(body.contact_email || "").trim() || null;
+    const contact_phone = String(body.contact_phone || "").trim() || null;
+    const cep = String(body.cep || "").replace(/\D/g, "").slice(0, 8) || null;
+    const address_street = String(body.address_street || "").trim() || null;
+    const address_number = String(body.address_number || "").trim() || null;
+    const address_complement = String(body.address_complement || "").trim() || null;
+    const address_neighborhood = String(body.address_neighborhood || "").trim() || null;
+    const address_city = String(body.address_city || "").trim() || null;
+    const address_state = String(body.address_state || "").trim().toUpperCase().slice(0, 2) || null;
+    const address_country = String(body.address_country || "BR").trim().toUpperCase().slice(0, 2) || "BR";
+    const is_active = typeof body.is_active === "boolean" ? body.is_active : true;
 
     if (!totvs_id) return json({ ok: false, error: "missing_totvs_id" }, 400);
     if (!church_name) return json({ ok: false, error: "missing_church_name" }, 400);
@@ -210,13 +234,26 @@ Deno.serve(async (req) => {
       church_name,
       class: church_class,
       parent_totvs_id,
-      is_active: true,
+      image_url,
+      contact_email,
+      contact_phone,
+      cep,
+      address_street,
+      address_number,
+      address_complement,
+      address_neighborhood,
+      address_city,
+      address_state,
+      address_country,
+      is_active,
     };
 
     const { data: saved, error: saveErr } = await sb
       .from("churches")
       .upsert(payload, { onConflict: "totvs_id" })
-      .select("totvs_id, church_name, class, parent_totvs_id, is_active")
+      .select(
+        "totvs_id, church_name, class, parent_totvs_id, image_url, contact_email, contact_phone, cep, address_street, address_number, address_complement, address_neighborhood, address_city, address_state, address_country, is_active",
+      )
       .single();
 
     if (saveErr) return json({ ok: false, error: "db_error_save_church", details: saveErr.message }, 500);
@@ -233,4 +270,3 @@ Deno.serve(async (req) => {
     return json({ ok: false, error: "exception", details: String(err) }, 500);
   }
 });
-

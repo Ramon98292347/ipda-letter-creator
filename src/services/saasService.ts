@@ -85,6 +85,7 @@ export type UserListItem = {
   rg?: string | null;
   phone?: string | null;
   email?: string | null;
+  profession?: string | null;
   minister_role?: string | null;
   birth_date?: string | null;
   baptism_date?: string | null;
@@ -150,6 +151,7 @@ export type ChurchInScopeItem = {
   church_name: string;
   church_class?: string | null;
   parent_totvs_id?: string | null;
+  image_url?: string | null;
   contact_email?: string | null;
   contact_phone?: string | null;
   cep?: string | null;
@@ -725,6 +727,7 @@ export async function listMembers(params: MemberListParams): Promise<WorkerListR
         rg: w?.rg || null,
         phone: w?.phone || null,
         email: w?.email || null,
+        profession: w?.profession || null,
         minister_role: w?.minister_role || null,
         birth_date: w?.birth_date || null,
         baptism_date: w?.baptism_date || null,
@@ -788,6 +791,7 @@ export async function listWorkers(params: WorkerListParams): Promise<WorkerListR
         rg: w?.rg || null,
         phone: w?.phone || null,
         email: w?.email || null,
+        profession: w?.profession || null,
         minister_role: w?.minister_role || null,
         birth_date: w?.birth_date || null,
         baptism_date: w?.baptism_date || null,
@@ -905,6 +909,7 @@ export async function listChurchesInScope(page = 1, pageSize = 200): Promise<Chu
     church_name: String(item?.church_name || item?.name || "-"),
     church_class: item?.church_class || item?.class || null,
     parent_totvs_id: item?.parent_totvs_id || null,
+    image_url: item?.image_url || item?.photo_url || item?.cover_url || null,
     contact_email: item?.contact_email || null,
     contact_phone: item?.contact_phone || null,
     cep: item?.cep || null,
@@ -941,6 +946,7 @@ export async function listChurchesInScopePaged(page = 1, pageSize = 20): Promise
     church_name: String(item?.church_name || item?.name || "-"),
     church_class: item?.church_class || item?.class || null,
     parent_totvs_id: item?.parent_totvs_id || null,
+    image_url: item?.image_url || item?.photo_url || item?.cover_url || null,
     contact_email: item?.contact_email || null,
     contact_phone: item?.contact_phone || null,
     cep: item?.cep || null,
@@ -975,6 +981,7 @@ export async function createChurch(payload: {
   parent_totvs_id?: string;
   church_name: string;
   class: string;
+  image_url?: string;
   contact_email?: string;
   contact_phone?: string;
   cep?: string;
@@ -996,6 +1003,7 @@ export async function createChurch(payload: {
     parent_totvs_id: payload.parent_totvs_id?.trim() || null,
     church_name: payload.church_name.trim(),
     class: payload.class.trim(),
+    image_url: payload.image_url?.trim() || null,
     contact_email: payload.contact_email?.trim() || null,
     contact_phone: payload.contact_phone?.trim() || null,
     cep: payload.cep?.trim() || null,
@@ -1386,6 +1394,7 @@ export async function publicRegisterMember(payload: {
   cpf: string;
   full_name: string;
   minister_role: string;
+  profession?: string | null;
   baptism_date?: string | null;
   ordination_date?: string | null;
   phone?: string | null;
@@ -1412,6 +1421,7 @@ export async function publicRegisterMember(payload: {
     cpf,
     full_name: payload.full_name.trim(),
     minister_role: payload.minister_role.trim(),
+    profession: payload.profession || null,
     baptism_date: payload.baptism_date || null,
     ordination_date: payload.ordination_date || null,
     phone: payload.phone || null,
@@ -1587,6 +1597,7 @@ export async function upsertWorkerByPastor(payload: {
   cpf: string;
   full_name: string;
   minister_role: string;
+  profession?: string;
   phone?: string;
   email?: string;
   birth_date?: string;
@@ -1623,6 +1634,7 @@ export async function upsertWorkerByPastor(payload: {
     birth_date: payload.birth_date || null,
     ordination_date: payload.ordination_date || null,
     minister_role: ministerRole,
+    profession: payload.profession || null,
     avatar_url: payload.avatar_url || null,
     cep: payload.cep || null,
     address_street: payload.address_street || null,
@@ -1649,6 +1661,7 @@ export async function upsertWorkerByPastor(payload: {
         role: body.role,
         cpf: body.cpf,
         minister_role: body.minister_role,
+        profession: body.profession,
         phone: body.phone,
         email: body.email,
         birth_date: body.birth_date,
@@ -1681,6 +1694,7 @@ export async function upsertWorkerByPastor(payload: {
     default_totvs_id: body.default_totvs_id,
     totvs_access: [payload.active_totvs_id],
     minister_role: body.minister_role,
+    profession: body.profession,
     phone: body.phone,
     email: body.email,
     birth_date: body.birth_date,

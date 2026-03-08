@@ -63,6 +63,7 @@ type WorkerForm = {
   cpf: string;
   full_name: string;
   minister_role: string;
+  profession: string;
   phone: string;
   email: string;
   birth_date: string;
@@ -82,6 +83,7 @@ const initialForm: WorkerForm = {
   cpf: "",
   full_name: "",
   minister_role: "",
+  profession: "",
   phone: "",
   email: "",
   birth_date: "",
@@ -168,6 +170,7 @@ export function ObreirosTab({ activeTotvsId }: { activeTotvsId: string }) {
       cpf: worker.cpf || "",
       full_name: worker.full_name,
       minister_role: worker.minister_role || "",
+      profession: worker.profession || "",
       phone: worker.phone || "",
       email: worker.email || "",
       birth_date: worker.birth_date || "",
@@ -265,6 +268,7 @@ export function ObreirosTab({ activeTotvsId }: { activeTotvsId: string }) {
         cpf: form.cpf,
         full_name: form.full_name,
         minister_role: form.minister_role,
+        profession: form.profession || undefined,
         phone: form.phone || undefined,
         email: form.email || undefined,
         birth_date: form.birth_date || undefined,
@@ -573,7 +577,7 @@ export function ObreirosTab({ activeTotvsId }: { activeTotvsId: string }) {
               </div>
             </div>
 
-            <div className="grid gap-3 md:grid-cols-3">
+            <div className="grid gap-3 md:grid-cols-4">
               <div className="space-y-1">
                 <Label>Cargo ministerial *</Label>
                 <Select value={form.minister_role || ""} onValueChange={(v) => setForm((p) => ({ ...p, minister_role: v }))}>
@@ -594,6 +598,10 @@ export function ObreirosTab({ activeTotvsId }: { activeTotvsId: string }) {
               <div className="space-y-1">
                 <Label>Email</Label>
                 <Input value={form.email} onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))} />
+              </div>
+              <div className="space-y-1">
+                <Label>Profissao</Label>
+                <Input value={form.profession} onChange={(e) => setForm((p) => ({ ...p, profession: e.target.value }))} />
               </div>
             </div>
 

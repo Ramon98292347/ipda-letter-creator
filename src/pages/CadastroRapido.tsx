@@ -13,6 +13,7 @@ import { fetchChurches } from "@/services/churchService";
 import { publicRegisterMember } from "@/services/saasService";
 import { getFriendlyError } from "@/lib/error-map";
 import { fetchAddressByCep, maskCep, onlyDigits } from "@/lib/cep";
+import { formatPhoneBr } from "@/lib/br-format";
 
 function normalizeCpf(value: string) {
   return String(value || "").replace(/\D/g, "").slice(0, 11);
@@ -59,6 +60,7 @@ export default function CadastroRapido() {
   const [email, setEmail] = useState("");
   const [totvs, setTotvs] = useState("");
   const [ministerRole, setMinisterRole] = useState("Membro");
+  const [profession, setProfession] = useState("");
   const [baptismDate, setBaptismDate] = useState("");
   const [ordinationDate, setOrdinationDate] = useState("");
   const [senha, setSenha] = useState("");
@@ -215,6 +217,7 @@ export default function CadastroRapido() {
         cpf: cpfRaw,
         full_name: nome,
         minister_role: ministerRole,
+        profession: profession || null,
         baptism_date: baptismDate || null,
         ordination_date: ordinationDate || null,
         phone: telefone || null,
@@ -299,7 +302,11 @@ export default function CadastroRapido() {
 
               <div className="space-y-2">
                 <Label>Telefone</Label>
-                <Input value={telefone} onChange={(e) => setTelefone(e.target.value)} placeholder="(27) 99999-9999" />
+                <Input
+                  value={telefone}
+                  onChange={(e) => setTelefone(formatPhoneBr(e.target.value))}
+                  placeholder="(27) 99999-9999"
+                />
               </div>
 
               <div className="space-y-2 md:col-span-2">
@@ -331,6 +338,11 @@ export default function CadastroRapido() {
               <div className="space-y-2">
                 <Label>Data de ordenacao</Label>
                 <Input type="date" value={ordinationDate} onChange={(e) => setOrdinationDate(e.target.value)} />
+              </div>
+
+              <div className="space-y-2 md:col-span-2">
+                <Label>Profissao</Label>
+                <Input value={profession} onChange={(e) => setProfession(e.target.value)} placeholder="Profissao" />
               </div>
 
               <div className="space-y-2">

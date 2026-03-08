@@ -15,6 +15,7 @@ import { listChurchesInScope, listMembers, type UserListItem, generateMemberDocs
 import { useUser } from "@/context/UserContext";
 import { fetchAddressByCep, maskCep, onlyDigits } from "@/lib/cep";
 import { PageLoading } from "@/components/shared/PageLoading";
+import { formatCepBr, formatCpfBr, formatDateBr as formatDateBrValue, formatPhoneBr as formatPhoneBrValue } from "@/lib/br-format";
 
 type MemberTab = "lista" | "ficha_membro" | "carteirinha" | "ficha_obreiro";
 type MemberView = "lista" | "grid";
@@ -300,28 +301,38 @@ function toInputDate(value: string | null | undefined) {
 }
 
 function maskCpf(cpf: string | null | undefined) {
-  const d = String(cpf || "").replace(/\D/g, "").slice(0, 11);
-  if (!d) return "—";
-  if (d.length <= 3) return d;
-  if (d.length <= 6) return `${d.slice(0, 3)}.${d.slice(3)}`;
-  if (d.length <= 9) return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6)}`;
-  return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6, 9)}-${d.slice(9)}`;
+  return formatCpfBr(cpf) || "—";
 }
 
 function formatPhone(phone: string | null | undefined) {
-  const d = String(phone || "").replace(/\D/g, "");
-  if (!d) return "—";
-  if (d.length === 11) return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`;
-  if (d.length === 10) return `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}`;
-  return String(phone || "—");
+  return formatPhoneBrValue(phone) || "—";
 }
 
 function formatDateBr(value: string | null | undefined) {
-  if (!value) return "—";
-  const normalized = /^\d{4}-\d{2}-\d{2}$/.test(String(value)) ? `${value}T00:00:00` : String(value);
-  const dt = new Date(normalized);
-  if (Number.isNaN(dt.getTime())) return String(value);
-  return dt.toLocaleDateString("pt-BR");
+  return formatDateBrValue(value) || "—";
+}
+
+// Comentario: monta endereco completo da igreja no padrao BR para rodape/webhook.
+function buildChurchAddressFooter(params: {
+  street?: string | null;
+  number?: string | null;
+  neighborhood?: string | null;
+  city?: string | null;
+  state?: string | null;
+  cep?: string | null;
+}) {
+  const parts = [
+    String(params.street || "").trim(),
+    params.number ? `numero ${String(params.number).trim()}` : "",
+    String(params.neighborhood || "").trim(),
+    String(params.city || "").trim(),
+  ].filter(Boolean);
+
+  const uf = String(params.state || "").trim().toUpperCase();
+  const base = parts.join(", ");
+  const withUf = uf ? `${base} - ${uf}` : base;
+  const cep = formatCepBr(params.cep || "");
+  return cep ? `${withUf} - CEP ${cep}` : withUf;
 }
 
 function memberToForm(member: UserListItem, churchName: string, pastorSignature: string, churchFooter: string) {
@@ -472,9 +483,9 @@ function buildCarteirinhaHtml(form: MemberDocForm) {
   const nome = escapeHtml(form.nome_completo || "");
   const funcao = escapeHtml(form.funcao_ministerial || "");
   const matricula = escapeHtml(form.matricula || "");
-  const cpf = escapeHtml(form.cpf || "");
-  const telefone = escapeHtml(form.telefone || "");
-  const batismo = escapeHtml(form.data_batismo || "");
+  const cpf = escapeHtml(formatCpfBr(form.cpf || ""));
+  const telefone = escapeHtml(formatPhoneBrValue(form.telefone || ""));
+  const batismo = escapeHtml(formatDateBrValue(form.data_batismo || ""));
 
   return `<!doctype html>
 <html lang="pt-br"><head><meta charset="utf-8" />
@@ -529,9 +540,9 @@ function buildFichaMembroHtml(form: MemberDocForm) {
   const subtitulo = escapeHtml(form.ficha_subtitulo || "Setorial de Vitória");
   const rodape = escapeHtml(form.ficha_rodape || "");
 
-  const nasc = escapeHtml(form.data_nascimento || "");
-  const bat = escapeHtml(form.data_batismo || "");
-  const ord = escapeHtml(form.ordenacao_presbitero || form.ordenacao_diacono || form.ordenacao_cooperador || "");
+  const nasc = escapeHtml(formatDateBrValue(form.data_nascimento || ""));
+  const bat = escapeHtml(formatDateBrValue(form.data_batismo || ""));
+  const ord = escapeHtml(formatDateBrValue(form.ordenacao_presbitero || form.ordenacao_diacono || form.ordenacao_cooperador || ""));
 
   return `<!doctype html>
 <html lang="pt-br"><head><meta charset="utf-8" />
@@ -558,10 +569,10 @@ function buildFichaMembroHtml(form: MemberDocForm) {
 <div class="content">
 <div class="row"><div class="field"><div class="label">Nome:</div><div class="value w-70">${escapeHtml(form.nome_completo)}</div></div></div>
 <div class="row"><div class="field"><div class="label">Endereço:</div><div class="value w-70">${escapeHtml(form.endereco)}</div></div><div class="field"><div class="label">Número da casa:</div><div class="value w-30">${escapeHtml(form.numero)}</div></div></div>
-<div class="row"><div class="field"><div class="label">Bairro:</div><div class="value w-45">${escapeHtml(form.bairro)}</div></div><div class="field"><div class="label">Cidade:</div><div class="value w-45">${escapeHtml(form.cidade)}</div></div><div class="field"><div class="label">Estado:</div><div class="value w-25">${escapeHtml(form.estado)}</div></div><div class="field"><div class="label">Cep:</div><div class="value w-25">${escapeHtml(form.cep_congregacao || "")}</div></div></div>
-<div class="row"><div class="field"><div class="label">RG:</div><div class="value w-35">${escapeHtml(form.rg)}</div></div><div class="field"><div class="label">CPF:</div><div class="value w-35">${escapeHtml(form.cpf)}</div></div><div class="field"><div class="label">Data de Nascimento:</div><div class="value w-45">${nasc}</div></div></div>
+<div class="row"><div class="field"><div class="label">Bairro:</div><div class="value w-45">${escapeHtml(form.bairro)}</div></div><div class="field"><div class="label">Cidade:</div><div class="value w-45">${escapeHtml(form.cidade)}</div></div><div class="field"><div class="label">Estado:</div><div class="value w-25">${escapeHtml(form.estado)}</div></div><div class="field"><div class="label">Cep:</div><div class="value w-25">${escapeHtml(formatCepBr(form.cep_congregacao || ""))}</div></div></div>
+<div class="row"><div class="field"><div class="label">RG:</div><div class="value w-35">${escapeHtml(form.rg)}</div></div><div class="field"><div class="label">CPF:</div><div class="value w-35">${escapeHtml(formatCpfBr(form.cpf))}</div></div><div class="field"><div class="label">Data de Nascimento:</div><div class="value w-45">${nasc}</div></div></div>
 <div class="row"><div class="field"><div class="label">Cidade de Nascimento:</div><div class="value w-60">${escapeHtml(form.cidade_nascimento)}</div></div><div class="field"><div class="label">Estado:</div><div class="value w-35">${escapeHtml(form.uf_nascimento)}</div></div></div>
-<div class="row"><div class="field"><div class="label">Estado Civil:</div><div class="value w-40">${escapeHtml(form.estado_civil)}</div></div><div class="field"><div class="label">Telefone:</div><div class="value w-45">${escapeHtml(form.telefone)}</div></div></div>
+<div class="row"><div class="field"><div class="label">Estado Civil:</div><div class="value w-40">${escapeHtml(form.estado_civil)}</div></div><div class="field"><div class="label">Telefone:</div><div class="value w-45">${escapeHtml(formatPhoneBrValue(form.telefone))}</div></div></div>
 <div class="row"><div class="field"><div class="label">Endereço de email:</div><div class="value w-70">${escapeHtml(form.email)}</div></div></div>
 <div class="row"><div class="field"><div class="label">Profissão:</div><div class="value w-60">${escapeHtml(form.profissao)}</div></div><div class="field"><div class="label">Idade:</div><div class="value w-25">${""}</div></div></div>
 <div class="section-title">Dados Ministeriais do Membro e do Obreiro (a)</div>
@@ -612,17 +623,14 @@ export default function PastorMembrosPage() {
     [churchesInScope, activeTotvsId],
   );
   const churchFooter = useMemo(() => {
-    const parts = [
-      activeChurch?.address_street || "",
-      activeChurch?.address_number ? `Nº ${activeChurch.address_number}` : "",
-      activeChurch?.address_neighborhood || "",
-      activeChurch?.address_city || "",
-      activeChurch?.address_state || "",
-      activeChurch?.cep || "",
-    ]
-      .map((item) => String(item || "").trim())
-      .filter(Boolean);
-    return parts.join(", ");
+    return buildChurchAddressFooter({
+      street: activeChurch?.address_street,
+      number: activeChurch?.address_number,
+      neighborhood: activeChurch?.address_neighborhood,
+      city: activeChurch?.address_city,
+      state: activeChurch?.address_state,
+      cep: activeChurch?.cep || "",
+    });
   }, [activeChurch]);
   const rodapeAuto = useMemo(() => churchFooter || form.ficha_rodape || "", [churchFooter, form.ficha_rodape]);
   const selectedMember = useMemo(
@@ -644,10 +652,9 @@ export default function PastorMembrosPage() {
     docsStatus?.ficha &&
       String(docsStatus?.ficha?.final_url || "").trim().length > 0,
   );
-  const carteirinhaPronta = Boolean(
-    docsStatus?.carteirinha &&
-      String(docsStatus?.carteirinha?.final_url || "").trim().length > 0,
-  );
+  const carteirinhaPronta =
+    String(docsStatus?.carteirinha?.status || "").toUpperCase() === "PRONTO" ||
+    Boolean(docsStatus?.carteirinha && String(docsStatus?.carteirinha?.final_url || "").trim().length > 0);
 
   useEffect(() => {
     if (tab === "ficha_obreiro") {
@@ -746,8 +753,16 @@ export default function PastorMembrosPage() {
         church_totvs_id: activeTotvsId,
         dados: {
           ...form,
+          cpf: formatCpfBr(form.cpf),
+          telefone: formatPhoneBrValue(form.telefone),
+          data_nascimento: formatDateBrValue(form.data_nascimento),
+          data_batismo: formatDateBrValue(form.data_batismo),
+          cep_membro: formatCepBr(form.cep_congregacao),
+          cep_congregacao: formatCepBr(form.cep_congregacao),
+          endereco_igreja_completo: rodapeAuto || churchFooter,
+          ficha_rodape: rodapeAuto || churchFooter,
           pastor_responsavel_nome: pastorDaIgreja?.full_name || "",
-          pastor_responsavel_telefone: pastorDaIgreja?.phone || "",
+          pastor_responsavel_telefone: formatPhoneBrValue(pastorDaIgreja?.phone || ""),
         },
       });
       await refetchDocsStatus();
@@ -1007,13 +1022,20 @@ export default function PastorMembrosPage() {
                 {carteirinhaPronta ? (
                   <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
                     <p className="text-sm font-semibold text-emerald-700">Carteirinha pronta para uso.</p>
-                    <p className="mt-1 text-xs text-emerald-700">A pré-visualização foi ocultada porque o documento final já foi gerado.</p>
-                    <div className="mt-3">
+                    <p className="mt-1 text-xs text-emerald-700">O arquivo final está disponível para visualização e download.</p>
+                    <div className="mt-3 flex flex-wrap gap-2">
                       <Button
                         size="sm"
                         onClick={() => window.open(String(docsStatus?.carteirinha?.final_url || ""), "_blank", "noopener,noreferrer")}
                       >
-                        Abrir carteirinha
+                        Visualizar carteirinha
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => window.open(String(docsStatus?.carteirinha?.final_url || ""), "_blank", "noopener,noreferrer")}
+                      >
+                        Baixar carteirinha
                       </Button>
                     </div>
                   </div>
@@ -1025,8 +1047,8 @@ export default function PastorMembrosPage() {
                   </div>
                 ) : null}
                 {!carteirinhaPronta ? (
-                  <div className="overflow-hidden rounded-xl border border-slate-200">
-                    <iframe title="Pré-visualização carteirinha" className="h-[320px] w-full bg-white" srcDoc={carteirinhaHtml} />
+                  <div className="rounded-xl border border-slate-200 bg-white p-3 text-sm text-slate-600">
+                    A carteirinha ainda não está pronta. Aguarde a confecção para visualizar.
                   </div>
                 ) : null}
               </div>

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowLeft, IdCard, Send } from "lucide-react";
 import { generateMemberDocs, getMemberDocsStatus, getPastorByTotvsPublic, workerDashboard } from "@/services/saasService";
+import { formatCepBr, formatCpfBr, formatDateBr, formatPhoneBr } from "@/lib/br-format";
 
 type DocTab = "carteirinha" | "ficha";
 
@@ -27,6 +28,23 @@ function getAddressField(addressJson: unknown, key: string) {
 function svgPlaceholder(label: string, width = 300, height = 200) {
   const safe = encodeURIComponent(label);
   return `data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='${width}' height='${height}'><rect width='100%' height='100%' fill='%23F1F5F9'/><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' fill='%2364758B' font-size='20' font-family='Arial'>${safe}</text></svg>`;
+}
+
+function buildChurchFooterAddress(church: Record<string, unknown> | null | undefined) {
+  const addressFull = String(church?.address_full || "").trim();
+  if (addressFull) return addressFull;
+
+  const parts = [
+    String(church?.address_street || "").trim(),
+    church?.address_number ? `numero ${String(church.address_number).trim()}` : "",
+    String(church?.address_neighborhood || "").trim(),
+    String(church?.address_city || "").trim(),
+  ].filter(Boolean);
+  const uf = String(church?.address_state || "").trim().toUpperCase();
+  const cep = formatCepBr(church?.cep || "");
+  const base = parts.join(", ");
+  const withUf = uf ? `${base} - ${uf}` : base;
+  return cep ? `${withUf} - CEP ${cep}` : withUf;
 }
 
 function buildCarteirinhaHtml(params: {
@@ -61,8 +79,8 @@ function buildCarteirinhaHtml(params: {
   .pastor-sign img{max-height:100%;max-width:100%;object-fit:contain}.pastor-label{top:46.6mm;left:6mm;right:30mm}
   .qr{position:absolute;left:65mm;bottom:2mm;width:17.3mm;height:18.7mm;border-radius:4mm;overflow:hidden;border:.3mm solid rgba(0,0,0,.25)}.qr img{width:100%;height:100%;object-fit:cover}
   </style></head><body><div class="page"><div class="wrap"><div class="side front"><div class="photo"><img src="${foto}" alt="Foto"></div><div class="text-center"><p class="name">${escapeHtml(params.nome)}</p><p class="role">${escapeHtml(params.funcao)}</p><p class="info">ESTE DOCUMENTO É PESSOAL E INTRANSFERÍVEL</p></div></div>
-  <div class="side back"><div class="title">CARTEIRINHA DE MEMBRO</div><div class="field-box id-box"></div><div class="field-label id-label">ID/REGISTRADO</div><div class="field-value id-value">${escapeHtml(params.matricula)}</div><div class="field-box cpf-box"></div><div class="field-label cpf-label">CPF</div><div class="field-value cpf-value">${escapeHtml(params.cpf)}</div>
-  <div class="field-box tel-box"></div><div class="field-label tel-label">TELEFONE</div><div class="field-value tel-value">${escapeHtml(params.telefone)}</div><div class="field-box bat-box"></div><div class="field-label bat-label">DATA BATISMO</div><div class="field-value bat-value">${escapeHtml(params.batismo)}</div>
+  <div class="side back"><div class="title">CARTEIRINHA DE MEMBRO</div><div class="field-box id-box"></div><div class="field-label id-label">ID/REGISTRADO</div><div class="field-value id-value">${escapeHtml(params.matricula)}</div><div class="field-box cpf-box"></div><div class="field-label cpf-label">CPF</div><div class="field-value cpf-value">${escapeHtml(formatCpfBr(params.cpf))}</div>
+  <div class="field-box tel-box"></div><div class="field-label tel-label">TELEFONE</div><div class="field-value tel-value">${escapeHtml(formatPhoneBr(params.telefone))}</div><div class="field-box bat-box"></div><div class="field-label bat-label">DATA BATISMO</div><div class="field-value bat-value">${escapeHtml(formatDateBr(params.batismo))}</div>
   <div class="pastor-sign"><img src="${assinatura}" alt="Assinatura"></div><div class="line"></div><div class="field-label pastor-label">ASSINATURA PASTOR</div><div class="qr"><img src="${qr}" alt="QR"></div></div></div></div></body></html>`;
 }
 
@@ -105,13 +123,13 @@ function buildFichaMembroHtml(params: {
   <div class="title"><h1>Ficha de cadastro de Membros</h1><h2>${escapeHtml(params.subtitulo)}</h2></div><div class="content">
   <div class="row"><div class="field"><div class="label">Nome:</div><div class="value w-70">${escapeHtml(params.nome)}</div></div></div>
   <div class="row"><div class="field"><div class="label">Endereço:</div><div class="value w-70">${escapeHtml(params.endereco)}</div></div><div class="field"><div class="label">Número da casa:</div><div class="value w-30">${escapeHtml(params.numero)}</div></div></div>
-  <div class="row"><div class="field"><div class="label">Bairro:</div><div class="value w-45">${escapeHtml(params.bairro)}</div></div><div class="field"><div class="label">Cidade:</div><div class="value w-45">${escapeHtml(params.cidade)}</div></div><div class="field"><div class="label">Estado:</div><div class="value w-25">${escapeHtml(params.estado)}</div></div><div class="field"><div class="label">Cep:</div><div class="value w-25">${escapeHtml(params.cep)}</div></div></div>
-  <div class="row"><div class="field"><div class="label">RG:</div><div class="value w-35">${escapeHtml(params.rg)}</div></div><div class="field"><div class="label">CPF:</div><div class="value w-35">${escapeHtml(params.cpf)}</div></div><div class="field"><div class="label">Data de Nascimento:</div><div class="value w-45">${escapeHtml(params.nascimento)}</div></div></div>
+  <div class="row"><div class="field"><div class="label">Bairro:</div><div class="value w-45">${escapeHtml(params.bairro)}</div></div><div class="field"><div class="label">Cidade:</div><div class="value w-45">${escapeHtml(params.cidade)}</div></div><div class="field"><div class="label">Estado:</div><div class="value w-25">${escapeHtml(params.estado)}</div></div><div class="field"><div class="label">Cep:</div><div class="value w-25">${escapeHtml(formatCepBr(params.cep))}</div></div></div>
+  <div class="row"><div class="field"><div class="label">RG:</div><div class="value w-35">${escapeHtml(params.rg)}</div></div><div class="field"><div class="label">CPF:</div><div class="value w-35">${escapeHtml(formatCpfBr(params.cpf))}</div></div><div class="field"><div class="label">Data de Nascimento:</div><div class="value w-45">${escapeHtml(formatDateBr(params.nascimento))}</div></div></div>
   <div class="row"><div class="field"><div class="label">Cidade de Nascimento:</div><div class="value w-60">${escapeHtml(params.cidadeNascimento)}</div></div><div class="field"><div class="label">Estado:</div><div class="value w-35">${escapeHtml(params.estadoNascimento)}</div></div></div>
-  <div class="row"><div class="field"><div class="label">Estado Civil:</div><div class="value w-40">${escapeHtml(params.estadoCivil)}</div></div><div class="field"><div class="label">Telefone:</div><div class="value w-45">${escapeHtml(params.telefone)}</div></div></div>
+  <div class="row"><div class="field"><div class="label">Estado Civil:</div><div class="value w-40">${escapeHtml(params.estadoCivil)}</div></div><div class="field"><div class="label">Telefone:</div><div class="value w-45">${escapeHtml(formatPhoneBr(params.telefone))}</div></div></div>
   <div class="row"><div class="field"><div class="label">Endereço de email:</div><div class="value w-70">${escapeHtml(params.email)}</div></div></div>
   <div class="row"><div class="field"><div class="label">Profissão:</div><div class="value w-60">${escapeHtml(params.profissao)}</div></div><div class="field"><div class="label">Idade:</div><div class="value w-25">${escapeHtml(params.idade)}</div></div></div>
-  <div class="section-title">Dados Ministeriais do Membro e do Obreiro (a)</div><div class="row"><div class="field"><div class="label">Data de Batismo:</div><div class="value w-45">${escapeHtml(params.batismo)}</div></div><div class="field"><div class="label">Função Ministerial:</div><div class="value w-50">${escapeHtml(params.funcao)}</div></div></div><div class="row"><div class="field"><div class="label">Data da Ordenação:</div><div class="value w-45">${escapeHtml(params.ordenacao)}</div></div></div></div>
+  <div class="section-title">Dados Ministeriais do Membro e do Obreiro (a)</div><div class="row"><div class="field"><div class="label">Data de Batismo:</div><div class="value w-45">${escapeHtml(formatDateBr(params.batismo))}</div></div><div class="field"><div class="label">Função Ministerial:</div><div class="value w-50">${escapeHtml(params.funcao)}</div></div></div><div class="row"><div class="field"><div class="label">Data da Ordenação:</div><div class="value w-45">${escapeHtml(formatDateBr(params.ordenacao))}</div></div></div></div>
   <div class="footer">${rodape}</div></div></body></html>`;
 }
 
@@ -148,9 +166,9 @@ export default function UsuarioDocumentosPage() {
   const fichaPronta = Boolean(
     docsStatus?.ficha && String(docsStatus?.ficha?.final_url || "").trim().length > 0,
   );
-  const carteirinhaPronta = Boolean(
-    docsStatus?.carteirinha && String(docsStatus?.carteirinha?.final_url || "").trim().length > 0,
-  );
+  const carteirinhaPronta =
+    String(docsStatus?.carteirinha?.status || "").toUpperCase() === "PRONTO" ||
+    Boolean(docsStatus?.carteirinha && String(docsStatus?.carteirinha?.final_url || "").trim().length > 0);
 
   const addressStreet = getAddressField(profile?.address_json, "street");
   const addressNumber = getAddressField(profile?.address_json, "number");
@@ -158,6 +176,10 @@ export default function UsuarioDocumentosPage() {
   const city = getAddressField(profile?.address_json, "city");
   const state = getAddressField(profile?.address_json, "state");
   const zip = getAddressField(profile?.address_json, "zip");
+  const churchFooter = useMemo(
+    () => buildChurchFooterAddress((church || null) as Record<string, unknown> | null),
+    [church],
+  );
 
   const carteirinhaHtml = useMemo(
     () =>
@@ -168,9 +190,9 @@ export default function UsuarioDocumentosPage() {
         nome: String(profile?.full_name || usuario?.nome || ""),
         funcao: String(profile?.minister_role || ""),
         matricula: String((profile as Record<string, unknown> | undefined)?.matricula || ""),
-        cpf: String(profile?.cpf || ""),
-        telefone: String(profile?.phone || ""),
-        batismo: String((profile as Record<string, unknown> | undefined)?.baptism_date || ""),
+        cpf: formatCpfBr(profile?.cpf || ""),
+        telefone: formatPhoneBr(profile?.phone || ""),
+        batismo: formatDateBr((profile as Record<string, unknown> | undefined)?.baptism_date || ""),
       }),
     [profile, pastor?.signature_url, usuario?.nome, docsStatus?.ficha?.final_url],
   );
@@ -186,24 +208,24 @@ export default function UsuarioDocumentosPage() {
       bairro: addressNeighborhood,
       cidade: city,
       estado: state,
-      cep: zip,
+      cep: formatCepBr(zip),
       rg: String((profile as Record<string, unknown> | undefined)?.rg || ""),
-      cpf: String(profile?.cpf || ""),
-      nascimento: nascimentoRaw,
+      cpf: formatCpfBr(profile?.cpf || ""),
+      nascimento: formatDateBr(nascimentoRaw),
       cidadeNascimento: city,
       estadoNascimento: state,
       estadoCivil: String((profile as Record<string, unknown> | undefined)?.marital_status || ""),
-      telefone: String(profile?.phone || ""),
+      telefone: formatPhoneBr(profile?.phone || ""),
       email: String(profile?.email || ""),
       profissao: String((profile as Record<string, unknown> | undefined)?.profession || ""),
       idade: ano > 0 ? String(new Date().getFullYear() - ano) : "",
-      batismo: String((profile as Record<string, unknown> | undefined)?.baptism_date || ""),
+      batismo: formatDateBr((profile as Record<string, unknown> | undefined)?.baptism_date || ""),
       funcao: String(profile?.minister_role || ""),
-      ordenacao: String((profile as Record<string, unknown> | undefined)?.ordination_date || ""),
+      ordenacao: formatDateBr((profile as Record<string, unknown> | undefined)?.ordination_date || ""),
       subtitulo: String(session?.church_name || church?.church_name || "Setorial"),
-      rodapeIgreja: String(church?.address_full || ""),
+      rodapeIgreja: churchFooter,
     });
-  }, [profile, usuario?.nome, addressStreet, addressNumber, addressNeighborhood, city, state, zip, session?.church_name, church?.church_name, church?.address_full]);
+  }, [profile, usuario?.nome, addressStreet, addressNumber, addressNeighborhood, city, state, zip, session?.church_name, church?.church_name, churchFooter]);
 
   async function enviarParaConfeccao() {
     if (isCadastroPendente) {
@@ -223,13 +245,16 @@ export default function UsuarioDocumentosPage() {
         dados: {
           nome_completo: String(profile?.full_name || usuario?.nome || ""),
           funcao_ministerial: String(profile?.minister_role || ""),
-          cpf: String(profile?.cpf || ""),
-          telefone: String(profile?.phone || ""),
+          cpf: formatCpfBr(profile?.cpf || ""),
+          telefone: formatPhoneBr(profile?.phone || ""),
           email: String(profile?.email || ""),
           foto_3x4_url: String(profile?.avatar_url || ""),
           assinatura_pastor_url: String(pastor?.signature_url || ""),
           qr_code_url: String(docsStatus?.ficha?.final_url || ""),
           igreja_nome: String(session?.church_name || church?.church_name || ""),
+          cep_membro: formatCepBr(zip),
+          endereco_igreja_completo: churchFooter,
+          ficha_rodape: churchFooter,
         },
       });
       await refetchDocsStatus();
@@ -269,10 +294,17 @@ export default function UsuarioDocumentosPage() {
             {docTab === "carteirinha" && carteirinhaPronta ? (
               <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
                 <p className="text-sm font-semibold text-emerald-700">Carteirinha pronta.</p>
-                <p className="mt-1 text-xs text-emerald-700">A pré-visualização foi ocultada porque o arquivo final já está disponível.</p>
-                <div className="mt-3">
+                <p className="mt-1 text-xs text-emerald-700">O arquivo final está disponível para visualização e download.</p>
+                <div className="mt-3 flex flex-wrap gap-2">
                   <Button size="sm" onClick={() => window.open(String(docsStatus?.carteirinha?.final_url || ""), "_blank", "noopener,noreferrer")}>
-                    Abrir carteirinha
+                    Visualizar carteirinha
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => window.open(String(docsStatus?.carteirinha?.final_url || ""), "_blank", "noopener,noreferrer")}
+                  >
+                    Baixar carteirinha
                   </Button>
                 </div>
               </div>
@@ -288,13 +320,14 @@ export default function UsuarioDocumentosPage() {
                 </div>
               </div>
             ) : null}
-            {(docTab === "carteirinha" && !carteirinhaPronta) || (docTab === "ficha" && !fichaPronta) ? (
+            {docTab === "carteirinha" && !carteirinhaPronta ? (
+              <div className="rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-600">
+                A carteirinha ainda não está pronta. Aguarde a confecção para visualizar.
+              </div>
+            ) : null}
+            {docTab === "ficha" && !fichaPronta ? (
               <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
-                {docTab === "carteirinha" ? (
-                  <iframe title="Carteirinha do membro" className="h-[340px] w-full" srcDoc={isCadastroPendente ? "" : carteirinhaHtml} />
-                ) : (
-                  <iframe title="Ficha do membro" className="h-[720px] w-full" srcDoc={isCadastroPendente ? "" : fichaHtml} />
-                )}
+                <iframe title="Ficha do membro" className="h-[720px] w-full" srcDoc={isCadastroPendente ? "" : fichaHtml} />
               </div>
             ) : null}
           </CardContent>

@@ -54,6 +54,10 @@ function tableByType(documentType: "ficha_membro" | "carteirinha") {
   return documentType === "ficha_membro" ? "member_ficha_documents" : "member_carteirinha_documents";
 }
 
+function toText(value: unknown) {
+  return String(value || "").trim();
+}
+
 async function upsertDocStatus(
   sb: ReturnType<typeof createClient>,
   documentType: "ficha_membro" | "carteirinha",
@@ -135,7 +139,7 @@ Deno.serve(async (req) => {
 
     const { data: member, error: memberErr } = await sb
       .from("users")
-      .select("id, default_totvs_id, full_name, role")
+      .select("id, default_totvs_id, full_name, role, phone, email, cep, address_street, address_number, address_neighborhood, address_city, address_state")
       .eq("id", memberId)
       .maybeSingle();
 
@@ -150,7 +154,7 @@ Deno.serve(async (req) => {
 
     const { data: church, error: churchErr } = await sb
       .from("churches")
-      .select("pastor_user_id")
+      .select("church_name, pastor_user_id, stamp_church_url, address_street, address_number, address_neighborhood, address_city, address_state, cep")
       .eq("totvs_id", churchTotvsId)
       .maybeSingle();
     if (churchErr) return json({ ok: false, error: "db_error_church", details: churchErr.message }, 500);
@@ -193,20 +197,61 @@ Deno.serve(async (req) => {
       );
     }
 
+    const churchAddressParts = [
+      String(church?.address_street || "").trim(),
+      church?.address_number ? `numero ${String(church.address_number).trim()}` : "",
+      String(church?.address_neighborhood || "").trim(),
+      String(church?.address_city || "").trim(),
+    ].filter(Boolean);
+    const churchUf = String(church?.address_state || "").trim().toUpperCase();
+    const churchCepDigits = String(church?.cep || "").replace(/\D/g, "").slice(0, 8);
+    const churchCepFormatted = churchCepDigits.length === 8
+      ? `${churchCepDigits.slice(0, 5)}-${churchCepDigits.slice(5)}`
+      : "";
+    const churchAddressBase = churchAddressParts.join(", ");
+    const churchAddressWithUf = churchUf ? `${churchAddressBase} - ${churchUf}` : churchAddressBase;
+    const churchAddressFull = churchCepFormatted ? `${churchAddressWithUf} - CEP ${churchCepFormatted}` : churchAddressWithUf;
+
+    const cepFromDados = String(
+      dados.cep_membro || dados.cep_usuario || dados.cep || dados.zip || dados.cep_congregacao || "",
+    ).replace(/\D/g, "");
+    const memberCepDigits = String(cepFromDados || member?.cep || "").replace(/\D/g, "").slice(0, 8);
+    const memberCepFormatted = memberCepDigits.length === 8
+      ? `${memberCepDigits.slice(0, 5)}-${memberCepDigits.slice(5)}`
+      : "";
+
     const requestPayload: Record<string, unknown> = {
-      ...dados,
+      nome_completo: toText(dados.nome_completo) || String(member.full_name || ""),
+      matricula: toText(dados.matricula),
+      funcao_ministerial: toText(dados.funcao_ministerial),
+      data_nascimento: toText(dados.data_nascimento),
+      dados: {
+        member_cep: toText(dados.member_cep) || memberCepFormatted,
+        endereco_igreja_completo: toText(dados.endereco_igreja_completo) || churchAddressFull,
+        igreja_nome: toText(dados.igreja_nome) || toText(church?.church_name),
+        telefone: toText(dados.telefone) || String(member.phone || ""),
+      },
+      endereco: toText(dados.endereco) || String(member.address_street || ""),
+      numero: toText(dados.numero) || String(member.address_number || ""),
+      bairro: toText(dados.bairro) || String(member.address_neighborhood || ""),
+      cidade: toText(dados.cidade) || String(member.address_city || ""),
+      estado: toText(dados.estado) || String(member.address_state || ""),
+      estado_civil: toText(dados.estado_civil),
+      data_batismo: toText(dados.data_batismo),
+      cpf: toText(dados.cpf),
+      foto_3x4_url: toText(dados.foto_3x4_url),
+      rg: toText(dados.rg),
+      email: toText(dados.email) || String(member.email || ""),
+      cidade_nascimento: toText(dados.cidade_nascimento),
+      uf_nascimento: toText(dados.uf_nascimento),
+      profissao: toText(dados.profissao) || toText(dados.profession),
+      carimbo_igreja_url: toText(dados.carimbo_igreja_url) || String(church?.stamp_church_url || ""),
+      assinatura_pastor_url: toText(dados.assinatura_pastor_url) || pastorSignatureUrl,
       member_id: memberId,
-      church_totvs_id: churchTotvsId,
-      member_name: member.full_name,
-      requested_by_user_id: session.user_id,
-      requested_by_role: session.role,
-      document_type: documentType,
-      assinatura_pastor_url: String(dados.assinatura_pastor_url || pastorSignatureUrl || ""),
     };
 
-    if (fichaFinalUrl) {
-      requestPayload.qr_code_url = fichaFinalUrl;
-    }
+    const qrCodeUrl = toText(dados.qr_code_url) || fichaFinalUrl;
+    if (qrCodeUrl) requestPayload.qr_code_url = qrCodeUrl;
 
     const docsToUpdate: Array<"ficha_membro" | "carteirinha"> = createBundle
       ? ["ficha_membro", "carteirinha"]
@@ -232,15 +277,7 @@ Deno.serve(async (req) => {
       "https://n8n-n8n.ynlng8.easypanel.host/webhook/ficha-carteirinha";
 
     const webhookPayload = {
-      action: "generate_member_docs",
-      document_type: documentType,
-      create_bundle: createBundle,
-      member_id: memberId,
-      member_name: member.full_name,
-      church_totvs_id: churchTotvsId,
-      requested_by_user_id: session.user_id,
-      requested_by_role: session.role,
-      dados: requestPayload,
+      ...requestPayload,
     };
 
     const resp = await fetch(webhook, {

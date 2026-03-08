@@ -10,6 +10,7 @@ export const api = {
     cpf: string;
     full_name: string;
     minister_role: string;
+    profession?: string | null;
     baptism_date?: string | null;
     ordination_date?: string | null;
     phone?: string | null;
@@ -34,6 +35,7 @@ export const api = {
     parent_totvs_id?: string | null;
     church_name: string;
     class: string;
+    image_url?: string | null;
     contact_email?: string | null;
     contact_phone?: string | null;
     cep?: string | null;

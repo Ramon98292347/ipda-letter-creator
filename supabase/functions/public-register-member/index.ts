@@ -52,6 +52,7 @@ Deno.serve(async (req) => {
       cpf?: string;
       full_name?: string;
       minister_role?: string | null;
+      profession?: string | null;
       baptism_date?: string | null;
       ordination_date?: string | null;
       phone?: string | null;
@@ -71,6 +72,7 @@ Deno.serve(async (req) => {
     const cpf = onlyDigits(body.cpf || "");
     const fullName = String(body.full_name || "").trim();
     const ministerRole = normalizeMinisterRole(body.minister_role);
+    const profession = String(body.profession || "").trim() || null;
     const baptismDate = String(body.baptism_date || "").trim() || null;
     const ordinationDate = String(body.ordination_date || "").trim() || null;
     const password = String(body.password || "");
@@ -145,6 +147,7 @@ Deno.serve(async (req) => {
         full_name: fullName,
         role: "obreiro",
         minister_role: ministerRole,
+        profession,
         baptism_date: baptismDate,
         ordination_date: ordinationDate,
         phone,
