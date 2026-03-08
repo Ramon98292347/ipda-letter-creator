@@ -162,13 +162,26 @@ Deno.serve(async (req) => {
     if (cpf.length !== 11) return json({ ok: false, error: "invalid_cpf" }, 400);
     if (!full_name) return json({ ok: false, error: "missing_full_name" }, 400);
 
+    const sb = createClient(Deno.env.get("SUPABASE_URL") || "", Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "");
+
+    // Comentario: verifica se o usuario ja existe (para nao alterar role em edicao).
+    const { data: existingUser, error: existingErr } = await sb
+      .from("users")
+      .select("id, role")
+      .eq("cpf", cpf)
+      .maybeSingle();
+    if (existingErr) return json({ ok: false, error: "db_error_existing_user", details: existingErr.message }, 500);
+
     // Comentario: regra de papel:
-    // - Pastor logado: sempre cadastra como obreiro.
+    // - Edicao: nunca altera o role, mantem o role atual.
+    // - Pastor logado: sempre cadastra como obreiro (apenas para novo cadastro).
     // - Admin logado (JWT): pode cadastrar pastor ou obreiro.
     // - Fluxo tecnico (x-admin-key): pode usar qualquer role valida.
     const requestedRole = String(body.role || "obreiro").toLowerCase();
     let role: Role = "obreiro";
-    if (isAdminByKey) {
+    if (existingUser?.role) {
+      role = String(existingUser.role).toLowerCase() as Role;
+    } else if (isAdminByKey) {
       if (!["admin", "pastor", "obreiro"].includes(requestedRole)) return json({ ok: false, error: "invalid_role" }, 400);
       role = requestedRole as Role;
     } else if (session?.role === "admin") {
@@ -177,8 +190,6 @@ Deno.serve(async (req) => {
     } else {
       role = "obreiro";
     }
-
-    const sb = createClient(Deno.env.get("SUPABASE_URL") || "", Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "");
 
     const { data: allChurches, error: allChurchesErr } = await sb
       .from("churches")
@@ -215,6 +226,7 @@ Deno.serve(async (req) => {
     const password = String(body.password || "");
     const password_hash = password ? bcrypt.hashSync(password, 10) : null;
 
+    const ministerio = String(body.ministerio || body.minister_role || "").trim();
     const payload: Record<string, unknown> = {
       cpf,
       full_name,
@@ -256,4 +268,3 @@ Deno.serve(async (req) => {
     return json({ ok: false, error: "exception", details: String(err) }, 500);
   }
 });
-    const ministerio = String(body.ministerio || body.minister_role || "").trim();

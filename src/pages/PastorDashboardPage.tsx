@@ -77,8 +77,8 @@ export default function PastorDashboardPage() {
 
   const counters = useMemo(() => {
     const totalMembers = members.length;
-    const pastors = members.filter((m) => m.role === "pastor").length;
-    const obreiros = members.filter((m) => m.role === "obreiro").length;
+    const pastors = members.filter((m) => normalizeMinisterRole(m.minister_role) === "pastor").length;
+    const obreiros = members.filter((m) => normalizeMinisterRole(m.minister_role) === "obreiro").length;
     const presbiteros = members.filter((m) => normalizeMinisterRole(m.minister_role) === "presbitero").length;
     const diaconos = members.filter((m) => normalizeMinisterRole(m.minister_role) === "diacono").length;
     const membrosAtivos = members.filter((m) => normalizeMinisterRole(m.minister_role) === "membro" && m.is_active !== false).length;

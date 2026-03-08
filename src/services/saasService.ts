@@ -152,6 +152,7 @@ export type ChurchInScopeItem = {
   church_class?: string | null;
   parent_totvs_id?: string | null;
   image_url?: string | null;
+  stamp_church_url?: string | null;
   contact_email?: string | null;
   contact_phone?: string | null;
   cep?: string | null;
@@ -910,6 +911,7 @@ export async function listChurchesInScope(page = 1, pageSize = 200): Promise<Chu
     church_class: item?.church_class || item?.class || null,
     parent_totvs_id: item?.parent_totvs_id || null,
     image_url: item?.image_url || item?.photo_url || item?.cover_url || null,
+    stamp_church_url: item?.stamp_church_url || null,
     contact_email: item?.contact_email || null,
     contact_phone: item?.contact_phone || null,
     cep: item?.cep || null,
@@ -947,6 +949,7 @@ export async function listChurchesInScopePaged(page = 1, pageSize = 20): Promise
     church_class: item?.church_class || item?.class || null,
     parent_totvs_id: item?.parent_totvs_id || null,
     image_url: item?.image_url || item?.photo_url || item?.cover_url || null,
+    stamp_church_url: item?.stamp_church_url || null,
     contact_email: item?.contact_email || null,
     contact_phone: item?.contact_phone || null,
     cep: item?.cep || null,
@@ -982,6 +985,7 @@ export async function createChurch(payload: {
   church_name: string;
   class: string;
   image_url?: string;
+  stamp_church_url?: string;
   contact_email?: string;
   contact_phone?: string;
   cep?: string;
@@ -1004,6 +1008,7 @@ export async function createChurch(payload: {
     church_name: payload.church_name.trim(),
     class: payload.class.trim(),
     image_url: payload.image_url?.trim() || null,
+    stamp_church_url: payload.stamp_church_url?.trim() || null,
     contact_email: payload.contact_email?.trim() || null,
     contact_phone: payload.contact_phone?.trim() || null,
     cep: payload.cep?.trim() || null,

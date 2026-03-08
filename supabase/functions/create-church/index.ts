@@ -31,6 +31,7 @@ type Body = {
   class?: ChurchClass;
   parent_totvs_id?: string | null;
   image_url?: string | null;
+  stamp_church_url?: string | null;
   contact_email?: string | null;
   contact_phone?: string | null;
   cep?: string | null;
@@ -130,6 +131,7 @@ Deno.serve(async (req) => {
     const church_class = normalizeClass(body.class);
     const parent_totvs_id = String(body.parent_totvs_id || "").trim() || null;
     const image_url = String(body.image_url || "").trim() || null;
+    const stamp_church_url = String(body.stamp_church_url || "").trim() || null;
     const contact_email = String(body.contact_email || "").trim() || null;
     const contact_phone = String(body.contact_phone || "").trim() || null;
     const cep = String(body.cep || "").replace(/\D/g, "").slice(0, 8) || null;
@@ -188,6 +190,10 @@ Deno.serve(async (req) => {
 
     // Comentário: pastor só pode operar no próprio escopo "para baixo".
     if (session.role === "pastor") {
+      if (church_class === "estadual" && !existing) {
+        return json({ ok: false, error: "pastor_cannot_create_estadual" }, 403);
+      }
+
       const activeChurch = byTotvs.get(session.active_totvs_id);
       if (!activeChurch) return json({ ok: false, error: "active_church_not_found" }, 403);
 
@@ -200,19 +206,21 @@ Deno.serve(async (req) => {
       }
 
       const scope = computeScope(session.active_totvs_id, churches);
-      if (!scope.has(parent_totvs_id || "")) {
-        return json(
-          {
-            ok: false,
-            error: "parent_out_of_scope",
-            detail: "A igreja mae precisa estar no escopo da igreja logada.",
-          },
-          403,
-        );
+      if (parent_totvs_id) {
+        if (!scope.has(parent_totvs_id)) {
+          return json(
+            {
+              ok: false,
+              error: "parent_out_of_scope",
+              detail: "A igreja mae precisa estar no escopo da igreja logada.",
+            },
+            403,
+          );
+        }
       }
 
-      // Comentário: ao criar, o pai precisa ser a igreja do login.
-      if (!existing && parent_totvs_id !== session.active_totvs_id) {
+      // Coment?rio: ao criar, o pai precisa ser a igreja do login.
+      if (!existing && parent_totvs_id && parent_totvs_id !== session.active_totvs_id) {
         return json(
           {
             ok: false,
@@ -223,7 +231,7 @@ Deno.serve(async (req) => {
         );
       }
 
-      // Comentário: para edição, o alvo também precisa estar no escopo.
+      // Coment?rio: para edi??o, o alvo tamb?m precisa estar no escopo.
       if (existing && !scope.has(existing.totvs_id)) {
         return json({ ok: false, error: "church_out_of_scope" }, 403);
       }
@@ -235,6 +243,7 @@ Deno.serve(async (req) => {
       class: church_class,
       parent_totvs_id,
       image_url,
+      stamp_church_url,
       contact_email,
       contact_phone,
       cep,

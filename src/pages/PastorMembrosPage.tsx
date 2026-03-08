@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Grid2X2, IdCard, List, Save, Send, Users } from "lucide-react";
+import { Grid2X2, IdCard, List, MoreVertical, Save, Send, Users } from "lucide-react";
 import { toast } from "sonner";
 import { ManagementShell } from "@/components/layout/ManagementShell";
 import { ObreirosTab } from "@/components/admin/ObreirosTab";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -863,27 +864,33 @@ export default function PastorMembrosPage() {
                       {member.is_active === false ? "Inativo" : "Ativo"}
                     </Badge>
                   </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => {
-                        setSelectedMemberId(String(member.id));
-                        setTab("carteirinha");
-                      }}
-                    >
-                      Carteirinha
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => {
-                        setSelectedMemberId(String(member.id));
-                        setTab("ficha_membro");
-                      }}
-                    >
-                      Ficha
-                    </Button>
+                  <div className="flex justify-end">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button size="sm" variant="outline" className="h-8 px-2">
+                          <MoreVertical className="mr-1 h-4 w-4" />
+                          Acoes
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem
+                          onClick={() => {
+                            setSelectedMemberId(String(member.id));
+                            setTab("carteirinha");
+                          }}
+                        >
+                          Carteirinha
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => {
+                            setSelectedMemberId(String(member.id));
+                            setTab("ficha_membro");
+                          }}
+                        >
+                          Ficha
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
                 </CardContent>
               </Card>

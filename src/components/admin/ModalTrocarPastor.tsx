@@ -199,7 +199,11 @@ export function ModalTrocarPastor({
                       <li key={p.id}>
                         <button
                           type="button"
-                          className={`w-full px-4 py-3 text-left transition ${active ? "bg-slate-100" : "hover:bg-slate-50"}`}
+                          className={`w-full px-4 py-3 text-left transition ${
+                            active
+                              ? "border-l-4 border-emerald-500 bg-emerald-50 text-emerald-900"
+                              : "border-l-4 border-transparent hover:bg-slate-50"
+                          }`}
                           onClick={() => setSelectedPastorId(p.id)}
                         >
                           <div className="text-sm font-semibold text-slate-900">{p.full_name}</div>

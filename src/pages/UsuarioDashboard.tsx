@@ -19,6 +19,7 @@ import {
   getSignedPdfUrl,
   requestRelease,
   updateMyProfile,
+  upsertStamps,
   workerDashboard,
   type PastorLetter,
 } from "@/services/saasService";
@@ -108,10 +109,14 @@ export default function UsuarioDashboard() {
     address_state: "",
   });
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [signatureFile, setSignatureFile] = useState<File | null>(null);
+  const [stampPastorFile, setStampPastorFile] = useState<File | null>(null);
+  const [savingStamps, setSavingStamps] = useState(false);
 
   const userId = String(usuario?.id || "");
   const activeTotvs = String(session?.totvs_id || "");
   const isCadastroPendente = usuario?.registration_status === "PENDENTE";
+  const isPastor = String(profile?.role || usuario?.role || "").toLowerCase() === "pastor";
 
   useEffect(() => {
     const now = new Date();
@@ -193,6 +198,51 @@ export default function UsuarioDashboard() {
       }
     } finally {
       setCepLookupLoading(false);
+    }
+  }
+
+  async function uploadStampFile(file: File, folder: "assinatura" | "carimbos/pastor") {
+    if (!supabase) throw new Error("Supabase nao configurado.");
+    const ext = file.name.split(".").pop()?.toLowerCase() || "png";
+    const fileName = `${Date.now()}-${Math.random().toString(16).slice(2)}.${ext}`;
+    const path = `users/${folder}/${fileName}`;
+    const { error } = await supabase.storage.from("assinat_carimbo").upload(path, file, {
+      upsert: true,
+      contentType: file.type,
+      cacheControl: "3600",
+    });
+    if (error) throw new Error(error.message || "stamp_upload_failed");
+    const { data } = supabase.storage.from("assinat_carimbo").getPublicUrl(path);
+    return data.publicUrl;
+  }
+
+  async function savePastorStamps() {
+    if (!isPastor) {
+      toast.error("Apenas pastor pode salvar assinatura e carimbo.");
+      return;
+    }
+    if (!signatureFile && !stampPastorFile) {
+      toast.error("Selecione a assinatura ou o carimbo do pastor.");
+      return;
+    }
+    setSavingStamps(true);
+    try {
+      let signatureUrl = String(profile?.signature_url || "");
+      let stampPastorUrl = String(profile?.stamp_pastor_url || "");
+      if (signatureFile) signatureUrl = await uploadStampFile(signatureFile, "assinatura");
+      if (stampPastorFile) stampPastorUrl = await uploadStampFile(stampPastorFile, "carimbos/pastor");
+      await upsertStamps({
+        signature_url: signatureUrl || null,
+        stamp_pastor_url: stampPastorUrl || null,
+      });
+      toast.success("Assinatura e carimbo salvos com sucesso.");
+      setSignatureFile(null);
+      setStampPastorFile(null);
+      await queryClient.invalidateQueries({ queryKey: ["worker-dashboard"] });
+    } catch (err) {
+      toast.error(String((err as Error)?.message || "Falha ao salvar assinatura."));
+    } finally {
+      setSavingStamps(false);
     }
   }
 
@@ -308,7 +358,7 @@ export default function UsuarioDashboard() {
         });
         if (error) throw new Error(error.message || "avatar_upload_failed");
         const { data: publicData } = supabase.storage.from("avatars").getPublicUrl(path);
-        avatarUrl = publicData.publicUrl || avatarUrl;
+        avatarUrl = publicData.publicUrl ? `${publicData.publicUrl}?t=${Date.now()}` : avatarUrl;
       }
 
       await updateMyProfile({
@@ -602,6 +652,38 @@ export default function UsuarioDashboard() {
                 </div>
               </div>
             </div>
+            {isPastor ? (
+              <Card className="border border-slate-200 bg-slate-50 shadow-sm">
+                <CardHeader>
+                  <CardTitle>Assinatura e carimbo do pastor</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <div className="space-y-1">
+                      <Label>Assinatura</Label>
+                      <Input type="file" accept="image/*" onChange={(e) => setSignatureFile(e.target.files?.[0] || null)} />
+                      {profile?.signature_url ? (
+                        <a href={profile.signature_url} target="_blank" rel="noreferrer" className="text-xs text-blue-600 underline">
+                          Ver assinatura atual
+                        </a>
+                      ) : null}
+                    </div>
+                    <div className="space-y-1">
+                      <Label>Carimbo do pastor</Label>
+                      <Input type="file" accept="image/*" onChange={(e) => setStampPastorFile(e.target.files?.[0] || null)} />
+                      {profile?.stamp_pastor_url ? (
+                        <a href={profile.stamp_pastor_url} target="_blank" rel="noreferrer" className="text-xs text-blue-600 underline">
+                          Ver carimbo do pastor
+                        </a>
+                      ) : null}
+                    </div>
+                  </div>
+                  <Button type="button" variant="outline" onClick={savePastorStamps} disabled={savingStamps}>
+                    {savingStamps ? "Salvando..." : "Salvar assinatura e carimbo"}
+                  </Button>
+                </CardContent>
+              </Card>
+            ) : null}
             <div className="space-y-1">
               <Label>Telefone</Label>
               <Input value={profileForm.phone} onChange={(e) => setProfileForm((p) => ({ ...p, phone: e.target.value }))} />

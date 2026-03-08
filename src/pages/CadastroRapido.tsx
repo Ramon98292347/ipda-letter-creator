@@ -105,7 +105,7 @@ export default function CadastroRapido() {
     if (error) throw error;
 
     const { data } = supabase.storage.from("avatars").getPublicUrl(path);
-    return data.publicUrl;
+    return data.publicUrl ? `${data.publicUrl}?t=${Date.now()}` : data.publicUrl;
   }
 
   const { data: churches = [] } = useQuery({

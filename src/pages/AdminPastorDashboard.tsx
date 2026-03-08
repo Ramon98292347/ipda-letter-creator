@@ -170,9 +170,7 @@ export default function AdminPastorDashboard() {
   const ultimos7 = isAdmin
     ? churchRows.reduce((acc, r) => acc + r.cartas_liberadas, 0)
     : preferApiOrLocal(metrics?.ultimos7Dias || 0, ultimos7Local);
-  const totalObreiros = isAdmin
-    ? churchRows.reduce((acc, r) => acc + r.total_obreiros, 0)
-    : preferApiOrLocal(metrics?.totalObreiros || 0, totalMembrosLocal);
+  const totalObreiros = totalMembrosLocal;
   const pendentes = unreadCount || (isAdmin ? churchRows.reduce((acc, r) => acc + r.pendentes_liberacao, 0) : (metrics?.pendentesLiberacao || 0));
   const pastorDaLista = obreiros.find((m) => m?.role === "pastor");
   const headerAvatarUrl = usuario?.avatar_url || pastorDaLista?.avatar_url || null;

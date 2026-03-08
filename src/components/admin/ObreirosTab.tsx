@@ -259,7 +259,7 @@ export function ObreirosTab({ activeTotvsId }: { activeTotvsId: string }) {
         });
         if (error) throw new Error(error.message || "avatar_upload_failed");
         const { data } = supabase.storage.from("avatars").getPublicUrl(path);
-        avatarUrlToSave = data?.publicUrl || undefined;
+        avatarUrlToSave = data?.publicUrl ? `${data.publicUrl}?t=${Date.now()}` : undefined;
       }
 
       await upsertWorkerByPastor({

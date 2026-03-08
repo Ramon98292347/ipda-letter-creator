@@ -18,6 +18,7 @@ import { getFriendlyError } from "@/lib/error-map";
 import { addAuditLog } from "@/lib/audit";
 import { fetchAddressByCep, maskCep, onlyDigits } from "@/lib/cep";
 import { formatCepBr, formatPhoneBr } from "@/lib/br-format";
+import { supabase } from "@/lib/supabase";
 
 type ChurchClass = "estadual" | "setorial" | "central" | "regional" | "local";
 
@@ -27,6 +28,7 @@ type NewChurchForm = {
   class: ChurchClass;
   parent_totvs_id: string;
   image_url: string;
+  stamp_church_url: string;
   contact_email: string;
   contact_phone: string;
   cep: string;
@@ -49,6 +51,7 @@ const initialForm: NewChurchForm = {
   class: "local",
   parent_totvs_id: "",
   image_url: "",
+  stamp_church_url: "",
   contact_email: "",
   contact_phone: "",
   cep: "",
@@ -98,7 +101,11 @@ function ChurchAvatar({ church, compact = false }: { church: ChurchInScopeItem; 
       <img
         src={imageUrl}
         alt={`Imagem da igreja ${church.church_name}`}
-        className={`${cls} rounded-xl border border-slate-200 object-cover object-top`}
+        className={
+          compact
+            ? `${cls} rounded-xl border border-slate-200 object-cover object-center`
+            : `${cls} rounded-xl border border-slate-200 bg-slate-50 object-contain object-center`
+        }
       />
     );
   }
@@ -149,6 +156,12 @@ export function AdminChurchesTab({
   const [editCepLoading, setEditCepLoading] = useState(false);
   const [lastNewCep, setLastNewCep] = useState("");
   const [lastEditCep, setLastEditCep] = useState("");
+  const [newImageFile, setNewImageFile] = useState<File | null>(null);
+  const [newImagePreview, setNewImagePreview] = useState<string>("");
+  const [editImageFile, setEditImageFile] = useState<File | null>(null);
+  const [editImagePreview, setEditImagePreview] = useState<string>("");
+  const [newStampFile, setNewStampFile] = useState<File | null>(null);
+  const [editStampFile, setEditStampFile] = useState<File | null>(null);
 
   const [tab, setTab] = useState<ChurchTab>("lista");
   const [view, setView] = useState<ChurchView>("lista");
@@ -178,6 +191,43 @@ export function AdminChurchesTab({
       setTab("lista");
     }
   }, [tab]);
+
+  async function uploadChurchImage(file: File, totvsId: string) {
+    if (!supabase) throw new Error("Supabase não configurado.");
+    const ext = file.name.split(".").pop()?.toLowerCase() || "png";
+    const fileName = `${Date.now()}-${Math.random().toString(16).slice(2)}.${ext}`;
+    const path = `igreja/${fileName}`;
+
+    const { error } = await supabase.storage
+      .from("avatars")
+      .upload(path, file, {
+        upsert: true,
+        contentType: file.type,
+        cacheControl: "3600",
+      });
+
+    if (error) throw new Error(error.message);
+
+    const { data } = supabase.storage.from("avatars").getPublicUrl(path);
+    return data.publicUrl;
+  }
+
+  async function uploadChurchStamp(file: File) {
+    if (!supabase) throw new Error("Supabase não configurado.");
+    const ext = file.name.split(".").pop()?.toLowerCase() || "png";
+    const fileName = `${Date.now()}-${Math.random().toString(16).slice(2)}.${ext}`;
+    const path = `users/carimbos/igreja/${fileName}`;
+    const { error } = await supabase.storage
+      .from("assinat_carimbo")
+      .upload(path, file, {
+        upsert: true,
+        contentType: file.type,
+        cacheControl: "3600",
+      });
+    if (error) throw new Error(error.message);
+    const { data } = supabase.storage.from("assinat_carimbo").getPublicUrl(path);
+    return data.publicUrl;
+  }
 
   async function autofillNewCep(force = false) {
     const cep = onlyDigits(newForm.cep);
@@ -258,6 +308,19 @@ export function AdminChurchesTab({
     await queryClient.invalidateQueries({ queryKey: ["pastor-igrejas-page"] });
   }
 
+  function updateChurchImageCache(totvsId: string, imageUrl: string) {
+    if (!totvsId || !imageUrl) return;
+    queryClient.setQueriesData({ queryKey: ["churches-in-scope"] }, (oldData: unknown) => {
+      if (!oldData) return oldData;
+      const data = oldData as { churches?: ChurchInScopeItem[] } | ChurchInScopeItem[];
+      if (Array.isArray(data)) {
+        return data.map((row) => (row.totvs_id === totvsId ? { ...row, image_url: imageUrl } : row));
+      }
+      const rows = Array.isArray(data.churches) ? data.churches : [];
+      return { ...data, churches: rows.map((row) => (row.totvs_id === totvsId ? { ...row, image_url: imageUrl } : row)) };
+    });
+  }
+
   async function onCreateChurch(e: FormEvent) {
     e.preventDefault();
     if (!newForm.totvs_id.trim()) {
@@ -281,12 +344,21 @@ export function AdminChurchesTab({
 
     setSavingNew(true);
     try {
+      let imageUrl = newForm.image_url;
+      if (newImageFile) {
+        imageUrl = await uploadChurchImage(newImageFile, newForm.totvs_id.trim());
+      }
+      let stampChurchUrl = newForm.stamp_church_url;
+      if (newStampFile) {
+        stampChurchUrl = await uploadChurchStamp(newStampFile);
+      }
       await createChurch({
         totvs_id: newForm.totvs_id.trim(),
         church_name: newForm.church_name.trim(),
         class: newForm.class,
         parent_totvs_id: isAdmin ? undefined : newChurchNeedsParent ? newForm.parent_totvs_id.trim() || undefined : undefined,
-        image_url: newForm.image_url,
+        image_url: imageUrl,
+        stamp_church_url: stampChurchUrl,
         contact_email: newForm.contact_email,
         contact_phone: newForm.contact_phone,
         cep: newForm.cep,
@@ -299,10 +371,14 @@ export function AdminChurchesTab({
         address_country: newForm.address_country,
         is_active: newForm.is_active,
       });
+      if (imageUrl) updateChurchImageCache(newForm.totvs_id.trim(), imageUrl);
       toast.success("Igreja criada com sucesso.");
       addAuditLog("church_created", { church_totvs_id: newForm.totvs_id.trim() });
       setNewOpen(false);
       setNewForm(initialForm);
+      setNewImageFile(null);
+      setNewImagePreview("");
+      setNewStampFile(null);
       await refetchChurches();
     } catch (err: unknown) {
       toast.error(getFriendlyError(err, "churches"));
@@ -334,6 +410,7 @@ export function AdminChurchesTab({
       class: (church.church_class || "local") as NewChurchForm["class"],
       parent_totvs_id: String(church.parent_totvs_id || ""),
       image_url: String(church.image_url || ""),
+      stamp_church_url: String(church.stamp_church_url || ""),
       contact_email: String(church.contact_email || ""),
       contact_phone: String(church.contact_phone || ""),
       cep: String(church.cep || ""),
@@ -358,13 +435,22 @@ export function AdminChurchesTab({
 
     setSavingEdit(true);
     try {
+      let imageUrl = editForm.image_url;
+      if (editImageFile) {
+        imageUrl = await uploadChurchImage(editImageFile, editForm.totvs_id.trim());
+      }
+      let stampChurchUrl = editForm.stamp_church_url;
+      if (editStampFile && !editForm.stamp_church_url) {
+        stampChurchUrl = await uploadChurchStamp(editStampFile);
+      }
       // Comentario: usa a mesma function para manter um unico fluxo de gravacao.
       await createChurch({
         totvs_id: editForm.totvs_id.trim(),
         church_name: editForm.church_name.trim(),
         class: editForm.class,
         parent_totvs_id: editForm.parent_totvs_id.trim() || undefined,
-        image_url: editForm.image_url,
+        image_url: imageUrl,
+        stamp_church_url: stampChurchUrl,
         contact_email: editForm.contact_email,
         contact_phone: editForm.contact_phone,
         cep: editForm.cep,
@@ -377,8 +463,12 @@ export function AdminChurchesTab({
         address_country: editForm.address_country,
         is_active: editForm.is_active,
       });
+      if (imageUrl) updateChurchImageCache(editForm.totvs_id.trim(), imageUrl);
       toast.success("Igreja atualizada com sucesso.");
       setEditingChurch(null);
+      setEditImageFile(null);
+      setEditImagePreview("");
+      setEditStampFile(null);
       await refetchChurches();
     } catch (err: unknown) {
       toast.error(getFriendlyError(err, "churches"));
@@ -555,7 +645,7 @@ export function AdminChurchesTab({
           ) : null}
 
           {tab === "lista" && view === "grid" ? (
-            <div className="grid gap-4 p-5 sm:grid-cols-2 xl:grid-cols-3">
+            <div className="grid gap-3 p-5 sm:grid-cols-2 xl:grid-cols-4">
               {sortedRows.map((church) => (
                 <Card key={church.totvs_id} className="border border-slate-200 shadow-sm">
                   <CardContent className="space-y-3 p-4">
@@ -587,7 +677,7 @@ export function AdminChurchesTab({
           ) : null}
 
           {tab !== "lista" ? (
-            <div className="grid gap-4 p-5 sm:grid-cols-2 xl:grid-cols-3">
+            <div className="grid gap-3 p-5 sm:grid-cols-2 xl:grid-cols-4">
               {sortedRows.map((church) => (
                 <Card key={`${tab}-${church.totvs_id}`} className="border border-slate-200 shadow-sm">
                   <CardContent className="space-y-3 p-4">
@@ -709,12 +799,42 @@ export function AdminChurchesTab({
 
             <div className="grid gap-3 md:grid-cols-2">
               <div className="space-y-1 md:col-span-2">
+                <Label>Imagem da igreja (arquivo)</Label>
+                <div className="flex flex-col gap-3 md:flex-row md:items-center">
+                  <Input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0] || null;
+                      setNewImageFile(file);
+                      setNewImagePreview(file ? URL.createObjectURL(file) : "");
+                    }}
+                  />
+                  {newImagePreview ? (
+                    <img
+                      src={newImagePreview}
+                      alt="Preview da imagem da igreja"
+                      className="h-20 w-20 rounded-lg border border-slate-200 object-cover"
+                    />
+                  ) : null}
+                </div>
+              </div>
+              <div className="space-y-1 md:col-span-2">
                 <Label>Foto da igreja (URL)</Label>
                 <Input
                   value={newForm.image_url}
                   onChange={(e) => setNewForm((p) => ({ ...p, image_url: e.target.value }))}
                   placeholder="https://.../imagem-da-igreja.jpg"
                 />
+              </div>
+              <div className="space-y-1 md:col-span-2">
+                <Label>Carimbo da igreja (arquivo)</Label>
+                <Input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => setNewStampFile(e.target.files?.[0] || null)}
+                />
+                <p className="text-xs text-slate-500">O carimbo sera salvo junto com o cadastro da igreja.</p>
               </div>
               <div className="space-y-1">
                 <Label>Email de contato</Label>
@@ -837,12 +957,47 @@ export function AdminChurchesTab({
 
             <div className="grid gap-3 md:grid-cols-2">
               <div className="space-y-1 md:col-span-2">
+                <Label>Imagem da igreja (arquivo)</Label>
+                <div className="flex flex-col gap-3 md:flex-row md:items-center">
+                  <Input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0] || null;
+                      setEditImageFile(file);
+                      setEditImagePreview(file ? URL.createObjectURL(file) : "");
+                    }}
+                  />
+                  {editImagePreview ? (
+                    <img
+                      src={editImagePreview}
+                      alt="Preview da imagem da igreja"
+                      className="h-20 w-20 rounded-lg border border-slate-200 object-cover"
+                    />
+                  ) : null}
+                </div>
+              </div>
+              <div className="space-y-1 md:col-span-2">
                 <Label>Foto da igreja (URL)</Label>
                 <Input
                   value={editForm.image_url}
                   onChange={(e) => setEditForm((p) => ({ ...p, image_url: e.target.value }))}
                   placeholder="https://.../imagem-da-igreja.jpg"
                 />
+              </div>
+              <div className="space-y-1 md:col-span-2">
+                <Label>Carimbo da igreja</Label>
+                <Input
+                  type="file"
+                  accept="image/*"
+                  disabled={Boolean(editForm.stamp_church_url)}
+                  onChange={(e) => setEditStampFile(e.target.files?.[0] || null)}
+                />
+                {editForm.stamp_church_url ? (
+                  <p className="text-xs text-emerald-700">Carimbo ja cadastrado. Caso precise trocar, fale com a secretaria.</p>
+                ) : (
+                  <p className="text-xs text-slate-500">Envie o carimbo apenas se a igreja ainda nao tiver.</p>
+                )}
               </div>
               <div className="space-y-1">
                 <Label>Email de contato</Label>
