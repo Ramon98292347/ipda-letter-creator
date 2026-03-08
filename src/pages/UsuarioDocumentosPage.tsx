@@ -169,6 +169,7 @@ export default function UsuarioDocumentosPage() {
   const carteirinhaPronta =
     String(docsStatus?.carteirinha?.status || "").toUpperCase() === "PRONTO" ||
     Boolean(docsStatus?.carteirinha && String(docsStatus?.carteirinha?.final_url || "").trim().length > 0);
+  const carteirinhaLink = String(docsStatus?.carteirinha?.ficha_url_qr || docsStatus?.carteirinha?.final_url || "").trim();
 
   const addressStreet = getAddressField(profile?.address_json, "street");
   const addressNumber = getAddressField(profile?.address_json, "number");
@@ -286,25 +287,19 @@ export default function UsuarioDocumentosPage() {
             <div className="flex gap-2">
               <Button variant={docTab === "carteirinha" ? "default" : "outline"} onClick={() => setDocTab("carteirinha")}>Carteirinha</Button>
               <Button variant={docTab === "ficha" ? "default" : "outline"} onClick={() => setDocTab("ficha")}>Ficha do membro</Button>
-              {!carteirinhaPronta && !fichaPronta ? (
-                <Button onClick={() => void enviarParaConfeccao()} disabled={sendingDoc || fetchingDocsStatus || isCadastroPendente}>
-                  <Send className="mr-2 h-4 w-4" />
-                  {sendingDoc ? "Enviando..." : "Enviar para confecção"}
-                </Button>
-              ) : null}
             </div>
             {docTab === "carteirinha" && carteirinhaPronta ? (
               <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
                 <p className="text-sm font-semibold text-emerald-700">Carteirinha pronta.</p>
                 <p className="mt-1 text-xs text-emerald-700">O arquivo final está disponível para visualização e download.</p>
                 <div className="mt-3 flex flex-wrap gap-2">
-                  <Button size="sm" onClick={() => window.open(String(docsStatus?.carteirinha?.final_url || ""), "_blank", "noopener,noreferrer")}>
+                  <Button size="sm" onClick={() => window.open(carteirinhaLink, "_blank", "noopener,noreferrer")}>
                     Visualizar carteirinha
                   </Button>
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={() => window.open(String(docsStatus?.carteirinha?.final_url || ""), "_blank", "noopener,noreferrer")}
+                    onClick={() => window.open(carteirinhaLink, "_blank", "noopener,noreferrer")}
                   >
                     Baixar carteirinha
                   </Button>

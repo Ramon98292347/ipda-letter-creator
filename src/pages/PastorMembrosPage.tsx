@@ -655,6 +655,7 @@ export default function PastorMembrosPage() {
   const carteirinhaPronta =
     String(docsStatus?.carteirinha?.status || "").toUpperCase() === "PRONTO" ||
     Boolean(docsStatus?.carteirinha && String(docsStatus?.carteirinha?.final_url || "").trim().length > 0);
+  const carteirinhaLink = String(docsStatus?.carteirinha?.ficha_url_qr || docsStatus?.carteirinha?.final_url || "").trim();
 
   useEffect(() => {
     if (tab === "ficha_obreiro") {
@@ -1024,16 +1025,13 @@ export default function PastorMembrosPage() {
                     <p className="text-sm font-semibold text-emerald-700">Carteirinha pronta para uso.</p>
                     <p className="mt-1 text-xs text-emerald-700">O arquivo final está disponível para visualização e download.</p>
                     <div className="mt-3 flex flex-wrap gap-2">
-                      <Button
-                        size="sm"
-                        onClick={() => window.open(String(docsStatus?.carteirinha?.final_url || ""), "_blank", "noopener,noreferrer")}
-                      >
+                      <Button size="sm" onClick={() => window.open(carteirinhaLink, "_blank", "noopener,noreferrer")}>
                         Visualizar carteirinha
                       </Button>
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => window.open(String(docsStatus?.carteirinha?.final_url || ""), "_blank", "noopener,noreferrer")}
+                        onClick={() => window.open(carteirinhaLink, "_blank", "noopener,noreferrer")}
                       >
                         Baixar carteirinha
                       </Button>
@@ -1254,11 +1252,6 @@ export default function PastorMembrosPage() {
               <Button variant="outline" onClick={saveDraft} disabled={savingDraft}>
                 <Save className="mr-2 h-4 w-4" /> {savingDraft ? "Salvando..." : "Salvar rascunho"}
               </Button>
-              {!carteirinhaPronta && !fichaPronta ? (
-                <Button onClick={sendToGenerateDocs} disabled={sending || fetchingDocsStatus}>
-                  <Send className="mr-2 h-4 w-4" /> {sending ? "Enviando..." : "Enviar para confeccao"}
-                </Button>
-              ) : null}
             </div>
           </CardContent>
         </Card>
