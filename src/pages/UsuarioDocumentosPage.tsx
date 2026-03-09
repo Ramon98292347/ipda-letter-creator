@@ -133,7 +133,7 @@ function buildFichaMembroHtml(params: {
   .row{display:flex;gap:10mm;margin:2.2mm 0;flex-wrap:wrap}.field{display:flex;gap:2mm;align-items:baseline;min-width:0}.label{font-weight:600;white-space:nowrap}
   .value{font-weight:500;border-bottom:.25mm solid rgba(0,0,0,.25);padding:0 1mm .6mm 1mm;min-width:40mm;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .w-70{min-width:70mm}.w-60{min-width:60mm}.w-50{min-width:50mm}.w-45{min-width:45mm}.w-40{min-width:40mm}.w-35{min-width:35mm}.w-30{min-width:30mm}.w-25{min-width:25mm}
-  .section-title{text-align:center;margin:22mm 0 8mm 0;font-size:14pt;font-weight:900}.footer{position:absolute;bottom:10mm;left:0;right:0;text-align:center;font-weight:800;font-size:11pt}
+  .section-title{text-align:center;margin:22mm 0 8mm 0;font-size:14pt;font-weight:900}.footer{margin-top:14mm;text-align:center;font-weight:800;font-size:11pt;line-height:1.35;white-space:normal;word-break:break-word}
   </style></head><body><div class="page"><div class="header"><div class="header-photo"><img src="${escapeHtml(params.foto || svgPlaceholder("Foto 3x4", 300, 400))}" alt="Foto"></div><img class="logo" src="https://idipilrcaqittmnapmbq.supabase.co/storage/v1/object/public/banner/logo/logo%20d.png" alt="Logo"></div>
   <div class="title"><h1>Ficha de cadastro de Membros</h1><h2>${escapeHtml(params.subtitulo)}</h2></div><div class="content">
   <div class="row"><div class="field"><div class="label">Nome:</div><div class="value w-70">${escapeHtml(params.nome)}</div></div></div>

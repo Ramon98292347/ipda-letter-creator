@@ -2,7 +2,7 @@
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Eye, EyeOff, KeyRound, Loader2, UserPlus } from "lucide-react";
+import { Building2, Eye, EyeOff, KeyRound, Loader2, UserPlus } from "lucide-react";
 
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -226,8 +226,10 @@ export default function PhoneIdentify() {
             handleLogin();
           }}
         >
-          <img src="/Polish_20220810_001501268%20(2).png" alt="Logo" className="mx-auto h-16 object-contain" />
-          <h1 className="text-center text-2xl font-bold">Sistema de Cartas - IPDA</h1>
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-xl bg-blue-100 text-blue-700">
+            <Building2 className="h-9 w-9" />
+          </div>
+          <h1 className="text-center text-2xl font-bold">Sistema de Gestão Eclesiástica</h1>
 
           <div className="space-y-2">
             <Label htmlFor="cpf">CPF</Label>
