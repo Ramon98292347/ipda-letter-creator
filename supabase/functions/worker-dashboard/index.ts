@@ -105,7 +105,7 @@ Deno.serve(async (req) => {
     const { data: user, error: uErr } = await sb
       .from("users")
       .select(
-        "id, role, full_name, cpf, phone, email, birth_date, minister_role, avatar_url, cep, address_street, address_number, address_complement, address_neighborhood, address_city, address_state, default_totvs_id, is_active, signature_url, stamp_pastor_url"
+        "id, role, full_name, cpf, rg, phone, email, birth_date, baptism_date, ordination_date, marital_status, minister_role, matricula, profession, avatar_url, cep, address_street, address_number, address_complement, address_neighborhood, address_city, address_state, default_totvs_id, is_active, signature_url, stamp_pastor_url"
       )
       .eq("id", user_id)
       .maybeSingle();
@@ -114,10 +114,14 @@ Deno.serve(async (req) => {
     if (!user) return json({ ok: false, error: "user_not_found" }, 404);
     if (!user.is_active) return json({ ok: false, error: "inactive_user" }, 403);
 
+    const effectiveTotvs = session.role === "obreiro"
+      ? String(user.default_totvs_id || activeTotvs)
+      : activeTotvs;
+
     const { data: church, error: cErr } = await sb
       .from("churches")
       .select("*")
-      .eq("totvs_id", activeTotvs)
+      .eq("totvs_id", effectiveTotvs)
       .maybeSingle();
 
     if (cErr) return json({ ok: false, error: "db_error_church", details: cErr.message }, 500);
@@ -129,7 +133,7 @@ Deno.serve(async (req) => {
         "id, preacher_name, minister_role, preach_date, church_origin, church_destination, status, storage_path, created_at",
         { count: "exact" }
       )
-      .eq("church_totvs_id", activeTotvs)
+      .eq("church_totvs_id", effectiveTotvs)
       .neq("status", "EXCLUIDA");
 
     const preacherName = String(user.full_name || "").trim();

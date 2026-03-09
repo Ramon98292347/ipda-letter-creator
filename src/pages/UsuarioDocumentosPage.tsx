@@ -11,6 +11,21 @@ import { formatCepBr, formatCpfBr, formatDateBr, formatPhoneBr } from "@/lib/br-
 
 type DocTab = "carteirinha" | "ficha";
 
+function calcularIdade(dataIso: string) {
+  if (!dataIso) return "";
+  const partes = String(dataIso).split("-");
+  if (partes.length !== 3) return "";
+  const ano = Number(partes[0]);
+  const mes = Number(partes[1]);
+  const dia = Number(partes[2]);
+  if (!ano || !mes || !dia) return "";
+  const hoje = new Date();
+  let idade = hoje.getFullYear() - ano;
+  const mesAtual = hoje.getMonth() + 1;
+  if (mesAtual < mes || (mesAtual === mes && hoje.getDate() < dia)) idade -= 1;
+  return idade < 0 ? "" : String(idade);
+}
+
 function escapeHtml(value: string) {
   return String(value || "")
     .replaceAll("&", "&amp;")
@@ -149,7 +164,7 @@ export default function UsuarioDocumentosPage() {
 
   const profile = data?.user;
   const church = data?.church;
-  const activeTotvs = String(session?.totvs_id || church?.totvs_id || "");
+  const activeTotvs = String(profile?.default_totvs_id || session?.totvs_id || church?.totvs_id || "");
 
   const { data: pastor } = useQuery({
     queryKey: ["pastor-by-totvs-docs", activeTotvs],
@@ -177,6 +192,12 @@ export default function UsuarioDocumentosPage() {
   const city = getAddressField(profile?.address_json, "city");
   const state = getAddressField(profile?.address_json, "state");
   const zip = getAddressField(profile?.address_json, "zip");
+  const streetFinal = addressStreet || String((profile as Record<string, unknown> | undefined)?.address_street || "");
+  const numberFinal = addressNumber || String((profile as Record<string, unknown> | undefined)?.address_number || "");
+  const neighborhoodFinal = addressNeighborhood || String((profile as Record<string, unknown> | undefined)?.address_neighborhood || "");
+  const cityFinal = city || String((profile as Record<string, unknown> | undefined)?.address_city || "");
+  const stateFinal = state || String((profile as Record<string, unknown> | undefined)?.address_state || "");
+  const zipFinal = zip || String((profile as Record<string, unknown> | undefined)?.cep || "");
   const churchFooter = useMemo(
     () => buildChurchFooterAddress((church || null) as Record<string, unknown> | null),
     [church],
@@ -200,33 +221,32 @@ export default function UsuarioDocumentosPage() {
 
   const fichaHtml = useMemo(() => {
     const nascimentoRaw = String(profile?.birth_date || "");
-    const ano = nascimentoRaw ? Number(nascimentoRaw.slice(0, 4)) : 0;
     return buildFichaMembroHtml({
       foto: String(profile?.avatar_url || ""),
       nome: String(profile?.full_name || usuario?.nome || ""),
-      endereco: addressStreet,
-      numero: addressNumber,
-      bairro: addressNeighborhood,
-      cidade: city,
-      estado: state,
-      cep: formatCepBr(zip),
+      endereco: streetFinal,
+      numero: numberFinal,
+      bairro: neighborhoodFinal,
+      cidade: cityFinal,
+      estado: stateFinal,
+      cep: formatCepBr(zipFinal),
       rg: String((profile as Record<string, unknown> | undefined)?.rg || ""),
       cpf: formatCpfBr(profile?.cpf || ""),
       nascimento: formatDateBr(nascimentoRaw),
-      cidadeNascimento: city,
-      estadoNascimento: state,
+      cidadeNascimento: cityFinal,
+      estadoNascimento: stateFinal,
       estadoCivil: String((profile as Record<string, unknown> | undefined)?.marital_status || ""),
       telefone: formatPhoneBr(profile?.phone || ""),
       email: String(profile?.email || ""),
       profissao: String((profile as Record<string, unknown> | undefined)?.profession || ""),
-      idade: ano > 0 ? String(new Date().getFullYear() - ano) : "",
+      idade: calcularIdade(nascimentoRaw),
       batismo: formatDateBr((profile as Record<string, unknown> | undefined)?.baptism_date || ""),
       funcao: String(profile?.minister_role || ""),
       ordenacao: formatDateBr((profile as Record<string, unknown> | undefined)?.ordination_date || ""),
       subtitulo: String(session?.church_name || church?.church_name || "Setorial"),
       rodapeIgreja: churchFooter,
     });
-  }, [profile, usuario?.nome, addressStreet, addressNumber, addressNeighborhood, city, state, zip, session?.church_name, church?.church_name, churchFooter]);
+  }, [profile, usuario?.nome, streetFinal, numberFinal, neighborhoodFinal, cityFinal, stateFinal, zipFinal, session?.church_name, church?.church_name, churchFooter]);
 
   async function enviarParaConfeccao() {
     if (isCadastroPendente) {
@@ -245,17 +265,32 @@ export default function UsuarioDocumentosPage() {
         church_totvs_id: activeTotvs,
         dados: {
           nome_completo: String(profile?.full_name || usuario?.nome || ""),
+          matricula: String((profile as Record<string, unknown> | undefined)?.matricula || ""),
           funcao_ministerial: String(profile?.minister_role || ""),
+          data_nascimento: String(profile?.birth_date || ""),
+          endereco: streetFinal,
+          numero: numberFinal,
+          bairro: neighborhoodFinal,
+          cidade: cityFinal,
+          estado: stateFinal,
+          estado_civil: String((profile as Record<string, unknown> | undefined)?.marital_status || ""),
+          data_batismo: String((profile as Record<string, unknown> | undefined)?.baptism_date || ""),
           cpf: formatCpfBr(profile?.cpf || ""),
-          telefone: formatPhoneBr(profile?.phone || ""),
-          email: String(profile?.email || ""),
           foto_3x4_url: String(profile?.avatar_url || ""),
+          rg: String((profile as Record<string, unknown> | undefined)?.rg || ""),
+          email: String(profile?.email || ""),
+          cidade_nascimento: cityFinal,
+          uf_nascimento: stateFinal,
+          profissao: String((profile as Record<string, unknown> | undefined)?.profession || ""),
+          carimbo_igreja_url: String(church?.stamp_church_url || ""),
           assinatura_pastor_url: String(pastor?.signature_url || ""),
-          qr_code_url: String(docsStatus?.ficha?.final_url || ""),
-          igreja_nome: String(session?.church_name || church?.church_name || ""),
-          cep_membro: formatCepBr(zip),
-          endereco_igreja_completo: churchFooter,
-          ficha_rodape: churchFooter,
+          member_id: userId,
+          dados: {
+            member_cep: formatCepBr(zipFinal),
+            endereco_igreja_completo: churchFooter,
+            igreja_nome: String(session?.church_name || church?.church_name || ""),
+            telefone: formatPhoneBr(profile?.phone || ""),
+          },
         },
       });
       await refetchDocsStatus();
@@ -288,6 +323,15 @@ export default function UsuarioDocumentosPage() {
               <Button variant={docTab === "carteirinha" ? "default" : "outline"} onClick={() => setDocTab("carteirinha")}>Carteirinha</Button>
               <Button variant={docTab === "ficha" ? "default" : "outline"} onClick={() => setDocTab("ficha")}>Ficha do membro</Button>
             </div>
+            {docTab === "ficha" && !fichaPronta ? (
+              <div className="flex flex-wrap items-center gap-2">
+                <Button onClick={enviarParaConfeccao} disabled={sendingDoc || isCadastroPendente || !userId}>
+                  <Send className="mr-2 h-4 w-4" />
+                  Enviar ficha para confeccao
+                </Button>
+                {fetchingDocsStatus ? <span className="text-xs text-slate-500">Verificando status...</span> : null}
+              </div>
+            ) : null}
             {docTab === "carteirinha" && carteirinhaPronta ? (
               <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
                 <p className="text-sm font-semibold text-emerald-700">Carteirinha pronta.</p>

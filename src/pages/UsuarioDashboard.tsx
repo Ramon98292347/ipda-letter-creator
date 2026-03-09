@@ -114,7 +114,7 @@ export default function UsuarioDashboard() {
   const [savingStamps, setSavingStamps] = useState(false);
 
   const userId = String(usuario?.id || "");
-  const activeTotvs = String(session?.totvs_id || "");
+  const activeTotvs = String(profile?.default_totvs_id || session?.totvs_id || "");
   const isCadastroPendente = usuario?.registration_status === "PENDENTE";
   const isObreiro = String(usuario?.role || profile?.role || "").toLowerCase() === "obreiro";
 
@@ -139,8 +139,8 @@ export default function UsuarioDashboard() {
   }, [quickRange]);
 
   useEffect(() => {
-    if (isObreiro && statusFilter === "all") {
-      setStatusFilter("LIBERADA");
+    if (isObreiro && statusFilter !== "all") {
+      setStatusFilter("all");
     }
   }, [isObreiro, statusFilter]);
 
@@ -479,7 +479,7 @@ export default function UsuarioDashboard() {
 
             <div className="grid gap-2 md:grid-cols-[1fr_220px]">
               <Input placeholder="Buscar por destino, origem, nome..." value={search} onChange={(e) => setSearch(e.target.value)} />
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <Select value={statusFilter} onValueChange={setStatusFilter} disabled={isObreiro}>
                 <SelectTrigger><SelectValue placeholder="Status" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todos status</SelectItem>

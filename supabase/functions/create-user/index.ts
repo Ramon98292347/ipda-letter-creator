@@ -167,7 +167,7 @@ Deno.serve(async (req) => {
     // Comentario: verifica se o usuario ja existe (para nao alterar role em edicao).
     const { data: existingUser, error: existingErr } = await sb
       .from("users")
-      .select("id, role")
+      .select("id, role, matricula")
       .eq("cpf", cpf)
       .maybeSingle();
     if (existingErr) return json({ ok: false, error: "db_error_existing_user", details: existingErr.message }, 500);
@@ -227,6 +227,10 @@ Deno.serve(async (req) => {
     const password_hash = password ? bcrypt.hashSync(password, 10) : null;
 
     const ministerio = String(body.ministerio || body.minister_role || "").trim();
+    const matriculaInput = String(body.matricula || "").trim();
+    const matriculaFinal = matriculaInput
+      || String((existingUser as Record<string, unknown> | undefined)?.matricula || "").trim()
+      || (cpf ? `${cpf.slice(-6)}${Date.now().toString().slice(-4)}` : "");
     const payload: Record<string, unknown> = {
       cpf,
       full_name,
@@ -240,7 +244,7 @@ Deno.serve(async (req) => {
       minister_role: ministerio || null,
       rg: body.rg ?? null,
       marital_status: body.marital_status ?? null,
-      matricula: body.matricula ?? null,
+      ...(matriculaFinal ? { matricula: matriculaFinal } : {}),
       profession: body.profession ?? null,
       avatar_url: body.avatar_url ?? null,
       cep: body.cep ?? null,

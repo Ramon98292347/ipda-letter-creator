@@ -313,6 +313,30 @@ function formatDateBr(value: string | null | undefined) {
   return formatDateBrValue(value) || "—";
 }
 
+function normalizeMinisterRole(value: string | null | undefined) {
+  return String(value || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/[^\w]+/g, " ")
+    .trim();
+}
+
+function calcularIdadeBr(dataIso: string | null | undefined) {
+  if (!dataIso) return "";
+  const parts = String(dataIso).split("-");
+  if (parts.length !== 3) return "";
+  const ano = Number(parts[0]);
+  const mes = Number(parts[1]);
+  const dia = Number(parts[2]);
+  if (!ano || !mes || !dia) return "";
+  const hoje = new Date();
+  let idade = hoje.getFullYear() - ano;
+  const mesAtual = hoje.getMonth() + 1;
+  if (mesAtual < mes || (mesAtual === mes && hoje.getDate() < dia)) idade -= 1;
+  return idade < 0 ? "" : String(idade);
+}
+
 // Comentario: monta endereco completo da igreja no padrao BR para rodape/webhook.
 function buildChurchAddressFooter(params: {
   street?: string | null;
@@ -380,7 +404,7 @@ function memberToForm(member: UserListItem, churchName: string, pastorSignature:
     uf_nascimento: member.address_state || "",
     data_casamento: "",
     passaporte: "",
-    profissao: "",
+    profissao: member.profession || "",
     ocupacao_atual: "",
     nome_pai: "",
     nome_mae: "",
@@ -575,7 +599,7 @@ function buildFichaMembroHtml(form: MemberDocForm) {
 <div class="row"><div class="field"><div class="label">Cidade de Nascimento:</div><div class="value w-60">${escapeHtml(form.cidade_nascimento)}</div></div><div class="field"><div class="label">Estado:</div><div class="value w-35">${escapeHtml(form.uf_nascimento)}</div></div></div>
 <div class="row"><div class="field"><div class="label">Estado Civil:</div><div class="value w-40">${escapeHtml(form.estado_civil)}</div></div><div class="field"><div class="label">Telefone:</div><div class="value w-45">${escapeHtml(formatPhoneBrValue(form.telefone))}</div></div></div>
 <div class="row"><div class="field"><div class="label">Endereço de email:</div><div class="value w-70">${escapeHtml(form.email)}</div></div></div>
-<div class="row"><div class="field"><div class="label">Profissão:</div><div class="value w-60">${escapeHtml(form.profissao)}</div></div><div class="field"><div class="label">Idade:</div><div class="value w-25">${""}</div></div></div>
+<div class="row"><div class="field"><div class="label">Profissão:</div><div class="value w-60">${escapeHtml(form.profissao)}</div></div><div class="field"><div class="label">Idade:</div><div class="value w-25">${escapeHtml(calcularIdadeBr(form.data_nascimento))}</div></div></div>
 <div class="section-title">Dados Ministeriais do Membro e do Obreiro (a)</div>
 <div class="row"><div class="field"><div class="label">Data de Batismo:</div><div class="value w-45">${bat}</div></div><div class="field"><div class="label">Função Ministerial:</div><div class="value w-50">${escapeHtml(form.funcao_ministerial)}</div></div></div>
 <div class="row"><div class="field"><div class="label">Data da Ordenação:</div><div class="value w-45">${ord}</div></div></div>
@@ -709,11 +733,14 @@ export default function PastorMembrosPage() {
   const counters = useMemo(() => {
     return {
       total: workers.length,
-      pastor: workers.filter((w) => String(w.minister_role || "").toLowerCase() === "pastor").length,
-      presbitero: workers.filter((w) => String(w.minister_role || "").toLowerCase() === "presbitero").length,
-      diacono: workers.filter((w) => String(w.minister_role || "").toLowerCase() === "diacono").length,
-      obreiro: workers.filter((w) => String(w.minister_role || "").toLowerCase() === "obreiro").length,
-      batizados: workers.filter((w) => String(w.minister_role || "").toLowerCase() === "membro").length,
+      pastor: workers.filter((w) => normalizeMinisterRole(w.minister_role) === "pastor").length,
+      presbitero: workers.filter((w) => normalizeMinisterRole(w.minister_role) === "presbitero").length,
+      diacono: workers.filter((w) => normalizeMinisterRole(w.minister_role) === "diacono").length,
+      obreiro: workers.filter((w) => {
+        const role = normalizeMinisterRole(w.minister_role);
+        return role === "obreiro" || role === "cooperador" || role === "obreiro cooperador";
+      }).length,
+      batizados: workers.filter((w) => normalizeMinisterRole(w.minister_role) === "membro").length,
     };
   }, [workers]);
 
