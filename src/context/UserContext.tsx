@@ -65,6 +65,7 @@ const LS_SESSION = "ipda_session";
 const LS_PENDING_CPF = "ipda_pending_cpf";
 const LS_CHURCHES = "ipda_pending_churches";
 const AUTH_CLEARED_EVENT = "ipda-auth-cleared";
+const LAST_PATH_BEFORE_RELOAD = "ipda_last_path_before_reload";
 
 function normalizeJwtToken(raw?: string | null): string | undefined {
   const value = String(raw || "")
@@ -86,7 +87,15 @@ function normalizeJwtToken(raw?: string | null): string | undefined {
 }
 
 export function UserProvider({ children }: { children: React.ReactNode }) {
+  const shouldForceLoginOnReload =
+    typeof window !== "undefined" &&
+    (() => {
+      const nav = performance.getEntriesByType("navigation")[0] as PerformanceNavigationTiming | undefined;
+      return nav?.type === "reload";
+    })();
+
   const [usuario, setUsuario] = useState<Usuario | undefined>(() => {
+    if (shouldForceLoginOnReload) return undefined;
     try {
       const raw = localStorage.getItem(LS_USER);
       if (!raw) return undefined;
@@ -95,8 +104,12 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       return undefined;
     }
   });
-  const [token, setToken] = useState<string | undefined>(() => normalizeJwtToken(localStorage.getItem(LS_TOKEN)));
+  const [token, setToken] = useState<string | undefined>(() => {
+    if (shouldForceLoginOnReload) return undefined;
+    return normalizeJwtToken(localStorage.getItem(LS_TOKEN));
+  });
   const [session, setSession] = useState<AppSession | undefined>(() => {
+    if (shouldForceLoginOnReload) return undefined;
     try {
       const raw = localStorage.getItem(LS_SESSION);
       if (!raw) return undefined;
@@ -105,8 +118,12 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       return undefined;
     }
   });
-  const [pendingCpf, setPendingCpf] = useState<string | undefined>(() => localStorage.getItem(LS_PENDING_CPF) || undefined);
+  const [pendingCpf, setPendingCpf] = useState<string | undefined>(() => {
+    if (shouldForceLoginOnReload) return undefined;
+    return localStorage.getItem(LS_PENDING_CPF) || undefined;
+  });
   const [availableChurches, setAvailableChurches] = useState<PendingChurch[]>(() => {
+    if (shouldForceLoginOnReload) return [];
     try {
       const raw = localStorage.getItem(LS_CHURCHES);
       if (!raw) return [];
@@ -116,6 +133,18 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     }
   });
   const [telefone, setTelefone] = useState<string | undefined>(undefined);
+
+  useEffect(() => {
+    if (!shouldForceLoginOnReload || typeof window === "undefined") return;
+
+    localStorage.removeItem(LS_USER);
+    localStorage.removeItem(LS_TOKEN);
+    localStorage.removeItem(LS_SESSION);
+    localStorage.removeItem(LS_PENDING_CPF);
+    localStorage.removeItem(LS_CHURCHES);
+    localStorage.removeItem(LAST_PATH_BEFORE_RELOAD);
+    setTelefone(undefined);
+  }, [shouldForceLoginOnReload]);
 
   useEffect(() => {
     if (!token) return;

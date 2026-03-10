@@ -195,10 +195,6 @@ export function CartasTab({
   }
 
   async function releaseLetter(letter: PastorLetter) {
-    if (!letter.storage_path) {
-      toast.error("Aguarde o PDF ficar pronto para liberar.");
-      return;
-    }
     if (letter.status === "LIBERADA") {
       toast.message("Esta carta já está liberada.");
       return;
@@ -225,7 +221,7 @@ export function CartasTab({
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          <DropdownMenuItem onClick={() => releaseLetter(letter)} disabled={!letter.storage_path || letter.status === "LIBERADA" || updatingReleaseId === letter.id}>
+          <DropdownMenuItem onClick={() => releaseLetter(letter)} disabled={letter.status === "LIBERADA" || updatingReleaseId === letter.id}>
             Liberar carta
           </DropdownMenuItem>
           <DropdownMenuItem onClick={() => share(letter)}>
@@ -237,6 +233,11 @@ export function CartasTab({
         </DropdownMenuContent>
       </DropdownMenu>
     );
+  }
+
+  function canQuickRelease(letter: PastorLetter) {
+    const status = String(letter.status || "").toUpperCase();
+    return status === "AGUARDANDO_LIBERACAO" || status === "BLOQUEADO" || status === "AUTORIZADO";
   }
 
   return (
@@ -329,7 +330,19 @@ export function CartasTab({
                   <Button variant="outline" disabled={!carta.storage_path} onClick={() => openPdf(carta)}>
                     <ArrowUpRight className="mr-2 h-4 w-4" /> Abrir PDF
                   </Button>
-                  <div>{renderActions(carta)}</div>
+                  <div className="flex items-center gap-2">
+                    {canQuickRelease(carta) ? (
+                      <Button
+                        size="sm"
+                        className="bg-emerald-600 hover:bg-emerald-700"
+                        onClick={() => releaseLetter(carta)}
+                        disabled={updatingReleaseId === carta.id}
+                      >
+                        Liberar carta
+                      </Button>
+                    ) : null}
+                    <div className="min-w-[120px]">{renderActions(carta)}</div>
+                  </div>
                 </div>
               );
             })}
@@ -365,7 +378,16 @@ export function CartasTab({
                   <Button className="w-full bg-emerald-600 hover:bg-emerald-700" disabled={!carta.storage_path} onClick={() => openPdf(carta)}>
                     <ArrowUpRight className="mr-2 h-4 w-4" /> Abrir PDF
                   </Button>
-                  <div className="w-full">{renderActions(carta)}</div>
+                  {canQuickRelease(carta) ? (
+                    <Button
+                      className="w-full bg-blue-600 hover:bg-blue-700"
+                      onClick={() => releaseLetter(carta)}
+                      disabled={updatingReleaseId === carta.id}
+                    >
+                      Liberar carta
+                    </Button>
+                  ) : null}
+                  <div className={canQuickRelease(carta) ? "col-span-2 w-full" : "w-full"}>{renderActions(carta)}</div>
                 </div>
               </div>
             );

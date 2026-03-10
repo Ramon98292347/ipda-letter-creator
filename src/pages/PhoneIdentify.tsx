@@ -321,6 +321,11 @@ export default function PhoneIdentify() {
               {openingCadastro ? "Abrindo..." : "Cadastro rapido"}
             </Button>
           </div>
+
+          <div className="pt-2 text-center text-xs text-slate-500">
+            <p>Desenvolvedor: Ramon Rodrigues de Freitas</p>
+            <p>Telefone: (27) 99829-2347</p>
+          </div>
         </form>
 
         <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-lg lg:h-[700px]">
