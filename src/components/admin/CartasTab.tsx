@@ -235,11 +235,6 @@ export function CartasTab({
     );
   }
 
-  function canQuickRelease(letter: PastorLetter) {
-    const status = String(letter.status || "").toUpperCase();
-    return status === "AGUARDANDO_LIBERACAO" || status === "BLOQUEADO" || status === "AUTORIZADO";
-  }
-
   return (
     <>
       <FiltersBar>
@@ -330,19 +325,7 @@ export function CartasTab({
                   <Button variant="outline" disabled={!carta.storage_path} onClick={() => openPdf(carta)}>
                     <ArrowUpRight className="mr-2 h-4 w-4" /> Abrir PDF
                   </Button>
-                  <div className="flex items-center gap-2">
-                    {canQuickRelease(carta) ? (
-                      <Button
-                        size="sm"
-                        className="bg-emerald-600 hover:bg-emerald-700"
-                        onClick={() => releaseLetter(carta)}
-                        disabled={updatingReleaseId === carta.id}
-                      >
-                        Liberar carta
-                      </Button>
-                    ) : null}
-                    <div className="min-w-[120px]">{renderActions(carta)}</div>
-                  </div>
+                  <div>{renderActions(carta)}</div>
                 </div>
               );
             })}
@@ -378,16 +361,7 @@ export function CartasTab({
                   <Button className="w-full bg-emerald-600 hover:bg-emerald-700" disabled={!carta.storage_path} onClick={() => openPdf(carta)}>
                     <ArrowUpRight className="mr-2 h-4 w-4" /> Abrir PDF
                   </Button>
-                  {canQuickRelease(carta) ? (
-                    <Button
-                      className="w-full bg-blue-600 hover:bg-blue-700"
-                      onClick={() => releaseLetter(carta)}
-                      disabled={updatingReleaseId === carta.id}
-                    >
-                      Liberar carta
-                    </Button>
-                  ) : null}
-                  <div className={canQuickRelease(carta) ? "col-span-2 w-full" : "w-full"}>{renderActions(carta)}</div>
+                  <div className="w-full">{renderActions(carta)}</div>
                 </div>
               </div>
             );
