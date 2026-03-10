@@ -103,16 +103,29 @@ const initialForm: WorkerForm = {
 };
 
 const ministerRoleOptions = ["Pastor", "Presbitero", "Diacono", "Obreiro", "Membro"];
+const FAILED_AVATAR_URLS = new Set<string>();
+
+function resolveAvatarUrl(src?: string | null) {
+  const url = String(src || "").trim();
+  if (!url) return null;
+  if (!/^https?:\/\//i.test(url)) return null;
+  if (FAILED_AVATAR_URLS.has(url)) return null;
+  return url;
+}
 
 function AvatarWithFallback({ src, alt, className }: { src?: string | null; alt: string; className: string }) {
+  const resolved = resolveAvatarUrl(src);
   const [failed, setFailed] = useState(false);
-  if (src && !failed) {
+  if (resolved && !failed) {
     return (
       <img
-        src={src}
+        src={resolved}
         alt={alt}
         className={className}
-        onError={() => setFailed(true)}
+        onError={() => {
+          FAILED_AVATAR_URLS.add(resolved);
+          setFailed(true);
+        }}
       />
     );
   }

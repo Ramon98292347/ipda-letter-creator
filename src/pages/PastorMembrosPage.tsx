@@ -22,6 +22,7 @@ type MemberTab = "lista" | "ficha_membro" | "carteirinha" | "ficha_obreiro";
 type MemberView = "lista" | "grid";
 type CarteirinhaTemplate = "padrao";
 type FichaTemplate = "padrao";
+const FAILED_MEMBER_PHOTO_URLS = new Set<string>();
 
 type MemberDocForm = {
   nome_completo: string;
@@ -337,15 +338,27 @@ function calcularIdadeBr(dataIso: string | null | undefined) {
   return idade < 0 ? "" : String(idade);
 }
 
+function resolveMemberPhotoUrl(src?: string | null) {
+  const url = String(src || "").trim();
+  if (!url) return null;
+  if (!/^https?:\/\//i.test(url)) return null;
+  if (FAILED_MEMBER_PHOTO_URLS.has(url)) return null;
+  return url;
+}
+
 function MemberPhoto({ src, alt }: { src?: string | null; alt: string }) {
+  const resolved = resolveMemberPhotoUrl(src);
   const [failed, setFailed] = useState(false);
-  if (src && !failed) {
+  if (resolved && !failed) {
     return (
       <img
-        src={src}
+        src={resolved}
         alt={alt}
         className="h-[220px] w-full object-cover object-top"
-        onError={() => setFailed(true)}
+        onError={() => {
+          FAILED_MEMBER_PHOTO_URLS.add(resolved);
+          setFailed(true);
+        }}
       />
     );
   }
