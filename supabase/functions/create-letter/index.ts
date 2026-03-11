@@ -237,7 +237,10 @@ async function verifySessionJWT(req: Request): Promise<SessionClaims | null> {
   try {
     const { payload } = await jwtVerify(token, new TextEncoder().encode(secret), { algorithms: ["HS256"] });
     const user_id = String(payload.sub || "");
-    const role = String(payload.role || "").toLowerCase() as Role;
+    const rawRole = String(payload.role || "").toLowerCase();
+    const appRole = String(payload.app_role || "").toLowerCase();
+    const resolvedRole = rawRole === "authenticated" ? appRole : rawRole;
+    const role = resolvedRole as Role;
     const active_totvs_id = String(payload.active_totvs_id || "");
     if (!user_id || !active_totvs_id) return null;
     if (!["admin", "pastor", "obreiro"].includes(role)) return null;
@@ -257,10 +260,6 @@ function parseDateYYYYMMDD(s: string): Date | null {
 function todayUTC(): Date {
   const now = new Date();
   return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-}
-
-function lastDayOfCurrentMonthUTC(today: Date): Date {
-  return new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() + 1, 0));
 }
 
 Deno.serve(async (req) => {
@@ -288,12 +287,7 @@ Deno.serve(async (req) => {
     if (!preachDate) return json({ ok: false, error: "invalid_preach_date_format" }, 400);
 
     const today = todayUTC();
-    const maxDate = lastDayOfCurrentMonthUTC(today);
-
     if (preachDate.getTime() < today.getTime()) return json({ ok: false, error: "preach_date_in_past" }, 400);
-    if (preachDate.getTime() > maxDate.getTime()) {
-      return json({ ok: false, error: "preach_date_out_of_current_month", max_date: maxDate.toISOString().slice(0, 10) }, 400);
-    }
 
     const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
@@ -388,18 +382,6 @@ Deno.serve(async (req) => {
       originPastorUser = (data as Record<string, unknown> | null) || null;
     }
 
-    // Limite semanal por igreja emissora
-    const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-    const { count: last7Count, error: cntErr } = await sb
-      .from("letters")
-      .select("id", { count: "exact", head: true })
-      .eq("church_totvs_id", church_totvs_id)
-      .gte("created_at", since)
-      .neq("status", "EXCLUIDA");
-
-    if (cntErr) return json({ ok: false, error: "db_error_count", details: cntErr.message }, 500);
-    if ((last7Count || 0) >= 5) return json({ ok: false, error: "weekly_limit_reached" }, 403);
-
     let preacher_user_id: string | null = body.preacher_user_id ?? null;
     let preacher_name = String(body.preacher_name || "").trim();
     let minister_role = String(body.minister_role || "").trim();
@@ -450,21 +432,6 @@ Deno.serve(async (req) => {
     }
 
     if (canDirectRelease) status = "LIBERADA";
-
-    const { data: dup, error: dupErr } = await sb
-      .from("letters")
-      .select("id")
-      .eq("church_totvs_id", church_totvs_id)
-      .eq("preacher_name", preacher_name)
-      .eq("preach_date", preach_date_str)
-      .eq("preach_period", preach_period)
-      .neq("status", "EXCLUIDA")
-      .limit(1);
-
-    if (dupErr) return json({ ok: false, error: "db_error_duplicate_check", details: dupErr.message }, 500);
-    if (dup && dup.length > 0) {
-      return json({ ok: false, error: "duplicate_letter_same_day_period", preach_period, letter_id: dup[0].id }, 409);
-    }
 
     const { data: created, error: insErr } = await sb
       .from("letters")

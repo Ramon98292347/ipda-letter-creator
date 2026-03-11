@@ -14,6 +14,7 @@ export interface Church {
   carimboIgreja: string;
   carimboPastor: string;
   classificacao?: string;
+  parentTotvsId?: string;
 }
 
 interface ChurchSearchProps {
@@ -25,11 +26,22 @@ interface ChurchSearchProps {
   inputId?: string;
   disabled?: boolean;
   onDisabledClickMessage?: string;
+  minChars?: number;
 }
 
 import { toast } from "sonner";
 
-export function ChurchSearch({ label, placeholder, onSelect, churches, value, inputId, disabled, onDisabledClickMessage }: ChurchSearchProps) {
+export function ChurchSearch({
+  label,
+  placeholder,
+  onSelect,
+  churches,
+  value,
+  inputId,
+  disabled,
+  onDisabledClickMessage,
+  minChars = 1,
+}: ChurchSearchProps) {
   const [searchTerm, setSearchTerm] = useState(value || "");
   const [isOpen, setIsOpen] = useState(false);
   const [filteredChurches, setFilteredChurches] = useState<Church[]>([]);
@@ -51,7 +63,7 @@ export function ChurchSearch({ label, placeholder, onSelect, churches, value, in
   useEffect(() => {
     const t = setTimeout(() => {
       const q = norm(searchTerm).trim();
-      if (q.length >= 1) {
+      if (q.length >= minChars) {
         const tokens = q.split(/\s+/).filter(Boolean);
         const isDigits = (s: string) => /^\d+$/.test(s);
         const scored = churches
@@ -85,7 +97,7 @@ export function ChurchSearch({ label, placeholder, onSelect, churches, value, in
       }
     }, 300);
     return () => clearTimeout(t);
-  }, [searchTerm, churches, norm]);
+  }, [searchTerm, churches, norm, minChars]);
 
   useEffect(() => {
     setSearchTerm(value || "");
@@ -124,10 +136,13 @@ export function ChurchSearch({ label, placeholder, onSelect, churches, value, in
               if (onDisabledClickMessage) toast.info(onDisabledClickMessage);
               return;
             }
-            const list = churches || [];
-            setFilteredChurches(list);
-            setIsOpen(list.length > 0);
-            setHighlightIndex(list.length ? 0 : -1);
+            const term = norm(searchTerm).trim();
+            if (term.length < minChars) {
+              toast.info(`Digite pelo menos ${minChars} caracteres para buscar.`);
+              return;
+            }
+            setIsOpen(filteredChurches.length > 0);
+            setHighlightIndex(filteredChurches.length ? 0 : -1);
           }}
         >
           <Search className="h-4 w-4" />

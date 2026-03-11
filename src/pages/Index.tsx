@@ -6,18 +6,15 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ChurchSearch, Church } from "@/components/ChurchSearch";
 import { LetterPreview } from "@/components/LetterPreview";
-import { igrejasMock } from "@/data/mockChurches";
 import { FileText, RotateCcw, Send, Calendar as CalendarIcon, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useQuery } from "@tanstack/react-query";
-import { fetchChurches } from "@/services/churchService";
-import { createLetterByPastor, getPastorByTotvsPublic, setLetterStatus } from "@/services/saasService";
+import { createLetterByPastor, getPastorByTotvsPublic, listChurchesInScope, listMembers, setLetterStatus, type UserListItem } from "@/services/saasService";
 import { format, parse } from "date-fns";
 import { useUser } from "@/context/UserContext";
-import { getIgrejaByTotvs } from "@/services/userService";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
@@ -49,16 +46,9 @@ type FormData = {
   dataEmissao: string;
   origemId: number;
   destinoId?: number;
+  preacherUserId?: string;
   destinoOutros?: string;
 };
-
-function toBrDate(iso?: string | null) {
-  if (!iso) return "";
-  const [y, m, d] = String(iso).split("-");
-  if (!y || !m || !d) return iso;
-  return `${d}/${m}/${y}`;
-}
-
 
 const Index = () => {
   const { usuario, telefone, session } = useUser();
@@ -69,17 +59,17 @@ const Index = () => {
 
   const now = new Date();
   const todayIso = format(now, "yyyy-MM-dd");
-  const lastDayOfMonthIso = format(new Date(now.getFullYear(), now.getMonth() + 1, 0), "yyyy-MM-dd");
-
   const [igrejaOrigem, setIgrejaOrigem] = useState<Church | undefined>();
   const [igrejaDestino, setIgrejaDestino] = useState<Church | undefined>();
   const [destinoOutros, setDestinoOutros] = useState("");
+  const [selectedPreacherUserId, setSelectedPreacherUserId] = useState<string>("");
   const [usuarioEmail, setUsuarioEmail] = useState<string>("");
   const [usuarioMinisterial, setUsuarioMinisterial] = useState<string>("");
   const [usuarioDataSeparacao, setUsuarioDataSeparacao] = useState<string>("");
   const [preachPeriod, setPreachPeriod] = useState<PreachPeriod>("");
   const [isPregacaoCalOpen, setIsPregacaoCalOpen] = useState(false);
   const [savingLetter, setSavingLetter] = useState(false);
+  const [pregadorBusca, setPregadorBusca] = useState("");
 
   const activeTotvsForPastor = String(session?.totvs_id || (usuario as LegacyUsuarioExtra | null)?.totvs || (usuario as LegacyUsuarioExtra | null)?.default_totvs_id || "");
   const telefoneUsuarioLogado =
@@ -101,6 +91,7 @@ const Index = () => {
           dataEmissao: z.string().min(1),
           origemId: z.number().int().positive(),
           destinoId: z.number().int().positive().optional(),
+          preacherUserId: z.string().optional(),
           destinoOutros: z.string().optional(),
         })
         .refine(
@@ -109,10 +100,6 @@ const Index = () => {
             path: ["dataEmissao"],
             message: "Data de emissão não pode ser após a pregação",
           },
-        )
-        .refine(
-          (v) => !!v.destinoId || !!(v.destinoOutros && v.destinoOutros.trim().length >= 2),
-          { path: ["destinoId"], message: "Selecione a igreja de destino ou informe em Outros" },
         ),
     [],
   );
@@ -131,80 +118,159 @@ const Index = () => {
       telefone: "",
       dataPregacao: "",
       dataEmissao: todayIso,
-      destinoOutros: "",
     },
   });
 
-  const { data: churches = igrejasMock } = useQuery({
-    queryKey: ["churches"],
-    queryFn: fetchChurches,
+  const { data: churches = [] } = useQuery({
+    queryKey: ["churches-letter-form", role, activeTotvsForPastor],
+    queryFn: async () => {
+      const root = role === "admin" ? undefined : activeTotvsForPastor || undefined;
+      const rows = await listChurchesInScope(1, 1000, root);
+      return rows.map((c, idx) => ({
+        id: Number(c.totvs_id) || idx + 1,
+        codigoTotvs: String(c.totvs_id || ""),
+        nome: String(c.church_name || ""),
+        cidade: String(c.address_city || ""),
+        uf: String(c.address_state || ""),
+        carimboIgreja: String(c.stamp_church_url || ""),
+        carimboPastor: "",
+        classificacao: String(c.church_class || ""),
+        parentTotvsId: String(c.parent_totvs_id || "") || undefined,
+      })) as Church[];
+    },
+    enabled: role === "admin" || Boolean(activeTotvsForPastor),
     staleTime: 60_000,
   });
-  const { data: pastorResponsavelData } = useQuery({
-    queryKey: ["pastor-responsavel-carta", activeTotvsForPastor],
-    queryFn: () => getPastorByTotvsPublic(activeTotvsForPastor),
-    enabled: Boolean(activeTotvsForPastor),
+  const { data: preachersInScope = [] } = useQuery({
+    queryKey: ["letter-preachers-in-scope", session?.totvs_id, role],
+    queryFn: async () => {
+      const data = await listMembers({
+        page: 1,
+        page_size: 1000,
+        roles: ["pastor", "obreiro"],
+        is_active: true,
+      });
+      return data.workers;
+    },
+    enabled: Boolean(session?.totvs_id),
+    staleTime: 60_000,
   });
+  const origemTotvsSelecionada = String(igrejaOrigem?.codigoTotvs || activeTotvsForPastor || "").trim();
+  const { data: pastorResponsavelData } = useQuery({
+    queryKey: ["pastor-responsavel-carta", origemTotvsSelecionada],
+    queryFn: () => getPastorByTotvsPublic(origemTotvsSelecionada),
+    enabled: Boolean(origemTotvsSelecionada),
+  });
+  const pastorResponsavelScope = useMemo(() => {
+    const found = preachersInScope.find((m) =>
+      String(m.role || "").toLowerCase() === "pastor" &&
+      String(m.default_totvs_id || "") === origemTotvsSelecionada,
+    );
+    return found || null;
+  }, [origemTotvsSelecionada, preachersInScope]);
 
-  const pastorResponsavel = pastorResponsavelData?.full_name || "";
-  const telefonePastorResponsavel = pastorResponsavelData?.phone || "";
+  const pastorResponsavel = String(pastorResponsavelScope?.full_name || pastorResponsavelData?.full_name || "");
+  const telefonePastorResponsavel = String(pastorResponsavelScope?.phone || pastorResponsavelData?.phone || "");
 
   const allowedOriginChurches = useMemo(() => {
     if (!activeTotvsForPastor) return churches;
-
     const byTotvs = new Map<string, Church>();
     churches.forEach((c) => {
       const id = String(c.codigoTotvs || "").trim();
       if (id) byTotvs.set(id, c);
     });
-
     const active = byTotvs.get(activeTotvsForPastor);
     if (!active) return churches;
 
-    const getParent = (totvs: string) => String((byTotvs.get(totvs) as unknown as { parentTotvsId?: string } | undefined)?.parentTotvsId || "").trim();
-    const getClass = (totvs: string) =>
-      String((byTotvs.get(totvs) as unknown as { classificacao?: string } | undefined)?.classificacao || "").toLowerCase().trim();
-
-    const allowed = new Set<string>();
-    const activeClass = String(
-      (active as unknown as { classificacao?: string })?.classificacao || session?.church_class || "",
-    ).toLowerCase().trim();
-
-    if (role === "obreiro") {
-      allowed.add(activeTotvsForPastor);
-    } else {
-      if (activeClass === "setorial") {
-        allowed.add(activeTotvsForPastor);
-        const parent = getParent(activeTotvsForPastor);
-        if (parent) allowed.add(parent); // estadual
-      } else if (activeClass === "central") {
-        allowed.add(activeTotvsForPastor);
-        const setorial = getParent(activeTotvsForPastor);
-        if (setorial) allowed.add(setorial);
-        const estadual = setorial ? getParent(setorial) : "";
-        if (estadual) allowed.add(estadual);
-      } else if (activeClass === "regional" || activeClass === "local") {
-        let cursor = activeTotvsForPastor;
-        const seen = new Set<string>();
-        while (cursor && !seen.has(cursor)) {
-          seen.add(cursor);
-          const parent = getParent(cursor);
-          if (!parent) break;
-          if (getClass(parent) === "central") {
-            allowed.add(parent); // para regional/local usa central
-            break;
-          }
-          cursor = parent;
-        }
-        if (allowed.size === 0) allowed.add(activeTotvsForPastor);
-      } else {
-        allowed.add(activeTotvsForPastor);
-      }
+    const allowed = new Set<string>([activeTotvsForPastor]);
+    const parent = String(active.parentTotvsId || "").trim();
+    if (parent) {
+      allowed.add(parent);
+      const grand = String(byTotvs.get(parent)?.parentTotvsId || "").trim();
+      if (grand) allowed.add(grand);
     }
 
     const result = churches.filter((c) => allowed.has(String(c.codigoTotvs || "").trim()));
-    return result.length ? result : churches;
-  }, [churches, activeTotvsForPastor, role, session?.church_class]);
+    return result.length ? result : [active];
+  }, [churches, activeTotvsForPastor]);
+
+  const allowedDestinationChurches = useMemo(() => {
+    if (!igrejaOrigem?.codigoTotvs) return churches;
+    const byTotvs = new Map<string, Church>();
+    const children = new Map<string, string[]>();
+
+    churches.forEach((church) => {
+      const totvs = String(church.codigoTotvs || "").trim();
+      if (!totvs) return;
+      byTotvs.set(totvs, church);
+      const parent = String(church.parentTotvsId || "").trim();
+      if (!children.has(parent)) children.set(parent, []);
+      children.get(parent)!.push(totvs);
+    });
+
+    const origin = String(igrejaOrigem.codigoTotvs || "").trim();
+    const allowed = new Set<string>();
+
+    const queue: string[] = [origin];
+    while (queue.length > 0) {
+      const current = queue.shift()!;
+      if (allowed.has(current)) continue;
+      allowed.add(current);
+      for (const child of children.get(current) || []) queue.push(child);
+    }
+
+    let cursor = origin;
+    const guard = new Set<string>();
+    while (cursor && !guard.has(cursor)) {
+      guard.add(cursor);
+      const parent = String(byTotvs.get(cursor)?.parentTotvsId || "").trim();
+      if (!parent) break;
+      allowed.add(parent);
+      cursor = parent;
+    }
+
+    return churches.filter((c) => allowed.has(String(c.codigoTotvs || "").trim()));
+  }, [churches, igrejaOrigem?.codigoTotvs]);
+
+  const allowDestinoOutros = useMemo(() => {
+    const cls = String(igrejaOrigem?.classificacao || "").toLowerCase().trim();
+    return cls === "estadual" || cls === "setorial" || cls === "central";
+  }, [igrejaOrigem?.classificacao]);
+
+  const preachersMap = useMemo(() => {
+    const map = new Map<string, UserListItem>();
+    preachersInScope.forEach((item) => map.set(String(item.id || ""), item));
+    return map;
+  }, [preachersInScope]);
+
+  const preacherOptions = useMemo(() => {
+    const loggedId = String(usuario?.id || "").trim();
+    if (!loggedId) return preachersInScope;
+    if (preachersInScope.some((item) => String(item.id || "") === loggedId)) return preachersInScope;
+
+    return [
+      {
+        id: loggedId,
+        full_name: usuario?.nome || "",
+        phone: telefoneUsuarioLogado || null,
+        email: (usuario as LegacyUsuarioExtra | null)?.email || null,
+        minister_role: (usuario as LegacyUsuarioExtra | null)?.ministerial || "Obreiro",
+        role: (String(usuario?.role || "").toLowerCase() as "admin" | "pastor" | "obreiro") || "obreiro",
+      } as UserListItem,
+      ...preachersInScope,
+    ];
+  }, [preachersInScope, telefoneUsuarioLogado, usuario]);
+
+  const filteredPreacherOptions = useMemo(() => {
+    const q = pregadorBusca.trim().toLowerCase();
+    if (!q) return preacherOptions;
+    return preacherOptions.filter((member) => {
+      const name = String(member.full_name || "").toLowerCase();
+      const cpf = String(member.cpf || "").toLowerCase();
+      const ministerio = String(member.minister_role || "").toLowerCase();
+      return name.includes(q) || cpf.includes(q) || ministerio.includes(q);
+    });
+  }, [pregadorBusca, preacherOptions]);
 
   const brToIso = (br: string) => {
     try {
@@ -218,65 +284,6 @@ const Index = () => {
   useEffect(() => {
     if (usuario?.nome) setValue("pregadorNome", usuario.nome, { shouldValidate: true });
     if (telefoneUsuarioLogado) setValue("telefone", telefoneUsuarioLogado, { shouldValidate: true });
-
-    (async () => {
-      if (usuario?.totvs) {
-        try {
-          const found = await getIgrejaByTotvs(usuario.totvs);
-          if (found) {
-            const c: Church = {
-              id: Number(found.codigoTotvs) || Date.now(),
-              codigoTotvs: found.codigoTotvs,
-              nome: found.nome,
-              cidade: "",
-              uf: "",
-              carimboIgreja: "",
-              carimboPastor: "",
-            };
-            setIgrejaOrigem(c);
-            setValue("origemId", c.id, { shouldValidate: true });
-          } else if (usuario?.igreja_nome) {
-            const c: Church = {
-              id: Date.now(),
-              codigoTotvs: "",
-              nome: usuario.igreja_nome,
-              cidade: "",
-              uf: "",
-              carimboIgreja: "",
-              carimboPastor: "",
-            };
-            setIgrejaOrigem(c);
-            setValue("origemId", c.id, { shouldValidate: true });
-          }
-        } catch {
-          if (usuario?.igreja_nome) {
-            const c: Church = {
-              id: Date.now(),
-              codigoTotvs: "",
-              nome: usuario.igreja_nome,
-              cidade: "",
-              uf: "",
-              carimboIgreja: "",
-              carimboPastor: "",
-            };
-            setIgrejaOrigem(c);
-            setValue("origemId", c.id, { shouldValidate: true });
-          }
-        }
-      } else if (usuario?.igreja_nome) {
-        const c: Church = {
-          id: Date.now(),
-          codigoTotvs: "",
-          nome: usuario.igreja_nome,
-          cidade: "",
-          uf: "",
-          carimboIgreja: "",
-          carimboPastor: "",
-        };
-        setIgrejaOrigem(c);
-        setValue("origemId", c.id, { shouldValidate: true });
-      }
-    })();
   }, [usuario, telefone, setValue, telefoneUsuarioLogado]);
 
   useEffect(() => {
@@ -298,10 +305,18 @@ const Index = () => {
     if (r.data_emissao) setValue("dataEmissao", r.data_emissao, { shouldValidate: true });
 
     if (r.igreja_destino) {
-      setDestinoOutros(r.igreja_destino);
-      setValue("destinoOutros", r.igreja_destino, { shouldValidate: true });
-      setIgrejaDestino(undefined);
-      setValue("destinoId", undefined as unknown as number, { shouldValidate: true });
+      const m = r.igreja_destino.match(/^\s*(\d+)/);
+      const code = m ? m[1] : "";
+      const foundDest = churches.find((c) => (c.codigoTotvs || "") === code);
+      if (foundDest) {
+        setIgrejaDestino(foundDest);
+        setValue("destinoId", foundDest.id, { shouldValidate: true });
+        setDestinoOutros("");
+        setValue("destinoOutros", "", { shouldValidate: false });
+      } else {
+        setDestinoOutros(r.igreja_destino);
+        setValue("destinoOutros", r.igreja_destino, { shouldValidate: false });
+      }
     }
 
     if (r.igreja_origem) {
@@ -330,6 +345,29 @@ const Index = () => {
   }, [usuario, setValue, telefoneUsuarioLogado]);
 
   useEffect(() => {
+    const loggedId = String(usuario?.id || "");
+    if (!loggedId || selectedPreacherUserId) return;
+    const me = preachersMap.get(loggedId);
+    setSelectedPreacherUserId(loggedId);
+    setValue("preacherUserId", loggedId, { shouldValidate: false });
+    setValue("pregadorNome", String(me?.full_name || usuario?.nome || ""), { shouldValidate: true });
+    setValue("telefone", String(me?.phone || telefoneUsuarioLogado || ""), { shouldValidate: true });
+    setUsuarioEmail(String(me?.email || (usuario as LegacyUsuarioExtra | null)?.email || ""));
+    setUsuarioMinisterial(String(me?.minister_role || (usuario as LegacyUsuarioExtra | null)?.ministerial || "Obreiro"));
+  }, [preachersMap, selectedPreacherUserId, setValue, telefoneUsuarioLogado, usuario]);
+
+  useEffect(() => {
+    if (!selectedPreacherUserId) return;
+    const selected = preachersMap.get(selectedPreacherUserId);
+    if (!selected) return;
+    setValue("preacherUserId", selectedPreacherUserId, { shouldValidate: false });
+    setValue("pregadorNome", String(selected.full_name || ""), { shouldValidate: true });
+    setValue("telefone", String(selected.phone || ""), { shouldValidate: true });
+    setUsuarioEmail(String(selected.email || ""));
+    setUsuarioMinisterial(String(selected.minister_role || "Obreiro"));
+  }, [preachersMap, selectedPreacherUserId, setValue]);
+
+  useEffect(() => {
     if (!allowedOriginChurches.length) return;
     const currentTotvs = String(igrejaOrigem?.codigoTotvs || "").trim();
     const exists = allowedOriginChurches.some((c) => String(c.codigoTotvs || "").trim() === currentTotvs);
@@ -340,14 +378,22 @@ const Index = () => {
     setValue("origemId", fallback.id, { shouldValidate: true });
   }, [allowedOriginChurches, igrejaOrigem?.codigoTotvs, setValue]);
 
+  useEffect(() => {
+    if (!igrejaDestino) return;
+    const exists = allowedDestinationChurches.some((c) => String(c.codigoTotvs || "") === String(igrejaDestino.codigoTotvs || ""));
+    if (exists) return;
+    setIgrejaDestino(undefined);
+    setValue("destinoId", undefined as unknown as number, { shouldValidate: true });
+  }, [allowedDestinationChurches, igrejaDestino, setValue]);
+
   const onSubmit = async (values: FormData) => {
     if (!preachPeriod) {
       toast.error("Selecione o horário da pregação: Manhã, Tarde ou Noite.");
       return;
     }
 
-    if (values.dataPregacao < todayIso || values.dataPregacao > lastDayOfMonthIso) {
-      toast.error(`A data de pregação deve ser dentro do mês vigente. Máximo: ${toBrDate(lastDayOfMonthIso)}.`);
+    if (values.dataPregacao < todayIso) {
+      toast.error("A data de pregação deve ser hoje ou no futuro.");
       return;
     }
 
@@ -357,25 +403,31 @@ const Index = () => {
         : igrejaOrigem.nome
       : (usuario?.igreja_nome ?? "");
 
-    const destinoText = watch("destinoOutros")?.trim()
-      ? watch("destinoOutros")!.trim()
-      : igrejaDestino
-        ? `${igrejaDestino.codigoTotvs} - ${igrejaDestino.nome}`
-        : "";
+    const destinoManual = destinoOutros.trim();
+    if (!igrejaDestino && !(allowDestinoOutros && destinoManual.length >= 3)) {
+      toast.error("Selecione a igreja de destino ou informe em Outros.");
+      return;
+    }
+
+    const destinoText = igrejaDestino
+      ? `${igrejaDestino.codigoTotvs} - ${igrejaDestino.nome}`
+      : destinoManual;
 
     try {
       setSavingLetter(true);
+      const selectedPreacher = selectedPreacherUserId ? preachersMap.get(selectedPreacherUserId) : undefined;
 
       const result = (await createLetterByPastor({
-        church_totvs_id: String((usuario as LegacyUsuarioExtra | null)?.totvs || (usuario as LegacyUsuarioExtra | null)?.default_totvs_id || ""),
+        church_totvs_id: String(igrejaOrigem?.codigoTotvs || (usuario as LegacyUsuarioExtra | null)?.totvs || (usuario as LegacyUsuarioExtra | null)?.default_totvs_id || ""),
         preacher_name: values.pregadorNome,
-        minister_role: usuarioMinisterial || (usuario as LegacyUsuarioExtra | null)?.ministerial || "Obreiro",
+        preacher_user_id: selectedPreacherUserId || undefined,
+        minister_role: usuarioMinisterial || selectedPreacher?.minister_role || (usuario as LegacyUsuarioExtra | null)?.ministerial || "Obreiro",
         preach_date: values.dataPregacao,
         preach_period: preachPeriod as "MANHA" | "TARDE" | "NOITE",
         church_origin: origemText,
         church_destination: destinoText,
         phone: (values.telefone || "").replace(/\D/g, ""),
-        email: usuarioEmail || (usuario as LegacyUsuarioExtra | null)?.email || null,
+        email: usuarioEmail || selectedPreacher?.email || (usuario as LegacyUsuarioExtra | null)?.email || null,
       })) as CreateLetterResult;
 
       const directReleaseEnabled = Boolean((usuario as LegacyUsuarioExtra & { can_create_released_letter?: boolean } | null)?.can_create_released_letter);
@@ -413,8 +465,10 @@ const Index = () => {
       dataEmissao: todayIso,
       origemId: igrejaOrigem?.id || (undefined as unknown as number),
       destinoId: undefined as unknown as number,
+      preacherUserId: String(usuario?.id || ""),
       destinoOutros: "",
     });
+    setSelectedPreacherUserId(String(usuario?.id || ""));
     setDestinoOutros("");
     setPreachPeriod("");
   };
@@ -454,18 +508,37 @@ const Index = () => {
             <CardContent>
               <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
                 <div className="space-y-2">
-                  <Label htmlFor="pregador" className="text-sm font-medium text-slate-800">
+                  <Label htmlFor="pregador-select" className="text-sm font-medium text-slate-800">
                     Nome do pregador
                   </Label>
                   <Input
-                    id="pregador"
+                    id="pregador-busca"
                     type="text"
-                    placeholder="Digite o nome completo"
-                    {...register("pregadorNome")}
-                    disabled
+                    value={pregadorBusca}
+                    onChange={(e) => setPregadorBusca(e.target.value)}
+                    placeholder="Buscar pregador por nome, CPF ou cargo..."
                     className="h-11 rounded-xl border-slate-300 bg-slate-50 transition-colors focus:border-blue-500 focus:ring-blue-500"
-                    required
                   />
+                  <Select
+                    value={selectedPreacherUserId}
+                    onValueChange={(value) => setSelectedPreacherUserId(value)}
+                  >
+                    <SelectTrigger id="pregador-select" className="h-11 rounded-xl border-slate-300 bg-slate-50 transition-colors focus:border-blue-500 focus:ring-blue-500">
+                      <SelectValue placeholder="Selecione o pregador" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {filteredPreacherOptions.map((member) => (
+                        <SelectItem key={String(member.id)} value={String(member.id)}>
+                          {member.full_name} {member.minister_role ? `(${member.minister_role})` : ""}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {pregadorBusca && filteredPreacherOptions.length === 0 ? (
+                    <p className="text-xs text-slate-500">Nenhum pregador encontrado para o filtro informado.</p>
+                  ) : null}
+                  <input type="hidden" {...register("pregadorNome")} />
+                  <input type="hidden" {...register("preacherUserId")} />
                   {errors.pregadorNome && <p className="text-xs text-destructive">{errors.pregadorNome.message as string}</p>}
                 </div>
 
@@ -489,6 +562,7 @@ const Index = () => {
                   label="Igreja que faz a carta (origem)"
                   placeholder="Buscar por nome ou código TOTVS"
                   churches={allowedOriginChurches}
+                  minChars={3}
                   onSelect={(c) => {
                     setIgrejaOrigem(c);
                     setValue("origemId", c.id, { shouldValidate: true });
@@ -503,45 +577,41 @@ const Index = () => {
                 <ChurchSearch
                   label="Igreja que vai pregar (destino)"
                   placeholder="Buscar por nome ou código TOTVS"
-                  churches={churches}
+                  churches={allowedDestinationChurches}
+                  minChars={3}
                   onSelect={(c) => {
                     setIgrejaDestino(c);
                     setValue("destinoId", c.id, { shouldValidate: true });
                     setDestinoOutros("");
-                    setValue("destinoOutros", "", { shouldValidate: true });
+                    setValue("destinoOutros", "", { shouldValidate: false });
                   }}
                   value={igrejaDestino ? `${igrejaDestino.codigoTotvs} - ${igrejaDestino.nome}` : ""}
-                  disabled={disableByPhone || Boolean(destinoOutros.trim())}
+                  disabled={disableByPhone || (allowDestinoOutros && Boolean(destinoOutros.trim()))}
                   onDisabledClickMessage="Digite seu telefone"
                   inputId="church-destino"
                 />
-
-                <div className="space-y-2">
-                  <Label htmlFor="destinoOutros" className="text-sm font-medium text-slate-800">Outros (se não encontrar)</Label>
-                  <Input
-                    id="destinoOutros"
-                    type="text"
-                    value={destinoOutros}
-                    onChange={(e) => {
-                      setDestinoOutros(e.target.value);
-                      setValue("destinoOutros", e.target.value, { shouldValidate: true });
-                      if (e.target.value.trim()) {
-                        setIgrejaDestino(undefined);
-                        setValue("destinoId", undefined as unknown as number, { shouldValidate: true });
-                      }
-                    }}
-                    onFocus={(e) => {
-                      if (disableByPhone) {
-                        toast.info("Digite seu telefone");
-                        e.currentTarget.blur();
-                      }
-                    }}
-                    placeholder="Digite a igreja manualmente"
-                    disabled={disableByPhone || Boolean(igrejaDestino)}
-                    className="h-11 rounded-xl border-slate-300 bg-slate-50 transition-colors focus:border-blue-500 focus:ring-blue-500"
-                  />
-                  {errors.destinoId && <p className="text-xs text-destructive">Selecione a igreja de destino ou informe em Outros</p>}
-                </div>
+                {allowDestinoOutros ? (
+                  <div className="space-y-2">
+                    <Label htmlFor="destinoOutros" className="text-sm font-medium text-slate-800">Outros (se não estiver no banco)</Label>
+                    <Input
+                      id="destinoOutros"
+                      type="text"
+                      value={destinoOutros}
+                      onChange={(e) => {
+                        setDestinoOutros(e.target.value);
+                        setValue("destinoOutros", e.target.value, { shouldValidate: false });
+                        if (e.target.value.trim()) {
+                          setIgrejaDestino(undefined);
+                          setValue("destinoId", undefined as unknown as number, { shouldValidate: false });
+                        }
+                      }}
+                      placeholder="Ex.: 99999 - Igreja não cadastrada"
+                      disabled={Boolean(igrejaDestino)}
+                      className="h-11 rounded-xl border-slate-300 bg-slate-50 transition-colors focus:border-blue-500 focus:ring-blue-500"
+                    />
+                  </div>
+                ) : null}
+                {errors.destinoId && <p className="text-xs text-destructive">Selecione a igreja de destino.</p>}
 
                 <div className="grid md:grid-cols-2 gap-4">
                   <div className="space-y-2">
@@ -560,7 +630,6 @@ const Index = () => {
                             onBlur={onBlur}
                             value={watch("dataPregacao") || ""}
                             min={todayIso}
-                            max={lastDayOfMonthIso}
                             onChange={(e) => setValue("dataPregacao", e.target.value, { shouldValidate: true })}
                             onFocus={(e) => { if (disableByPhone) { toast.info("Digite seu telefone"); e.currentTarget.blur(); } }}
                             className="h-11 flex-1 rounded-xl border-slate-300 bg-slate-50 transition-colors focus:border-blue-500 focus:ring-blue-500"
@@ -602,8 +671,8 @@ const Index = () => {
                             onSelect={(d) => {
                               if (!d) return;
                               const pickedIso = format(d, "yyyy-MM-dd");
-                              if (pickedIso < todayIso || pickedIso > lastDayOfMonthIso) {
-                                toast.error(`A data de pregação deve ser dentro do mês vigente. Máximo: ${toBrDate(lastDayOfMonthIso)}.`);
+                              if (pickedIso < todayIso) {
+                                toast.error("Selecione uma data de hoje em diante.");
                                 return;
                               }
                               setValue("dataPregacao", pickedIso, { shouldValidate: true });
@@ -611,7 +680,7 @@ const Index = () => {
                             }}
                             disabled={(date) => {
                               const current = format(date, "yyyy-MM-dd");
-                              return current < todayIso || current > lastDayOfMonthIso;
+                              return current < todayIso;
                             }}
                             initialFocus
                           />
@@ -686,7 +755,7 @@ const Index = () => {
             <LetterPreview
               pregadorNome={watch("pregadorNome")}
               igrejaOrigem={igrejaOrigem}
-              igrejaDestino={destinoOutros.trim() ? { id: 0, codigoTotvs: "", nome: destinoOutros.trim(), cidade: "", uf: "", carimboIgreja: "", carimboPastor: "" } : igrejaDestino}
+              igrejaDestino={igrejaDestino || (destinoOutros.trim() ? { id: 0, codigoTotvs: "", nome: destinoOutros.trim(), cidade: "", uf: "", carimboIgreja: "", carimboPastor: "" } : undefined)}
               dataPregacao={watch("dataPregacao")}
               dataEmissao={watch("dataEmissao")}
               email={usuarioEmail || (usuario as LegacyUsuarioExtra | null)?.email || undefined}

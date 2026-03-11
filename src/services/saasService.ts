@@ -1849,36 +1849,15 @@ export async function getPastorByTotvsPublic(churchTotvsId: string): Promise<Pas
   const totvs = String(churchTotvsId || "").trim();
   if (!totvs || !supabase) return null;
 
-  // Comentario: regra de hierarquia para cartas:
-  // - prioriza o pastor da igreja mae;
-  // - se nao existir, sobe para avo;
-  // - se nao achar nenhum acima, usa o pastor da propria igreja.
   let pastorId = "";
   try {
-    const { data: churches } = await supabase
+    const { data: church } = await supabase
       .from("churches")
-      .select("totvs_id,parent_totvs_id,pastor_user_id");
+      .select("pastor_user_id")
+      .eq("totvs_id", totvs)
+      .maybeSingle();
 
-    const byId = new Map<string, Record<string, unknown>>();
-    (churches || []).forEach((row) => byId.set(String((row as Record<string, unknown>).totvs_id || ""), row as Record<string, unknown>));
-
-    const currentRow = byId.get(totvs);
-    let current = String(currentRow?.parent_totvs_id || "").trim();
-    const seen = new Set<string>();
-    while (current && !seen.has(current)) {
-      seen.add(current);
-      const row = byId.get(current);
-      const candidate = String(row?.pastor_user_id || "").trim();
-      if (candidate) {
-        pastorId = candidate;
-        break;
-      }
-      current = String(row?.parent_totvs_id || "").trim();
-    }
-
-    if (!pastorId) {
-      pastorId = String(currentRow?.pastor_user_id || "").trim();
-    }
+    pastorId = String((church as Record<string, unknown> | null)?.pastor_user_id || "").trim();
   } catch {
     // segue fallback
   }
@@ -2769,7 +2748,7 @@ export async function createLetterByPastor(payload: LetterCreatePayload) {
   if (!payload.church_destination.trim()) throw new Error("destination-required");
 
   if (!isMockMode()) {
-    return await apiFetch("/create-letter", {
+    return await api.createLetter({
       preacher_name: payload.preacher_name.trim(),
       minister_role: payload.minister_role.trim(),
       preach_date: payload.preach_date,

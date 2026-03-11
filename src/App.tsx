@@ -1,5 +1,6 @@
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { PageLoading } from "@/components/shared/PageLoading";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { lazy, Suspense, useEffect } from "react";
@@ -8,7 +9,23 @@ import PhoneIdentify from "./pages/PhoneIdentify";
 import CadastroRapido from "./pages/CadastroRapido";
 import { UserProvider, useUser } from "./context/UserContext";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 2 * 60 * 1000,
+      gcTime: 30 * 60 * 1000,
+      refetchOnWindowFocus: false,
+      refetchOnReconnect: false,
+      refetchOnMount: false,
+      retry: 1,
+    },
+    mutations: {
+      retry: 0,
+    },
+  },
+});
+
+const pageFallback = <PageLoading title="Carregando" description="Aguarde..." />;
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -22,7 +39,7 @@ const App = () => (
             <Route
               path="/select-church"
               element={
-                <Suspense fallback={<div />}>
+                <Suspense fallback={pageFallback}>
                   <SelectChurchPage />
                 </Suspense>
               }
@@ -34,7 +51,7 @@ const App = () => (
             <Route
               path="/reset-senha"
               element={
-                <Suspense fallback={<div />}>
+                <Suspense fallback={pageFallback}>
                   <ResetSenhaPage />
                 </Suspense>
               }
@@ -43,7 +60,7 @@ const App = () => (
               path="/usuario"
               element={
                 <RequireAuth>
-                  <Suspense fallback={<div />}>
+                  <Suspense fallback={pageFallback}>
                     <UsuarioDashboardPage />
                   </Suspense>
                 </RequireAuth>
@@ -53,7 +70,7 @@ const App = () => (
               path="/usuario/documentos"
               element={
                 <RequireAuth>
-                  <Suspense fallback={<div />}>
+                  <Suspense fallback={pageFallback}>
                     <UsuarioDocumentosPage />
                   </Suspense>
                 </RequireAuth>
@@ -63,7 +80,7 @@ const App = () => (
               path="/obreiro"
               element={
                 <RequireRole role="obreiro">
-                  <Suspense fallback={<div />}>
+                  <Suspense fallback={pageFallback}>
                     <UsuarioDashboardPage />
                   </Suspense>
                 </RequireRole>
@@ -89,7 +106,7 @@ const App = () => (
               path="/pastor/dashboard"
               element={
                 <RequireRole role="pastor">
-                  <Suspense fallback={<div />}>
+                  <Suspense fallback={pageFallback}>
                     <PastorDashboardPage />
                   </Suspense>
                 </RequireRole>
@@ -99,7 +116,7 @@ const App = () => (
               path="/pastor/igrejas"
               element={
                 <RequireRole role="pastor">
-                  <Suspense fallback={<div />}>
+                  <Suspense fallback={pageFallback}>
                     <PastorIgrejasPage />
                   </Suspense>
                 </RequireRole>
@@ -109,7 +126,7 @@ const App = () => (
               path="/pastor/membros"
               element={
                 <RequireRole role="pastor">
-                  <Suspense fallback={<div />}>
+                  <Suspense fallback={pageFallback}>
                     <PastorMembrosPage />
                   </Suspense>
                 </RequireRole>
@@ -119,7 +136,7 @@ const App = () => (
               path="/admin/dashboard"
               element={
                 <RequireRole role="admin">
-                  <Suspense fallback={<div />}>
+                  <Suspense fallback={pageFallback}>
                     <AdminDashboardPage />
                   </Suspense>
                 </RequireRole>
@@ -129,7 +146,7 @@ const App = () => (
               path="/admin/igrejas"
               element={
                 <RequireRole role="admin">
-                  <Suspense fallback={<div />}>
+                  <Suspense fallback={pageFallback}>
                     <AdminIgrejasPage />
                   </Suspense>
                 </RequireRole>
@@ -139,7 +156,7 @@ const App = () => (
               path="/admin/membros"
               element={
                 <RequireRole role="admin">
-                  <Suspense fallback={<div />}>
+                  <Suspense fallback={pageFallback}>
                     <AdminMembrosPage />
                   </Suspense>
                 </RequireRole>
@@ -149,7 +166,7 @@ const App = () => (
               path="/admin/cartas"
               element={
                 <RequireRole role="admin">
-                  <Suspense fallback={<div />}>
+                  <Suspense fallback={pageFallback}>
                     <CartasDashboardPage />
                   </Suspense>
                 </RequireRole>
@@ -159,7 +176,7 @@ const App = () => (
               path="/config"
               element={
                 <RequireAnyRole roles={["admin", "pastor"]}>
-                  <Suspense fallback={<div />}>
+                  <Suspense fallback={pageFallback}>
                     <ConfiguracoesPage />
                   </Suspense>
                 </RequireAnyRole>
@@ -169,7 +186,7 @@ const App = () => (
               path="/divulgacao"
               element={
                 <RequireAnyRole roles={["admin", "pastor"]}>
-                  <Suspense fallback={<div />}>
+                  <Suspense fallback={pageFallback}>
                     <DivulgacaoPage />
                   </Suspense>
                 </RequireAnyRole>
@@ -179,7 +196,7 @@ const App = () => (
               path="/carta"
               element={
                 <RequireAuth>
-                  <Suspense fallback={<div />}>
+                  <Suspense fallback={pageFallback}>
                     <CartasDashboardPage />
                   </Suspense>
                 </RequireAuth>
@@ -189,7 +206,7 @@ const App = () => (
               path="/carta/formulario"
               element={
                 <RequireAuth>
-                  <Suspense fallback={<div />}>
+                  <Suspense fallback={pageFallback}>
                     <CartaPage />
                   </Suspense>
                 </RequireAuth>
