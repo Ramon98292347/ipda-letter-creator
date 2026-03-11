@@ -177,6 +177,18 @@ export default function CartasDashboardPage() {
 
     return { total, today, last7 };
   }, [letters]);
+  const statusStats = useMemo(() => {
+    let liberadas = 0;
+    let bloqueadas = 0;
+    let aguardando = 0;
+    for (const letter of letters) {
+      const status = String(letter?.status || "").toUpperCase();
+      if (status === "LIBERADA") liberadas += 1;
+      if (status === "BLOQUEADO") bloqueadas += 1;
+      if (status === "AGUARDANDO_LIBERACAO") aguardando += 1;
+    }
+    return { liberadas, bloqueadas, aguardando };
+  }, [letters]);
 
   const useChurchFilteredKpi = roleMode === "admin" && selectedChurchTotvs !== "all";
   const totalCartas = useChurchFilteredKpi
@@ -245,6 +257,26 @@ export default function CartasDashboardPage() {
         <KpiCard label="Cartas hoje" value={cartasHoje} icon={CalendarDays} tone={tone.hoje} />
         <KpiCard label="Ultimos 7 dias" value={ultimos7Dias} icon={LineChart} tone={tone.seteDias} />
         <KpiCard label="Total de membros" value={totalMembros} icon={Users} tone={tone.membros} />
+      </section>
+      <section className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3">
+        <KpiCard
+          label="Cartas liberadas"
+          value={statusStats.liberadas}
+          icon={FileText}
+          tone={{ bg: "#ECFDF5", border: "#A7F3D0", accent: "#16A34A" }}
+        />
+        <KpiCard
+          label="Cartas bloqueadas"
+          value={statusStats.bloqueadas}
+          icon={FileText}
+          tone={{ bg: "#FEF2F2", border: "#FECACA", accent: "#DC2626" }}
+        />
+        <KpiCard
+          label="Aguardando liberacao"
+          value={statusStats.aguardando}
+          icon={FileText}
+          tone={{ bg: "#FFFBEB", border: "#FDE68A", accent: "#CA8A04" }}
+        />
       </section>
 
       <div className="mt-5">
