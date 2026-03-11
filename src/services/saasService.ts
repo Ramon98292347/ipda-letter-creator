@@ -1928,6 +1928,31 @@ export async function publicRegisterMember(payload: {
 }
 
 export async function getMyRegistrationStatus(): Promise<RegistrationStatus> {
+  if (!isMockMode() && supabase && getRlsToken()) {
+    const currentUser = getUser();
+    const currentUserId = String(currentUser?.id || "").trim();
+    if (currentUserId) {
+      const { data, error } = await supabase
+        .from("users")
+        .select("registration_status, totvs_access")
+        .eq("id", currentUserId)
+        .maybeSingle();
+
+      if (!error && data) {
+        const direct = String((data as Record<string, unknown>)?.registration_status || "")
+          .trim()
+          .toUpperCase();
+        if (direct === "PENDENTE") return "PENDENTE";
+        if (direct === "APROVADO") return "APROVADO";
+
+        const fromAccess = resolveRegistrationStatusFromTotvsAccess(
+          (data as Record<string, unknown>)?.totvs_access || null,
+        );
+        if (fromAccess === "PENDENTE" || fromAccess === "APROVADO") return fromAccess;
+      }
+    }
+  }
+
   const data = await api.getMyRegistrationStatus();
   const status = String(data?.registration_status || "").toUpperCase();
   if (status === "PENDENTE") return "PENDENTE";
