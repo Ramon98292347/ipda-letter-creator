@@ -1557,6 +1557,55 @@ export async function listAnnouncements(limit = 10): Promise<AnnouncementItem[]>
 }
 
 export async function listBirthdaysToday(limit = 10): Promise<BirthdayItem[]> {
+  if (!isMockMode() && supabase && getRlsToken()) {
+    const session = getSession();
+    const scope = Array.isArray(session?.scope_totvs_ids) ? session.scope_totvs_ids.filter(Boolean) : [];
+    let query = supabase
+      .from("users")
+      .select("id, full_name, phone, email, birth_date, avatar_url")
+      .not("birth_date", "is", null)
+      .eq("is_active", true);
+
+    if (scope.length > 0) {
+      query = query.in("default_totvs_id", scope);
+    }
+
+    const { data: rowsRaw, error } = await query;
+    if (error) {
+      throw new Error(error.message || "Erro ao listar aniversariantes.");
+    }
+
+    const now = new Date();
+    const todayMd = new Intl.DateTimeFormat("pt-BR", {
+      timeZone: "America/Sao_Paulo",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(now);
+
+    const rows = Array.isArray(rowsRaw) ? rowsRaw : [];
+    return rows
+      .map((item: Record<string, unknown>) => ({
+        id: String(item?.id || ""),
+        full_name: String(item?.full_name || ""),
+        phone: item?.phone ? String(item.phone) : null,
+        email: item?.email ? String(item.email) : null,
+        birth_date: item?.birth_date ? String(item.birth_date) : null,
+        avatar_url: item?.avatar_url || null,
+      }))
+      .filter((item: BirthdayItem) => {
+        if (!item.full_name || !item.birth_date) return false;
+        const d = new Date(item.birth_date);
+        if (Number.isNaN(d.getTime())) return false;
+        const md = new Intl.DateTimeFormat("pt-BR", {
+          timeZone: "America/Sao_Paulo",
+          month: "2-digit",
+          day: "2-digit",
+        }).format(d);
+        return md === todayMd;
+      })
+      .slice(0, limit);
+  }
+
   if (!isMockMode()) {
     const data = await api.birthdaysToday();
     const rows = Array.isArray(data?.birthdays) ? data.birthdays : [];
@@ -2050,6 +2099,77 @@ export async function requestRelease(letterId: string, _workerId: string, _churc
 }
 
 export async function workerDashboard(dateStart?: string, dateEnd?: string, page = 1, pageSize = 20): Promise<WorkerDashboardData> {
+  if (!isMockMode() && supabase && getRlsToken()) {
+    const currentUser = getUser();
+    const currentSession = getSession();
+    const userId = String(currentUser?.id || "").trim();
+    const activeTotvs = String(currentSession?.totvs_id || currentUser?.default_totvs_id || "").trim();
+
+    if (!userId) {
+      throw new Error("user-not-authenticated");
+    }
+
+    const [{ data: userRaw, error: userErr }, { data: churchRaw, error: churchErr }] = await Promise.all([
+      supabase
+        .from("users")
+        .select(
+          "id, full_name, role, cpf, phone, email, minister_role, birth_date, ordination_date, avatar_url, default_totvs_id, totvs_access, registration_status, payment_status, payment_block_reason",
+        )
+        .eq("id", userId)
+        .maybeSingle(),
+      activeTotvs
+        ? supabase
+            .from("churches")
+            .select(
+              "totvs_id, church_name, class, contact_phone, contact_email, address_street, address_number, address_neighborhood, address_city, address_state, pastor_user_id",
+            )
+            .eq("totvs_id", activeTotvs)
+            .maybeSingle()
+        : Promise.resolve({ data: null, error: null }),
+    ]);
+
+    if (userErr) throw new Error(userErr.message || "Erro ao carregar usuario.");
+    if (churchErr) throw new Error(churchErr.message || "Erro ao carregar igreja.");
+
+    const from = (Math.max(1, page) - 1) * Math.max(1, pageSize);
+    const to = from + Math.max(1, pageSize) - 1;
+
+    let lettersQuery = supabase
+      .from("letters")
+      .select(
+        "id, church_totvs_id, preacher_user_id, preacher_name, minister_role, preach_date, church_origin, church_destination, status, storage_path, url_carta, url_pronta, phone, block_reason, created_at",
+      )
+      .eq("preacher_user_id", userId)
+      .neq("status", "EXCLUIDA")
+      .order("created_at", { ascending: false })
+      .range(from, to);
+
+    if (dateStart) {
+      lettersQuery = lettersQuery.gte("created_at", `${dateStart}T00:00:00`);
+    }
+    if (dateEnd) {
+      lettersQuery = lettersQuery.lte("created_at", `${dateEnd}T23:59:59`);
+    }
+
+    const { data: lettersRaw, error: lettersErr } = await lettersQuery;
+    if (lettersErr) throw new Error(lettersErr.message || "Erro ao carregar cartas.");
+
+    return {
+      user: userRaw ? mapUserLike(userRaw as Record<string, unknown>) : null,
+      church: churchRaw
+        ? ({
+            ...churchRaw,
+            pastor_name: null,
+            pastor_phone: (churchRaw as Record<string, unknown>)?.contact_phone || null,
+            pastor_email: (churchRaw as Record<string, unknown>)?.contact_email || null,
+          } as WorkerDashboardData["church"])
+        : null,
+      letters: (Array.isArray(lettersRaw) ? lettersRaw : []).map((item) =>
+        mapLetterLike(item as Record<string, unknown>),
+      ),
+    };
+  }
+
   if (!isMockMode()) {
     const data = await api.workerDashboard({
       date_start: dateStart || null,
