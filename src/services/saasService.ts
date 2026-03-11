@@ -1,4 +1,4 @@
-import { getSession } from "@/lib/api";
+import { getRlsToken, getSession, getUser } from "@/lib/api";
 import { api } from "@/lib/endpoints";
 import { supabase } from "@/lib/supabase";
 import { apiFetch } from "@/services/api";
@@ -697,6 +697,70 @@ export async function getPastorMetrics(): Promise<PastorMetrics> {
 }
 
 export async function listPastorLetters(_activeTotvsId: string, filters: PastorFilters): Promise<PastorLetter[]> {
+  if (!isMockMode() && supabase && getRlsToken()) {
+    const page = filters.page || 1;
+    const pageSize = filters.pageSize || 500;
+    const from = (page - 1) * pageSize;
+    const to = from + pageSize - 1;
+
+    let query = supabase
+      .from("letters")
+      .select(
+        "id, church_totvs_id, preacher_user_id, preacher_name, minister_role, preach_date, church_origin, church_destination, status, storage_path, url_carta, url_pronta, phone, block_reason, created_at",
+      )
+      .neq("status", "EXCLUIDA")
+      .order("created_at", { ascending: false });
+
+    if (_activeTotvsId) {
+      query = query.eq("church_totvs_id", _activeTotvsId);
+    }
+
+    if (filters.period === "today" || filters.period === "7" || filters.period === "30" || filters.period === "custom") {
+      const now = new Date();
+      const start = new Date(now);
+      const end = new Date(now);
+      end.setHours(23, 59, 59, 999);
+
+      if (filters.period === "today") {
+        start.setHours(0, 0, 0, 0);
+      }
+      if (filters.period === "7") {
+        start.setDate(start.getDate() - 7);
+        start.setHours(0, 0, 0, 0);
+      }
+      if (filters.period === "30") {
+        start.setDate(start.getDate() - 30);
+        start.setHours(0, 0, 0, 0);
+      }
+      if (filters.period === "custom") {
+        if (filters.dateStart) start.setTime(new Date(`${filters.dateStart}T00:00:00`).getTime());
+        if (filters.dateEnd) end.setTime(new Date(`${filters.dateEnd}T23:59:59`).getTime());
+      }
+
+      query = query.gte("created_at", start.toISOString()).lte("created_at", end.toISOString());
+    }
+
+    if (filters.status && filters.status !== "all") {
+      query = query.eq("status", filters.status);
+    }
+
+    if (filters.role && filters.role !== "all") {
+      query = query.eq("minister_role", filters.role);
+    }
+
+    if (filters.q?.trim()) {
+      const q = filters.q.trim();
+      query = query.or(
+        `preacher_name.ilike.%${q}%,church_origin.ilike.%${q}%,church_destination.ilike.%${q}%`,
+      );
+    }
+
+    const { data: rowsRaw, error } = await query.range(from, to);
+    if (error) throw new Error(error.message || "Erro ao listar cartas.");
+    const rows = Array.isArray(rowsRaw) ? rowsRaw : [];
+    return rows.map((row) => mapLetterLike(row as Record<string, unknown>));
+  }
+
   if (!isMockMode()) {
     const payload: Record<string, unknown> = {
       page: filters.page || 1,
@@ -731,6 +795,100 @@ export async function listObreiros(_scopeTotvsIds: string[]): Promise<UserListIt
 }
 
 export async function listMembers(params: MemberListParams): Promise<WorkerListResponse> {
+  if (!isMockMode() && supabase && getRlsToken()) {
+    const session = getSession();
+    const page = params.page || 1;
+    const pageSize = params.page_size || 20;
+    const from = (page - 1) * pageSize;
+    const to = from + pageSize - 1;
+
+    let query = supabase
+      .from("users")
+      .select(
+        "id, full_name, role, cpf, rg, phone, email, profession, minister_role, birth_date, baptism_date, marital_status, matricula, ordination_date, avatar_url, signature_url, cep, address_street, address_number, address_complement, address_neighborhood, address_city, address_state, default_totvs_id, totvs_access, is_active, can_create_released_letter, payment_status, payment_block_reason",
+        { count: "exact" },
+      )
+      .order("full_name", { ascending: true });
+
+    if (params.search?.trim()) {
+      const search = params.search.trim();
+      query = query.or(
+        `full_name.ilike.%${search}%,cpf.ilike.%${search}%,phone.ilike.%${search}%,email.ilike.%${search}%`,
+      );
+    }
+
+    if (params.minister_role?.trim()) {
+      query = query.eq("minister_role", params.minister_role.trim());
+    }
+
+    if (typeof params.is_active === "boolean") {
+      query = query.eq("is_active", params.is_active);
+    }
+
+    if (params.roles?.length) {
+      query = query.in("role", params.roles);
+    }
+
+    const role = String(session?.role || "").toLowerCase();
+    if (role === "admin" && params.church_totvs_id?.trim()) {
+      query = query.eq("default_totvs_id", params.church_totvs_id.trim());
+    } else if (params.church_totvs_id?.trim()) {
+      query = query.eq("default_totvs_id", params.church_totvs_id.trim());
+    }
+
+    const { data: rowsRaw, error, count } = await query.range(from, to);
+    if (error) {
+      throw new Error(error.message || "Erro ao listar membros.");
+    }
+
+    const rows = Array.isArray(rowsRaw) ? rowsRaw : [];
+    return {
+      workers: rows.map((w: Record<string, unknown>) => ({
+        id: String(w?.id || ""),
+        full_name: String(w?.full_name || ""),
+        role: (w?.role || null) as AppRole | null,
+        cpf: w?.cpf || null,
+        rg: w?.rg || null,
+        phone: w?.phone || null,
+        email: w?.email || null,
+        profession: w?.profession || null,
+        minister_role: w?.minister_role || null,
+        birth_date: w?.birth_date || null,
+        baptism_date: w?.baptism_date || null,
+        marital_status: w?.marital_status || null,
+        matricula: w?.matricula || null,
+        ordination_date: w?.ordination_date || null,
+        avatar_url: w?.avatar_url || null,
+        signature_url: w?.signature_url || null,
+        cep: w?.cep || null,
+        address_street: w?.address_street || null,
+        address_number: w?.address_number || null,
+        address_complement: w?.address_complement || null,
+        address_neighborhood: w?.address_neighborhood || null,
+        address_city: w?.address_city || null,
+        address_state: w?.address_state || null,
+        default_totvs_id: w?.default_totvs_id || null,
+        totvs_access: w?.totvs_access || null,
+        is_active: typeof w?.is_active === "boolean" ? w.is_active : true,
+        can_create_released_letter:
+          typeof w?.can_create_released_letter === "boolean" ? w.can_create_released_letter : false,
+        can_manage: true,
+        registration_status:
+          String(w?.registration_status || "").toUpperCase() === "PENDENTE"
+            ? "PENDENTE"
+            : String(w?.registration_status || "").toUpperCase() === "APROVADO"
+              ? "APROVADO"
+              : resolveRegistrationStatusFromTotvsAccess(w?.totvs_access || null),
+        payment_status:
+          String(w?.payment_status || "").toUpperCase() === "BLOQUEADO_PAGAMENTO" ? "BLOQUEADO_PAGAMENTO" : "ATIVO",
+        payment_block_reason: typeof w?.payment_block_reason === "string" ? w.payment_block_reason : null,
+      })),
+      total: Number(count || rows.length),
+      page,
+      page_size: pageSize,
+    };
+  }
+
   if (!isMockMode()) {
     const data = await api.listMembers({
       search: params.search || undefined,
@@ -936,6 +1094,96 @@ export async function listAdminChurchSummary(scopeTotvsIds: string[]): Promise<A
 }
 
 export async function listChurchesInScope(page = 1, pageSize = 200, rootTotvsId?: string): Promise<ChurchInScopeItem[]> {
+  if (supabase && getRlsToken()) {
+    const session = getSession();
+    const role = String(session?.role || "").toLowerCase();
+
+    const { data: churchesRaw, error: cErr } = await supabase
+      .from("churches")
+      .select(
+        "totvs_id, parent_totvs_id, church_name, class, image_url, stamp_church_url, contact_email, contact_phone, cep, address_street, address_number, address_complement, address_neighborhood, address_city, address_state, address_country, is_active, pastor_user_id",
+      )
+      .order("church_name", { ascending: true });
+
+    if (cErr) throw new Error(cErr.message || "Erro ao listar igrejas.");
+    let churchesAll = (Array.isArray(churchesRaw) ? churchesRaw : []) as Array<Record<string, unknown>>;
+
+    if (rootTotvsId?.trim() && role === "admin") {
+      const root = rootTotvsId.trim();
+      const children = new Map<string, string[]>();
+      for (const item of churchesAll) {
+        const parent = String(item.parent_totvs_id || "");
+        const id = String(item.totvs_id || "");
+        if (!children.has(parent)) children.set(parent, []);
+        children.get(parent)!.push(id);
+      }
+      const scope = new Set<string>();
+      const queue = [root];
+      while (queue.length) {
+        const cur = queue.shift()!;
+        if (scope.has(cur)) continue;
+        scope.add(cur);
+        for (const k of children.get(cur) || []) queue.push(k);
+      }
+      churchesAll = churchesAll.filter((c) => scope.has(String(c.totvs_id || "")));
+    }
+
+    const totvsIds = churchesAll.map((c) => String(c.totvs_id || "")).filter(Boolean);
+    const pastorIds = churchesAll.map((c) => String(c.pastor_user_id || "")).filter(Boolean);
+
+    const countsByTotvs = new Map<string, number>();
+    if (totvsIds.length) {
+      const { data: usersRaw } = await supabase.from("users").select("default_totvs_id").in("default_totvs_id", totvsIds);
+      for (const u of usersRaw || []) {
+        const key = String((u as Record<string, unknown>).default_totvs_id || "");
+        if (!key) continue;
+        countsByTotvs.set(key, (countsByTotvs.get(key) || 0) + 1);
+      }
+    }
+
+    const pastorById = new Map<string, Record<string, unknown>>();
+    if (pastorIds.length) {
+      const { data: pastorsRaw } = await supabase.from("users").select("id, full_name").in("id", pastorIds);
+      for (const p of pastorsRaw || []) {
+        const row = p as Record<string, unknown>;
+        pastorById.set(String(row.id || ""), row);
+      }
+    }
+
+    return churchesAll.map((item) => {
+      const pastorId = String(item.pastor_user_id || "");
+      const pastor = pastorId ? pastorById.get(pastorId) : null;
+      const totvsId = String(item.totvs_id || "");
+      return {
+        totvs_id: totvsId,
+        church_name: String(item.church_name || item.name || "-"),
+        church_class: item.class || null,
+        parent_totvs_id: item.parent_totvs_id || null,
+        image_url: item.image_url || item.photo_url || item.cover_url || null,
+        stamp_church_url: item.stamp_church_url || null,
+        contact_email: item.contact_email || null,
+        contact_phone: item.contact_phone || null,
+        cep: item.cep || null,
+        address_street: item.address_street || null,
+        address_number: item.address_number || null,
+        address_complement: item.address_complement || null,
+        address_neighborhood: item.address_neighborhood || null,
+        address_city: item.address_city || null,
+        address_state: item.address_state || null,
+        address_country: item.address_country || null,
+        is_active: typeof item.is_active === "boolean" ? item.is_active : true,
+        workers_count: countsByTotvs.get(totvsId) || 0,
+        pastor_user_id: pastorId || null,
+        pastor: pastor
+          ? {
+              id: String(pastor.id || ""),
+              full_name: String(pastor.full_name || ""),
+            }
+          : null,
+      } as ChurchInScopeItem;
+    });
+  }
+
   const data = await api.listChurchesInScope({ page, page_size: pageSize, root_totvs_id: rootTotvsId });
   const rows = Array.isArray(data?.churches)
     ? data.churches
@@ -975,6 +1223,18 @@ export async function listChurchesInScope(page = 1, pageSize = 200, rootTotvsId?
 }
 
 export async function listChurchesInScopePaged(page = 1, pageSize = 20, rootTotvsId?: string): Promise<{ churches: ChurchInScopeItem[]; total: number; page: number; page_size: number }> {
+  if (supabase && getRlsToken()) {
+    const all = await listChurchesInScope(1, 5000, rootTotvsId);
+    const start = (page - 1) * pageSize;
+    const end = start + pageSize;
+    return {
+      churches: all.slice(start, end),
+      total: all.length,
+      page,
+      page_size: pageSize,
+    };
+  }
+
   const data = await api.listChurchesInScope({ page, page_size: pageSize, root_totvs_id: rootTotvsId });
   const rows = Array.isArray(data?.churches)
     ? data.churches
@@ -1089,67 +1349,140 @@ export async function listReleaseRequests(status: "PENDENTE" | "APROVADO" | "NEG
 export async function listNotifications(page = 1, pageSize = 20, unreadOnly = false): Promise<{ notifications: AppNotification[]; unread_count: number; total: number }> {
   const currentSession = getSession();
   const rootTotvs = currentSession?.root_totvs_id || currentSession?.totvs_id;
-  let data: Record<string, unknown> = {};
-  try {
-    data = await api.listNotifications({
-      page,
-      page_size: pageSize,
-      unread_only: unreadOnly,
-      church_totvs_id: rootTotvs,
-    });
-  } catch (err: unknown) {
-    const e = err as { status?: number; code?: string };
-    if (e?.status === 401 || e?.status === 403 || e?.code === "unauthorized" || e?.code === "forbidden") {
-      return { notifications: [], unread_count: 0, total: 0 };
-    }
-    throw err;
-  }
-  const rows = Array.isArray(data?.notifications)
-    ? data.notifications
-    : Array.isArray(data?.items)
-      ? data.items
-      : [];
+  const currentUser = getUser();
+  const userId = String(currentUser?.id || "").trim();
+  const rlsToken = getRlsToken();
 
-  return {
-    notifications: rows.map((item: Record<string, unknown>) => ({
-      id: String(item?.id || ""),
-      title: String(item?.title || "Notificacao"),
-      message: item?.message || null,
-      // Comentario: alguns registros antigos podem ter apenas read_at preenchido.
-      is_read: Boolean(item?.is_read) || Boolean(item?.read_at),
-      created_at: item?.created_at || null,
-      type: item?.type || null,
-    })),
-    unread_count: Number(data?.unread_count || 0),
-    total: Number(data?.total || rows.length),
-  };
+  if (supabase && rlsToken) {
+    const from = (page - 1) * pageSize;
+    const to = from + pageSize - 1;
+    let query = supabase.from("notifications").select("id, title, message, is_read, read_at, created_at, type", { count: "exact" });
+
+    if (rootTotvs && userId) {
+      query = query.or(`church_totvs_id.eq.${rootTotvs},user_id.eq.${userId}`);
+    } else if (rootTotvs) {
+      query = query.eq("church_totvs_id", rootTotvs);
+    } else if (userId) {
+      query = query.eq("user_id", userId);
+    }
+
+    if (unreadOnly) {
+      query = query.eq("is_read", false);
+    }
+
+    const { data: rowsRaw, error, count } = await query.order("created_at", { ascending: false }).range(from, to);
+    if (error) throw new Error(error.message || "Erro ao listar notificacoes.");
+    const rows = Array.isArray(rowsRaw) ? rowsRaw : [];
+
+    let unreadCount = 0;
+    let unreadQuery = supabase.from("notifications").select("id", { count: "exact", head: true }).eq("is_read", false);
+    if (rootTotvs && userId) {
+      unreadQuery = unreadQuery.or(`church_totvs_id.eq.${rootTotvs},user_id.eq.${userId}`);
+    } else if (rootTotvs) {
+      unreadQuery = unreadQuery.eq("church_totvs_id", rootTotvs);
+    } else if (userId) {
+      unreadQuery = unreadQuery.eq("user_id", userId);
+    }
+    const { count: unreadDbCount } = await unreadQuery;
+    unreadCount = Number(unreadDbCount || 0);
+
+    return {
+      notifications: rows.map((item: Record<string, unknown>) => ({
+        id: String(item?.id || ""),
+        title: String(item?.title || "Notificacao"),
+        message: item?.message || null,
+        is_read: Boolean(item?.is_read) || Boolean(item?.read_at),
+        created_at: item?.created_at || null,
+        type: item?.type || null,
+      })),
+      unread_count: unreadCount,
+      total: Number(count || rows.length),
+    };
+  }
+  return { notifications: [], unread_count: 0, total: 0 };
 }
 
 export async function markNotificationRead(id: string) {
   const currentSession = getSession();
   const rootTotvs = currentSession?.root_totvs_id || currentSession?.totvs_id;
-  try {
-    await api.markNotificationRead({ id, church_totvs_id: rootTotvs });
-  } catch (err: unknown) {
-    const e = err as { status?: number; code?: string };
-    if (e?.status === 401 || e?.status === 403 || e?.code === "unauthorized" || e?.code === "forbidden") return;
-    throw err;
+  const currentUser = getUser();
+  const userId = String(currentUser?.id || "").trim();
+
+  if (supabase && getRlsToken()) {
+    const nowIso = new Date().toISOString();
+    let query = supabase.from("notifications").update({ is_read: true, read_at: nowIso }).eq("id", id);
+
+    if (rootTotvs && userId) {
+      query = query.or(`church_totvs_id.eq.${rootTotvs},user_id.eq.${userId}`);
+    } else if (rootTotvs) {
+      query = query.eq("church_totvs_id", rootTotvs);
+    } else if (userId) {
+      query = query.eq("user_id", userId);
+    }
+
+    const { error } = await query;
+    if (!error) return;
+    throw new Error(error.message || "Erro ao marcar notificacao como lida.");
   }
+  return;
 }
 
 export async function markAllNotificationsRead() {
   const currentSession = getSession();
   const rootTotvs = currentSession?.root_totvs_id || currentSession?.totvs_id;
-  try {
-    await api.markAllNotificationsRead({ church_totvs_id: rootTotvs });
-  } catch (err: unknown) {
-    const e = err as { status?: number; code?: string };
-    if (e?.status === 401 || e?.status === 403 || e?.code === "unauthorized" || e?.code === "forbidden") return;
-    throw err;
+  const currentUser = getUser();
+  const userId = String(currentUser?.id || "").trim();
+
+  if (supabase && getRlsToken()) {
+    const nowIso = new Date().toISOString();
+    let query = supabase.from("notifications").update({ is_read: true, read_at: nowIso }).eq("is_read", false);
+
+    if (rootTotvs && userId) {
+      query = query.or(`church_totvs_id.eq.${rootTotvs},user_id.eq.${userId}`);
+    } else if (rootTotvs) {
+      query = query.eq("church_totvs_id", rootTotvs);
+    } else if (userId) {
+      query = query.eq("user_id", userId);
+    }
+
+    const { error } = await query;
+    if (!error) return;
+    throw new Error(error.message || "Erro ao marcar todas as notificacoes como lidas.");
   }
+  return;
 }
 
 export async function listAnnouncements(limit = 10): Promise<AnnouncementItem[]> {
+  if (!isMockMode() && supabase && getRlsToken()) {
+    const nowIso = new Date().toISOString();
+    const safeLimit = Math.max(1, Math.min(100, Number(limit || 10)));
+    const { data: rowsRaw, error } = await supabase
+      .from("announcements")
+      .select("id, title, type, body_text, media_url, link_url, position, starts_at, ends_at, is_active")
+      .eq("is_active", true)
+      .or(`starts_at.is.null,starts_at.lte.${nowIso}`)
+      .or(`ends_at.is.null,ends_at.gte.${nowIso}`)
+      .order("position", { ascending: true, nullsFirst: false })
+      .order("starts_at", { ascending: false, nullsFirst: false })
+      .limit(safeLimit);
+
+    if (!error) {
+      const rows = Array.isArray(rowsRaw) ? rowsRaw : [];
+      return rows.map((item: Record<string, unknown>) => ({
+        id: String(item?.id || ""),
+        title: String(item?.title || "Aviso"),
+        type: (item?.type || "text") as "text" | "image" | "video",
+        body_text: item?.body_text || null,
+        media_url: toAnnouncementMediaUrl(item?.media_url),
+        link_url: item?.link_url || null,
+        position: typeof item?.position === "number" ? item.position : null,
+        starts_at: item?.starts_at || null,
+        ends_at: item?.ends_at || null,
+        is_active: typeof item?.is_active === "boolean" ? item.is_active : true,
+      }));
+    }
+  }
+
   if (!isMockMode()) {
     const data = await api.listAnnouncements({ limit });
     const rows = Array.isArray(data?.announcements)

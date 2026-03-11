@@ -94,7 +94,7 @@ async function signAppToken(payload: { sub: string; app_role: string; active_tot
     .sign(new TextEncoder().encode(secret));
 }
 
-async function signRlsToken(payload: { sub: string; app_role: string; active_totvs_id: string }) {
+async function signRlsToken(payload: { sub: string; app_role: string; active_totvs_id: string; scope_totvs_ids: string[]; root_totvs_id: string }) {
   const secret = Deno.env.get("SUPABASE_JWT_SECRET") || "";
   if (!secret) return null;
   const now = Math.floor(Date.now() / 1000);
@@ -102,6 +102,8 @@ async function signRlsToken(payload: { sub: string; app_role: string; active_tot
     role: "authenticated",
     app_role: payload.app_role,
     active_totvs_id: payload.active_totvs_id,
+    scope_totvs_ids: payload.scope_totvs_ids,
+    root_totvs_id: payload.root_totvs_id,
     aud: "authenticated",
   })
     .setProtectedHeader({ alg: "HS256" })
@@ -153,7 +155,13 @@ Deno.serve(async (req) => {
 
     const token = await signAppToken({ sub: String(user.id), app_role: userRole, active_totvs_id: totvs_id });
     if (!token) return json({ ok: false, error: "missing_app_jwt_secret" }, 500);
-    const rls_token = await signRlsToken({ sub: String(user.id), app_role: userRole, active_totvs_id: totvs_id });
+    const rls_token = await signRlsToken({
+      sub: String(user.id),
+      app_role: userRole,
+      active_totvs_id: totvs_id,
+      scope_totvs_ids,
+      root_totvs_id,
+    });
 
     return json({
       ok: true,
@@ -173,4 +181,3 @@ Deno.serve(async (req) => {
     return json({ ok: false, error: "exception", details: String(err) }, 500);
   }
 });
-
