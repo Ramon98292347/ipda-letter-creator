@@ -1003,6 +1003,17 @@ export async function listMembers(params: MemberListParams): Promise<WorkerListR
 }
 
 export async function listWorkers(params: WorkerListParams): Promise<WorkerListResponse> {
+  if (!isMockMode() && supabase && getRlsToken()) {
+    return listMembers({
+      search: params.search,
+      minister_role: params.minister_role,
+      is_active: params.is_active,
+      roles: params.include_pastor ? ["pastor", "obreiro"] : ["obreiro"],
+      page: params.page,
+      page_size: params.page_size,
+    });
+  }
+
   if (!isMockMode()) {
     const data = await api.listWorkers({
       search: params.search || undefined,
