@@ -18,6 +18,44 @@ function json(obj: unknown, status = 200) {
 type Role = "admin" | "pastor" | "obreiro";
 type SessionClaims = { user_id: string; role: Role; active_totvs_id: string };
 type Body = { id?: string };
+type ChurchRow = { totvs_id: string; parent_totvs_id: string | null };
+
+function computeScope(rootTotvs: string, churches: ChurchRow[]): Set<string> {
+  const children = new Map<string, string[]>();
+  for (const c of churches) {
+    const p = c.parent_totvs_id || "";
+    if (!children.has(p)) children.set(p, []);
+    children.get(p)!.push(String(c.totvs_id));
+  }
+
+  const scope = new Set<string>();
+  const queue: string[] = [rootTotvs];
+  while (queue.length) {
+    const cur = queue.shift()!;
+    if (scope.has(cur)) continue;
+    scope.add(cur);
+    const kids = children.get(cur) || [];
+    for (const k of kids) queue.push(k);
+  }
+  return scope;
+}
+
+function collectAncestors(startTotvs: string, churches: ChurchRow[]): Set<string> {
+  const byId = new Map<string, string | null>();
+  for (const c of churches) byId.set(String(c.totvs_id), c.parent_totvs_id ? String(c.parent_totvs_id) : null);
+
+  const out = new Set<string>();
+  let cur = startTotvs;
+  const seen = new Set<string>();
+  while (cur && !seen.has(cur)) {
+    seen.add(cur);
+    const parent = byId.get(cur) || null;
+    if (!parent) break;
+    out.add(parent);
+    cur = parent;
+  }
+  return out;
+}
 
 async function verifySessionJWT(req: Request): Promise<SessionClaims | null> {
   const auth = req.headers.get("authorization") || "";
@@ -71,8 +109,25 @@ Deno.serve(async (req) => {
     if (!row) return json({ ok: false, error: "notification_not_found" }, 404);
 
     const isMine = String(row.user_id || "") === session.user_id;
-    const isChurch = String(row.church_totvs_id || "") === session.active_totvs_id;
-    if (!isMine && !isChurch) return json({ ok: false, error: "forbidden" }, 403);
+    let isChurchAllowed = String(row.church_totvs_id || "") === session.active_totvs_id;
+
+    // Comentario: pastor/admin podem marcar notificacoes da igreja ativa,
+    // das filhas (escopo) e tambem da cadeia acima (mae/avo).
+    if (!isChurchAllowed && (session.role === "pastor" || session.role === "admin")) {
+      const { data: allChurches, error: cErr } = await sb
+        .from("churches")
+        .select("totvs_id,parent_totvs_id");
+
+      if (cErr) return json({ ok: false, error: "db_error_scope", details: cErr.message }, 500);
+
+      const rows = (allChurches || []) as ChurchRow[];
+      const scope = computeScope(session.active_totvs_id, rows);
+      const ancestors = collectAncestors(session.active_totvs_id, rows);
+      const notifTotvs = String(row.church_totvs_id || "");
+      isChurchAllowed = scope.has(notifTotvs) || ancestors.has(notifTotvs);
+    }
+
+    if (!isMine && !isChurchAllowed) return json({ ok: false, error: "forbidden" }, 403);
 
     const { data: updated, error: updErr } = await sb
       .from("notifications")

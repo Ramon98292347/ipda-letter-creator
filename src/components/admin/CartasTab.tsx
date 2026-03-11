@@ -49,11 +49,15 @@ export function CartasTab({
   scopeTotvsIds,
   phonesByUserId,
   phonesByName,
+  viewerRole,
+  viewerUserId,
 }: {
   letters: PastorLetter[];
   scopeTotvsIds: string[];
   phonesByUserId: Record<string, string>;
   phonesByName: Record<string, string>;
+  viewerRole: "admin" | "pastor";
+  viewerUserId: string;
 }) {
   const queryClient = useQueryClient();
 
@@ -137,6 +141,11 @@ export function CartasTab({
   }
 
   function getPublicPdfUrl(letter: PastorLetter) {
+    const directUrl = String(letter.url_carta || "").trim();
+    if (directUrl.startsWith("http://") || directUrl.startsWith("https://")) {
+      return directUrl;
+    }
+
     const base = String(import.meta.env.VITE_SUPABASE_URL || "").replace(/\/$/, "");
     if (base && letter.id) {
       return `${base}/storage/v1/object/public/cartas/documentos/cartas/${letter.id}.pdf`;
@@ -152,9 +161,19 @@ export function CartasTab({
     return `${base}/storage/v1/object/public/${bucket}/${path}`;
   }
 
+  function canViewOrShare(letter: PastorLetter) {
+    // Comentario: para pastor, abrir/compartilhar apenas carta dele (preacher_user_id).
+    if (viewerRole === "pastor") {
+      const ownerId = String(letter.preacher_user_id || "").trim();
+      if (!ownerId || ownerId !== String(viewerUserId || "").trim()) return false;
+    }
+    const hasDirectUrl = String(letter.url_carta || "").trim().startsWith("http");
+    return letter.status === "LIBERADA" && (letter.url_pronta === true || hasDirectUrl);
+  }
+
   async function openPdf(letter: PastorLetter) {
-    if (!letter.storage_path) {
-      toast.error("PDF indisponível.");
+    if (!canViewOrShare(letter)) {
+      toast.error("Carta bloqueada para visualizacao.");
       return;
     }
     const url = getPublicPdfUrl(letter);
@@ -166,6 +185,10 @@ export function CartasTab({
   }
 
   async function share(letter: PastorLetter) {
+    if (!canViewOrShare(letter)) {
+      toast.error("Carta bloqueada para compartilhamento.");
+      return;
+    }
     const fromLetterPhone = String((letter as PastorLetter & { phone?: string | null }).phone || "").replace(/\D/g, "");
     const fromUserMap = String((letter.preacher_user_id && phonesByUserId[letter.preacher_user_id]) || "").replace(/\D/g, "");
     const fromNameMap = String(phonesByName[String(letter.preacher_name || "").trim().toLowerCase()] || "").replace(/\D/g, "");
@@ -224,7 +247,7 @@ export function CartasTab({
           <DropdownMenuItem onClick={() => releaseLetter(letter)} disabled={letter.status === "LIBERADA" || updatingReleaseId === letter.id}>
             Liberar carta
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => share(letter)}>
+          <DropdownMenuItem onClick={() => share(letter)} disabled={!canViewOrShare(letter)}>
             Compartilhar
           </DropdownMenuItem>
           <DropdownMenuItem className="text-rose-600 focus:text-rose-700" onClick={() => remove(letter)}>
@@ -322,7 +345,7 @@ export function CartasTab({
                   <span className="truncate">{carta.church_origin || "-"}</span>
                   <span className="truncate">{carta.church_destination || "-"}</span>
                   <div><Badge variant="outline" className={statusClass(carta.status)}>{carta.status}</Badge></div>
-                  <Button variant="outline" disabled={!carta.storage_path} onClick={() => openPdf(carta)}>
+                  <Button variant="outline" disabled={!canViewOrShare(carta)} onClick={() => openPdf(carta)}>
                     <ArrowUpRight className="mr-2 h-4 w-4" /> Abrir PDF
                   </Button>
                   <div>{renderActions(carta)}</div>
@@ -358,7 +381,7 @@ export function CartasTab({
                   <Badge variant="outline" className={statusClass(carta.status)}>{carta.status}</Badge>
                 </div>
                 <div className="mt-3 grid grid-cols-2 gap-2">
-                  <Button className="w-full bg-emerald-600 hover:bg-emerald-700" disabled={!carta.storage_path} onClick={() => openPdf(carta)}>
+                  <Button className="w-full bg-emerald-600 hover:bg-emerald-700" disabled={!canViewOrShare(carta)} onClick={() => openPdf(carta)}>
                     <ArrowUpRight className="mr-2 h-4 w-4" /> Abrir PDF
                   </Button>
                   <div className="w-full">{renderActions(carta)}</div>

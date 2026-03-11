@@ -124,7 +124,7 @@ Deno.serve(async (req) => {
     }
 
     // 3) query principal
-    function buildQuery(includeOptional = true) {
+    function buildQueryByChurch(scopeIds: string[], includeOptional = true) {
       const fields = includeOptional
         ? "id, church_totvs_id, preacher_user_id, preacher_name, minister_role, preach_date, preach_period, church_origin, church_destination, status, storage_path, url_pronta, url_carta, signer_user_id, signer_totvs_id, created_at, updated_at"
         : "id, church_totvs_id, preacher_user_id, preacher_name, minister_role, preach_date, preach_period, church_origin, church_destination, status, storage_path, signer_user_id, signer_totvs_id, created_at, updated_at";
@@ -132,42 +132,60 @@ Deno.serve(async (req) => {
       return sb
         .from("letters")
         .select(fields, { count: "exact" })
-        .in("church_totvs_id", scopeList)
+        .in("church_totvs_id", scopeIds)
         .neq("status", "EXCLUIDA");
     }
 
-    let q = buildQuery(true);
+    function buildQueryByPreacher(userId: string, includeOptional = true) {
+      const fields = includeOptional
+        ? "id, church_totvs_id, preacher_user_id, preacher_name, minister_role, preach_date, preach_period, church_origin, church_destination, status, storage_path, url_pronta, url_carta, signer_user_id, signer_totvs_id, created_at, updated_at"
+        : "id, church_totvs_id, preacher_user_id, preacher_name, minister_role, preach_date, preach_period, church_origin, church_destination, status, storage_path, signer_user_id, signer_totvs_id, created_at, updated_at";
 
-    const status = String(body.status || "").trim().toUpperCase();
-    if (status && status !== "ALL") q = q.eq("status", status);
+      return sb
+        .from("letters")
+        .select(fields, { count: "exact" })
+        .eq("preacher_user_id", userId)
+        .neq("status", "EXCLUIDA");
+    }
 
-    const ministerRole = String(body.minister_role || "").trim();
-    if (ministerRole && ministerRole.toLowerCase() !== "all") q = q.ilike("minister_role", ministerRole);
+    const applyFilters = (q: ReturnType<typeof buildQueryByChurch>) => {
+      let query = q;
 
-    const search = String(body.search || "").trim();
-    if (search) {
-      const safe = search.replace(/[%,"']/g, "").trim();
-      if (safe) {
-        q = q.or(`preacher_name.ilike.%${safe}%,church_origin.ilike.%${safe}%,church_destination.ilike.%${safe}%`);
+      const status = String(body.status || "").trim().toUpperCase();
+      if (status && status !== "ALL") query = query.eq("status", status);
+
+      const ministerRole = String(body.minister_role || "").trim();
+      if (ministerRole && ministerRole.toLowerCase() !== "all") query = query.ilike("minister_role", ministerRole);
+
+      const search = String(body.search || "").trim();
+      if (search) {
+        const safe = search.replace(/[%,"']/g, "").trim();
+        if (safe) {
+          query = query.or(`preacher_name.ilike.%${safe}%,church_origin.ilike.%${safe}%,church_destination.ilike.%${safe}%`);
+        }
       }
-    }
 
-    const quick = String(body.quick || "").trim().toLowerCase();
-    if (quick === "today") {
-      const ymd = todayYMD();
-      q = q.gte("created_at", startOfDayISO(ymd)).lte("created_at", endOfDayISO(ymd));
-    } else if (quick === "7d") {
-      const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-      q = q.gte("created_at", since);
-    } else if (quick === "30d") {
-      const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
-      q = q.gte("created_at", since);
-    }
+      const quick = String(body.quick || "").trim().toLowerCase();
+      if (quick === "today") {
+        const ymd = todayYMD();
+        query = query.gte("created_at", startOfDayISO(ymd)).lte("created_at", endOfDayISO(ymd));
+      } else if (quick === "7d") {
+        const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+        query = query.gte("created_at", since);
+      } else if (quick === "30d") {
+        const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+        query = query.gte("created_at", since);
+      }
 
-    const ds = String(body.date_start || "").trim();
-    const de = String(body.date_end || "").trim();
-    if (ds) q = q.gte("created_at", startOfDayISO(ds));
-    if (de) q = q.lte("created_at", endOfDayISO(de));
+      const ds = String(body.date_start || "").trim();
+      const de = String(body.date_end || "").trim();
+      if (ds) query = query.gte("created_at", startOfDayISO(ds));
+      if (de) query = query.lte("created_at", endOfDayISO(de));
+
+      return query;
+    };
+
+    let q = applyFilters(buildQueryByChurch(scopeList, true));
 
     // 4) regra obreiro: só vê as próprias
     if (session.role === "obreiro") {
@@ -182,33 +200,7 @@ Deno.serve(async (req) => {
         String(result.error.message || "").toLowerCase().includes("url_carta")
       )
     ) {
-      q = buildQuery(false);
-      const status2 = String(body.status || "").trim().toUpperCase();
-      if (status2 && status2 !== "ALL") q = q.eq("status", status2);
-      const ministerRole2 = String(body.minister_role || "").trim();
-      if (ministerRole2 && ministerRole2.toLowerCase() !== "all") q = q.ilike("minister_role", ministerRole2);
-      const search2 = String(body.search || "").trim();
-      if (search2) {
-        const safe = search2.replace(/[%,"']/g, "").trim();
-        if (safe) {
-          q = q.or(`preacher_name.ilike.%${safe}%,church_origin.ilike.%${safe}%,church_destination.ilike.%${safe}%`);
-        }
-      }
-      const quick2 = String(body.quick || "").trim().toLowerCase();
-      if (quick2 === "today") {
-        const ymd = todayYMD();
-        q = q.gte("created_at", startOfDayISO(ymd)).lte("created_at", endOfDayISO(ymd));
-      } else if (quick2 === "7d") {
-        const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-        q = q.gte("created_at", since);
-      } else if (quick2 === "30d") {
-        const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
-        q = q.gte("created_at", since);
-      }
-      const ds2 = String(body.date_start || "").trim();
-      const de2 = String(body.date_end || "").trim();
-      if (ds2) q = q.gte("created_at", startOfDayISO(ds2));
-      if (de2) q = q.lte("created_at", endOfDayISO(de2));
+      q = applyFilters(buildQueryByChurch(scopeList, false));
       if (session.role === "obreiro") q = q.eq("preacher_user_id", session.user_id);
       result = await q.order("created_at", { ascending: false }).range(from, to);
     }
@@ -216,6 +208,50 @@ Deno.serve(async (req) => {
     const { data, error, count } = result;
 
     if (error) return json({ ok: false, error: "db_error_list_letters", details: error.message }, 500);
+
+    // 5) Regra pastor: sempre incluir cartas dele (preacher_user_id), mesmo quando origem for igreja acima do escopo.
+    if (session.role === "pastor") {
+      let mineQuery = applyFilters(buildQueryByPreacher(session.user_id, true));
+      if (churchFilter) mineQuery = mineQuery.eq("church_totvs_id", churchFilter);
+      let mineResult = await mineQuery.order("created_at", { ascending: false });
+
+      if (
+        mineResult.error &&
+        (
+          String(mineResult.error.message || "").toLowerCase().includes("url_pronta") ||
+          String(mineResult.error.message || "").toLowerCase().includes("url_carta")
+        )
+      ) {
+        let mineFallback = applyFilters(buildQueryByPreacher(session.user_id, false));
+        if (churchFilter) mineFallback = mineFallback.eq("church_totvs_id", churchFilter);
+        mineResult = await mineFallback.order("created_at", { ascending: false });
+      }
+
+      if (mineResult.error) {
+        return json({ ok: false, error: "db_error_list_letters_mine", details: mineResult.error.message }, 500);
+      }
+
+      const merged = new Map<string, Record<string, unknown>>();
+      for (const row of (data || []) as Record<string, unknown>[]) merged.set(String(row.id || ""), row);
+      for (const row of (mineResult.data || []) as Record<string, unknown>[]) merged.set(String(row.id || ""), row);
+
+      const allRows = [...merged.values()].sort((a, b) =>
+        String(b.created_at || "").localeCompare(String(a.created_at || "")),
+      );
+      const paged = allRows.slice(from, to + 1);
+
+      return json(
+        {
+          ok: true,
+          letters: paged,
+          total: allRows.length,
+          page,
+          page_size,
+          scope_totvs_ids: scopeList,
+        },
+        200,
+      );
+    }
 
     return json(
       {

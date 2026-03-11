@@ -697,7 +697,7 @@ export async function listPastorLetters(_activeTotvsId: string, filters: PastorF
   if (!isMockMode()) {
     const payload: Record<string, unknown> = {
       page: filters.page || 1,
-      page_size: filters.pageSize || 50,
+      page_size: filters.pageSize || 500,
     };
     if (_activeTotvsId) payload.church_totvs_id = _activeTotvsId;
     if (filters.period === "today") payload.quick = "today";

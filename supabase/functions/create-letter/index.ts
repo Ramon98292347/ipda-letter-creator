@@ -104,6 +104,80 @@ function collectAncestors(startTotvs: string, churches: ChurchNode[]): Set<strin
   return out;
 }
 
+function findFirstAncestorByClass(startTotvs: string, churches: ChurchNode[], targetClass: ChurchClass): ChurchNode | null {
+  const byId = mapById(churches);
+  let cur = byId.get(startTotvs)?.parent_totvs_id || null;
+  const seen = new Set<string>();
+
+  while (cur && !seen.has(cur)) {
+    seen.add(cur);
+    const row = byId.get(cur);
+    if (!row) return null;
+    if (row.class === targetClass) return row;
+    cur = row.parent_totvs_id || null;
+  }
+  return null;
+}
+
+function resolveAllowedOriginTotvs(session: SessionClaims, activeChurch: ChurchNode, churches: ChurchNode[]): Set<string> {
+  // Comentario: regra por classe para "Igreja que faz a carta (origem)".
+  // - estadual: estadual
+  // - setorial: setorial + estadual
+  // - central: central + setorial + estadual
+  // - regional/local: central do escopo
+  // - obreiro: somente a igreja ativa
+  const allowed = new Set<string>();
+  const byId = mapById(churches);
+  const activeTotvs = session.active_totvs_id;
+  const activeClass = activeChurch.class;
+
+  if (session.role === "obreiro") {
+    allowed.add(activeTotvs);
+    return allowed;
+  }
+
+  if (!activeClass) {
+    allowed.add(activeTotvs);
+    return allowed;
+  }
+
+  if (activeClass === "estadual") {
+    allowed.add(activeTotvs);
+    return allowed;
+  }
+
+  if (activeClass === "setorial") {
+    allowed.add(activeTotvs);
+    const estadual = findFirstAncestorByClass(activeTotvs, churches, "estadual");
+    if (estadual) allowed.add(estadual.totvs_id);
+    return allowed;
+  }
+
+  if (activeClass === "central") {
+    allowed.add(activeTotvs);
+    const setorial = findFirstAncestorByClass(activeTotvs, churches, "setorial");
+    if (setorial) allowed.add(setorial.totvs_id);
+    const estadual = findFirstAncestorByClass(activeTotvs, churches, "estadual");
+    if (estadual) allowed.add(estadual.totvs_id);
+    return allowed;
+  }
+
+  if (activeClass === "regional" || activeClass === "local") {
+    const central = findFirstAncestorByClass(activeTotvs, churches, "central");
+    if (central) {
+      allowed.add(central.totvs_id);
+      return allowed;
+    }
+    // Comentario: fallback defensivo se a arvore estiver incompleta.
+    allowed.add(activeTotvs);
+    return allowed;
+  }
+
+  // Comentario: fallback geral.
+  if (byId.has(activeTotvs)) allowed.add(activeTotvs);
+  return allowed;
+}
+
 function findFirstAncestorByClassWithPastor(startTotvs: string, churches: ChurchNode[], targetClass: ChurchClass): ChurchNode | null {
   const byId = mapById(churches);
   let cur = byId.get(startTotvs)?.parent_totvs_id || null;
@@ -222,7 +296,6 @@ Deno.serve(async (req) => {
     }
 
     const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
-    const church_totvs_id = session.active_totvs_id;
 
     const { data: churchesRaw, error: churchesErr } = await sb
       .from("churches")
@@ -240,8 +313,26 @@ Deno.serve(async (req) => {
     }));
 
     const byId = mapById(churches);
-    const activeChurch = byId.get(church_totvs_id) || null;
+    const activeChurch = byId.get(session.active_totvs_id) || null;
     if (!activeChurch) return json({ ok: false, error: "church_not_found" }, 404);
+
+    // Comentario: origem permitida segue regra de classe por hierarquia.
+    const originTotvs = parseTotvsFromText(church_origin) || session.active_totvs_id;
+    let church_totvs_id = originTotvs;
+
+    if (!byId.has(church_totvs_id)) {
+      return json({ ok: false, error: "origin_church_not_found" }, 404);
+    }
+
+    const allowedOrigins = resolveAllowedOriginTotvs(session, activeChurch, churches);
+    if (!allowedOrigins.has(church_totvs_id)) {
+      return json({
+        ok: false,
+        error: "origin_out_of_allowed",
+        detail: "Origem invalida para sua classe. Use sua igreja permitida na hierarquia.",
+        allowed_origins: [...allowedOrigins],
+      }, 403);
+    }
 
     // Destino permitido = escopo (filhas) + ancestrais (mãe, avó, bisavó...)
     const scope = computeScope(church_totvs_id, churches);
@@ -270,12 +361,32 @@ Deno.serve(async (req) => {
 
     const { data: pastorUser, error: pErr } = await sb
       .from("users")
-      .select("id, full_name, signature_url, stamp_pastor_url")
+      .select("id, full_name, phone, email, signature_url, stamp_pastor_url")
       .eq("id", signerPastorId)
       .maybeSingle();
 
     if (pErr) return json({ ok: false, error: "db_error_pastor", details: pErr.message }, 500);
     if (!pastorUser) return json({ ok: false, error: "pastor_not_found" }, 404);
+
+    // Comentario: dados de quem esta logado e emitindo a carta.
+    const { data: actorUser } = await sb
+      .from("users")
+      .select("id, full_name, phone, email, minister_role")
+      .eq("id", session.user_id)
+      .maybeSingle();
+
+    // Comentario: dados do pastor da igreja de origem escolhida.
+    const originChurch = byId.get(church_totvs_id) || null;
+    const originPastorId = String(originChurch?.pastor_user_id || "").trim();
+    let originPastorUser: Record<string, unknown> | null = null;
+    if (originPastorId) {
+      const { data } = await sb
+        .from("users")
+        .select("id, full_name, phone, email")
+        .eq("id", originPastorId)
+        .maybeSingle();
+      originPastorUser = (data as Record<string, unknown> | null) || null;
+    }
 
     // Limite semanal por igreja emissora
     const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
@@ -292,6 +403,8 @@ Deno.serve(async (req) => {
     let preacher_user_id: string | null = body.preacher_user_id ?? null;
     let preacher_name = String(body.preacher_name || "").trim();
     let minister_role = String(body.minister_role || "").trim();
+    let preacher_phone = String(body.phone || "").trim() || null;
+    let preacher_email = String(body.email || "").trim() || null;
 
     // Regra: inicia BLOQUEADO para todos; libera direto se can_create_released_letter=true do pregador
     let status = "BLOQUEADO";
@@ -300,7 +413,7 @@ Deno.serve(async (req) => {
     if (session.role === "obreiro") {
       const { data: me, error: meErr } = await sb
         .from("users")
-        .select("id, full_name, minister_role, can_create_released_letter")
+        .select("id, full_name, minister_role, phone, email, can_create_released_letter")
         .eq("id", session.user_id)
         .maybeSingle();
 
@@ -310,6 +423,8 @@ Deno.serve(async (req) => {
       preacher_user_id = String(me.id);
       preacher_name = String(me.full_name || "").trim();
       minister_role = String(me.minister_role || "").trim();
+      preacher_phone = String((me as Record<string, unknown>).phone || "").trim() || null;
+      preacher_email = String((me as Record<string, unknown>).email || "").trim() || null;
 
       if (!preacher_name) return json({ ok: false, error: "missing_preacher_name_in_profile" }, 400);
       if (!minister_role) return json({ ok: false, error: "missing_minister_role_in_profile" }, 400);
@@ -324,12 +439,14 @@ Deno.serve(async (req) => {
 
       const { data: target, error: targetErr } = await sb
         .from("users")
-        .select("id, can_create_released_letter")
+        .select("id, phone, email, can_create_released_letter")
         .eq("id", preacher_user_id)
         .maybeSingle();
 
       if (targetErr) return json({ ok: false, error: "db_error_target_user", details: targetErr.message }, 500);
       canDirectRelease = Boolean((target as Record<string, unknown> | null)?.can_create_released_letter);
+      if (!preacher_phone) preacher_phone = String((target as Record<string, unknown> | null)?.phone || "").trim() || null;
+      if (!preacher_email) preacher_email = String((target as Record<string, unknown> | null)?.email || "").trim() || null;
     }
 
     if (canDirectRelease) status = "LIBERADA";
@@ -360,6 +477,8 @@ Deno.serve(async (req) => {
         preach_period,
         church_origin,
         church_destination,
+        phone: preacher_phone,
+        email: preacher_email,
         storage_path: null,
         status,
         signer_user_id: signerPastorId,
@@ -381,12 +500,34 @@ Deno.serve(async (req) => {
       preach_period: created.preach_period,
       church_origin: created.church_origin,
       church_destination: created.church_destination,
+      phone: preacher_phone,
+      email: preacher_email,
       created_by_user_id: session.user_id,
       created_by_role: session.role,
+      actor_user: {
+        id: String((actorUser as Record<string, unknown> | null)?.id || session.user_id),
+        full_name: String((actorUser as Record<string, unknown> | null)?.full_name || ""),
+        phone: String((actorUser as Record<string, unknown> | null)?.phone || "") || null,
+        email: String((actorUser as Record<string, unknown> | null)?.email || "") || null,
+        minister_role: String((actorUser as Record<string, unknown> | null)?.minister_role || "") || null,
+      },
+      origin_church: {
+        totvs_id: church_totvs_id,
+        church_name: originChurch?.church_name || null,
+        church_class: originChurch?.class || null,
+      },
+      origin_pastor: {
+        id: originPastorId || null,
+        full_name: String(originPastorUser?.full_name || "") || null,
+        phone: String(originPastorUser?.phone || "") || null,
+        email: String(originPastorUser?.email || "") || null,
+      },
       signature_url: (pastorUser as Record<string, unknown>).signature_url ?? null,
       stamp_pastor_url: (pastorUser as Record<string, unknown>).stamp_pastor_url ?? null,
       stamp_church_url: signerChurch.stamp_church_url ?? null,
       pastor_name: (pastorUser as Record<string, unknown>).full_name ?? null,
+      pastor_phone: (pastorUser as Record<string, unknown>).phone ?? null,
+      pastor_email: (pastorUser as Record<string, unknown>).email ?? null,
       church_name: signerChurch.church_name ?? null,
       signer_totvs_id: signerChurch.totvs_id,
       signer_class: signerChurch.class,
@@ -398,30 +539,70 @@ Deno.serve(async (req) => {
     let n8nResponse: unknown = null;
 
     // Só dispara quando estiver liberada
-    if (status === "LIBERADA") {
+    // Comentario: sempre envia para geracao do PDF.
+    // A liberacao para visualizar/compartilhar continua pela regra de status/url_pronta.
+    try {
+      const resp = await fetch(N8N_WEBHOOK_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(n8nPayload),
+      });
+      n8nStatus = resp.status;
+      const text = await resp.text();
       try {
-        const resp = await fetch(N8N_WEBHOOK_URL, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(n8nPayload),
-        });
-        n8nStatus = resp.status;
-        const text = await resp.text();
-        try {
-          n8nResponse = JSON.parse(text);
-        } catch {
-          n8nResponse = { raw: text };
-        }
-        n8nOk = resp.ok;
-      } catch (e) {
-        n8nOk = false;
-        n8nResponse = { error: String(e) };
+        n8nResponse = JSON.parse(text);
+      } catch {
+        n8nResponse = { raw: text };
       }
-    } else {
-      n8nResponse = { skipped: true, reason: "letter_blocked_waiting_unlock" };
+      n8nOk = resp.ok;
+    } catch (e) {
+      n8nOk = false;
+      n8nResponse = { error: String(e) };
     }
 
-    return json({ ok: true, letter: created, n8n: { ok: n8nOk, status: n8nStatus, response: n8nResponse } }, 200);
+    // Comentario: gera notificacao para o pastor assinante e para o feed da igreja.
+    const notificationTitle = status === "LIBERADA" ? "Carta liberada criada" : "Nova carta aguardando liberacao";
+    const notificationMessage = `${preacher_name} - ${created.preach_date} (${created.preach_period})`;
+    try {
+      await sb.from("notifications").insert([
+        {
+          church_totvs_id,
+          user_id: signerPastorId,
+          type: "LETTER_CREATED",
+          title: notificationTitle,
+          message: notificationMessage,
+          is_read: false,
+          related_id: String(created.id),
+          data: {
+            letter_id: created.id,
+            status: created.status,
+            preacher_name,
+            preacher_user_id,
+            phone: preacher_phone,
+            email: preacher_email,
+          },
+        },
+        {
+          church_totvs_id,
+          user_id: null,
+          type: "LETTER_CREATED",
+          title: notificationTitle,
+          message: notificationMessage,
+          is_read: false,
+          related_id: String(created.id),
+          data: {
+            letter_id: created.id,
+            status: created.status,
+            preacher_name,
+            preacher_user_id,
+          },
+        },
+      ]);
+    } catch {
+      // Comentario: notificacao nao pode quebrar criacao da carta.
+    }
+
+return json({ ok: true, letter: created, n8n: { ok: n8nOk, status: n8nStatus, response: n8nResponse } }, 200);
   } catch (err) {
     return json({ ok: false, error: "exception", details: String(err) }, 500);
   }

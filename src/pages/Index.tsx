@@ -149,6 +149,63 @@ const Index = () => {
   const pastorResponsavel = pastorResponsavelData?.full_name || "";
   const telefonePastorResponsavel = pastorResponsavelData?.phone || "";
 
+  const allowedOriginChurches = useMemo(() => {
+    if (!activeTotvsForPastor) return churches;
+
+    const byTotvs = new Map<string, Church>();
+    churches.forEach((c) => {
+      const id = String(c.codigoTotvs || "").trim();
+      if (id) byTotvs.set(id, c);
+    });
+
+    const active = byTotvs.get(activeTotvsForPastor);
+    if (!active) return churches;
+
+    const getParent = (totvs: string) => String((byTotvs.get(totvs) as unknown as { parentTotvsId?: string } | undefined)?.parentTotvsId || "").trim();
+    const getClass = (totvs: string) =>
+      String((byTotvs.get(totvs) as unknown as { classificacao?: string } | undefined)?.classificacao || "").toLowerCase().trim();
+
+    const allowed = new Set<string>();
+    const activeClass = String(
+      (active as unknown as { classificacao?: string })?.classificacao || session?.church_class || "",
+    ).toLowerCase().trim();
+
+    if (role === "obreiro") {
+      allowed.add(activeTotvsForPastor);
+    } else {
+      if (activeClass === "setorial") {
+        allowed.add(activeTotvsForPastor);
+        const parent = getParent(activeTotvsForPastor);
+        if (parent) allowed.add(parent); // estadual
+      } else if (activeClass === "central") {
+        allowed.add(activeTotvsForPastor);
+        const setorial = getParent(activeTotvsForPastor);
+        if (setorial) allowed.add(setorial);
+        const estadual = setorial ? getParent(setorial) : "";
+        if (estadual) allowed.add(estadual);
+      } else if (activeClass === "regional" || activeClass === "local") {
+        let cursor = activeTotvsForPastor;
+        const seen = new Set<string>();
+        while (cursor && !seen.has(cursor)) {
+          seen.add(cursor);
+          const parent = getParent(cursor);
+          if (!parent) break;
+          if (getClass(parent) === "central") {
+            allowed.add(parent); // para regional/local usa central
+            break;
+          }
+          cursor = parent;
+        }
+        if (allowed.size === 0) allowed.add(activeTotvsForPastor);
+      } else {
+        allowed.add(activeTotvsForPastor);
+      }
+    }
+
+    const result = churches.filter((c) => allowed.has(String(c.codigoTotvs || "").trim()));
+    return result.length ? result : churches;
+  }, [churches, activeTotvsForPastor, role, session?.church_class]);
+
   const brToIso = (br: string) => {
     try {
       const d = parse(br, "dd/MM/yyyy", new Date());
@@ -271,6 +328,17 @@ const Index = () => {
     if (telefoneUsuarioLogado) setValue("telefone", telefoneUsuarioLogado, { shouldValidate: true });
     if (usuario.nome) setValue("pregadorNome", usuario.nome, { shouldValidate: true });
   }, [usuario, setValue, telefoneUsuarioLogado]);
+
+  useEffect(() => {
+    if (!allowedOriginChurches.length) return;
+    const currentTotvs = String(igrejaOrigem?.codigoTotvs || "").trim();
+    const exists = allowedOriginChurches.some((c) => String(c.codigoTotvs || "").trim() === currentTotvs);
+    if (exists) return;
+
+    const fallback = allowedOriginChurches[0];
+    setIgrejaOrigem(fallback);
+    setValue("origemId", fallback.id, { shouldValidate: true });
+  }, [allowedOriginChurches, igrejaOrigem?.codigoTotvs, setValue]);
 
   const onSubmit = async (values: FormData) => {
     if (!preachPeriod) {
@@ -420,7 +488,7 @@ const Index = () => {
                 <ChurchSearch
                   label="Igreja que faz a carta (origem)"
                   placeholder="Buscar por nome ou código TOTVS"
-                  churches={churches}
+                  churches={allowedOriginChurches}
                   onSelect={(c) => {
                     setIgrejaOrigem(c);
                     setValue("origemId", c.id, { shouldValidate: true });

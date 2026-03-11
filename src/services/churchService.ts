@@ -3,6 +3,7 @@ import { supabase } from "@/lib/supabase";
 
 type IgrejaRow = {
   totvs_id: string;
+  parent_totvs_id: string | null;
   church_name: string;
   class: string | null;
 };
@@ -25,7 +26,7 @@ export async function fetchChurches() {
   // Comentário: usa a tabela nova `churches` (não usar legado `igreja`).
   const { data, error } = await supabase
     .from("churches")
-    .select("totvs_id,church_name,class");
+    .select("totvs_id,parent_totvs_id,church_name,class");
 
   if (error || !Array.isArray(data)) return igrejasMock;
 
@@ -38,6 +39,7 @@ export async function fetchChurches() {
     carimboIgreja: "",
     carimboPastor: "",
     classificacao: d.class ?? undefined,
+    parentTotvsId: d.parent_totvs_id ?? undefined,
   }));
 }
 

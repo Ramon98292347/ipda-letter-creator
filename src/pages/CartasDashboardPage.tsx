@@ -74,10 +74,19 @@ export default function CartasDashboardPage() {
   const { data: letters = [], isLoading: loadingLetters, isFetching: fetchingLetters } = useQuery({
     queryKey: ["cartas-dashboard-letters", effectiveScopeTotvsIds.join("|")],
     queryFn: async () => {
+      // Comentario: para pastor, uma consulta unica ja traz escopo + cartas proprias (preacher_user_id).
+      if (roleMode === "pastor") {
+        return listPastorLetters("", {
+          period: "custom",
+          pageSize: 500,
+        });
+      }
+
       const data = await Promise.all(
         effectiveScopeTotvsIds.map((totvs) =>
           listPastorLetters(totvs, {
             period: "custom",
+            pageSize: 500,
           }),
         ),
       );
@@ -195,7 +204,14 @@ export default function CartasDashboardPage() {
       </section>
 
       <div className="mt-5">
-        <CartasTab letters={letters} scopeTotvsIds={effectiveScopeTotvsIds} phonesByUserId={phonesByUserId} phonesByName={phonesByName} />
+        <CartasTab
+          letters={letters}
+          scopeTotvsIds={effectiveScopeTotvsIds}
+          phonesByUserId={phonesByUserId}
+          phonesByName={phonesByName}
+          viewerRole={roleMode as "admin" | "pastor"}
+          viewerUserId={String(usuario?.id || "")}
+        />
       </div>
     </ManagementShell>
   );

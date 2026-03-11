@@ -58,6 +58,11 @@ function getAddressField(addressJson: unknown, key: string) {
   return String(address[key] || "");
 }
 
+function isLetterReadyForView(letter: PastorLetter) {
+  const readyByUrl = String(letter.url_carta || "").trim().startsWith("http");
+  return letter.status === "LIBERADA" && (letter.url_pronta === true || readyByUrl);
+}
+
 // Comentario: dashboard do obreiro padronizado com o mesmo layout SaaS do sistema.
 export default function UsuarioDashboard() {
   const nav = useNavigate();
@@ -275,7 +280,7 @@ export default function UsuarioDashboard() {
 
 async function openPdf(letter: PastorLetter) {
     if (isCadastroPendente) return toast.error("Cadastro pendente. Procure a secretaria da igreja.");
-    if (letter.status !== "LIBERADA" && !hasDirectRelease) return toast.error("Carta bloqueada.");
+    if (!isLetterReadyForView(letter)) return toast.error("Carta bloqueada para visualizacao.");
     const directUrl = String(letter.url_carta || "").trim();
     if (directUrl.startsWith("http://") || directUrl.startsWith("https://")) {
       window.open(directUrl, "_blank");
@@ -293,7 +298,7 @@ async function openPdf(letter: PastorLetter) {
 
   async function shareLetter(letter: PastorLetter) {
     if (isCadastroPendente) return toast.error("Cadastro pendente. Compartilhamento bloqueado.");
-    if (letter.status !== "LIBERADA" && !hasDirectRelease) return toast.error("Carta bloqueada.");
+    if (!isLetterReadyForView(letter)) return toast.error("Carta bloqueada para compartilhamento.");
     const directUrl = String(letter.url_carta || "").trim();
     if (directUrl.startsWith("http://") || directUrl.startsWith("https://")) {
       window.open(`https://wa.me/?text=${encodeURIComponent(`Carta de pregacao: ${directUrl}`)}`, "_blank");
@@ -479,8 +484,7 @@ async function openPdf(letter: PastorLetter) {
 
             <div className="space-y-3 md:hidden">
               {filteredLetters.map((letter) => {
-                const canOpen =
-                  (letter.status === "LIBERADA" || (hasDirectRelease && !["BLOQUEADO", "AGUARDANDO_LIBERACAO"].includes(letter.status)));
+                const canOpen = isLetterReadyForView(letter);
                 const canRequest = !hasDirectRelease && (letter.status === "AUTORIZADO" || letter.status === "AGUARDANDO_LIBERACAO");
                 return (
                   <Card key={letter.id} className="border border-slate-200">
@@ -526,8 +530,7 @@ async function openPdf(letter: PastorLetter) {
                   <span>Acoes</span>
                 </div>
                 {filteredLetters.map((letter) => {
-                  const canOpen =
-                    (letter.status === "LIBERADA" || (hasDirectRelease && !["BLOQUEADO", "AGUARDANDO_LIBERACAO"].includes(letter.status)));
+                  const canOpen = isLetterReadyForView(letter);
                   const canRequest = !hasDirectRelease && (letter.status === "AUTORIZADO" || letter.status === "AGUARDANDO_LIBERACAO");
                   return (
                     <div key={letter.id} className="grid grid-cols-[120px_120px_180px_180px_120px_1fr] items-center border-b px-4 py-3 text-sm">
