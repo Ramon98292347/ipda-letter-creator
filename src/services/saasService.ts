@@ -1998,6 +1998,33 @@ export async function softDeleteLetter(letterId: string) {
 export async function getSignedPdfUrl(value: string) {
   if (!value) return null;
   if (value.startsWith("http")) return value;
+  if (!isMockMode() && supabase && getRlsToken()) {
+    const letterId = String(value || "").trim();
+    const { data, error } = await supabase
+      .from("letters")
+      .select("url_carta, storage_path")
+      .eq("id", letterId)
+      .maybeSingle();
+
+    if (!error && data) {
+      const row = data as Record<string, unknown>;
+      const directUrl = String(row.url_carta || "").trim();
+      if (directUrl.startsWith("http://") || directUrl.startsWith("https://")) {
+        return directUrl;
+      }
+
+      const storagePath = String(row.storage_path || "").trim();
+      if (storagePath.startsWith("http://") || storagePath.startsWith("https://")) {
+        return storagePath;
+      }
+      if (storagePath) {
+        const base = String(import.meta.env.VITE_SUPABASE_URL || "").replace(/\/$/, "");
+        const bucket = String(import.meta.env.VITE_LETTERS_BUCKET || "cartas").trim();
+        const path = storagePath.replace(/^\/+/, "");
+        if (base && bucket && path) return `${base}/storage/v1/object/public/${bucket}/${path}`;
+      }
+    }
+  }
   if (!isMockMode()) {
     const data = await api.getLetterPdfUrl({ letter_id: value });
     return String(data?.url || data?.signed_url || data?.signedUrl || "");
