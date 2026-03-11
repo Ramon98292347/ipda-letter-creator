@@ -1,4 +1,4 @@
-﻿import { useMemo } from "react";
+﻿import { useMemo, useState } from "react";
 import { useNavigate, Navigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { CalendarDays, FileText, LineChart, Users } from "lucide-react";
@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { useUser } from "@/context/UserContext";
 import { getPastorMetrics, listChurchesInScope, listMembers, listPastorLetters } from "@/services/saasService";
 import { PageLoading } from "@/components/shared/PageLoading";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 function KpiCard({
   label,
@@ -38,6 +39,7 @@ function KpiCard({
 export default function CartasDashboardPage() {
   const nav = useNavigate();
   const { usuario, session } = useUser();
+  const [selectedChurchTotvs, setSelectedChurchTotvs] = useState<string>("all");
 
   const role = String(usuario?.role || "").toLowerCase();
   if (role === "obreiro") {
@@ -54,9 +56,9 @@ export default function CartasDashboardPage() {
   }, [session?.scope_totvs_ids, usuario?.totvs_access, activeTotvsId]);
 
   const { data: churchesInScope = [] } = useQuery({
-    queryKey: ["cartas-dashboard-scope", activeTotvsId],
-    queryFn: () => listChurchesInScope(1, 1000, activeTotvsId || undefined),
-    enabled: Boolean(activeTotvsId),
+    queryKey: ["cartas-dashboard-scope", activeTotvsId, roleMode],
+    queryFn: () => (roleMode === "admin" ? listChurchesInScope(1, 1000) : listChurchesInScope(1, 1000, activeTotvsId || undefined)),
+    enabled: Boolean(activeTotvsId) || roleMode === "admin",
   });
 
   const effectiveScopeTotvsIds = useMemo(() => {
@@ -65,15 +67,17 @@ export default function CartasDashboardPage() {
     return scopeTotvsIds;
   }, [churchesInScope, scopeTotvsIds]);
   const allowScopeView = roleMode === "admin" || effectiveScopeTotvsIds.length > 1;
+  const selectedScopeForLetters =
+    roleMode === "admin" && selectedChurchTotvs !== "all" ? [selectedChurchTotvs] : effectiveScopeTotvsIds;
 
   const { data: metrics, isLoading: loadingMetrics, isFetching: fetchingMetrics } = useQuery({
-    queryKey: ["cartas-dashboard-metrics", effectiveScopeTotvsIds.join("|")],
+    queryKey: ["cartas-dashboard-metrics", selectedScopeForLetters.join("|")],
     queryFn: () => getPastorMetrics(),
-    enabled: effectiveScopeTotvsIds.length > 0,
+    enabled: selectedScopeForLetters.length > 0,
   });
 
   const { data: letters = [], isLoading: loadingLetters, isFetching: fetchingLetters } = useQuery({
-    queryKey: ["cartas-dashboard-letters", effectiveScopeTotvsIds.join("|")],
+    queryKey: ["cartas-dashboard-letters", selectedScopeForLetters.join("|"), roleMode, selectedChurchTotvs],
     queryFn: async () => {
       // Comentario: para pastor, uma consulta unica ja traz escopo + cartas proprias (preacher_user_id).
       if (roleMode === "pastor") {
@@ -84,7 +88,7 @@ export default function CartasDashboardPage() {
       }
 
       const data = await Promise.all(
-        effectiveScopeTotvsIds.map((totvs) =>
+        selectedScopeForLetters.map((totvs) =>
           listPastorLetters(totvs, {
             period: "custom",
             pageSize: 500,
@@ -95,13 +99,19 @@ export default function CartasDashboardPage() {
       data.flat().forEach((item) => map.set(item.id, item));
       return Array.from(map.values());
     },
-    enabled: effectiveScopeTotvsIds.length > 0,
+    enabled: selectedScopeForLetters.length > 0,
   });
 
   const { data: membrosRes, isLoading: loadingMembers, isFetching: fetchingMembers } = useQuery({
-    queryKey: ["cartas-dashboard-members", effectiveScopeTotvsIds.join("|")],
-    queryFn: () => listMembers({ page: 1, page_size: 300, roles: ["pastor", "obreiro"] }),
-    enabled: effectiveScopeTotvsIds.length > 0,
+    queryKey: ["cartas-dashboard-members", selectedScopeForLetters.join("|"), selectedChurchTotvs],
+    queryFn: () =>
+      listMembers({
+        page: 1,
+        page_size: 300,
+        roles: ["pastor", "obreiro"],
+        church_totvs_id: roleMode === "admin" && selectedChurchTotvs !== "all" ? selectedChurchTotvs : undefined,
+      }),
+    enabled: selectedScopeForLetters.length > 0,
   });
 
   const loadingPage =
@@ -188,12 +198,29 @@ export default function CartasDashboardPage() {
             <h2 className="text-4xl font-extrabold tracking-tight text-slate-900">Cartas</h2>
             <p className="mt-1 text-base text-slate-600">Painel de cartas e historico por periodo.</p>
           </div>
-          <Button
-            className="h-11 px-6 font-semibold text-white shadow-sm bg-blue-600 hover:bg-blue-700 border border-blue-700"
-            onClick={() => nav("/carta/formulario")}
-          >
-            Fazer carta
-          </Button>
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+            {roleMode === "admin" ? (
+              <Select value={selectedChurchTotvs} onValueChange={setSelectedChurchTotvs}>
+                <SelectTrigger className="w-full sm:w-[280px]">
+                  <SelectValue placeholder="Filtrar por igreja" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas as igrejas</SelectItem>
+                  {churchesInScope.map((church) => (
+                    <SelectItem key={church.totvs_id} value={String(church.totvs_id)}>
+                      {church.totvs_id} - {church.church_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : null}
+            <Button
+              className="h-11 px-6 font-semibold text-white shadow-sm bg-blue-600 hover:bg-blue-700 border border-blue-700"
+              onClick={() => nav("/carta/formulario")}
+            >
+              Fazer carta
+            </Button>
+          </div>
         </div>
       </section>
 

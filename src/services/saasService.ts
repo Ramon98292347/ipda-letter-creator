@@ -667,6 +667,40 @@ export async function selectChurchSession(cpfInput: string, totvsId: string): Pr
 }
 
 export async function getPastorMetrics(): Promise<PastorMetrics> {
+  if (!isMockMode() && supabase && getRlsToken()) {
+    const session = getSession();
+    const scope = Array.isArray(session?.scope_totvs_ids) ? session?.scope_totvs_ids.filter(Boolean) : [];
+    const today = new Date();
+    const startToday = new Date(today.getFullYear(), today.getMonth(), today.getDate()).toISOString();
+    const start7 = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+
+    const buildLettersQuery = () => {
+      let q = supabase.from("letters").select("id", { count: "exact", head: true }).neq("status", "EXCLUIDA");
+      if (scope.length > 0) q = q.in("church_totvs_id", scope);
+      return q;
+    };
+
+    const [{ count: totalLetters }, { count: todayLetters }, { count: last7Letters }, { count: pendingRelease }] =
+      await Promise.all([
+        buildLettersQuery(),
+        buildLettersQuery().gte("created_at", startToday),
+        buildLettersQuery().gte("created_at", start7),
+        buildLettersQuery().eq("status", "AGUARDANDO_LIBERACAO"),
+      ]);
+
+    let usersQuery = supabase.from("users").select("id", { count: "exact", head: true }).eq("is_active", true);
+    if (scope.length > 0) usersQuery = usersQuery.in("default_totvs_id", scope);
+    const { count: totalWorkers } = await usersQuery;
+
+    return {
+      totalCartas: Number(totalLetters || 0),
+      cartasHoje: Number(todayLetters || 0),
+      ultimos7Dias: Number(last7Letters || 0),
+      totalObreiros: Number(totalWorkers || 0),
+      pendentesLiberacao: Number(pendingRelease || 0),
+    };
+  }
+
   if (!isMockMode()) {
     const data = await api.dashboardStats();
     const pickNumber = (...values: unknown[]) => {
@@ -715,7 +749,9 @@ export async function listPastorLetters(_activeTotvsId: string, filters: PastorF
       query = query.eq("church_totvs_id", _activeTotvsId);
     }
 
-    if (filters.period === "today" || filters.period === "7" || filters.period === "30" || filters.period === "custom") {
+    const shouldApplyQuickRange = filters.period === "today" || filters.period === "7" || filters.period === "30";
+    const shouldApplyCustomRange = filters.period === "custom" && (Boolean(filters.dateStart) || Boolean(filters.dateEnd));
+    if (shouldApplyQuickRange || shouldApplyCustomRange) {
       const now = new Date();
       const start = new Date(now);
       const end = new Date(now);

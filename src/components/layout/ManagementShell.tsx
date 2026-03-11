@@ -21,7 +21,7 @@ const pastorMenu: MenuItem[] = [
   { to: "/pastor/dashboard", label: "Dashboard", icon: FileText },
   { to: "/pastor/membros", label: "Membros", icon: Users },
   { to: "/pastor/igrejas", label: "Igrejas", icon: Building2 },
-  { to: "/admin/cartas", label: "Cartas", icon: FileText },
+  { to: "/carta", label: "Cartas", icon: FileText },
   { to: "/divulgacao", label: "Divulgacao", icon: Megaphone },
   { to: "/config", label: "Configuracoes", icon: Settings },
 ];
