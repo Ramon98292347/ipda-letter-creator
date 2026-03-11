@@ -146,6 +146,16 @@ const App = () => (
               }
             />
             <Route
+              path="/admin/cartas"
+              element={
+                <RequireRole role="admin">
+                  <Suspense fallback={<div />}>
+                    <CartasDashboardPage />
+                  </Suspense>
+                </RequireRole>
+              }
+            />
+            <Route
               path="/config"
               element={
                 <RequireAnyRole roles={["admin", "pastor"]}>

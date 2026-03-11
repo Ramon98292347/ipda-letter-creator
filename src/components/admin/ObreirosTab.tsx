@@ -138,15 +138,18 @@ function AvatarWithFallback({ src, alt, className }: { src?: string | null; alt:
 
 export function ObreirosTab({
   activeTotvsId,
+  churchTotvsFilter,
   forceSingleChurchFilter = false,
 }: {
   activeTotvsId: string;
+  churchTotvsFilter?: string;
   forceSingleChurchFilter?: boolean;
 }) {
   const { session, usuario } = useUser();
   const roleLower = String(usuario?.role || session?.role || "").toLowerCase();
   const churchClass = String(session?.church_class || "").toLowerCase();
-  const useScopeList = !forceSingleChurchFilter && churchClass === "estadual";
+  const selectedChurchFilter = String(churchTotvsFilter || "").trim();
+  const useScopeList = !selectedChurchFilter && !forceSingleChurchFilter && churchClass === "estadual";
   const isAdminUser = roleLower === "admin";
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
@@ -176,7 +179,7 @@ export function ObreirosTab({
         minister_role: ministerRole === "all" ? undefined : ministerRole,
         is_active: activeFilter === "all" ? undefined : activeFilter === "active",
         roles: ["pastor", "obreiro"],
-        church_totvs_id: useScopeList ? undefined : activeTotvsId || undefined,
+        church_totvs_id: selectedChurchFilter || (useScopeList ? undefined : activeTotvsId || undefined),
         page,
         page_size: pageSize,
       }),

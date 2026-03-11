@@ -990,7 +990,13 @@ export default function PastorMembrosPage() {
         </CardContent>
       </Card>
 
-      {tab === "lista" && view === "lista" ? <ObreirosTab activeTotvsId={activeTotvsId} /> : null}
+      {tab === "lista" && view === "lista" ? (
+        <ObreirosTab
+          activeTotvsId={activeTotvsId}
+          churchTotvsFilter={filterTotvs === "all" ? undefined : filterTotvs}
+          forceSingleChurchFilter={filterTotvs !== "all"}
+        />
+      ) : null}
 
       {tab === "lista" && view === "grid" ? (
         <Card className="rounded-2xl border border-slate-200 bg-white shadow-sm">
