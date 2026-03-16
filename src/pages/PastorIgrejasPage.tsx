@@ -4,7 +4,6 @@ import { Church } from "lucide-react";
 import { ManagementShell } from "@/components/layout/ManagementShell";
 import { AdminChurchesTab } from "@/components/admin/AdminChurchesTab";
 import { listChurchesInScope, listChurchesInScopePaged } from "@/services/saasService";
-import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PageLoading } from "@/components/shared/PageLoading";
 
@@ -12,28 +11,22 @@ function KpiCard({
   title,
   value,
   subtitle,
-  tone,
+  gradient,
 }: {
   title: string;
   value: number;
   subtitle: string;
-  tone?: { bg: string; border: string; accent: string };
+  gradient: string;
 }) {
-  const bg = tone?.bg || "#FFFFFF";
-  const border = tone?.border || "#E5E7EB";
-  const accent = tone?.accent || "#2563EB";
-
   return (
-    <Card className="rounded-xl shadow-sm" style={{ backgroundColor: bg, borderColor: border }}>
-      <CardContent className="border-l-4 p-5" style={{ borderLeftColor: accent }}>
-        <div className="mb-3 flex items-center justify-between">
-          <p className="text-sm font-semibold text-slate-800">{title}</p>
-          <Church className="h-4 w-4" style={{ color: accent }} />
-        </div>
-        <p className="text-4xl font-extrabold tracking-tight text-slate-900">{value}</p>
-        <p className="mt-1 text-xs text-slate-500">{subtitle}</p>
-      </CardContent>
-    </Card>
+    <div className={`rounded-xl shadow-md bg-gradient-to-br ${gradient} p-5`}>
+      <div className="mb-3 flex items-center justify-between">
+        <p className="text-sm font-semibold text-white/80">{title}</p>
+        <Church className="h-4 w-4 text-white/70" />
+      </div>
+      <p className="text-4xl font-extrabold tracking-tight text-white">{value}</p>
+      <p className="mt-1 text-xs text-white/70">{subtitle}</p>
+    </div>
   );
 }
 
@@ -105,13 +98,13 @@ export default function PastorIgrejasPage() {
     };
   }, [filteredRowsForCounters]);
 
-  const tone = {
-    total: { bg: "#F5F3FF", border: "#DDD6FE", accent: "#7C3AED" },
-    estadual: { bg: "#EFF6FF", border: "#BFDBFE", accent: "#2563EB" },
-    setorial: { bg: "#FFFBEB", border: "#FDE68A", accent: "#CA8A04" },
-    central: { bg: "#FFF7ED", border: "#FED7AA", accent: "#EA580C" },
-    regional: { bg: "#ECFDF5", border: "#A7F3D0", accent: "#16A34A" },
-    local: { bg: "#F9FAFB", border: "#E5E7EB", accent: "#6B7280" },
+  const gradients = {
+    total: "from-purple-600 to-purple-500",
+    estadual: "from-blue-600 to-blue-500",
+    setorial: "from-amber-500 to-amber-400",
+    central: "from-orange-500 to-orange-400",
+    regional: "from-emerald-600 to-emerald-500",
+    local: "from-slate-600 to-slate-500",
   };
 
   return (
@@ -147,12 +140,12 @@ export default function PastorIgrejasPage() {
         </section>
 
         <section className="grid gap-4 md:grid-cols-3 xl:grid-cols-6">
-          <KpiCard title="Total" value={totals.total} subtitle="igrejas no escopo" tone={tone.total} />
-          <KpiCard title="Estadual" value={totals.estadual} subtitle="classe estadual" tone={tone.estadual} />
-          <KpiCard title="Setorial" value={totals.setorial} subtitle="classe setorial" tone={tone.setorial} />
-          <KpiCard title="Central" value={totals.central} subtitle="classe central" tone={tone.central} />
-          <KpiCard title="Regional" value={totals.regional} subtitle="classe regional" tone={tone.regional} />
-          <KpiCard title="Local" value={totals.local} subtitle="classe local" tone={tone.local} />
+          <KpiCard title="Total" value={totals.total} subtitle="igrejas no escopo" gradient={gradients.total} />
+          <KpiCard title="Estadual" value={totals.estadual} subtitle="classe estadual" gradient={gradients.estadual} />
+          <KpiCard title="Setorial" value={totals.setorial} subtitle="classe setorial" gradient={gradients.setorial} />
+          <KpiCard title="Central" value={totals.central} subtitle="classe central" gradient={gradients.central} />
+          <KpiCard title="Regional" value={totals.regional} subtitle="classe regional" gradient={gradients.regional} />
+          <KpiCard title="Local" value={totals.local} subtitle="classe local" gradient={gradients.local} />
         </section>
 
         <AdminChurchesTab

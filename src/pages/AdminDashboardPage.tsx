@@ -9,28 +9,28 @@ function StatCard({
   title,
   value,
   subtitle,
-  tone,
+  gradient,
   icon = "church",
 }: {
   title: string;
   value: number;
   subtitle: string;
-  tone?: { bg: string; border: string; accent: string };
+  gradient: string;
   icon?: "church" | "users";
 }) {
-  const bg = tone?.bg || "#FFFFFF";
-  const border = tone?.border || "#E5E7EB";
-  const accent = tone?.accent || "#2563EB";
-
   return (
-    <Card className="rounded-xl border shadow-sm" style={{ backgroundColor: bg, borderColor: border }}>
-      <CardContent className="border-l-4 p-5" style={{ borderLeftColor: accent }}>
+    <Card className={`rounded-xl shadow-md bg-gradient-to-br ${gradient}`}>
+      <CardContent className="p-5">
         <div className="mb-3 flex items-center justify-between">
-          <p className="text-sm font-semibold text-slate-800">{title}</p>
-          {icon === "users" ? <Users className="h-4 w-4" style={{ color: accent }} /> : <Church className="h-4 w-4" style={{ color: accent }} />}
+          <p className="text-sm font-semibold text-white/80">{title}</p>
+          {icon === "users" ? (
+            <Users className="h-5 w-5 text-white/70" />
+          ) : (
+            <Church className="h-5 w-5 text-white/70" />
+          )}
         </div>
-        <p className="text-4xl font-extrabold tracking-tight text-slate-900">{value}</p>
-        <p className="mt-1 text-xs text-slate-500">{subtitle}</p>
+        <p className="text-4xl font-extrabold tracking-tight text-white">{value}</p>
+        <p className="mt-1 text-xs text-white/70">{subtitle}</p>
       </CardContent>
     </Card>
   );
@@ -79,24 +79,6 @@ export default function AdminDashboardPage() {
     };
   }, [members]);
 
-  const churchTone = {
-    total: { bg: "#F5F3FF", border: "#DDD6FE", accent: "#7C3AED" },
-    estadual: { bg: "#EFF6FF", border: "#BFDBFE", accent: "#2563EB" },
-    setorial: { bg: "#FFFBEB", border: "#FDE68A", accent: "#CA8A04" },
-    central: { bg: "#FFF7ED", border: "#FED7AA", accent: "#EA580C" },
-    regional: { bg: "#ECFDF5", border: "#A7F3D0", accent: "#16A34A" },
-    local: { bg: "#F9FAFB", border: "#E5E7EB", accent: "#6B7280" },
-  };
-
-  const memberTone = {
-    total: { bg: "#EFF6FF", border: "#BFDBFE", accent: "#2563EB" },
-    pastores: { bg: "#EFF6FF", border: "#BFDBFE", accent: "#2563EB" },
-    obreiros: { bg: "#FFFBEB", border: "#FDE68A", accent: "#CA8A04" },
-    presbiteros: { bg: "#F5F3FF", border: "#DDD6FE", accent: "#7C3AED" },
-    diaconos: { bg: "#ECFDF5", border: "#A7F3D0", accent: "#16A34A" },
-    membrosAtivos: { bg: "#F8FAFC", border: "#E2E8F0", accent: "#334155" },
-  };
-
   return (
     <ManagementShell roleMode="admin">
       <div className="space-y-5 bg-[#F6F8FC] p-1">
@@ -109,22 +91,22 @@ export default function AdminDashboardPage() {
           <h3 className="text-2xl font-bold text-slate-900">Membros</h3>
           <p className="mt-1 text-sm text-slate-600">Indicadores de membros e cargos ministeriais.</p>
           <div className="mt-4 grid gap-4 md:grid-cols-3 xl:grid-cols-6">
-            <StatCard title="Total de membros" value={memberCounters.total} subtitle="membros no escopo" tone={memberTone.total} icon="users" />
-            <StatCard title="Pastores" value={memberCounters.pastores} subtitle="cargo pastor" tone={memberTone.pastores} icon="users" />
-            <StatCard title="Obreiros" value={memberCounters.obreiros} subtitle="cargo obreiro" tone={memberTone.obreiros} icon="users" />
-            <StatCard title="Presbiteros" value={memberCounters.presbiteros} subtitle="cargo presbitero" tone={memberTone.presbiteros} icon="users" />
-            <StatCard title="Diaconos" value={memberCounters.diaconos} subtitle="cargo diacono" tone={memberTone.diaconos} icon="users" />
-            <StatCard title="Membros ativos" value={memberCounters.membrosAtivos} subtitle="ministerio membro" tone={memberTone.membrosAtivos} icon="users" />
+            <StatCard title="Total de membros" value={memberCounters.total} subtitle="membros no escopo" gradient="from-blue-600 to-blue-500" icon="users" />
+            <StatCard title="Pastores" value={memberCounters.pastores} subtitle="cargo pastor" gradient="from-blue-600 to-blue-500" icon="users" />
+            <StatCard title="Obreiros" value={memberCounters.obreiros} subtitle="cargo obreiro" gradient="from-amber-500 to-amber-400" icon="users" />
+            <StatCard title="Presbiteros" value={memberCounters.presbiteros} subtitle="cargo presbitero" gradient="from-purple-600 to-purple-500" icon="users" />
+            <StatCard title="Diaconos" value={memberCounters.diaconos} subtitle="cargo diacono" gradient="from-emerald-600 to-emerald-500" icon="users" />
+            <StatCard title="Membros ativos" value={memberCounters.membrosAtivos} subtitle="ministerio membro" gradient="from-slate-600 to-slate-500" icon="users" />
           </div>
         </section>
 
         <section className="grid gap-4 md:grid-cols-3 xl:grid-cols-6">
-          <StatCard title="Total de igrejas" value={churchCounters.total} subtitle="igrejas cadastradas" tone={churchTone.total} />
-          <StatCard title="Estadual" value={churchCounters.estadual} subtitle="classificacao estadual" tone={churchTone.estadual} />
-          <StatCard title="Setorial" value={churchCounters.setorial} subtitle="classificacao setorial" tone={churchTone.setorial} />
-          <StatCard title="Central" value={churchCounters.central} subtitle="classificacao central" tone={churchTone.central} />
-          <StatCard title="Regional" value={churchCounters.regional} subtitle="classificacao regional" tone={churchTone.regional} />
-          <StatCard title="Local" value={churchCounters.local} subtitle="classificacao local" tone={churchTone.local} />
+          <StatCard title="Total de igrejas" value={churchCounters.total} subtitle="igrejas cadastradas" gradient="from-purple-600 to-purple-500" />
+          <StatCard title="Estadual" value={churchCounters.estadual} subtitle="classificacao estadual" gradient="from-blue-600 to-blue-500" />
+          <StatCard title="Setorial" value={churchCounters.setorial} subtitle="classificacao setorial" gradient="from-amber-500 to-amber-400" />
+          <StatCard title="Central" value={churchCounters.central} subtitle="classificacao central" gradient="from-orange-500 to-orange-400" />
+          <StatCard title="Regional" value={churchCounters.regional} subtitle="classificacao regional" gradient="from-emerald-600 to-emerald-500" />
+          <StatCard title="Local" value={churchCounters.local} subtitle="classificacao local" gradient="from-slate-600 to-slate-500" />
         </section>
 
         <Card className="border border-slate-200 bg-white">

@@ -4,7 +4,6 @@ import { useQuery } from "@tanstack/react-query";
 import { CalendarDays, FileText, LineChart, Users } from "lucide-react";
 import { ManagementShell } from "@/components/layout/ManagementShell";
 import { CartasTab } from "@/components/admin/CartasTab";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useUser } from "@/context/UserContext";
 import { getPastorMetrics, listChurchesInScope, listMembers, listPastorLetters } from "@/services/saasService";
@@ -15,23 +14,21 @@ function KpiCard({
   label,
   value,
   icon: Icon,
-  tone,
+  gradient,
 }: {
   label: string;
   value: number;
   icon: typeof FileText;
-  tone: { bg: string; border: string; accent: string };
+  gradient: string;
 }) {
   return (
-    <Card className="rounded-xl shadow-sm" style={{ backgroundColor: tone.bg, borderColor: tone.border }}>
-      <CardContent className="border-l-4 p-5" style={{ borderLeftColor: tone.accent }}>
-        <p className="flex items-center gap-2 text-sm font-semibold text-slate-800">
-          <Icon className="h-4 w-4" style={{ color: tone.accent }} />
-          {label}
-        </p>
-        <p className="mt-3 text-4xl font-extrabold text-slate-900">{value}</p>
-      </CardContent>
-    </Card>
+    <div className={`rounded-xl shadow-md bg-gradient-to-br ${gradient} p-5`}>
+      <p className="flex items-center gap-2 text-sm font-semibold text-white/80">
+        <Icon className="h-4 w-4 text-white/70" />
+        {label}
+      </p>
+      <p className="mt-3 text-4xl font-extrabold text-white">{value}</p>
+    </div>
   );
 }
 
@@ -144,11 +141,14 @@ export default function CartasDashboardPage() {
     return map;
   }, [obreiros]);
 
-  const tone = {
-    total: { bg: "#F5F3FF", border: "#DDD6FE", accent: "#7C3AED" },
-    hoje: { bg: "#EFF6FF", border: "#BFDBFE", accent: "#2563EB" },
-    seteDias: { bg: "#FFFBEB", border: "#FDE68A", accent: "#CA8A04" },
-    membros: { bg: "#F9FAFB", border: "#E5E7EB", accent: "#6B7280" },
+  const gradients = {
+    total: "from-purple-600 to-purple-500",
+    hoje: "from-sky-500 to-sky-400",
+    seteDias: "from-amber-500 to-amber-400",
+    membros: "from-slate-600 to-slate-500",
+    liberadas: "from-emerald-600 to-emerald-500",
+    bloqueadas: "from-rose-600 to-rose-500",
+    aguardando: "from-violet-600 to-violet-500",
   };
 
   const lettersStats = useMemo(() => {
@@ -253,30 +253,15 @@ export default function CartasDashboardPage() {
       </section>
 
       <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <KpiCard label="Total de cartas" value={totalCartas} icon={FileText} tone={tone.total} />
-        <KpiCard label="Cartas hoje" value={cartasHoje} icon={CalendarDays} tone={tone.hoje} />
-        <KpiCard label="Ultimos 7 dias" value={ultimos7Dias} icon={LineChart} tone={tone.seteDias} />
-        <KpiCard label="Total de membros" value={totalMembros} icon={Users} tone={tone.membros} />
+        <KpiCard label="Total de cartas" value={totalCartas} icon={FileText} gradient={gradients.total} />
+        <KpiCard label="Cartas hoje" value={cartasHoje} icon={CalendarDays} gradient={gradients.hoje} />
+        <KpiCard label="Ultimos 7 dias" value={ultimos7Dias} icon={LineChart} gradient={gradients.seteDias} />
+        <KpiCard label="Total de membros" value={totalMembros} icon={Users} gradient={gradients.membros} />
       </section>
       <section className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3">
-        <KpiCard
-          label="Cartas liberadas"
-          value={statusStats.liberadas}
-          icon={FileText}
-          tone={{ bg: "#ECFDF5", border: "#A7F3D0", accent: "#16A34A" }}
-        />
-        <KpiCard
-          label="Cartas bloqueadas"
-          value={statusStats.bloqueadas}
-          icon={FileText}
-          tone={{ bg: "#FEF2F2", border: "#FECACA", accent: "#DC2626" }}
-        />
-        <KpiCard
-          label="Aguardando liberacao"
-          value={statusStats.aguardando}
-          icon={FileText}
-          tone={{ bg: "#FFFBEB", border: "#FDE68A", accent: "#CA8A04" }}
-        />
+        <KpiCard label="Cartas liberadas" value={statusStats.liberadas} icon={FileText} gradient={gradients.liberadas} />
+        <KpiCard label="Cartas bloqueadas" value={statusStats.bloqueadas} icon={FileText} gradient={gradients.bloqueadas} />
+        <KpiCard label="Aguardando liberacao" value={statusStats.aguardando} icon={FileText} gradient={gradients.aguardando} />
       </section>
 
       <div className="mt-5">

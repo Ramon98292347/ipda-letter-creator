@@ -17,15 +17,34 @@ import { fetchAddressByCep, maskCep, onlyDigits } from "@/lib/cep";
 import {
   getPastorByTotvsPublic,
   getSignedPdfUrl,
+  listChurchesInScope,
   requestRelease,
   updateMyProfile,
   upsertStamps,
   workerDashboard,
   type PastorLetter,
 } from "@/services/saasService";
-import { Download, Eye, IdCard, MoreHorizontal, RefreshCw, Share2, Unlock } from "lucide-react";
+import { post } from "@/lib/api";
+import { Building2, CalendarDays, Download, Eye, FileText, IdCard, Loader2, MoreHorizontal, Phone, RefreshCw, Search, Share2, Unlock, UserCircle2 } from "lucide-react";
+
+type DestinationOption = {
+  totvs_id: string;
+  church_name: string;
+};
+
+type LetterFormState = {
+  igreja_destino: string;
+  igreja_destino_manual: string;
+  dia_pregacao: string;
+};
 
 type QuickRange = "today" | "7" | "15" | "30" | "all";
+
+const emptyLetterForm: LetterFormState = {
+  igreja_destino: "",
+  igreja_destino_manual: "",
+  dia_pregacao: "",
+};
 
 function statusClass(status: string) {
   if (status === "LIBERADA") return "bg-emerald-100 text-emerald-700 border-emerald-200";
@@ -96,6 +115,20 @@ export default function UsuarioDashboard() {
   const [signatureFile, setSignatureFile] = useState<File | null>(null);
   const [stampPastorFile, setStampPastorFile] = useState<File | null>(null);
   const [savingStamps, setSavingStamps] = useState(false);
+
+  // Letter creation dialog state
+  const [openLetterDialog, setOpenLetterDialog] = useState(false);
+  const [letterForm, setLetterForm] = useState<LetterFormState>(emptyLetterForm);
+  const [destinationOptions, setDestinationOptions] = useState<DestinationOption[]>([]);
+  const [searchingDestinations, setSearchingDestinations] = useState(false);
+  const [creatingLetter, setCreatingLetter] = useState(false);
+
+  const todayIso = useMemo(() => new Date().toISOString().slice(0, 10), []);
+  const maxPregacaoIso = useMemo(() => {
+    const limit = new Date();
+    limit.setDate(limit.getDate() + 30);
+    return limit.toISOString().slice(0, 10);
+  }, []);
 
   const userId = String(usuario?.id || "");
   const activeTotvs = String(session?.totvs_id || "");
@@ -332,6 +365,143 @@ async function openPdf(letter: PastorLetter) {
     await pedirLiberacao(candidate);
   }
 
+  // Load destination churches when letter dialog opens
+  useEffect(() => {
+    if (!openLetterDialog) {
+      setDestinationOptions([]);
+      return;
+    }
+    setSearchingDestinations(true);
+    listChurchesInScope(1, 1000)
+      .then((churches) => {
+        setDestinationOptions(
+          churches.map((c) => ({ totvs_id: String(c.totvs_id || ""), church_name: String(c.church_name || "") }))
+        );
+      })
+      .catch(() => {
+        setDestinationOptions([]);
+      })
+      .finally(() => setSearchingDestinations(false));
+  }, [openLetterDialog]);
+
+  const filteredDestinationOptions = useMemo(() => {
+    const term = String(letterForm.igreja_destino || "").trim().toLowerCase();
+    if (term.length < 2 || letterForm.igreja_destino_manual.trim()) return [];
+    return destinationOptions
+      .filter((item) => `${item.totvs_id} - ${item.church_name}`.toLowerCase().includes(term))
+      .slice(0, 12);
+  }, [destinationOptions, letterForm.igreja_destino, letterForm.igreja_destino_manual]);
+
+  const selectedDestination = useMemo(() => {
+    const typed = String(letterForm.igreja_destino || "").trim().toUpperCase();
+    if (!typed) return null;
+    return (
+      destinationOptions.find((item) => item.church_name.trim().toUpperCase() === typed) ||
+      destinationOptions.find((item) => item.totvs_id.trim().toUpperCase() === typed) ||
+      destinationOptions.find((item) => `${item.totvs_id} - ${item.church_name}`.trim().toUpperCase() === typed) ||
+      null
+    );
+  }, [destinationOptions, letterForm.igreja_destino]);
+
+  function normalizeManualDestination(raw: string): string {
+    return String(raw || "").trim().toUpperCase();
+  }
+
+  async function resolveManualDestination(rawValue: string): Promise<string> {
+    const normalized = normalizeManualDestination(rawValue);
+    if (!normalized) return normalized;
+
+    const totvsMatch = normalized.match(/^(\d{4,})/);
+    if (totvsMatch) {
+      const matchedScope = destinationOptions.find((c) => c.totvs_id === totvsMatch[1]);
+      if (matchedScope) return `${matchedScope.totvs_id} - ${matchedScope.church_name}`;
+    }
+
+    try {
+      const result = await post<{ ok?: boolean; churches?: Array<{ totvs_id: string; church_name: string }> }>(
+        "search-churches-public",
+        { query: rawValue, limit: 5 },
+        { skipAuth: true }
+      );
+      if (result?.churches?.length) {
+        const first = result.churches[0];
+        return `${first.totvs_id} - ${first.church_name}`;
+      }
+    } catch {
+      // silently ignore search failures
+    }
+    return normalized;
+  }
+
+  function openLetterCreationDialog() {
+    if (isCadastroPendente) {
+      toast.error("Cadastro pendente. Procure a secretaria da igreja.");
+      return;
+    }
+    const isBlocked = String(profile?.is_active ?? true) === "false" || String(usuario?.role || "").toLowerCase() === "obreiro" && false;
+    const ministerialRole = String(profile?.minister_role || usuario?.ministerial || "").trim();
+    if (!ministerialRole) {
+      toast.error("Preencha o cargo ministerial no seu cadastro antes de gerar a carta.");
+      return;
+    }
+    setLetterForm(emptyLetterForm);
+    setOpenLetterDialog(true);
+  }
+
+  async function handleCreateLetter() {
+    const ministerialRole = String(profile?.minister_role || usuario?.ministerial || "").trim();
+    const churchDestination = selectedDestination
+      ? `${selectedDestination.totvs_id} - ${selectedDestination.church_name}`
+      : normalizeManualDestination(letterForm.igreja_destino.trim() || letterForm.igreja_destino_manual);
+
+    if (!ministerialRole) {
+      toast.error("Cargo ministerial nao informado. Atualize seu cadastro.");
+      return;
+    }
+    if (!churchDestination) {
+      toast.error("Selecione ou informe a igreja de destino.");
+      return;
+    }
+    if (!letterForm.dia_pregacao) {
+      toast.error("Informe a data da pregacao.");
+      return;
+    }
+    if (letterForm.dia_pregacao < todayIso || letterForm.dia_pregacao > maxPregacaoIso) {
+      toast.error("A data da pregacao deve ficar entre hoje e os proximos 30 dias.");
+      return;
+    }
+
+    setCreatingLetter(true);
+    try {
+      await post("create-letter", {
+        church_destination: churchDestination,
+        manual_destination: !selectedDestination || !!letterForm.igreja_destino_manual.trim(),
+        preacher_name: String(profile?.full_name || usuario?.nome || ""),
+        minister_role: ministerialRole,
+        preach_date: letterForm.dia_pregacao,
+        preach_period: "NOITE",
+        church_origin: String(session?.totvs_id ? `${session.totvs_id} ${session.church_name || ""}`.trim() : session?.church_name || ""),
+        preacher_user_id: userId,
+        phone: String(profile?.phone || usuario?.telefone || ""),
+        email: String(profile?.email || "") || null,
+      });
+      toast.success("Carta enviada com sucesso.");
+      setOpenLetterDialog(false);
+      await queryClient.invalidateQueries({ queryKey: ["worker-dashboard"] });
+    } catch (err) {
+      toast.error(String((err as Error)?.message || "Nao foi possivel enviar a carta."));
+    } finally {
+      setCreatingLetter(false);
+    }
+  }
+
+  function formatDateBr(value: string) {
+    if (!value) return "-";
+    const [y, m, d] = value.split("-");
+    if (!y || !m || !d) return value;
+    return `${d}/${m}/${y}`;
+  }
+
   async function baixarPrimeiraLiberada() {
     const candidate = letters.find((l) => l.status === "LIBERADA");
     if (!candidate) return toast.error("Nenhuma carta liberada para baixar.");
@@ -395,7 +565,7 @@ async function openPdf(letter: PastorLetter) {
             </div>
           ) : null}
           <div className="grid gap-2 md:grid-cols-3">
-            <Button onClick={() => nav("/carta/formulario")} className="w-full bg-blue-600 hover:bg-blue-700" disabled={isCadastroPendente}>
+            <Button onClick={openLetterCreationDialog} className="w-full bg-blue-600 hover:bg-blue-700" disabled={isCadastroPendente}>
               Pedir carta
             </Button>
             <Button variant="outline" onClick={pedirPrimeiraLiberacao} className="w-full" disabled={isCadastroPendente || hasDirectRelease}>
@@ -560,6 +730,215 @@ async function openPdf(letter: PastorLetter) {
           </CardContent>
         </Card>
       </div>
+
+      {/* Letter Creation Dialog */}
+      <Dialog open={openLetterDialog} onOpenChange={setOpenLetterDialog}>
+        <DialogContent className="max-h-[90vh] w-[calc(100vw-1rem)] max-w-6xl overflow-y-auto p-3 sm:p-6">
+          <DialogHeader>
+            <DialogTitle>Registro de Carta de Pregacao</DialogTitle>
+            <DialogDescription>Preencha os dados para emissao da carta.</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 sm:gap-6 xl:grid-cols-[1.35fr_1fr]">
+            {/* Form card */}
+            <Card className="border-slate-200 shadow-sm">
+              <CardHeader className="space-y-1">
+                <CardTitle className="flex items-start gap-2 text-xl text-slate-900 sm:items-center sm:text-2xl">
+                  <FileText className="h-6 w-6 text-blue-600" /> Registro de Carta de Pregacao
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-5">
+                <div className="space-y-2">
+                  <Label>Nome do pregador</Label>
+                  <Input value={profile?.full_name || usuario?.nome || ""} disabled />
+                </div>
+                <div className="space-y-2">
+                  <Label>Telefone</Label>
+                  <Input value={profile?.phone || usuario?.telefone || ""} disabled placeholder="Telefone nao informado" />
+                </div>
+                <div className="space-y-2">
+                  <Label>Igreja que faz a carta (origem)</Label>
+                  <div className="relative">
+                    <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                    <Input value={session?.church_name || church?.church_name || ""} disabled className="pl-10" />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label>Funcao ministerial</Label>
+                  <Input value={profile?.minister_role || usuario?.ministerial || "Nao informado"} disabled />
+                </div>
+                <div className="space-y-2">
+                  <Label>Igreja que vai pregar (destino)</Label>
+                  <Select
+                    value=""
+                    onValueChange={(value) =>
+                      setLetterForm((prev) => ({
+                        ...prev,
+                        igreja_destino: value,
+                        igreja_destino_manual: "",
+                      }))
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione uma igreja sugerida" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {destinationOptions.map((item) => {
+                        const value = `${item.totvs_id} - ${item.church_name}`;
+                        return (
+                          <SelectItem key={item.totvs_id} value={value}>
+                            {value}
+                          </SelectItem>
+                        );
+                      })}
+                    </SelectContent>
+                  </Select>
+                  <div className="relative">
+                    <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                    <Input
+                      value={letterForm.igreja_destino}
+                      onChange={(e) =>
+                        setLetterForm((prev) => ({
+                          ...prev,
+                          igreja_destino: e.target.value,
+                          igreja_destino_manual: "",
+                        }))
+                      }
+                      placeholder="Digite o TOTVS ou nome da igreja destino"
+                      disabled={!!letterForm.igreja_destino_manual.trim()}
+                      className="pl-10"
+                    />
+                  </div>
+                  {filteredDestinationOptions.length > 0 && (
+                    <div className="max-h-56 overflow-y-auto rounded-md border border-slate-200 bg-white shadow-sm">
+                      {filteredDestinationOptions.map((item) => (
+                        <button
+                          key={item.totvs_id}
+                          type="button"
+                          className="flex w-full items-start justify-between gap-3 border-b border-slate-100 px-3 py-2 text-left text-sm last:border-b-0 hover:bg-slate-50"
+                          onClick={() =>
+                            setLetterForm((prev) => ({
+                              ...prev,
+                              igreja_destino: `${item.totvs_id} - ${item.church_name}`,
+                              igreja_destino_manual: "",
+                            }))
+                          }
+                        >
+                          <span className="font-medium text-slate-900">{item.totvs_id} - {item.church_name}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {searchingDestinations && (
+                    <p className="text-xs text-slate-500">Buscando igrejas...</p>
+                  )}
+                  <p className="text-xs text-slate-500">
+                    Se escolher uma igreja sugerida, a origem segue a sua igreja atual. Se digitar um destino fora das opcoes conhecidas, o sistema trata como manual.
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <Label>Outros (se nao encontrar)</Label>
+                  <Input
+                    value={letterForm.igreja_destino_manual}
+                    onChange={(e) => setLetterForm((prev) => ({ ...prev, igreja_destino_manual: e.target.value, igreja_destino: "" }))}
+                    onBlur={async (e) => {
+                      const resolved = await resolveManualDestination(e.target.value);
+                      setLetterForm((prev) => ({ ...prev, igreja_destino_manual: resolved, igreja_destino: "" }));
+                    }}
+                    placeholder="Ex.: 9901 - PIUMA-NITEROI"
+                    disabled={!!letterForm.igreja_destino.trim()}
+                  />
+                  <p className="text-xs text-slate-500">
+                    Modelo: <span className="font-medium">9901 - PIUMA-NITEROI</span>. Se digitar diferente, o sistema tenta padronizar automaticamente.
+                  </p>
+                </div>
+                <div className="grid gap-3 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label>Data da pregacao</Label>
+                    <Input
+                      type="date"
+                      min={todayIso}
+                      max={maxPregacaoIso}
+                      value={letterForm.dia_pregacao}
+                      onChange={(e) => setLetterForm((prev) => ({ ...prev, dia_pregacao: e.target.value }))}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Data de emissao da carta</Label>
+                    <Input value={formatDateBr(todayIso)} disabled />
+                  </div>
+                </div>
+                <p className="text-xs text-slate-500">A data da pregacao pode ser escolhida entre hoje e os proximos 30 dias.</p>
+              </CardContent>
+            </Card>
+
+            {/* Preview card */}
+            <Card className="overflow-hidden border-emerald-100 shadow-sm">
+              <CardHeader className="bg-emerald-50/80">
+                <CardTitle className="flex items-start gap-2 text-xl text-slate-900 sm:items-center sm:text-2xl">
+                  <FileText className="h-6 w-6 text-emerald-600" /> Pre-visualizacao da Carta
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-5 p-5">
+                <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Pregador</p>
+                  <div className="flex items-start gap-3 text-slate-900 sm:items-center">
+                    <UserCircle2 className="h-5 w-5 text-emerald-600" />
+                    <span className="text-base font-semibold sm:text-lg">{profile?.full_name || usuario?.nome || "Nao informado"}</span>
+                  </div>
+                </div>
+                <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Igreja de origem e destino</p>
+                  <div className="space-y-2 text-slate-900">
+                    <div className="text-base font-semibold sm:text-lg">{session?.church_name || church?.church_name || "Nao informada"}</div>
+                    <div className="flex items-center gap-2 text-slate-600">
+                      <Building2 className="h-4 w-4 text-slate-400" />
+                      <span>{(letterForm.igreja_destino || letterForm.igreja_destino_manual).trim() || "-"}</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="grid gap-3 sm:gap-4 md:grid-cols-2">
+                  <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                    <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Data de emissao</p>
+                    <div className="flex items-center gap-2 text-base font-semibold text-slate-900 sm:text-lg">
+                      <CalendarDays className="h-5 w-5 text-emerald-600" />
+                      <span>{formatDateBr(todayIso)}</span>
+                    </div>
+                  </div>
+                  <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                    <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Data da pregacao</p>
+                    <div className="flex items-center gap-2 text-base font-semibold text-slate-900 sm:text-lg">
+                      <CalendarDays className="h-5 w-5 text-emerald-600" />
+                      <span>{letterForm.dia_pregacao ? formatDateBr(letterForm.dia_pregacao) : "-"}</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Assinatura responsavel</p>
+                  <div className="space-y-2 text-slate-900">
+                    <div className="text-base font-semibold sm:text-lg">{pastorFromUsers?.full_name || church?.pastor_name || "Resolvido pela hierarquia"}</div>
+                    <div className="flex items-center gap-2 text-slate-600">
+                      <Phone className="h-4 w-4 text-slate-400" />
+                      <span>{pastorFromUsers?.phone || church?.pastor_phone || "Definido na liberacao/geracao da carta"}</span>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <Button type="button" variant="outline" onClick={() => setOpenLetterDialog(false)} className="w-full sm:w-auto">Fechar</Button>
+            <Button
+              type="button"
+              className="w-full bg-emerald-600 text-white hover:bg-emerald-700 sm:w-auto"
+              onClick={handleCreateLetter}
+              disabled={creatingLetter}
+            >
+              {creatingLetter ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Enviar carta
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={openCadastroModal} onOpenChange={setOpenCadastroModal}>
         <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto">
