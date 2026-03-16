@@ -22,3 +22,7 @@ export const supabase = url && key
       },
     })
   : undefined;
+
+// Cliente anônimo sem injeção de rls_token — usado em queries públicas
+// (ex: aniversariantes na tela de login) para não interferir na sessão.
+export const supabaseAnon = url && key ? createClient(url, key) : undefined;

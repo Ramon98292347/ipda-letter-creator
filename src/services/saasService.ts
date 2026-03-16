@@ -1,6 +1,6 @@
 import { getRlsToken, getSession, getUser } from "@/lib/api";
 import { api } from "@/lib/endpoints";
-import { supabase } from "@/lib/supabase";
+import { supabase, supabaseAnon } from "@/lib/supabase";
 import { apiFetch } from "@/services/api";
 import type { AppSession, PendingChurch } from "@/context/UserContext";
 
@@ -1877,9 +1877,9 @@ async function notifyBirthdayWebhookOnce(payload: {
 
 export async function listBirthdaysTodayPublicByTotvs(churchTotvsId: string, limit = 10): Promise<BirthdayItem[]> {
   const totvs = String(churchTotvsId || "").trim();
-  if (!totvs || !supabase) return [];
+  if (!totvs || !supabaseAnon) return [];
 
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAnon
     .from("users")
     .select("id,full_name,phone,email,avatar_url,birth_date")
     .eq("default_totvs_id", totvs)
@@ -1913,9 +1913,9 @@ export async function listBirthdaysTodayPublicByTotvs(churchTotvsId: string, lim
 
 export async function listBirthdaysTodayPublicByScope(totvsIds: string[], limit = 10): Promise<BirthdayItem[]> {
   const scope = Array.from(new Set((totvsIds || []).map((id) => String(id || "").trim()).filter(Boolean)));
-  if (!scope.length || !supabase) return [];
+  if (!scope.length || !supabaseAnon) return [];
 
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAnon
     .from("users")
     .select("id,full_name,phone,email,avatar_url,birth_date")
     .in("default_totvs_id", scope)
