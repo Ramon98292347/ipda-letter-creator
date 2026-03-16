@@ -4,16 +4,6 @@ import { supabase } from "@/lib/supabase";
 import { apiFetch } from "@/services/api";
 import type { AppSession, PendingChurch } from "@/context/UserContext";
 
-// ─── Timeout helper ──────────────────────────────────────────────────────────
-// Garante que chamadas diretas ao Supabase não ficam penduradas para sempre.
-// Aceita PromiseLike (incluindo PostgrestFilterBuilder) além de Promise nativa.
-// 30 segundos é o mesmo prazo usado no api.ts para Edge Functions.
-function withTimeout<T>(promise: PromiseLike<T>, ms = 30_000): Promise<T> {
-  const timeout = new Promise<never>((_, reject) =>
-    setTimeout(() => reject(new Error("timeout")), ms),
-  );
-  return Promise.race([Promise.resolve(promise), timeout]);
-}
 
 export type AppRole = "admin" | "pastor" | "obreiro";
 export type RegistrationStatus = "APROVADO" | "PENDENTE";
@@ -1289,16 +1279,14 @@ export async function listChurchesInScopePaged(page = 1, pageSize = 20, rootTotv
       const from = (page - 1) * pageSize;
       const to = from + pageSize - 1;
 
-      const { data: churchesRaw, count, error: cErr } = await withTimeout(
-        supabase
-          .from("churches")
-          .select(
-            "totvs_id, parent_totvs_id, church_name, class, image_url, stamp_church_url, contact_email, contact_phone, cep, address_street, address_number, address_complement, address_neighborhood, address_city, address_state, address_country, is_active, pastor_user_id",
-            { count: "exact" },
-          )
-          .order("church_name", { ascending: true })
-          .range(from, to),
-      );
+      const { data: churchesRaw, count, error: cErr } = await supabase
+        .from("churches")
+        .select(
+          "totvs_id, parent_totvs_id, church_name, class, image_url, stamp_church_url, contact_email, contact_phone, cep, address_street, address_number, address_complement, address_neighborhood, address_city, address_state, address_country, is_active, pastor_user_id",
+          { count: "exact" },
+        )
+        .order("church_name", { ascending: true })
+        .range(from, to);
 
       if (cErr) throw new Error(cErr.message || "Erro ao listar igrejas paginadas.");
       const churches = (Array.isArray(churchesRaw) ? churchesRaw : []) as Array<Record<string, unknown>>;
@@ -1308,9 +1296,10 @@ export async function listChurchesInScopePaged(page = 1, pageSize = 20, rootTotv
       const pastorIds = churches.map((c) => String(c.pastor_user_id || "")).filter(Boolean);
       const pastorById = new Map<string, Record<string, unknown>>();
       if (pastorIds.length) {
-        const { data: pastorsRaw } = await withTimeout(
-          supabase.from("users").select("id, full_name").in("id", pastorIds),
-        );
+        const { data: pastorsRaw } = await supabase
+          .from("users")
+          .select("id, full_name")
+          .in("id", pastorIds);
         for (const p of pastorsRaw || []) {
           const row = p as Record<string, unknown>;
           pastorById.set(String(row.id || ""), row);
@@ -1321,9 +1310,10 @@ export async function listChurchesInScopePaged(page = 1, pageSize = 20, rootTotv
       const totvsIds = churches.map((c) => String(c.totvs_id || "")).filter(Boolean);
       const countsByTotvs = new Map<string, number>();
       if (totvsIds.length) {
-        const { data: usersRaw } = await withTimeout(
-          supabase.from("users").select("default_totvs_id").in("default_totvs_id", totvsIds),
-        );
+        const { data: usersRaw } = await supabase
+          .from("users")
+          .select("default_totvs_id")
+          .in("default_totvs_id", totvsIds);
         for (const u of usersRaw || []) {
           const key = String((u as Record<string, unknown>).default_totvs_id || "");
           if (!key) continue;
