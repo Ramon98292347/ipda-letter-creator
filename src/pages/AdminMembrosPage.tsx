@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Users } from "lucide-react";
 import { ManagementShell } from "@/components/layout/ManagementShell";
 import { ObreirosTab } from "@/components/admin/ObreirosTab";
-import { Card, CardContent } from "@/components/ui/card";
+
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { listChurchesInScope, listMembers } from "@/services/saasService";
 import { PageLoading } from "@/components/shared/PageLoading";
@@ -12,24 +12,22 @@ function MiniCard({
   title,
   value,
   subtitle,
-  tone,
+  gradient,
 }: {
   title: string;
   value: number;
   subtitle: string;
-  tone: { bg: string; border: string; accent: string };
+  gradient: string;
 }) {
   return (
-    <Card className="rounded-xl border shadow-sm" style={{ backgroundColor: tone.bg, borderColor: tone.border }}>
-      <CardContent className="border-l-4 p-5" style={{ borderLeftColor: tone.accent }}>
-        <div className="mb-3 flex items-center justify-between">
-          <p className="text-sm font-semibold text-slate-800">{title}</p>
-          <Users className="h-4 w-4" style={{ color: tone.accent }} />
-        </div>
-        <p className="text-4xl font-extrabold tracking-tight text-slate-900">{value}</p>
-        <p className="mt-1 text-xs text-slate-500">{subtitle}</p>
-      </CardContent>
-    </Card>
+    <div className={`${gradient} rounded-xl p-5 shadow-md`}>
+      <div className="mb-1 flex items-center justify-between">
+        <p className="text-xs font-semibold text-white/80">{title}</p>
+        <Users className="h-4 w-4 text-white/70" />
+      </div>
+      <p className="text-4xl font-extrabold tracking-tight text-white">{value}</p>
+      <p className="mt-1 text-xs text-white/70">{subtitle}</p>
+    </div>
   );
 }
 
@@ -97,12 +95,12 @@ export default function AdminMembrosPage() {
   }, [membersRes]);
 
   const memberTone = {
-    total: { bg: "#FFFFFF", border: "#E5E7EB", accent: "#2563EB" },
-    pastor: { bg: "#F8FAFC", border: "#E5E7EB", accent: "#2563EB" },
-    presbitero: { bg: "#F8FAFC", border: "#E5E7EB", accent: "#7C3AED" },
-    diacono: { bg: "#F8FAFC", border: "#E5E7EB", accent: "#16A34A" },
-    obreiro: { bg: "#F8FAFC", border: "#E5E7EB", accent: "#CA8A04" },
-    ativo: { bg: "#F8FAFC", border: "#E5E7EB", accent: "#334155" },
+    total: "bg-gradient-to-br from-blue-600 to-blue-500",
+    pastor: "bg-gradient-to-br from-blue-500 to-blue-400",
+    presbitero: "bg-gradient-to-br from-purple-600 to-purple-500",
+    diacono: "bg-gradient-to-br from-emerald-600 to-emerald-500",
+    obreiro: "bg-gradient-to-br from-amber-500 to-amber-400",
+    ativo: "bg-gradient-to-br from-slate-600 to-slate-500",
   };
 
   return (
@@ -134,12 +132,12 @@ export default function AdminMembrosPage() {
         </section>
 
         <section className="grid gap-4 md:grid-cols-3 xl:grid-cols-6">
-          <MiniCard title="Total de membros" value={counters.total} subtitle="cadastros na igreja" tone={memberTone.total} />
-          <MiniCard title="Pastor" value={counters.pastor} subtitle="cargo pastor" tone={memberTone.pastor} />
-          <MiniCard title="Presbitero" value={counters.presbitero} subtitle="cargo presbitero" tone={memberTone.presbitero} />
-          <MiniCard title="Diacono" value={counters.diacono} subtitle="cargo diacono" tone={memberTone.diacono} />
-          <MiniCard title="Obreiro" value={counters.obreiro} subtitle="cargo obreiro" tone={memberTone.obreiro} />
-          <MiniCard title="Membros ativos" value={counters.membrosAtivos} subtitle="ministerio membro" tone={memberTone.ativo} />
+          <MiniCard title="Total de membros" value={counters.total} subtitle="cadastros na igreja" gradient={memberTone.total} />
+          <MiniCard title="Pastor" value={counters.pastor} subtitle="cargo pastor" gradient={memberTone.pastor} />
+          <MiniCard title="Presbitero" value={counters.presbitero} subtitle="cargo presbitero" gradient={memberTone.presbitero} />
+          <MiniCard title="Diacono" value={counters.diacono} subtitle="cargo diacono" gradient={memberTone.diacono} />
+          <MiniCard title="Obreiro" value={counters.obreiro} subtitle="cargo obreiro" gradient={memberTone.obreiro} />
+          <MiniCard title="Membros ativos" value={counters.membrosAtivos} subtitle="ministerio membro" gradient={memberTone.ativo} />
         </section>
 
         <ObreirosTab activeTotvsId={selectedChurchTotvs} forceSingleChurchFilter />

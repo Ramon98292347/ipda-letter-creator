@@ -264,30 +264,22 @@ function MiniCard({
   title,
   value,
   subtitle,
-  tone,
+  gradient,
 }: {
   title: string;
   value: number;
   subtitle: string;
-  tone?: { bg: string; border: string; accent: string };
+  gradient?: string;
 }) {
-  const bg = tone?.bg || "#FFFFFF";
-  const border = tone?.border || "#E5E7EB";
-  const accent = tone?.accent || "#2563EB";
-
   return (
-    <Card className="rounded-xl border shadow-sm" style={{ backgroundColor: bg, borderColor: border }}>
-      <CardHeader className="border-l-4 pb-2" style={{ borderLeftColor: accent }}>
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-base font-semibold text-slate-900">{title}</CardTitle>
-          <Users className="h-4 w-4" style={{ color: accent }} />
-        </div>
-      </CardHeader>
-      <CardContent>
-        <p className="text-4xl font-extrabold text-slate-900">{value}</p>
-        <p className="text-sm text-slate-500">{subtitle}</p>
-      </CardContent>
-    </Card>
+    <div className={`${gradient || "bg-gradient-to-br from-blue-600 to-blue-500"} rounded-xl p-5 shadow-md`}>
+      <div className="mb-1 flex items-center justify-between">
+        <p className="text-xs font-semibold text-white/80">{title}</p>
+        <Users className="h-4 w-4 text-white/70" />
+      </div>
+      <p className="text-4xl font-extrabold tracking-tight text-white">{value}</p>
+      <p className="mt-1 text-xs text-white/70">{subtitle}</p>
+    </div>
   );
 }
 
@@ -910,12 +902,12 @@ export default function PastorMembrosPage() {
     (tab === "ficha_membro" && manualFichaMembro);
 
   const memberTone = {
-    total: { bg: "#FFFFFF", border: "#E5E7EB", accent: "#2563EB" },
-    pastor: { bg: "#F8FAFC", border: "#E5E7EB", accent: "#2563EB" },
-    presbitero: { bg: "#F8FAFC", border: "#E5E7EB", accent: "#7C3AED" },
-    diacono: { bg: "#F8FAFC", border: "#E5E7EB", accent: "#16A34A" },
-    obreiro: { bg: "#F8FAFC", border: "#E5E7EB", accent: "#CA8A04" },
-    batizados: { bg: "#F8FAFC", border: "#E5E7EB", accent: "#334155" },
+    total: "bg-gradient-to-br from-blue-600 to-blue-500",
+    pastor: "bg-gradient-to-br from-blue-500 to-blue-400",
+    presbitero: "bg-gradient-to-br from-purple-600 to-purple-500",
+    diacono: "bg-gradient-to-br from-emerald-600 to-emerald-500",
+    obreiro: "bg-gradient-to-br from-amber-500 to-amber-400",
+    batizados: "bg-gradient-to-br from-slate-600 to-slate-500",
   };
 
   return (
@@ -930,12 +922,12 @@ export default function PastorMembrosPage() {
       </div>
 
       <section className="mb-5 grid gap-4 md:grid-cols-3 xl:grid-cols-6">
-        <MiniCard title="Total de membros" value={counters.total} subtitle="membros encontrados" tone={memberTone.total} />
-        <MiniCard title="Pastor" value={counters.pastor} subtitle="pastores" tone={memberTone.pastor} />
-        <MiniCard title="Presbitero" value={counters.presbitero} subtitle="presbiteros" tone={memberTone.presbitero} />
-        <MiniCard title="Diacono" value={counters.diacono} subtitle="diaconos" tone={memberTone.diacono} />
-        <MiniCard title="Obreiro" value={counters.obreiro} subtitle="obreiros" tone={memberTone.obreiro} />
-        <MiniCard title="Membros ativos" value={counters.batizados} subtitle="ministerio membro" tone={memberTone.batizados} />
+        <MiniCard title="Total de membros" value={counters.total} subtitle="membros encontrados" gradient={memberTone.total} />
+        <MiniCard title="Pastor" value={counters.pastor} subtitle="pastores" gradient={memberTone.pastor} />
+        <MiniCard title="Presbitero" value={counters.presbitero} subtitle="presbiteros" gradient={memberTone.presbitero} />
+        <MiniCard title="Diacono" value={counters.diacono} subtitle="diaconos" gradient={memberTone.diacono} />
+        <MiniCard title="Obreiro" value={counters.obreiro} subtitle="obreiros" gradient={memberTone.obreiro} />
+        <MiniCard title="Membros ativos" value={counters.batizados} subtitle="ministerio membro" gradient={memberTone.batizados} />
       </section>
 
       <Card className="mb-4 rounded-2xl border border-slate-200 bg-white shadow-sm">
