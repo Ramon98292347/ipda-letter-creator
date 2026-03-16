@@ -4,6 +4,17 @@ import { supabase } from "@/lib/supabase";
 import { apiFetch } from "@/services/api";
 import type { AppSession, PendingChurch } from "@/context/UserContext";
 
+// ─── Timeout helper ──────────────────────────────────────────────────────────
+// Garante que chamadas diretas ao Supabase não ficam penduradas para sempre.
+// Aceita PromiseLike (incluindo PostgrestFilterBuilder) além de Promise nativa.
+// 30 segundos é o mesmo prazo usado no api.ts para Edge Functions.
+function withTimeout<T>(promise: PromiseLike<T>, ms = 30_000): Promise<T> {
+  const timeout = new Promise<never>((_, reject) =>
+    setTimeout(() => reject(new Error("timeout")), ms),
+  );
+  return Promise.race([Promise.resolve(promise), timeout]);
+}
+
 export type AppRole = "admin" | "pastor" | "obreiro";
 export type RegistrationStatus = "APROVADO" | "PENDENTE";
 export type PaymentStatus = "ATIVO" | "BLOQUEADO_PAGAMENTO";
@@ -1271,6 +1282,93 @@ export async function listChurchesInScope(page = 1, pageSize = 200, rootTotvsId?
 
 export async function listChurchesInScopePaged(page = 1, pageSize = 20, rootTotvsId?: string): Promise<{ churches: ChurchInScopeItem[]; total: number; page: number; page_size: number }> {
   if (supabase && getRlsToken()) {
+    // Sem filtro de hierarquia: usa paginação real no banco (range + count).
+    // O RLS já garante que só as igrejas do escopo do usuário são retornadas.
+    // Isso evita o anti-padrão anterior de buscar 5000 igrejas e fatiar em memória.
+    if (!rootTotvsId?.trim()) {
+      const from = (page - 1) * pageSize;
+      const to = from + pageSize - 1;
+
+      const { data: churchesRaw, count, error: cErr } = await withTimeout(
+        supabase
+          .from("churches")
+          .select(
+            "totvs_id, parent_totvs_id, church_name, class, image_url, stamp_church_url, contact_email, contact_phone, cep, address_street, address_number, address_complement, address_neighborhood, address_city, address_state, address_country, is_active, pastor_user_id",
+            { count: "exact" },
+          )
+          .order("church_name", { ascending: true })
+          .range(from, to),
+      );
+
+      if (cErr) throw new Error(cErr.message || "Erro ao listar igrejas paginadas.");
+      const churches = (Array.isArray(churchesRaw) ? churchesRaw : []) as Array<Record<string, unknown>>;
+      const total = count ?? churches.length;
+
+      // Busca nomes dos pastores apenas para as igrejas desta página (muito mais leve).
+      const pastorIds = churches.map((c) => String(c.pastor_user_id || "")).filter(Boolean);
+      const pastorById = new Map<string, Record<string, unknown>>();
+      if (pastorIds.length) {
+        const { data: pastorsRaw } = await withTimeout(
+          supabase.from("users").select("id, full_name").in("id", pastorIds),
+        );
+        for (const p of pastorsRaw || []) {
+          const row = p as Record<string, unknown>;
+          pastorById.set(String(row.id || ""), row);
+        }
+      }
+
+      // Busca contagem de obreiros apenas para as igrejas desta página.
+      const totvsIds = churches.map((c) => String(c.totvs_id || "")).filter(Boolean);
+      const countsByTotvs = new Map<string, number>();
+      if (totvsIds.length) {
+        const { data: usersRaw } = await withTimeout(
+          supabase.from("users").select("default_totvs_id").in("default_totvs_id", totvsIds),
+        );
+        for (const u of usersRaw || []) {
+          const key = String((u as Record<string, unknown>).default_totvs_id || "");
+          if (!key) continue;
+          countsByTotvs.set(key, (countsByTotvs.get(key) || 0) + 1);
+        }
+      }
+
+      return {
+        churches: churches.map((item) => {
+          const pastorId = String(item.pastor_user_id || "");
+          const pastor = pastorId ? pastorById.get(pastorId) : null;
+          const totvsId = String(item.totvs_id || "");
+          return {
+            totvs_id: totvsId,
+            church_name: String(item.church_name || "-"),
+            church_class: item.class || null,
+            parent_totvs_id: item.parent_totvs_id || null,
+            image_url: item.image_url || item.photo_url || item.cover_url || null,
+            stamp_church_url: item.stamp_church_url || null,
+            contact_email: item.contact_email || null,
+            contact_phone: item.contact_phone || null,
+            cep: item.cep || null,
+            address_street: item.address_street || null,
+            address_number: item.address_number || null,
+            address_complement: item.address_complement || null,
+            address_neighborhood: item.address_neighborhood || null,
+            address_city: item.address_city || null,
+            address_state: item.address_state || null,
+            address_country: item.address_country || null,
+            is_active: typeof item.is_active === "boolean" ? item.is_active : true,
+            workers_count: countsByTotvs.get(totvsId) || 0,
+            pastor_user_id: pastorId || null,
+            pastor: pastor
+              ? { id: String(pastor.id || ""), full_name: String(pastor.full_name || "") }
+              : null,
+          } as ChurchInScopeItem;
+        }),
+        total,
+        page,
+        page_size: pageSize,
+      };
+    }
+
+    // Com rootTotvsId (filtro de hierarquia, admin): mantém comportamento atual.
+    // Ainda precisa calcular o escopo da árvore antes de paginar.
     const all = await listChurchesInScope(1, 5000, rootTotvsId);
     const start = (page - 1) * pageSize;
     const end = start + pageSize;
@@ -1324,6 +1422,20 @@ export async function listChurchesInScopePaged(page = 1, pageSize = 20, rootTotv
     page: Number(data?.page || page),
     page_size: Number(data?.page_size || pageSize),
   };
+}
+
+// ─── Painel unificado ─────────────────────────────────────────────────────────
+// Busca igrejas e membros em paralelo (Promise.all) para reduzir o tempo de
+// carregamento do painel do pastor/admin, que antes fazia 2 useQuery separados
+// e aguardava cada um em sequência dependendo do effectiveScopeTotvsIds.
+export async function getPastorPanelData(
+  activeTotvsId?: string,
+): Promise<{ churches: ChurchInScopeItem[]; workers: UserListItem[] }> {
+  const [churches, membersResult] = await Promise.all([
+    listChurchesInScope(1, 1000, activeTotvsId || undefined),
+    listMembers({ page: 1, page_size: 200, roles: ["pastor", "obreiro"] }),
+  ]);
+  return { churches, workers: membersResult.workers };
 }
 
 export async function createChurch(payload: {

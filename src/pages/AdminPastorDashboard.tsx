@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { FileText, Bell, LogOut, CalendarDays, LineChart, Users, Megaphone, Download } from "lucide-react";
 import { useUser } from "@/context/UserContext";
-import { getPastorMetrics, listAdminChurchSummary, listChurchesInScope, listChurchesInScopePaged, listMembers, listNotifications, listPastorLetters, markAllNotificationsRead, markNotificationRead } from "@/services/saasService";
+import { getPastorMetrics, getPastorPanelData, listAdminChurchSummary, listChurchesInScopePaged, listNotifications, listPastorLetters, markAllNotificationsRead, markNotificationRead } from "@/services/saasService";
 import { CartasTab } from "@/components/admin/CartasTab";
 import { AdminChurchesTab } from "@/components/admin/AdminChurchesTab";
 import { StatCards } from "@/components/shared/StatCards";
@@ -33,11 +33,16 @@ export default function AdminPastorDashboard() {
     return [];
   }, [session?.scope_totvs_ids, usuario?.totvs_access, activeTotvsId]);
 
-  const { data: fullScopeChurches = [] } = useQuery({
-    queryKey: ["pastor-full-scope", activeTotvsId],
-    queryFn: () => listChurchesInScope(1, 1000, activeTotvsId || undefined),
+  // Comentario: busca igrejas e membros em paralelo (Promise.all) numa única query,
+  // em vez de duas queries separadas que dependiam uma da outra via effectiveScopeTotvsIds.
+  const { data: panelData } = useQuery({
+    queryKey: ["pastor-panel-data", activeTotvsId],
+    queryFn: () => getPastorPanelData(activeTotvsId || undefined),
     enabled: Boolean(activeTotvsId),
   });
+
+  const fullScopeChurches = panelData?.churches || [];
+  const obreiros = panelData?.workers || [];
 
   const effectiveScopeTotvsIds = useMemo(() => {
     const fromChurches = fullScopeChurches.map((c) => String(c.totvs_id || "")).filter(Boolean);
@@ -69,14 +74,7 @@ export default function AdminPastorDashboard() {
     enabled: effectiveScopeTotvsIds.length > 0,
   });
 
-  const { data: obreiros = [] } = useQuery({
-    queryKey: ["pastor-obreiros", effectiveScopeTotvsIds.join("|")],
-    queryFn: async () => {
-      const res = await listMembers({ page: 1, page_size: 200, roles: ["pastor", "obreiro"] });
-      return res.workers;
-    },
-    enabled: effectiveScopeTotvsIds.length > 0,
-  });
+  // obreiros agora vem de panelData (busca unificada com getPastorPanelData).
   const phonesByUserId = useMemo(() => {
     const map: Record<string, string> = {};
     obreiros.forEach((u) => {
@@ -124,7 +122,7 @@ export default function AdminPastorDashboard() {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ["pastor-metrics"] }),
       queryClient.invalidateQueries({ queryKey: ["pastor-letters"] }),
-      queryClient.invalidateQueries({ queryKey: ["pastor-obreiros"] }),
+      queryClient.invalidateQueries({ queryKey: ["pastor-panel-data"] }),
       queryClient.invalidateQueries({ queryKey: ["admin-church-summary"] }),
       queryClient.invalidateQueries({ queryKey: ["notifications"] }),
     ]);
@@ -301,7 +299,15 @@ export default function AdminPastorDashboard() {
         </section>
 
         {tab === "cartas" ? (
-          <CartasTab letters={letters} scopeTotvsIds={scopeTotvsIds} phonesByUserId={phonesByUserId} phonesByName={phonesByName} />
+          <CartasTab
+            letters={letters}
+            scopeTotvsIds={scopeTotvsIds}
+            phonesByUserId={phonesByUserId}
+            phonesByName={phonesByName}
+            viewerRole={usuario?.role as "admin" | "pastor"}
+            viewerUserId={String(usuario?.id || "")}
+            allowScopeView={isAdmin}
+          />
         ) : (
           <AdminChurchesTab
             rows={churchesInScope}
@@ -333,7 +339,7 @@ export default function AdminPastorDashboard() {
               <div key={item.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border p-3 text-sm">
                 <div>
                   <p className="font-semibold">{item.title}</p>
-                  <p className="text-slate-600">{item.message || "Sem mensagem"}
+                  <p className="text-slate-600">{item.message || "Sem mensagem"}</p>
                 </div>
                 <div className="flex gap-2">
                   <Button variant="outline" onClick={() => readNotification(item.id)} disabled={item.is_read}>
