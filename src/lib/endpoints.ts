@@ -96,6 +96,7 @@ export const api = {
   markAllNotificationsRead: (body: { church_totvs_id?: string } = {}) => post("mark-all-notifications-read", body),
 
   listAnnouncements: (body: JsonBody = { limit: 10 }) => post("list-announcements", body),
+  listAnnouncementsPublic: (body: JsonBody) => post("list-announcements-public", body, { skipAuth: true }),
   birthdaysToday: () => post("birthdays-today", {}),
   upsertAnnouncement: (body: JsonBody) => post("upsert-announcement", body),
   deleteAnnouncement: (body: { id: string }) => post("delete-announcement", body),

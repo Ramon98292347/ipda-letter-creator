@@ -1616,59 +1616,31 @@ export async function markAllNotificationsRead() {
   return;
 }
 
+function mapAnnouncementRow(item: Record<string, unknown>): AnnouncementItem {
+  return {
+    id: String(item?.id || ""),
+    title: String(item?.title || "Aviso"),
+    type: (item?.type || "text") as "text" | "image" | "video",
+    body_text: item?.body_text || null,
+    media_url: toAnnouncementMediaUrl(item?.media_url),
+    link_url: item?.link_url || null,
+    position: typeof item?.position === "number" ? item.position : null,
+    starts_at: item?.starts_at || null,
+    ends_at: item?.ends_at || null,
+    is_active: typeof item?.is_active === "boolean" ? item.is_active : true,
+  };
+}
+
+// Sempre usa a edge function list-announcements (usa service_role_key, bypass RLS)
 export async function listAnnouncements(limit = 10): Promise<AnnouncementItem[]> {
-  if (!isMockMode() && supabase && getRlsToken()) {
-    const nowIso = new Date().toISOString();
-    const safeLimit = Math.max(1, Math.min(100, Number(limit || 10)));
-    const { data: rowsRaw, error } = await supabase
-      .from("announcements")
-      .select("id, title, type, body_text, media_url, link_url, position, starts_at, ends_at, is_active")
-      .eq("is_active", true)
-      .or(`starts_at.is.null,starts_at.lte.${nowIso}`)
-      .or(`ends_at.is.null,ends_at.gte.${nowIso}`)
-      .order("position", { ascending: true, nullsFirst: false })
-      .order("starts_at", { ascending: false, nullsFirst: false })
-      .limit(safeLimit);
-
-    if (error) {
-      throw new Error(error.message || "Erro ao listar divulgações.");
-    }
-    const rows = Array.isArray(rowsRaw) ? rowsRaw : [];
-    return rows.map((item: Record<string, unknown>) => ({
-      id: String(item?.id || ""),
-      title: String(item?.title || "Aviso"),
-      type: (item?.type || "text") as "text" | "image" | "video",
-      body_text: item?.body_text || null,
-      media_url: toAnnouncementMediaUrl(item?.media_url),
-      link_url: item?.link_url || null,
-      position: typeof item?.position === "number" ? item.position : null,
-      starts_at: item?.starts_at || null,
-      ends_at: item?.ends_at || null,
-      is_active: typeof item?.is_active === "boolean" ? item.is_active : true,
-    }));
-  }
-
   if (!isMockMode()) {
     const data = await api.listAnnouncements({ limit });
     const rows = Array.isArray(data?.announcements)
       ? data.announcements
-      : Array.isArray(data?.items)
-        ? data.items
-        : Array.isArray(data)
-          ? data
-          : [];
-    return rows.map((item: Record<string, unknown>) => ({
-      id: String(item?.id || ""),
-      title: String(item?.title || "Aviso"),
-      type: (item?.type || "text") as "text" | "image" | "video",
-      body_text: item?.body_text || null,
-      media_url: toAnnouncementMediaUrl(item?.media_url),
-      link_url: item?.link_url || null,
-      position: typeof item?.position === "number" ? item.position : null,
-      starts_at: item?.starts_at || null,
-      ends_at: item?.ends_at || null,
-      is_active: typeof item?.is_active === "boolean" ? item.is_active : true,
-    }));
+      : Array.isArray(data)
+        ? data
+        : [];
+    return rows.map(mapAnnouncementRow);
   }
   return [...MOCK_ANNOUNCEMENTS].slice(0, limit);
 }
@@ -1759,76 +1731,32 @@ export async function listBirthdaysToday(limit = 10): Promise<BirthdayItem[]> {
     }));
 }
 
+// Usa a edge function list-announcements-public (service_role_key, sem auth, bypass RLS)
+async function callAnnouncementsPublic(body: Record<string, unknown>): Promise<AnnouncementItem[]> {
+  const { post } = await import("@/lib/api");
+  try {
+    const result = await post<{ ok?: boolean; announcements?: unknown[] }>(
+      "list-announcements-public",
+      body,
+      { skipAuth: true },
+    );
+    const rows = Array.isArray(result?.announcements) ? result.announcements : [];
+    return rows.map((item) => mapAnnouncementRow(item as Record<string, unknown>));
+  } catch {
+    return [];
+  }
+}
+
 export async function listAnnouncementsPublicByTotvs(churchTotvsId: string, limit = 10): Promise<AnnouncementItem[]> {
   const totvs = String(churchTotvsId || "").trim();
-  if (!totvs || !supabase) return [];
-
-  const nowIso = new Date().toISOString();
-  const { data, error } = await supabase
-    .from("announcements")
-    .select("id,title,type,body_text,media_url,link_url,position,starts_at,ends_at,is_active,created_at")
-    .eq("church_totvs_id", totvs)
-    .eq("is_active", true)
-    .order("position", { ascending: true })
-    .order("created_at", { ascending: false })
-    .limit(Math.max(1, Math.min(10, limit)));
-
-  if (error) return [];
-
-  return (data || [])
-    .filter((item: Record<string, unknown>) => {
-      const startsOk = !item?.starts_at || String(item.starts_at) <= nowIso;
-      const endsOk = !item?.ends_at || String(item.ends_at) >= nowIso;
-      return startsOk && endsOk;
-    })
-    .map((item: Record<string, unknown>) => ({
-      id: String(item?.id || ""),
-      title: String(item?.title || "Aviso"),
-      type: (item?.type || "text") as "text" | "image" | "video",
-      body_text: item?.body_text || null,
-      media_url: toAnnouncementMediaUrl(item?.media_url),
-      link_url: item?.link_url || null,
-      position: typeof item?.position === "number" ? item.position : null,
-      starts_at: item?.starts_at || null,
-      ends_at: item?.ends_at || null,
-      is_active: typeof item?.is_active === "boolean" ? item.is_active : true,
-    }));
+  if (!totvs) return [];
+  return callAnnouncementsPublic({ totvs_id: totvs, limit: Math.max(1, Math.min(10, limit)) });
 }
 
 export async function listAnnouncementsPublicByScope(totvsIds: string[], limit = 10): Promise<AnnouncementItem[]> {
   const scope = Array.from(new Set((totvsIds || []).map((id) => String(id || "").trim()).filter(Boolean)));
-  if (!scope.length || !supabase) return [];
-
-  const nowIso = new Date().toISOString();
-  const { data, error } = await supabase
-    .from("announcements")
-    .select("id,title,type,body_text,media_url,link_url,position,starts_at,ends_at,is_active,created_at")
-    .in("church_totvs_id", scope)
-    .eq("is_active", true)
-    .order("position", { ascending: true })
-    .order("created_at", { ascending: false })
-    .limit(Math.max(1, Math.min(30, limit)));
-
-  if (error) return [];
-
-  return (data || [])
-    .filter((item: Record<string, unknown>) => {
-      const startsOk = !item?.starts_at || String(item.starts_at) <= nowIso;
-      const endsOk = !item?.ends_at || String(item.ends_at) >= nowIso;
-      return startsOk && endsOk;
-    })
-    .map((item: Record<string, unknown>) => ({
-      id: String(item?.id || ""),
-      title: String(item?.title || "Aviso"),
-      type: (item?.type || "text") as "text" | "image" | "video",
-      body_text: item?.body_text || null,
-      media_url: toAnnouncementMediaUrl(item?.media_url),
-      link_url: item?.link_url || null,
-      position: typeof item?.position === "number" ? item.position : null,
-      starts_at: item?.starts_at || null,
-      ends_at: item?.ends_at || null,
-      is_active: typeof item?.is_active === "boolean" ? item.is_active : true,
-    }));
+  if (!scope.length) return [];
+  return callAnnouncementsPublic({ totvs_ids: scope, limit: Math.max(1, Math.min(30, limit)) });
 }
 
 function getTodayMonthDaySaoPaulo() {
