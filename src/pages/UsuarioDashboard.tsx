@@ -19,13 +19,14 @@ import {
   getSignedPdfUrl,
   listChurchesInScope,
   requestRelease,
+  softDeleteLetter,
   updateMyProfile,
   upsertStamps,
   workerDashboard,
   type PastorLetter,
 } from "@/services/saasService";
 import { post } from "@/lib/api";
-import { Bell, BellOff, Building2, CalendarDays, Download, Eye, FileText, IdCard, Loader2, MoreHorizontal, Phone, RefreshCw, Search, Share2, Unlock, UserCircle2 } from "lucide-react";
+import { Bell, BellOff, Building2, CalendarDays, Download, Eye, FileText, IdCard, Loader2, MoreHorizontal, Phone, RefreshCw, Search, Share2, Trash2, Unlock, UserCircle2 } from "lucide-react";
 import { ImageCaptureInput } from "@/components/shared/ImageCaptureInput";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 
@@ -184,7 +185,9 @@ export default function UsuarioDashboard() {
   const isPastor = String(profile?.role || usuario?.role || "").toLowerCase() === "pastor";
   const hasDirectRelease = Boolean(profile?.can_create_released_letter);
   const church = data?.church;
-  const cityFromProfile = useMemo(() => getAddressCity(profile?.address_json), [profile?.address_json]);
+  // Comentario: o banco retorna colunas planas (address_street, cep, etc.), nao um campo address_json.
+  const profileRaw = profile as Record<string, unknown> | undefined;
+  const cityFromProfile = String(profileRaw?.address_city || "");
 
   useEffect(() => {
     setProfileForm({
@@ -192,15 +195,17 @@ export default function UsuarioDashboard() {
       email: profile?.email || "",
       birth_date: String(profile?.birth_date || ""),
       avatar_url: String(profile?.avatar_url || ""),
-      cep: getAddressField(profile?.address_json, "cep"),
-      address_street: getAddressField(profile?.address_json, "street"),
-      address_number: getAddressField(profile?.address_json, "number"),
-      address_complement: getAddressField(profile?.address_json, "complement"),
-      address_neighborhood: getAddressField(profile?.address_json, "neighborhood"),
-      address_city: cityFromProfile,
-      address_state: getAddressField(profile?.address_json, "state"),
+      // Lendo das colunas planas corretas retornadas pelo worker-dashboard
+      cep: String(profileRaw?.cep || ""),
+      address_street: String(profileRaw?.address_street || ""),
+      address_number: String(profileRaw?.address_number || ""),
+      address_complement: String(profileRaw?.address_complement || ""),
+      address_neighborhood: String(profileRaw?.address_neighborhood || ""),
+      address_city: String(profileRaw?.address_city || ""),
+      address_state: String(profileRaw?.address_state || ""),
     });
-  }, [profile?.phone, profile?.email, profile?.birth_date, profile?.avatar_url, profile?.address_json, cityFromProfile]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile?.phone, profile?.email, profile?.birth_date, profile?.avatar_url, profile?.address_json]);
 
   async function autofillCep(force = false) {
     const cepDigits = onlyDigits(profileForm.cep);
@@ -358,6 +363,18 @@ async function openPdf(letter: PastorLetter) {
       await queryClient.invalidateQueries({ queryKey: ["worker-dashboard"] });
     } catch {
       toast.error("Falha ao solicitar liberacao.");
+    }
+  }
+
+  async function excluirCarta(letter: PastorLetter) {
+    // Confirmação antes de excluir
+    if (!window.confirm(`Excluir a carta para "${letter.church_destination || "destino"}"? Esta acao nao pode ser desfeita.`)) return;
+    try {
+      await softDeleteLetter(letter.id);
+      toast.success("Carta excluida.");
+      await queryClient.invalidateQueries({ queryKey: ["worker-dashboard"] });
+    } catch {
+      toast.error("Falha ao excluir carta.");
     }
   }
 
@@ -611,28 +628,32 @@ async function openPdf(letter: PastorLetter) {
         </section>
 
         <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <Card className="rounded-xl border border-slate-200 bg-white shadow-sm">
-            <CardContent className="border-l-4 border-l-blue-600 p-5">
-              <p className="text-sm font-semibold text-slate-800">Total de cartas</p>
-              <p className="text-4xl font-extrabold text-slate-900">{stats.totalCartas}</p>
+          {/* Card azul — total de cartas */}
+          <Card className="rounded-xl border-0 bg-gradient-to-br from-blue-500 to-blue-700 shadow-md">
+            <CardContent className="p-5">
+              <p className="text-sm font-semibold text-white/80">Total de cartas</p>
+              <p className="text-4xl font-extrabold text-white">{stats.totalCartas}</p>
             </CardContent>
           </Card>
-          <Card className="rounded-xl border border-slate-200 bg-white shadow-sm">
-            <CardContent className="border-l-4 border-l-cyan-600 p-5">
-              <p className="text-sm font-semibold text-slate-800">Total de cartas (7 dias)</p>
-              <p className="text-4xl font-extrabold text-slate-900">{stats.cartas7dias}</p>
+          {/* Card ciano — cartas dos ultimos 7 dias */}
+          <Card className="rounded-xl border-0 bg-gradient-to-br from-cyan-500 to-cyan-700 shadow-md">
+            <CardContent className="p-5">
+              <p className="text-sm font-semibold text-white/80">Total de cartas (7 dias)</p>
+              <p className="text-4xl font-extrabold text-white">{stats.cartas7dias}</p>
             </CardContent>
           </Card>
-          <Card className="rounded-xl border border-slate-200 bg-white shadow-sm">
-            <CardContent className="border-l-4 border-l-emerald-600 p-5">
-              <p className="text-sm font-semibold text-slate-800">Cartas hoje</p>
-              <p className="text-4xl font-extrabold text-slate-900">{stats.cartasHoje}</p>
+          {/* Card verde — cartas de hoje */}
+          <Card className="rounded-xl border-0 bg-gradient-to-br from-emerald-500 to-emerald-700 shadow-md">
+            <CardContent className="p-5">
+              <p className="text-sm font-semibold text-white/80">Cartas hoje</p>
+              <p className="text-4xl font-extrabold text-white">{stats.cartasHoje}</p>
             </CardContent>
           </Card>
-          <Card className="rounded-xl border border-slate-200 bg-white shadow-sm">
-            <CardContent className="border-l-4 border-l-amber-600 p-5">
-              <p className="text-sm font-semibold text-slate-800">Aguardando liberacao</p>
-              <p className="text-4xl font-extrabold text-slate-900">{stats.aguardando}</p>
+          {/* Card amarelo — cartas aguardando liberacao */}
+          <Card className="rounded-xl border-0 bg-gradient-to-br from-amber-400 to-amber-600 shadow-md">
+            <CardContent className="p-5">
+              <p className="text-sm font-semibold text-white/80">Aguardando liberacao</p>
+              <p className="text-4xl font-extrabold text-white">{stats.aguardando}</p>
             </CardContent>
           </Card>
         </section>
@@ -705,8 +726,8 @@ async function openPdf(letter: PastorLetter) {
             </div>
 
             <div className="hidden overflow-x-auto rounded-xl border border-slate-200 md:block">
-              <div className="min-w-[980px]">
-                <div className="grid grid-cols-[120px_120px_180px_180px_120px_1fr] border-b bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-600">
+              <div className="min-w-[840px]">
+                <div className="grid grid-cols-[120px_120px_180px_180px_180px_60px] border-b bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-600">
                   <span>Criada em</span>
                   <span>Data pregacao</span>
                   <span>Origem</span>
@@ -716,25 +737,35 @@ async function openPdf(letter: PastorLetter) {
                 </div>
                 {filteredLetters.map((letter) => {
                   const canOpen = isLetterReadyForView(letter);
-                  const canRequest = !hasDirectRelease && (letter.status === "AUTORIZADO" || letter.status === "AGUARDANDO_LIBERACAO");
                   return (
-                    <div key={letter.id} className="grid grid-cols-[120px_120px_180px_180px_120px_1fr] items-center border-b px-4 py-3 text-sm">
+                    <div key={letter.id} className="grid grid-cols-[120px_120px_180px_180px_180px_60px] items-center border-b px-4 py-3 text-sm">
                       <span>{formatDate(letter.created_at)}</span>
                       <span>{formatDate(letter.preach_date)}</span>
                       <span className="truncate">{letter.church_origin || "-"}</span>
                       <span className="truncate">{letter.church_destination || "-"}</span>
-                      <span><Badge variant="outline" className={statusClass(letter.status)}>{letter.status}</Badge></span>
-                      <div className="flex flex-wrap gap-2">
-                        <Button variant="outline" disabled={!canOpen} onClick={() => openPdf(letter)}>
-                          <Download className="mr-2 h-4 w-4" /> Abrir
-                        </Button>
-                        <Button variant="outline" disabled={!canOpen} onClick={() => shareLetter(letter)}>
-                          <Share2 className="mr-2 h-4 w-4" /> Compartilhar
-                        </Button>
-                        <Button variant="outline" disabled={!canRequest} onClick={() => pedirLiberacao(letter)}>
-                          <Unlock className="mr-2 h-4 w-4" /> Pedir liberacao
-                        </Button>
-                      </div>
+                      <span className="overflow-hidden"><Badge variant="outline" className={`${statusClass(letter.status)} max-w-full truncate text-xs`}>{letter.status}</Badge></span>
+                      {/* Menu de acoes: icone compacto sem texto */}
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem disabled={!canOpen} onClick={() => openPdf(letter)}>
+                            <Download className="mr-2 h-4 w-4" /> Visualizar
+                          </DropdownMenuItem>
+                          <DropdownMenuItem disabled={!canOpen} onClick={() => shareLetter(letter)}>
+                            <Share2 className="mr-2 h-4 w-4" /> Compartilhar
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            className="text-rose-600 focus:text-rose-600"
+                            onClick={() => excluirCarta(letter)}
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" /> Excluir
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
                   );
                 })}
@@ -956,36 +987,50 @@ async function openPdf(letter: PastorLetter) {
       </Dialog>
 
       <Dialog open={openCadastroModal} onOpenChange={setOpenCadastroModal}>
-        <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto">
+        <DialogContent className="max-h-[90vh] max-w-md overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Cadastro</DialogTitle>
-            <DialogDescription>Dados do usuario e do pastor responsavel.</DialogDescription>
+            <DialogTitle>Meu Cadastro</DialogTitle>
+            <DialogDescription>Seus dados e foto 3x4.</DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 md:grid-cols-2">
-            <Card className="border border-slate-200 bg-white shadow-sm">
-              <CardHeader>
-                <CardTitle>Resumo do Usuario</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2 text-sm">
-                <p><strong>Nome:</strong> {profile?.full_name || usuario?.nome || "-"}</p>
-                <p><strong>CPF:</strong> {profile?.cpf || usuario?.cpf || "-"}</p>
-                <p><strong>Cargo:</strong> {profile?.minister_role || usuario?.ministerial || "-"}</p>
-                <p><strong>Igreja:</strong> {session?.church_name || church?.church_name || "-"}</p>
-                <p><strong>Celular:</strong> {profile?.phone || "-"}</p>
-                <p><strong>Nascimento:</strong> {formatDate(profile?.birth_date || null)}</p>
-              </CardContent>
-            </Card>
-            <Card className="border border-slate-200 bg-white shadow-sm">
-              <CardHeader>
-                <CardTitle>Dados do seu pastor</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2 text-sm">
-                <p><strong>Nome:</strong> {pastorFromUsers?.full_name || church?.pastor_name || "-"}</p>
-                <p><strong>Telefone:</strong> {pastorFromUsers?.phone || church?.pastor_phone || "-"}</p>
-                <p><strong>Email:</strong> {pastorFromUsers?.email || church?.pastor_email || "-"}</p>
-                <p><strong>Endereco:</strong> {church?.address_full || "-"}</p>
-              </CardContent>
-            </Card>
+          {/* Somente dados do usuario com foto — sem card do pastor */}
+          <div className="space-y-4 text-sm">
+            {/* Foto 3x4 centralizada */}
+            <div className="flex justify-center">
+              {profile?.avatar_url ? (
+                <img
+                  src={profile.avatar_url}
+                  alt="Foto 3x4"
+                  className="h-36 w-28 rounded-lg border-2 border-slate-200 object-cover shadow"
+                />
+              ) : (
+                <div className="flex h-36 w-28 items-center justify-center rounded-lg border-2 border-slate-200 bg-slate-100 text-slate-400">
+                  <UserCircle2 className="h-16 w-16" />
+                </div>
+              )}
+            </div>
+            {/* Dados pessoais */}
+            <div className="space-y-2">
+              <p><strong>Nome:</strong> {profile?.full_name || usuario?.nome || "-"}</p>
+              <p><strong>CPF:</strong> {profile?.cpf || usuario?.cpf || "-"}</p>
+              <p><strong>Cargo:</strong> {profile?.minister_role || usuario?.ministerial || "-"}</p>
+              <p><strong>Igreja:</strong> {session?.church_name || church?.church_name || "-"}</p>
+              <p><strong>Celular:</strong> {profile?.phone || "-"}</p>
+              <p><strong>E-mail:</strong> {profile?.email || "-"}</p>
+              <p><strong>Nascimento:</strong> {formatDate(profile?.birth_date || null)}</p>
+              {/* Endereco (so aparece se tiver dados) */}
+              {(() => {
+                const street = getAddressField(profile?.address_json, "street");
+                const number = getAddressField(profile?.address_json, "number");
+                const neighborhood = getAddressField(profile?.address_json, "neighborhood");
+                const city = getAddressField(profile?.address_json, "city");
+                const state = getAddressField(profile?.address_json, "state");
+                const cep = getAddressField(profile?.address_json, "cep");
+                const hasAddress = street || city;
+                return hasAddress ? (
+                  <p><strong>Endereco:</strong> {[street, number, neighborhood, city, state, cep].filter(Boolean).join(", ")}</p>
+                ) : null;
+              })()}
+            </div>
           </div>
         </DialogContent>
       </Dialog>

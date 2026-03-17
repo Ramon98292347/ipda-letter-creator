@@ -2209,7 +2209,8 @@ export async function workerDashboard(dateStart?: string, dateEnd?: string, page
       supabase
         .from("users")
         .select(
-          "id, full_name, role, cpf, phone, email, minister_role, birth_date, ordination_date, avatar_url, default_totvs_id, totvs_access, registration_status, payment_status, payment_block_reason",
+          // Comentario: inclui todos os campos necessarios para a ficha de membro e o dashboard
+          "id, full_name, role, cpf, phone, email, minister_role, birth_date, ordination_date, avatar_url, default_totvs_id, totvs_access, registration_status, payment_status, payment_block_reason, rg, marital_status, baptism_date, matricula, profession, cep, address_street, address_number, address_complement, address_neighborhood, address_city, address_state, can_create_released_letter",
         )
         .eq("id", userId)
         .maybeSingle(),
@@ -2251,7 +2252,9 @@ export async function workerDashboard(dateStart?: string, dateEnd?: string, page
     if (lettersErr) throw new Error(lettersErr.message || "Erro ao carregar cartas.");
 
     return {
-      user: userRaw ? mapUserLike(userRaw as Record<string, unknown>) : null,
+      // Comentario: espalhamos o raw primeiro para preservar campos extras (rg, baptism_date, etc.)
+      // que nao estao no tipo AuthSessionData, mas sao usados na ficha de membro.
+      user: userRaw ? { ...(userRaw as Record<string, unknown>), ...mapUserLike(userRaw as Record<string, unknown>) } as AuthSessionData : null,
       church: churchRaw
         ? ({
             ...churchRaw,
@@ -2273,11 +2276,13 @@ export async function workerDashboard(dateStart?: string, dateEnd?: string, page
       page,
       page_size: pageSize,
     });
-    const lettersRaw = Array.isArray(data?.letters) ? data.letters : [];
+    const lettersRaw = Array.isArray((data as Record<string, unknown>)?.letters) ? (data as Record<string, unknown>).letters : [];
+    const userRawApi = (data as Record<string, unknown>)?.user as Record<string, unknown> | null | undefined;
     return {
-      user: data?.user ? mapUserLike(data.user) : null,
-      church: data?.church || null,
-      letters: lettersRaw.map(mapLetterLike),
+      // Comentario: espalhamos o raw da API primeiro para preservar campos extras (rg, address_street, baptism_date, etc.)
+      user: userRawApi ? { ...userRawApi, ...mapUserLike(userRawApi) } as AuthSessionData : null,
+      church: (data as Record<string, unknown>)?.church as WorkerDashboardData["church"] || null,
+      letters: (Array.isArray(lettersRaw) ? lettersRaw : []).map((item) => mapLetterLike(item as Record<string, unknown>)),
     };
   }
   return {

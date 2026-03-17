@@ -35,10 +35,6 @@ function escapeHtml(value: string) {
     .replaceAll("'", "&#39;");
 }
 
-function getAddressField(addressJson: unknown, key: string) {
-  const address = (addressJson || {}) as Record<string, unknown>;
-  return String(address[key] || "");
-}
 
 function svgPlaceholder(label: string, width = 300, height = 200) {
   const safe = encodeURIComponent(label);
@@ -186,18 +182,14 @@ export default function UsuarioDocumentosPage() {
     Boolean(docsStatus?.carteirinha && String(docsStatus?.carteirinha?.final_url || "").trim().length > 0);
   const carteirinhaLink = String(docsStatus?.carteirinha?.ficha_url_qr || docsStatus?.carteirinha?.final_url || "").trim();
 
-  const addressStreet = getAddressField(profile?.address_json, "street");
-  const addressNumber = getAddressField(profile?.address_json, "number");
-  const addressNeighborhood = getAddressField(profile?.address_json, "neighborhood");
-  const city = getAddressField(profile?.address_json, "city");
-  const state = getAddressField(profile?.address_json, "state");
-  const zip = getAddressField(profile?.address_json, "zip");
-  const streetFinal = addressStreet || String((profile as Record<string, unknown> | undefined)?.address_street || "");
-  const numberFinal = addressNumber || String((profile as Record<string, unknown> | undefined)?.address_number || "");
-  const neighborhoodFinal = addressNeighborhood || String((profile as Record<string, unknown> | undefined)?.address_neighborhood || "");
-  const cityFinal = city || String((profile as Record<string, unknown> | undefined)?.address_city || "");
-  const stateFinal = state || String((profile as Record<string, unknown> | undefined)?.address_state || "");
-  const zipFinal = zip || String((profile as Record<string, unknown> | undefined)?.cep || "");
+  // Comentario: o banco retorna colunas planas (address_street, cep, etc.) — sem address_json.
+  const profileRaw = profile as Record<string, unknown> | undefined;
+  const streetFinal = String(profileRaw?.address_street || "");
+  const numberFinal = String(profileRaw?.address_number || "");
+  const neighborhoodFinal = String(profileRaw?.address_neighborhood || "");
+  const cityFinal = String(profileRaw?.address_city || "");
+  const stateFinal = String(profileRaw?.address_state || "");
+  const zipFinal = String(profileRaw?.cep || "");
   const churchFooter = useMemo(
     () => buildChurchFooterAddress((church || null) as Record<string, unknown> | null),
     [church],
@@ -353,10 +345,9 @@ export default function UsuarioDocumentosPage() {
             {docTab === "ficha" && fichaPronta ? (
               <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
                 <p className="text-sm font-semibold text-emerald-700">Ficha pronta.</p>
-                <p className="mt-1 text-xs text-emerald-700">A pré-visualização foi ocultada porque o arquivo final já está disponível.</p>
                 <div className="mt-3">
                   <Button size="sm" onClick={() => window.open(String(docsStatus?.ficha?.final_url || ""), "_blank", "noopener,noreferrer")}>
-                    Abrir ficha
+                    Abrir ficha final
                   </Button>
                 </div>
               </div>
@@ -366,7 +357,8 @@ export default function UsuarioDocumentosPage() {
                 A carteirinha ainda não está pronta. Aguarde a confecção para visualizar.
               </div>
             ) : null}
-            {docTab === "ficha" && !fichaPronta ? (
+            {/* Ficha: mostra sempre a pre-visualizacao com todos os dados do membro */}
+            {docTab === "ficha" ? (
               <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
                 <iframe title="Ficha do membro" className="h-[720px] w-full" srcDoc={isCadastroPendente ? "" : fichaHtml} />
               </div>
