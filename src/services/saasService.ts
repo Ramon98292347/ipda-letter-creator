@@ -671,7 +671,7 @@ export async function selectChurchSession(cpfInput: string, totvsId: string): Pr
 }
 
 export async function getPastorMetrics(): Promise<PastorMetrics> {
-  if (!isMockMode() && supabase && getRlsToken()) {
+  if (!isMockMode() && false && supabase && getRlsToken()) {
     const session = getSession();
     const scope = Array.isArray(session?.scope_totvs_ids) ? session?.scope_totvs_ids.filter(Boolean) : [];
     const today = new Date();
@@ -735,7 +735,7 @@ export async function getPastorMetrics(): Promise<PastorMetrics> {
 }
 
 export async function listPastorLetters(_activeTotvsId: string, filters: PastorFilters): Promise<PastorLetter[]> {
-  if (!isMockMode() && supabase && getRlsToken()) {
+  if (!isMockMode() && false && supabase && getRlsToken()) {
     const page = filters.page || 1;
     const pageSize = filters.pageSize || 500;
     const from = (page - 1) * pageSize;
@@ -1292,7 +1292,7 @@ export async function listChurchesInScope(page = 1, pageSize = 200, rootTotvsId?
 }
 
 export async function listChurchesInScopePaged(page = 1, pageSize = 20, rootTotvsId?: string): Promise<{ churches: ChurchInScopeItem[]; total: number; page: number; page_size: number }> {
-  if (supabase && getRlsToken()) {
+  if (false && supabase && getRlsToken()) {
     // Sem filtro de hierarquia: usa paginação real no banco (range + count).
     // O RLS já garante que só as igrejas do escopo do usuário são retornadas.
     // Isso evita o anti-padrão anterior de buscar 5000 igrejas e fatiar em memória.
@@ -1608,7 +1608,7 @@ export async function markAllNotificationsRead() {
 }
 
 export async function listAnnouncements(limit = 10): Promise<AnnouncementItem[]> {
-  if (!isMockMode() && supabase && getRlsToken()) {
+  if (!isMockMode() && false && supabase && getRlsToken()) {
     const nowIso = new Date().toISOString();
     const safeLimit = Math.max(1, Math.min(100, Number(limit || 10)));
     const { data: rowsRaw, error } = await supabase
@@ -2133,7 +2133,7 @@ export async function publicRegisterMember(payload: {
 }
 
 export async function getMyRegistrationStatus(): Promise<RegistrationStatus> {
-  if (!isMockMode() && supabase && getRlsToken()) {
+  if (!isMockMode() && false && supabase && getRlsToken()) {
     const currentUser = getUser();
     const currentUserId = String(currentUser?.id || "").trim();
     if (currentUserId) {
@@ -2202,7 +2202,7 @@ export async function softDeleteLetter(letterId: string) {
 export async function getSignedPdfUrl(value: string) {
   if (!value) return null;
   if (value.startsWith("http")) return value;
-  if (!isMockMode() && supabase && getRlsToken()) {
+  if (!isMockMode() && false && supabase && getRlsToken()) {
     const letterId = String(value || "").trim();
     const { data, error } = await supabase
       .from("letters")
@@ -2254,7 +2254,7 @@ export async function requestRelease(letterId: string, _workerId: string, _churc
 }
 
 export async function workerDashboard(dateStart?: string, dateEnd?: string, page = 1, pageSize = 20): Promise<WorkerDashboardData> {
-  if (!isMockMode() && supabase && getRlsToken()) {
+  if (!isMockMode() && false && supabase && getRlsToken()) {
     const currentUser = getUser();
     const currentSession = getSession();
     const userId = String(currentUser?.id || "").trim();
