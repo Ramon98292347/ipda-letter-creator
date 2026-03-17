@@ -835,17 +835,53 @@ export async function listObreiros(_scopeTotvsIds: string[]): Promise<UserListIt
 }
 
 export async function listMembers(params: MemberListParams): Promise<WorkerListResponse> {
-  if (!isMockMode()) {
-    const data = await api.listWorkers({
-      search: params.search || undefined,
-      minister_role: params.minister_role || undefined,
-      is_active: typeof params.is_active === "boolean" ? params.is_active : undefined,
-      include_pastor: params.roles?.includes("pastor") ? true : undefined,
-      page: params.page || 1,
-      page_size: params.page_size || 20,
-      church_totvs_id: params.church_totvs_id || undefined,
-    });
-    const rows = (Array.isArray(data?.workers) ? data.workers : []) as Array<Record<string, unknown>>;
+  if (!isMockMode() && supabase && getRlsToken()) {
+    const session = getSession();
+    const page = params.page || 1;
+    const pageSize = params.page_size || 20;
+    const from = (page - 1) * pageSize;
+    const to = from + pageSize - 1;
+
+    let query = supabase
+      .from("users")
+      .select(
+        "id, full_name, role, cpf, rg, phone, email, profession, minister_role, birth_date, baptism_date, marital_status, matricula, ordination_date, avatar_url, signature_url, cep, address_street, address_number, address_complement, address_neighborhood, address_city, address_state, default_totvs_id, totvs_access, is_active, can_create_released_letter, payment_status, payment_block_reason",
+        { count: "exact" },
+      )
+      .order("full_name", { ascending: true });
+
+    if (params.search?.trim()) {
+      const search = params.search.trim();
+      query = query.or(
+        `full_name.ilike.%${search}%,cpf.ilike.%${search}%,phone.ilike.%${search}%,email.ilike.%${search}%`,
+      );
+    }
+
+    if (params.minister_role?.trim()) {
+      query = query.eq("minister_role", params.minister_role.trim());
+    }
+
+    if (typeof params.is_active === "boolean") {
+      query = query.eq("is_active", params.is_active);
+    }
+
+    if (params.roles?.length) {
+      query = query.in("role", params.roles);
+    }
+
+    const role = String(session?.role || "").toLowerCase();
+    if (role === "admin" && params.church_totvs_id?.trim()) {
+      query = query.eq("default_totvs_id", params.church_totvs_id.trim());
+    } else if (params.church_totvs_id?.trim()) {
+      query = query.eq("default_totvs_id", params.church_totvs_id.trim());
+    }
+
+    const { data: rowsRaw, error, count } = await query.range(from, to);
+    if (error) {
+      throw new Error(error.message || "Erro ao listar membros.");
+    }
+
+    const rows = Array.isArray(rowsRaw) ? rowsRaw : [];
     return {
       workers: rows.map((w: Record<string, unknown>) => ({
         id: String(w?.id || ""),
@@ -971,7 +1007,7 @@ export async function listMembers(params: MemberListParams): Promise<WorkerListR
 }
 
 export async function listWorkers(params: WorkerListParams): Promise<WorkerListResponse> {
-  if (!isMockMode() && false && supabase && getRlsToken()) {
+  if (!isMockMode() && supabase && getRlsToken()) {
     return listMembers({
       search: params.search,
       minister_role: params.minister_role,
@@ -1121,7 +1157,7 @@ export async function searchChurchesPublic(query: string, limit = 8): Promise<Ch
 }
 
 export async function listChurchesInScope(page = 1, pageSize = 200, rootTotvsId?: string): Promise<ChurchInScopeItem[]> {
-  if (false && supabase && getRlsToken()) {
+  if (supabase && getRlsToken()) {
     const session = getSession();
     const role = String(session?.role || "").toLowerCase();
 
@@ -1250,7 +1286,7 @@ export async function listChurchesInScope(page = 1, pageSize = 200, rootTotvsId?
 }
 
 export async function listChurchesInScopePaged(page = 1, pageSize = 20, rootTotvsId?: string): Promise<{ churches: ChurchInScopeItem[]; total: number; page: number; page_size: number }> {
-  if (false && supabase && getRlsToken()) {
+  if (supabase && getRlsToken()) {
     // Sem filtro de hierarquia: usa paginação real no banco (range + count).
     // O RLS já garante que só as igrejas do escopo do usuário são retornadas.
     // Isso evita o anti-padrão anterior de buscar 5000 igrejas e fatiar em memória.
@@ -1481,9 +1517,39 @@ export async function listNotifications(page = 1, pageSize = 20, unreadOnly = fa
   const userId = String(currentUser?.id || "").trim();
   const rlsToken = getRlsToken();
 
-  if (!isMockMode()) {
-    const data = await api.listNotifications({ page, page_size: pageSize, unread_only: unreadOnly });
-    const rows = Array.isArray(data?.notifications) ? data.notifications : [];
+  if (supabase && rlsToken) {
+    const from = (page - 1) * pageSize;
+    const to = from + pageSize - 1;
+    let query = supabase.from("notifications").select("id, title, message, is_read, read_at, created_at, type", { count: "exact" });
+
+    if (rootTotvs && userId) {
+      query = query.or(`church_totvs_id.eq.${rootTotvs},user_id.eq.${userId}`);
+    } else if (rootTotvs) {
+      query = query.eq("church_totvs_id", rootTotvs);
+    } else if (userId) {
+      query = query.eq("user_id", userId);
+    }
+
+    if (unreadOnly) {
+      query = query.eq("is_read", false);
+    }
+
+    const { data: rowsRaw, error, count } = await query.order("created_at", { ascending: false }).range(from, to);
+    if (error) throw new Error(error.message || "Erro ao listar notificacoes.");
+    const rows = Array.isArray(rowsRaw) ? rowsRaw : [];
+
+    let unreadCount = 0;
+    let unreadQuery = supabase.from("notifications").select("id", { count: "exact", head: true }).eq("is_read", false);
+    if (rootTotvs && userId) {
+      unreadQuery = unreadQuery.or(`church_totvs_id.eq.${rootTotvs},user_id.eq.${userId}`);
+    } else if (rootTotvs) {
+      unreadQuery = unreadQuery.eq("church_totvs_id", rootTotvs);
+    } else if (userId) {
+      unreadQuery = unreadQuery.eq("user_id", userId);
+    }
+    const { count: unreadDbCount } = await unreadQuery;
+    unreadCount = Number(unreadDbCount || 0);
+
     return {
       notifications: rows.map((item: Record<string, unknown>) => ({
         id: String(item?.id || ""),
@@ -1493,8 +1559,8 @@ export async function listNotifications(page = 1, pageSize = 20, unreadOnly = fa
         created_at: item?.created_at || null,
         type: item?.type || null,
       })),
-      unread_count: Number(data?.unread_count || 0),
-      total: Number(data?.total || rows.length),
+      unread_count: unreadCount,
+      total: Number(count || rows.length),
     };
   }
   return { notifications: [], unread_count: 0, total: 0 };
@@ -1550,31 +1616,59 @@ export async function markAllNotificationsRead() {
   return;
 }
 
-function mapAnnouncementRow(item: Record<string, unknown>): AnnouncementItem {
-  return {
-    id: String(item?.id || ""),
-    title: String(item?.title || "Aviso"),
-    type: (item?.type || "text") as "text" | "image" | "video",
-    body_text: item?.body_text || null,
-    media_url: toAnnouncementMediaUrl(item?.media_url),
-    link_url: item?.link_url || null,
-    position: typeof item?.position === "number" ? item.position : null,
-    starts_at: item?.starts_at || null,
-    ends_at: item?.ends_at || null,
-    is_active: typeof item?.is_active === "boolean" ? item.is_active : true,
-  };
-}
-
-// Sempre usa a edge function list-announcements (usa service_role_key, bypass RLS)
 export async function listAnnouncements(limit = 10): Promise<AnnouncementItem[]> {
+  if (!isMockMode() && supabase && getRlsToken()) {
+    const nowIso = new Date().toISOString();
+    const safeLimit = Math.max(1, Math.min(100, Number(limit || 10)));
+    const { data: rowsRaw, error } = await supabase
+      .from("announcements")
+      .select("id, title, type, body_text, media_url, link_url, position, starts_at, ends_at, is_active")
+      .eq("is_active", true)
+      .or(`starts_at.is.null,starts_at.lte.${nowIso}`)
+      .or(`ends_at.is.null,ends_at.gte.${nowIso}`)
+      .order("position", { ascending: true, nullsFirst: false })
+      .order("starts_at", { ascending: false, nullsFirst: false })
+      .limit(safeLimit);
+
+    if (error) {
+      throw new Error(error.message || "Erro ao listar divulgações.");
+    }
+    const rows = Array.isArray(rowsRaw) ? rowsRaw : [];
+    return rows.map((item: Record<string, unknown>) => ({
+      id: String(item?.id || ""),
+      title: String(item?.title || "Aviso"),
+      type: (item?.type || "text") as "text" | "image" | "video",
+      body_text: item?.body_text || null,
+      media_url: toAnnouncementMediaUrl(item?.media_url),
+      link_url: item?.link_url || null,
+      position: typeof item?.position === "number" ? item.position : null,
+      starts_at: item?.starts_at || null,
+      ends_at: item?.ends_at || null,
+      is_active: typeof item?.is_active === "boolean" ? item.is_active : true,
+    }));
+  }
+
   if (!isMockMode()) {
     const data = await api.listAnnouncements({ limit });
     const rows = Array.isArray(data?.announcements)
       ? data.announcements
-      : Array.isArray(data)
-        ? data
-        : [];
-    return rows.map(mapAnnouncementRow);
+      : Array.isArray(data?.items)
+        ? data.items
+        : Array.isArray(data)
+          ? data
+          : [];
+    return rows.map((item: Record<string, unknown>) => ({
+      id: String(item?.id || ""),
+      title: String(item?.title || "Aviso"),
+      type: (item?.type || "text") as "text" | "image" | "video",
+      body_text: item?.body_text || null,
+      media_url: toAnnouncementMediaUrl(item?.media_url),
+      link_url: item?.link_url || null,
+      position: typeof item?.position === "number" ? item.position : null,
+      starts_at: item?.starts_at || null,
+      ends_at: item?.ends_at || null,
+      is_active: typeof item?.is_active === "boolean" ? item.is_active : true,
+    }));
   }
   return [...MOCK_ANNOUNCEMENTS].slice(0, limit);
 }
@@ -1665,13 +1759,12 @@ export async function listBirthdaysToday(limit = 10): Promise<BirthdayItem[]> {
     }));
 }
 
-// Usa supabaseAnon (sem injecao de JWT customizado) para nao causar 401 no RLS
 export async function listAnnouncementsPublicByTotvs(churchTotvsId: string, limit = 10): Promise<AnnouncementItem[]> {
   const totvs = String(churchTotvsId || "").trim();
-  if (!totvs || !supabaseAnon) return [];
+  if (!totvs || !supabase) return [];
 
   const nowIso = new Date().toISOString();
-  const { data, error } = await supabaseAnon
+  const { data, error } = await supabase
     .from("announcements")
     .select("id,title,type,body_text,media_url,link_url,position,starts_at,ends_at,is_active,created_at")
     .eq("church_totvs_id", totvs)
@@ -1688,15 +1781,26 @@ export async function listAnnouncementsPublicByTotvs(churchTotvsId: string, limi
       const endsOk = !item?.ends_at || String(item.ends_at) >= nowIso;
       return startsOk && endsOk;
     })
-    .map(mapAnnouncementRow);
+    .map((item: Record<string, unknown>) => ({
+      id: String(item?.id || ""),
+      title: String(item?.title || "Aviso"),
+      type: (item?.type || "text") as "text" | "image" | "video",
+      body_text: item?.body_text || null,
+      media_url: toAnnouncementMediaUrl(item?.media_url),
+      link_url: item?.link_url || null,
+      position: typeof item?.position === "number" ? item.position : null,
+      starts_at: item?.starts_at || null,
+      ends_at: item?.ends_at || null,
+      is_active: typeof item?.is_active === "boolean" ? item.is_active : true,
+    }));
 }
 
 export async function listAnnouncementsPublicByScope(totvsIds: string[], limit = 10): Promise<AnnouncementItem[]> {
   const scope = Array.from(new Set((totvsIds || []).map((id) => String(id || "").trim()).filter(Boolean)));
-  if (!scope.length || !supabaseAnon) return [];
+  if (!scope.length || !supabase) return [];
 
   const nowIso = new Date().toISOString();
-  const { data, error } = await supabaseAnon
+  const { data, error } = await supabase
     .from("announcements")
     .select("id,title,type,body_text,media_url,link_url,position,starts_at,ends_at,is_active,created_at")
     .in("church_totvs_id", scope)
@@ -1713,7 +1817,18 @@ export async function listAnnouncementsPublicByScope(totvsIds: string[], limit =
       const endsOk = !item?.ends_at || String(item.ends_at) >= nowIso;
       return startsOk && endsOk;
     })
-    .map(mapAnnouncementRow);
+    .map((item: Record<string, unknown>) => ({
+      id: String(item?.id || ""),
+      title: String(item?.title || "Aviso"),
+      type: (item?.type || "text") as "text" | "image" | "video",
+      body_text: item?.body_text || null,
+      media_url: toAnnouncementMediaUrl(item?.media_url),
+      link_url: item?.link_url || null,
+      position: typeof item?.position === "number" ? item.position : null,
+      starts_at: item?.starts_at || null,
+      ends_at: item?.ends_at || null,
+      is_active: typeof item?.is_active === "boolean" ? item.is_active : true,
+    }));
 }
 
 function getTodayMonthDaySaoPaulo() {
