@@ -96,8 +96,9 @@ export default function CadastroRapido() {
   async function uploadAvatarPublico(file: File, cpfDigits: string) {
     if (!supabase) throw new Error("supabase_not_configured");
 
+    // Comentario: mesmo padrao do formulario de edicao de perfil — users/{cpf}.{ext}
     const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
-    const path = `users/cadastro-${cpfDigits}-${Date.now()}.${ext}`;
+    const path = `users/${cpfDigits}.${ext}`;
 
     const { error } = await supabase.storage.from("avatars").upload(path, file, {
       upsert: true,
