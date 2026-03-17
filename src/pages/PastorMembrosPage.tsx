@@ -1312,8 +1312,8 @@ export default function PastorMembrosPage() {
 
             {tab === "ficha_membro" ? (
               <div className="space-y-3 rounded-xl border border-slate-200 p-4">
-                {/* Botão principal para gerar a ficha de membro via webhook n8n */}
-                <div className="flex items-center gap-3">
+                {/* Botão para gerar/regerar a ficha via edge function + webhook n8n */}
+                <div className="flex flex-wrap items-center gap-2">
                   <Button
                     onClick={gerarFichaMembro}
                     disabled={sending || !selectedMemberId}
@@ -1322,21 +1322,29 @@ export default function PastorMembrosPage() {
                     {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
                     {sending ? "Gerando ficha..." : "Gerar Ficha de Membro"}
                   </Button>
-                  {fichaPronta ? (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => window.open(String(docsStatus?.ficha?.final_url || ""), "_blank", "noopener,noreferrer")}
-                    >
-                      Abrir ficha gerada
-                    </Button>
-                  ) : null}
+                  {fetchingDocsStatus ? <span className="text-xs text-slate-500">Verificando status...</span> : null}
                 </div>
 
+                {/* Quando a ficha estiver PRONTA exibe caixa verde com botões de visualizar e baixar */}
                 {fichaPronta ? (
                   <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
-                    <p className="text-sm font-semibold text-emerald-700">Ficha do membro pronta para uso.</p>
-                    <p className="mt-1 text-xs text-emerald-700">A pré-visualização foi ocultada porque o documento final já foi gerado.</p>
+                    <p className="text-sm font-semibold text-emerald-700">Ficha do membro pronta.</p>
+                    <p className="mt-1 text-xs text-emerald-700">O arquivo final está disponível para visualização e download.</p>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <Button
+                        size="sm"
+                        onClick={() => window.open(String(docsStatus?.ficha?.final_url || ""), "_blank", "noopener,noreferrer")}
+                      >
+                        Visualizar ficha
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => window.open(String(docsStatus?.ficha?.final_url || ""), "_blank", "noopener,noreferrer")}
+                      >
+                        Baixar ficha
+                      </Button>
+                    </div>
                   </div>
                 ) : null}
                 {manualFichaMembro ? (
