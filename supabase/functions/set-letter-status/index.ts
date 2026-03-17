@@ -133,7 +133,7 @@ Deno.serve(async (req) => {
 
     const { data: letter, error: lErr } = await sb
       .from("letters")
-      .select("id, church_totvs_id, status, preacher_name, preacher_user_id, minister_role, preach_date, preach_period, church_origin, church_destination, phone, email, signer_user_id, signer_totvs_id, created_at")
+      .select("id, church_totvs_id, status, preacher_name, preacher_user_id, minister_role, preach_date, preach_period, church_origin, church_destination, preacher_phone, phone, email, signer_user_id, signer_totvs_id, created_at")
       .eq("id", letter_id)
       .maybeSingle();
 
@@ -218,7 +218,8 @@ Deno.serve(async (req) => {
         const n8nPayload = {
           letter_id: letter.id,
           nome: String(letter.preacher_name || ""),
-          telefone: String(letter.phone || ""),
+          // Usa preacher_phone primeiro (telefone do pregador), fallback para phone
+          telefone: String(letter.preacher_phone || letter.phone || ""),
           igreja_origem: churchOrigin,
           origem: churchOrigin,
           igreja_destino: churchDestination,
