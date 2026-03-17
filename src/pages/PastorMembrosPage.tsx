@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Grid2X2, IdCard, List, MoreVertical, Save, Send, Users } from "lucide-react";
+import { FileText, Grid2X2, IdCard, List, Loader2, MoreVertical, Save, Send, Users } from "lucide-react";
 import { toast } from "sonner";
 import { ManagementShell } from "@/components/layout/ManagementShell";
 import { ObreirosTab } from "@/components/admin/ObreirosTab";
@@ -896,6 +896,68 @@ export default function PastorMembrosPage() {
     }
   }
 
+  // Comentario: envia dados do membro diretamente ao webhook do n8n para gerar a ficha de membro em PDF.
+  // O payload segue o modelo acordado com o n8n para montar o documento final.
+  async function gerarFichaMembro() {
+    if (!selectedMemberId || !selectedMember) {
+      toast.error("Selecione um membro.");
+      return;
+    }
+    setSending(true);
+    try {
+      const churchInScope = churchesInScope?.find((c) => String(c.totvs_id) === activeTotvsId);
+      const churchStamp = churchInScope?.stamp_church_url || "";
+      const pastorSignature = pastorDaIgreja?.signature_url || "";
+      const membCpf = String(selectedMember.cpf || "").replace(/\D/g, "");
+      const membCpfFormatted = formatCpfBr(membCpf);
+
+      const payload = {
+        nome_completo: selectedMember.full_name || "",
+        matricula: selectedMember.matricula || "",
+        funcao_ministerial: selectedMember.minister_role || "",
+        data_nascimento: selectedMember.birth_date || "",
+        dados: {
+          member_cep: formatCepBr(selectedMember.cep || ""),
+          endereco_igreja_completo: rodapeAuto || churchFooter || "",
+          igreja_nome: churchName || "",
+          telefone: String(selectedMember.phone || "").replace(/\D/g, ""),
+        },
+        endereco: selectedMember.address_street || "",
+        numero: selectedMember.address_number || "",
+        bairro: selectedMember.address_neighborhood || "",
+        cidade: selectedMember.address_city || "",
+        estado: selectedMember.address_state || "",
+        estado_civil: selectedMember.marital_status || "",
+        data_batismo: selectedMember.baptism_date || "",
+        cpf: membCpfFormatted,
+        foto_3x4_url: selectedMember.avatar_url || "",
+        rg: selectedMember.rg || "",
+        email: selectedMember.email || "",
+        cidade_nascimento: form.cidade_nascimento || "",
+        uf_nascimento: form.uf_nascimento || "",
+        profissao: selectedMember.profession || "",
+        carimbo_igreja_url: churchStamp,
+        assinatura_pastor_url: pastorSignature,
+        member_id: selectedMemberId,
+      };
+
+      const res = await fetch("https://n8n-n8n.ynlng8.easypanel.host/webhook/ficha-carteirinha", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) throw new Error(`Webhook retornou ${res.status}`);
+      toast.success("Ficha enviada para confecção! Aguarde o processamento.");
+      // Atualiza status dos documentos após envio
+      await refetchDocsStatus();
+    } catch (err) {
+      toast.error(`Falha ao gerar ficha: ${String((err as Error)?.message || err)}`);
+    } finally {
+      setSending(false);
+    }
+  }
+
   const showManualForm =
     tab === "ficha_obreiro" ||
     (tab === "carteirinha" && manualCarteirinha) ||
@@ -1143,13 +1205,7 @@ export default function PastorMembrosPage() {
               </div>
             ) : null}
 
-            {tab === "carteirinha" ? (
-              <div className="flex justify-end">
-                <Button variant="outline" onClick={() => setManualCarteirinha((prev) => !prev)}>
-                  {manualCarteirinha ? "Ocultar preenchimento manual" : "Preenchimento manual da carteirinha"}
-                </Button>
-              </div>
-            ) : null}
+            {/* Botão de preenchimento manual da carteirinha removido: documento so aparece quando existir no banco */}
 
             {tab === "ficha_membro" ? (
               <div className="flex justify-end">
@@ -1254,18 +1310,31 @@ export default function PastorMembrosPage() {
 
             {tab === "ficha_membro" ? (
               <div className="space-y-3 rounded-xl border border-slate-200 p-4">
+                {/* Botão principal para gerar a ficha de membro via webhook n8n */}
+                <div className="flex items-center gap-3">
+                  <Button
+                    onClick={gerarFichaMembro}
+                    disabled={sending || !selectedMemberId}
+                    className="gap-2"
+                  >
+                    {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
+                    {sending ? "Gerando ficha..." : "Gerar Ficha de Membro"}
+                  </Button>
+                  {fichaPronta ? (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => window.open(String(docsStatus?.ficha?.final_url || ""), "_blank", "noopener,noreferrer")}
+                    >
+                      Abrir ficha gerada
+                    </Button>
+                  ) : null}
+                </div>
+
                 {fichaPronta ? (
                   <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
                     <p className="text-sm font-semibold text-emerald-700">Ficha do membro pronta para uso.</p>
                     <p className="mt-1 text-xs text-emerald-700">A pré-visualização foi ocultada porque o documento final já foi gerado.</p>
-                    <div className="mt-3">
-                      <Button
-                        size="sm"
-                        onClick={() => window.open(String(docsStatus?.ficha?.final_url || ""), "_blank", "noopener,noreferrer")}
-                      >
-                        Abrir ficha
-                      </Button>
-                    </div>
                   </div>
                 ) : null}
                 {manualFichaMembro ? (
