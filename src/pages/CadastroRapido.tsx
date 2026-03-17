@@ -93,10 +93,11 @@ export default function CadastroRapido() {
     return () => URL.revokeObjectURL(objectUrl);
   }, [avatarFile]);
 
+  // Comentario: faz upload do avatar usando o CPF como nome do arquivo.
+  // Path: avatars/users/{cpf}.{ext} — igual ao padrao do formulario de edicao de perfil.
   async function uploadAvatarPublico(file: File, cpfDigits: string) {
     if (!supabase) throw new Error("supabase_not_configured");
 
-    // Comentario: mesmo padrao do formulario de edicao de perfil — users/{cpf}.{ext}
     const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
     const path = `users/${cpfDigits}.${ext}`;
 
@@ -217,6 +218,7 @@ export default function CadastroRapido() {
 
     setLoading(true);
     try {
+      // Comentario: faz upload da foto primeiro (se houver), depois registra com a URL
       let avatarUrl: string | null = null;
       if (avatarFile) {
         avatarUrl = await uploadAvatarPublico(avatarFile, cpfRaw);

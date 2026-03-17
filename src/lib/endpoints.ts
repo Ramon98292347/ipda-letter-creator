@@ -99,6 +99,9 @@ export const api = {
   getPastorContact: (body: { totvs_id: string }) => post("get-pastor-contact", body),
   // Busca divulgacoes pelo CPF sem precisar de JWT (usado na tela de login)
   listAnnouncementsByCpf: (body: { cpf: string; limit?: number }) => post("list-announcements", body, { skipAuth: true }),
+  // Atualiza avatar apos cadastro publico (usa user_id + cpf para verificacao)
+  updateMemberAvatar: (body: { user_id: string; cpf: string; avatar_url: string }) =>
+    post("update-member-avatar", body, { skipAuth: true }),
   birthdaysToday: () => post("birthdays-today", {}),
   upsertAnnouncement: (body: JsonBody) => post("upsert-announcement", body),
   deleteAnnouncement: (body: { id: string }) => post("delete-announcement", body),
