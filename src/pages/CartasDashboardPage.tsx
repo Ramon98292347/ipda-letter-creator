@@ -141,6 +141,16 @@ export default function CartasDashboardPage() {
     return map;
   }, [obreiros]);
 
+  // Mapa de liberacao automatica por user_id para o CartasTab mostrar ON/OFF corretamente
+  const autoReleaseByUserId = useMemo(() => {
+    const map: Record<string, boolean> = {};
+    obreiros.forEach((u) => {
+      const id = String(u?.id || "");
+      if (id) map[id] = Boolean(u?.can_create_released_letter);
+    });
+    return map;
+  }, [obreiros]);
+
   const gradients = {
     total: "from-purple-600 to-purple-500",
     hoje: "from-sky-500 to-sky-400",
@@ -273,6 +283,7 @@ export default function CartasDashboardPage() {
           viewerRole={roleMode as "admin" | "pastor"}
           viewerUserId={String(usuario?.id || "")}
           allowScopeView={allowScopeView}
+          autoReleaseByUserId={autoReleaseByUserId}
         />
       </div>
     </ManagementShell>

@@ -6,8 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
-import { setLetterStatus, softDeleteLetter, type PastorLetter } from "@/services/saasService";
-import { ArrowUpRight, Filter, MoreHorizontal, RotateCcw, Search, Share2, Trash2, Lock, Unlock, CheckCheck, Send } from "lucide-react";
+import { setLetterStatus, setWorkerDirectRelease, softDeleteLetter, type PastorLetter } from "@/services/saasService";
+import { ArrowUpRight, Filter, MoreHorizontal, RotateCcw, Search, Share2, Trash2, Lock, Unlock, CheckCheck, Send, Zap } from "lucide-react";
 
 // URL do webhook n8n — o mesmo usado pelo sistema de cartas (telas-cartas).
 const LETTERS_WEBHOOK_URL = "https://n8n-n8n.ynlng8.easypanel.host/webhook/carta-pregacao";
@@ -55,6 +55,7 @@ export function CartasTab({
   viewerRole,
   viewerUserId,
   allowScopeView,
+  autoReleaseByUserId = {},
 }: {
   letters: PastorLetter[];
   scopeTotvsIds: string[];
@@ -63,6 +64,7 @@ export function CartasTab({
   viewerRole: "admin" | "pastor";
   viewerUserId: string;
   allowScopeView: boolean;
+  autoReleaseByUserId?: Record<string, boolean>;
 }) {
   const queryClient = useQueryClient();
 
@@ -72,6 +74,8 @@ export function CartasTab({
   const [updatingReleaseId, setUpdatingReleaseId] = useState<string | null>(null);
   const [updatingEnvioId, setUpdatingEnvioId] = useState<string | null>(null);
   const [updatingBlockId, setUpdatingBlockId] = useState<string | null>(null);
+  // Rastreia alteracoes locais de liberacao automatica para atualizar a UI sem recarregar
+  const [localAutoRelease, setLocalAutoRelease] = useState<Record<string, boolean>>({});
   const [filters, setFilters] = useState({
     dateStart: "",
     dateEnd: "",
@@ -316,9 +320,29 @@ export function CartasTab({
     }
   }
 
+  async function toggleAutoRelease(letter: PastorLetter) {
+    const userId = String(letter.preacher_user_id || "").trim();
+    if (!userId) {
+      toast.error("Obreiro nao identificado para liberar automaticamente.");
+      return;
+    }
+    // Verifica o estado atual: primeiro no estado local, depois no mapa vindo da pagina pai
+    const current = userId in localAutoRelease ? localAutoRelease[userId] : Boolean(autoReleaseByUserId[userId]);
+    const next = !current;
+    try {
+      await setWorkerDirectRelease(userId, next);
+      setLocalAutoRelease((prev) => ({ ...prev, [userId]: next }));
+      toast.success(next ? "Liberacao automatica ativada." : "Liberacao automatica desativada.");
+    } catch (err: unknown) {
+      toast.error(getFriendlyError(err, "letters"));
+    }
+  }
+
   function renderActions(letter: PastorLetter) {
     const isBlocked = letter.status === "BLOQUEADO";
     const isEnviada = letter.status === "ENVIADA";
+    const userId = String(letter.preacher_user_id || "").trim();
+    const autoRelease = userId in localAutoRelease ? localAutoRelease[userId] : Boolean(autoReleaseByUserId[userId]);
     return (
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
@@ -342,6 +366,12 @@ export function CartasTab({
             <CheckCheck className="mr-2 h-4 w-4 text-sky-600" />
             Marcar envio
           </DropdownMenuItem>
+          {!isBlocked && (
+            <DropdownMenuItem onClick={() => toggleAutoRelease(letter)}>
+              <Zap className={`mr-2 h-4 w-4 ${autoRelease ? "text-yellow-500" : "text-slate-400"}`} />
+              Liberacao automatica: {autoRelease ? "ON" : "OFF"}
+            </DropdownMenuItem>
+          )}
           <DropdownMenuItem onClick={() => share(letter)} disabled={!canViewOrShare(letter)}>
             <Share2 className="mr-2 h-4 w-4 text-blue-600" />
             Compartilhar
