@@ -1761,10 +1761,10 @@ export async function listBirthdaysToday(limit = 10): Promise<BirthdayItem[]> {
 
 export async function listAnnouncementsPublicByTotvs(churchTotvsId: string, limit = 10): Promise<AnnouncementItem[]> {
   const totvs = String(churchTotvsId || "").trim();
-  if (!totvs || !supabase) return [];
+  if (!totvs || !supabaseAnon) return [];
 
   const nowIso = new Date().toISOString();
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAnon
     .from("announcements")
     .select("id,title,type,body_text,media_url,link_url,position,starts_at,ends_at,is_active,created_at")
     .eq("church_totvs_id", totvs)
@@ -1797,10 +1797,10 @@ export async function listAnnouncementsPublicByTotvs(churchTotvsId: string, limi
 
 export async function listAnnouncementsPublicByScope(totvsIds: string[], limit = 10): Promise<AnnouncementItem[]> {
   const scope = Array.from(new Set((totvsIds || []).map((id) => String(id || "").trim()).filter(Boolean)));
-  if (!scope.length || !supabase) return [];
+  if (!scope.length || !supabaseAnon) return [];
 
   const nowIso = new Date().toISOString();
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAnon
     .from("announcements")
     .select("id,title,type,body_text,media_url,link_url,position,starts_at,ends_at,is_active,created_at")
     .in("church_totvs_id", scope)

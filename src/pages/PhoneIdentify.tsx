@@ -85,15 +85,19 @@ export default function PhoneIdentify() {
         })()
       : {};
   const cachedTotvs = typeof window !== "undefined" ? localStorage.getItem("ipda_last_totvs") || "" : "";
+  // Totvs da mae (root): salvo apos login para mostrar divulgacoes da mae na proxima abertura
+  const cachedRootTotvs = typeof window !== "undefined" ? localStorage.getItem("ipda_root_totvs") || "" : "";
   const isCachedAdmin = String(cachedUser?.role || "").toLowerCase() === "admin";
   const cachedScope = Array.isArray(cachedSession?.scope_totvs_ids) ? cachedSession.scope_totvs_ids.filter(Boolean).map(String) : [];
   const announcementScope = isCachedAdmin ? cachedScope : [];
+  // Para pastor/obreiro usa o totvs da mae; se nao tiver, usa o proprio totvs
+  const announcementTotvs = cachedRootTotvs || cachedTotvs;
 
   const { data: announcements = [] } = useQuery({
-    queryKey: ["announcements-login", cachedTotvs, announcementScope.join(",")],
+    queryKey: ["announcements-login", announcementTotvs, announcementScope.join(",")],
     queryFn: () =>
-      announcementScope.length ? listAnnouncementsPublicByScope(announcementScope, 30) : listAnnouncementsPublicByTotvs(cachedTotvs, 10),
-    enabled: Boolean(cachedTotvs) || announcementScope.length > 0,
+      announcementScope.length ? listAnnouncementsPublicByScope(announcementScope, 30) : listAnnouncementsPublicByTotvs(announcementTotvs, 10),
+    enabled: Boolean(announcementTotvs) || announcementScope.length > 0,
   });
 
   const { data: birthdays = [] } = useQuery({
@@ -142,6 +146,8 @@ export default function PhoneIdentify() {
       setToken(result.token);
       setSession(fixedSession);
       if (fixedSession.totvs_id) localStorage.setItem("ipda_last_totvs", fixedSession.totvs_id);
+      // Salva a totvs mae (root) para mostrar divulgacoes corretas na proxima abertura da tela de login
+      if (fixedSession.root_totvs_id) localStorage.setItem("ipda_root_totvs", fixedSession.root_totvs_id);
       setPendingCpf(undefined);
       setAvailableChurches([]);
 
