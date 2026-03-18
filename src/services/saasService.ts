@@ -322,6 +322,9 @@ export type AppNotification = {
   is_read: boolean;
   created_at?: string | null;
   type?: string | null;
+  // Comentario: campo data contem informacoes extras por tipo.
+  // Para type="birthday": { full_name, phone, email, birth_date, date }
+  data?: Record<string, unknown> | null;
 };
 
 export type WorkerDashboardData = {
@@ -1548,6 +1551,8 @@ export async function listNotifications(page = 1, pageSize = 20, unreadOnly = fa
         is_read: Boolean(item?.is_read) || Boolean(item?.read_at),
         created_at: item?.created_at ? String(item.created_at) : null,
         type: item?.type ? String(item.type) : null,
+        // Comentario: mapeia o campo data para exibir infos extras (ex: telefone no aniversario)
+        data: item?.data && typeof item.data === "object" ? (item.data as Record<string, unknown>) : null,
       })),
       unread_count: Number(raw?.unread_count || 0),
       total: Number(raw?.total || rows.length),

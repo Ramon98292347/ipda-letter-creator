@@ -284,17 +284,31 @@ export function ManagementShell({
           </div>
           <div className="max-h-[55vh] space-y-2 overflow-y-auto">
             {notifications.length === 0 ? <p className="text-sm text-slate-500">Sem notificações.</p> : null}
-            {notifications.map((item) => (
-              <div key={item.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border p-3 text-sm">
-                <div>
-                  <p className="font-semibold text-slate-900">{item.title}</p>
-                  <p className="text-slate-600">{item.message || "Sem mensagem"}</p>
+            {notifications.map((item) => {
+              // Comentario: para notificacoes de aniversario, exibe telefone se disponivel no campo data
+              const phone = item.type === "birthday" && item.data?.phone ? String(item.data.phone) : null;
+              return (
+                <div key={item.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border p-3 text-sm">
+                  <div className="min-w-0">
+                    <p className="font-semibold text-slate-900">{item.title}</p>
+                    <p className="text-slate-600">{item.message || "Sem mensagem"}</p>
+                    {phone ? (
+                      <a
+                        href={`https://wa.me/55${phone.replace(/\D/g, "")}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-green-600 hover:underline"
+                      >
+                        📱 {phone}
+                      </a>
+                    ) : null}
+                  </div>
+                  <Button variant="outline" onClick={() => onReadNotification(item.id)} disabled={item.is_read}>
+                    {item.is_read ? "Lida" : "Marcar lida"}
+                  </Button>
                 </div>
-                <Button variant="outline" onClick={() => onReadNotification(item.id)} disabled={item.is_read}>
-                  {item.is_read ? "Lida" : "Marcar lida"}
-                </Button>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </DialogContent>
       </Dialog>
