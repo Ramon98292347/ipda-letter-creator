@@ -7,6 +7,7 @@ import { listChurchesInScope, listChurchesInScopePaged } from "@/services/saasSe
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { PageLoading } from "@/components/shared/PageLoading";
+import { useUser } from "@/context/UserContext";
 
 function KpiCard({
   title,
@@ -34,6 +35,10 @@ function KpiCard({
 // Comentario: pagina de igrejas com layout SaaS corporativo e cards de KPI neutros/suaves.
 export default function PastorIgrejasPage() {
   const queryClient = useQueryClient();
+  const { session } = useUser();
+  // Comentario: activeTotvsId limita o escopo ao mesmo que o dashboard usa,
+  // evitando mostrar igrejas fora do escopo da igreja logada.
+  const activeTotvsId = String(session?.totvs_id || "");
   const [filterTotvs, setFilterTotvs] = useState("all");
   const [filterNome, setFilterNome] = useState("");
   const [filterClasse, setFilterClasse] = useState("all");
@@ -41,14 +46,16 @@ export default function PastorIgrejasPage() {
   const [pageSize, setPageSize] = useState(20);
 
   const { data: optionsRows = [] } = useQuery({
-    queryKey: ["pastor-igrejas-options"],
-    queryFn: () => listChurchesInScope(1, 5000),
+    queryKey: ["pastor-igrejas-options", activeTotvsId],
+    queryFn: () => listChurchesInScope(1, 5000, activeTotvsId || undefined),
+    enabled: Boolean(activeTotvsId),
     refetchInterval: 10000,
   });
 
   const { data: pageData, isLoading, isFetching } = useQuery({
-    queryKey: ["pastor-igrejas-page", page, pageSize, filterTotvs],
-    queryFn: () => listChurchesInScopePaged(page, pageSize, filterTotvs === "all" ? undefined : filterTotvs),
+    queryKey: ["pastor-igrejas-page", page, pageSize, filterTotvs, activeTotvsId],
+    queryFn: () => listChurchesInScopePaged(page, pageSize, filterTotvs === "all" ? (activeTotvsId || undefined) : filterTotvs),
+    enabled: Boolean(activeTotvsId),
     staleTime: 30_000,
     refetchInterval: 10000,
   });
