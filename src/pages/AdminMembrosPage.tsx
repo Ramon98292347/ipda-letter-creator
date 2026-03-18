@@ -1,12 +1,15 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Users } from "lucide-react";
 import { ManagementShell } from "@/components/layout/ManagementShell";
 import { ObreirosTab } from "@/components/admin/ObreirosTab";
 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 import { listChurchesInScope, listMembers } from "@/services/saasService";
 import { PageLoading } from "@/components/shared/PageLoading";
+import { useUser } from "@/context/UserContext";
+import { useDebounce } from "@/hooks/useDebounce";
 
 function MiniCard({
   title,
@@ -31,21 +34,43 @@ function MiniCard({
   );
 }
 
-// Comentario: pagina de membros para admin com igreja pre-selecionada para listar e cadastrar pastor/membros.
+// Comentario: pagina de membros para admin com combobox de busca de igreja e filtro por cargo.
 export default function AdminMembrosPage() {
+  const { session } = useUser();
+  // Comentario: activeTotvsId limita o escopo ao da igreja logada, igual ao dashboard.
+  const activeTotvsId = String(session?.totvs_id || "");
+
   const [selectedChurchTotvs, setSelectedChurchTotvs] = useState("");
 
+  // Comentario: searchChurch e o texto digitado no combobox de busca de igreja.
+  const [searchChurch, setSearchChurch] = useState("");
+  const debouncedSearch = useDebounce(searchChurch, 400);
+
+  // Comentario: filterCargo controla o Select de cargo (pastor, presbitero, etc).
+  const [filterCargo, setFilterCargo] = useState("all");
+
+  // Comentario: showChurchList controla se o dropdown de opcoes de igrejas esta visivel.
+  const [showChurchList, setShowChurchList] = useState(false);
+
   const { data: churches = [], isLoading: loadingChurches, isFetching: fetchingChurches } = useQuery({
-    queryKey: ["admin-membros-churches"],
-    queryFn: () => listChurchesInScope(1, 400),
+    queryKey: ["admin-membros-churches", activeTotvsId],
+    queryFn: () => listChurchesInScope(1, 400, activeTotvsId || undefined),
+    enabled: Boolean(activeTotvsId),
     refetchInterval: 10000,
   });
 
-  useEffect(() => {
-    if (!selectedChurchTotvs && churches.length > 0) {
-      setSelectedChurchTotvs(String(churches[0].totvs_id || ""));
-    }
-  }, [selectedChurchTotvs, churches]);
+  // Comentario: filtra a lista de igrejas pelo texto digitado (2+ chars) para o combobox de busca.
+  const filteredChurches = useMemo(() => {
+    const q = debouncedSearch.trim().toLowerCase();
+    if (q.length < 2) return churches.slice(0, 10); // mostra as 10 primeiras quando vazio
+    return churches
+      .filter(
+        (c) =>
+          String(c.church_name || "").toLowerCase().includes(q) ||
+          String(c.totvs_id || "").includes(debouncedSearch.trim()),
+      )
+      .slice(0, 20);
+  }, [churches, debouncedSearch]);
 
   const selectedChurch = useMemo(
     () => churches.find((church) => String(church.totvs_id || "") === selectedChurchTotvs) || null,
@@ -53,23 +78,27 @@ export default function AdminMembrosPage() {
   );
 
   const { data: membersRes, isLoading: loadingMembers, isFetching: fetchingMembers } = useQuery({
-    queryKey: ["admin-membros-kpi", selectedChurchTotvs],
+    queryKey: ["admin-membros-kpi", selectedChurchTotvs, filterCargo],
     queryFn: () =>
       listMembers({
-        roles: ["pastor", "obreiro"],
+        // Comentario: quando filtrando por cargo especifico de pastor, usa roles=["pastor"],
+        // para outros cargos usa roles=["pastor","obreiro"] para pegar todos os ministeriais.
+        roles: filterCargo === "pastor" ? ["pastor"] : ["pastor", "obreiro"],
+        minister_role: filterCargo !== "all" && filterCargo !== "pastor" ? filterCargo : undefined,
         church_totvs_id: selectedChurchTotvs || undefined,
         page: 1,
-        // Comentario: para KPI usamos metrics do backend; nao precisa trazer lista grande.
+        // Comentario: page_size=1 basta para trazer as metricas do backend, sem lista grande.
         page_size: 1,
       }),
-    enabled: Boolean(selectedChurchTotvs),
+    // Comentario: enabled=true permite buscar mesmo sem igreja selecionada (todas as igrejas do escopo).
+    enabled: true,
     refetchInterval: 10000,
   });
 
   const showPageLoading =
     loadingChurches ||
     (fetchingChurches && churches.length === 0) ||
-    (selectedChurchTotvs && loadingMembers && !membersRes) ||
+    (Boolean(selectedChurchTotvs) && loadingMembers && !membersRes) ||
     (fetchingMembers && !membersRes && Boolean(selectedChurchTotvs));
 
   const counters = useMemo(() => {
@@ -114,22 +143,66 @@ export default function AdminMembrosPage() {
         <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
           <h2 className="text-4xl font-extrabold tracking-tight text-slate-900">Membros</h2>
           <p className="mt-1 text-base text-slate-600">Visualize os membros por igreja e cadastre pastores/obreiros.</p>
-          <div className="mt-4 max-w-md">
-            <Select value={selectedChurchTotvs} onValueChange={setSelectedChurchTotvs}>
-              <SelectTrigger>
-                <SelectValue placeholder="Selecione a igreja" />
-              </SelectTrigger>
+          {/* Comentario: combobox de busca de igreja + filtro de cargo lado a lado no header */}
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 max-w-2xl">
+            {/* Combobox de busca de igreja com dropdown manual */}
+            <div className="relative">
+              <Input
+                value={searchChurch}
+                onChange={(e) => { setSearchChurch(e.target.value); setShowChurchList(true); }}
+                onFocus={() => setShowChurchList(true)}
+                onBlur={() => setTimeout(() => setShowChurchList(false), 200)}
+                placeholder="Buscar igreja por nome ou TOTVS..."
+              />
+              {/* Comentario: mostra a igreja selecionada com opcao de limpar quando o dropdown esta fechado */}
+              {selectedChurch && !showChurchList && (
+                <p className="mt-1 text-xs text-slate-500">
+                  Igreja: <span className="font-medium">{selectedChurch.church_name}</span>
+                  {" "}<button className="text-blue-600 hover:underline" onClick={() => { setSelectedChurchTotvs(""); setSearchChurch(""); }}>Todas</button>
+                </p>
+              )}
+              {/* Comentario: dropdown de opcoes de igrejas filtradas pelo texto digitado */}
+              {showChurchList && (
+                <div className="absolute z-20 mt-1 w-full rounded-lg border border-slate-200 bg-white shadow-lg max-h-60 overflow-y-auto">
+                  <button
+                    className="w-full px-3 py-2 text-left text-sm hover:bg-blue-50 font-medium text-blue-700 border-b"
+                    onMouseDown={() => { setSelectedChurchTotvs(""); setSearchChurch(""); setShowChurchList(false); }}
+                  >
+                    Todas as igrejas do escopo
+                  </button>
+                  {filteredChurches.map((church) => (
+                    <button
+                      key={church.totvs_id}
+                      className="w-full px-3 py-2 text-left text-sm hover:bg-slate-50"
+                      onMouseDown={() => {
+                        setSelectedChurchTotvs(String(church.totvs_id));
+                        setSearchChurch(`${church.totvs_id} - ${church.church_name}`);
+                        setShowChurchList(false);
+                      }}
+                    >
+                      <span className="font-mono text-xs text-slate-400">{church.totvs_id}</span>{" "}
+                      {church.church_name}
+                    </button>
+                  ))}
+                  {debouncedSearch.trim().length >= 2 && filteredChurches.length === 0 && (
+                    <p className="px-3 py-2 text-sm text-slate-400">Nenhuma igreja encontrada.</p>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Filtro por cargo */}
+            <Select value={filterCargo} onValueChange={setFilterCargo}>
+              <SelectTrigger><SelectValue placeholder="Todos os cargos" /></SelectTrigger>
               <SelectContent>
-                {churches.map((church) => (
-                  <SelectItem key={church.totvs_id} value={String(church.totvs_id)}>
-                    {church.totvs_id} - {church.church_name}
-                  </SelectItem>
-                ))}
+                <SelectItem value="all">Todos os cargos</SelectItem>
+                <SelectItem value="pastor">Pastor</SelectItem>
+                <SelectItem value="presbitero">Presbitero</SelectItem>
+                <SelectItem value="diacono">Diacono</SelectItem>
+                <SelectItem value="obreiro">Obreiro</SelectItem>
+                <SelectItem value="membro">Membro</SelectItem>
               </SelectContent>
             </Select>
-            {selectedChurch ? (
-              <p className="mt-1 text-xs text-slate-500">Igreja selecionada: {selectedChurch.church_name}</p>
-            ) : null}
           </div>
         </section>
 
@@ -142,7 +215,12 @@ export default function AdminMembrosPage() {
           <MiniCard title="Membros ativos" value={counters.membrosAtivos} subtitle="ministerio membro" gradient={memberTone.ativo} />
         </section>
 
-        <ObreirosTab activeTotvsId={selectedChurchTotvs} forceSingleChurchFilter />
+        {/* Comentario: passa filterCargo para ObreirosTab como filterMinisterRole quando nao for "all" */}
+        <ObreirosTab
+          activeTotvsId={selectedChurchTotvs}
+          forceSingleChurchFilter
+          filterMinisterRole={filterCargo !== "all" ? filterCargo : undefined}
+        />
         </div>
       )}
     </ManagementShell>

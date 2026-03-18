@@ -33,14 +33,13 @@ function IgrejaStat({
   );
 }
 
-// Comentario: pagina de igrejas para admin com filtro por igreja + filhas.
+// Comentario: pagina de igrejas para admin com filtros de busca por nome/TOTVS e classificacao.
 export default function AdminIgrejasPage() {
   const queryClient = useQueryClient();
   const { session } = useUser();
   // Comentario: activeTotvsId limita o escopo ao mesmo que o dashboard usa,
   // evitando mostrar igrejas fora do escopo da igreja logada.
   const activeTotvsId = String(session?.totvs_id || "");
-  const [filterTotvs, setFilterTotvs] = useState("all");
   const [filterNome, setFilterNome] = useState("");
   // Comentario: debounce de 400ms evita recalcular o filtro a cada tecla pressionada.
   const debouncedNome = useDebounce(filterNome, 400);
@@ -56,8 +55,8 @@ export default function AdminIgrejasPage() {
   });
 
   const { data: pageData, isLoading, isFetching } = useQuery({
-    queryKey: ["admin-igrejas-page", page, pageSize, filterTotvs, activeTotvsId],
-    queryFn: () => listChurchesInScopePaged(page, pageSize, filterTotvs === "all" ? (activeTotvsId || undefined) : filterTotvs),
+    queryKey: ["admin-igrejas-page", page, pageSize, activeTotvsId],
+    queryFn: () => listChurchesInScopePaged(page, pageSize, activeTotvsId || undefined),
     enabled: Boolean(activeTotvsId),
     staleTime: 30_000,
     refetchInterval: 10000,
@@ -68,27 +67,8 @@ export default function AdminIgrejasPage() {
 
   const showPageLoading = isLoading || (isFetching && rows.length === 0);
 
-  const filteredRowsForCounters = useMemo(() => {
-    if (filterTotvs === "all") return optionsRows;
-
-    const children = new Map<string, string[]>();
-    for (const church of optionsRows) {
-      const parent = String(church.parent_totvs_id || "");
-      if (!children.has(parent)) children.set(parent, []);
-      children.get(parent)!.push(String(church.totvs_id));
-    }
-
-    const scope = new Set<string>();
-    const queue = [String(filterTotvs)];
-    while (queue.length) {
-      const current = queue.shift()!;
-      if (scope.has(current)) continue;
-      scope.add(current);
-      for (const child of children.get(current) || []) queue.push(child);
-    }
-
-    return optionsRows.filter((church) => scope.has(String(church.totvs_id)));
-  }, [optionsRows, filterTotvs]);
+  // Comentario: sem filterTotvs, os contadores usam sempre todas as igrejas do escopo.
+  const filteredRowsForCounters = optionsRows;
 
   // Comentario: usa debouncedNome para nao reprocessar o filtro a cada tecla.
   const hasClientFilter = debouncedNome.trim().length >= 2 || filterClasse !== "all";
@@ -120,11 +100,11 @@ export default function AdminIgrejasPage() {
     if (page >= totalPages) return;
     const nextPage = page + 1;
     void queryClient.prefetchQuery({
-      queryKey: ["admin-igrejas-page", nextPage, pageSize, filterTotvs],
-      queryFn: () => listChurchesInScopePaged(nextPage, pageSize, filterTotvs === "all" ? undefined : filterTotvs),
+      queryKey: ["admin-igrejas-page", nextPage, pageSize, activeTotvsId],
+      queryFn: () => listChurchesInScopePaged(nextPage, pageSize, activeTotvsId || undefined),
       staleTime: 30_000,
     });
-  }, [page, totalPages, pageSize, filterTotvs, queryClient]);
+  }, [page, totalPages, pageSize, activeTotvsId, queryClient]);
 
   const totals = useMemo(() => {
     return {
@@ -155,27 +135,32 @@ export default function AdminIgrejasPage() {
         <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
           <h2 className="text-4xl font-extrabold tracking-tight text-slate-900">Igrejas</h2>
           <p className="mt-1 text-base text-slate-600">Administre as igrejas do sistema</p>
-          <div className="mt-4 max-w-md">
-            <Select
-              value={filterTotvs}
-              onValueChange={(value) => {
-                setFilterTotvs(value);
-                setPage(1);
-              }}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Filtrar por igreja e filhas" />
-              </SelectTrigger>
+          {/* Comentario: filtros de busca por nome/TOTVS e classificacao ficam no header para economia de espaco */}
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 max-w-2xl">
+            <Input
+              value={filterNome}
+              onChange={(e) => { setFilterNome(e.target.value); setPage(1); }}
+              placeholder="Buscar por nome ou TOTVS (min. 2 caracteres)..."
+            />
+            <Select value={filterClasse} onValueChange={(v) => { setFilterClasse(v); setPage(1); }}>
+              <SelectTrigger><SelectValue placeholder="Todas as classificacoes" /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Todas no escopo</SelectItem>
-                {optionsRows.map((church) => (
-                  <SelectItem key={church.totvs_id} value={String(church.totvs_id)}>
-                    {church.totvs_id} - {church.church_name}
-                  </SelectItem>
-                ))}
+                <SelectItem value="all">Todas as classificacoes</SelectItem>
+                <SelectItem value="estadual">Estadual</SelectItem>
+                <SelectItem value="setorial">Setorial</SelectItem>
+                <SelectItem value="central">Central</SelectItem>
+                <SelectItem value="regional">Regional</SelectItem>
+                <SelectItem value="local">Local</SelectItem>
               </SelectContent>
             </Select>
           </div>
+          {/* Comentario: exibe contagem de resultados e botao para limpar filtros quando algum esta ativo */}
+          {(debouncedNome.trim().length > 0 || filterClasse !== "all") && (
+            <p className="mt-2 text-xs text-slate-500">
+              {effectiveTotal} resultado{effectiveTotal !== 1 ? "s" : ""} encontrado{effectiveTotal !== 1 ? "s" : ""}
+              {" "}<button className="text-blue-600 hover:underline" onClick={() => { setFilterNome(""); setFilterClasse("all"); setPage(1); }}>Limpar filtros</button>
+            </p>
+          )}
         </section>
 
         <section className="grid gap-4 md:grid-cols-3 xl:grid-cols-6">
@@ -185,30 +170,6 @@ export default function AdminIgrejasPage() {
           <IgrejaStat title="Central" value={totals.central} subtitle="classe central" gradient={gradients.central} />
           <IgrejaStat title="Regional" value={totals.regional} subtitle="classe regional" gradient={gradients.regional} />
           <IgrejaStat title="Local" value={totals.local} subtitle="classe local" gradient={gradients.local} />
-        </section>
-
-        <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <p className="mb-3 text-sm font-semibold text-slate-700">Filtrar igrejas</p>
-          <div className="grid gap-3 sm:grid-cols-3">
-            <Input
-              value={filterNome}
-              onChange={(e) => { setFilterNome(e.target.value); setPage(1); }}
-              placeholder="Nome ou TOTVS..."
-            />
-            <Select value={filterClasse} onValueChange={(v) => { setFilterClasse(v); setPage(1); }}>
-              <SelectTrigger>
-                <SelectValue placeholder="Classe" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todas as classes</SelectItem>
-                <SelectItem value="estadual">Estadual</SelectItem>
-                <SelectItem value="setorial">Setorial</SelectItem>
-                <SelectItem value="central">Central</SelectItem>
-                <SelectItem value="regional">Regional</SelectItem>
-                <SelectItem value="local">Local</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
         </section>
 
         <AdminChurchesTab

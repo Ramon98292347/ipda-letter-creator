@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { listChurchesInScope, listMembers, type UserListItem, generateMemberDocs, getMemberDocsStatus, deleteUserPermanently } from "@/services/saasService";
 import { useUser } from "@/context/UserContext";
+import { useDebounce } from "@/hooks/useDebounce";
 import { fetchAddressByCep, maskCep, onlyDigits } from "@/lib/cep";
 import { PageLoading } from "@/components/shared/PageLoading";
 import { formatCepBr, formatCpfBr, formatDateBr as formatDateBrValue, formatPhoneBr as formatPhoneBrValue } from "@/lib/br-format";
@@ -647,6 +648,13 @@ export default function PastorMembrosPage() {
   const [membersPage, setMembersPage] = useState(1);
   const [membersPageSize, setMembersPageSize] = useState(50);
   const [filterTotvs, setFilterTotvs] = useState("all");
+  // Comentario: searchChurch e o texto digitado no combobox de busca de igreja.
+  const [searchChurch, setSearchChurch] = useState("");
+  const debouncedSearchChurch = useDebounce(searchChurch, 400);
+  // Comentario: filterCargo controla o Select de cargo na pagina de membros do pastor.
+  const [filterCargo, setFilterCargo] = useState("all");
+  // Comentario: showChurchList controla visibilidade do dropdown de igrejas no combobox.
+  const [showChurchList, setShowChurchList] = useState(false);
   const [savingDraft, setSavingDraft] = useState(false);
   const [sending, setSending] = useState(false);
   const [cepLookupLoading, setCepLookupLoading] = useState(false);
@@ -714,6 +722,26 @@ export default function PastorMembrosPage() {
     }
     return churchesInScope.filter((church) => scope.has(String(church.totvs_id)));
   }, [churchesInScope, activeTotvsId]);
+
+  // Comentario: filtra a lista de igrejas pelo texto digitado (2+ chars) para o combobox de busca.
+  const filteredChurchOptions = useMemo(() => {
+    const q = debouncedSearchChurch.trim().toLowerCase();
+    if (q.length < 2) return churchFilterOptions.slice(0, 10);
+    return churchFilterOptions
+      .filter(
+        (c) =>
+          String(c.church_name || "").toLowerCase().includes(q) ||
+          String(c.totvs_id || "").includes(debouncedSearchChurch.trim()),
+      )
+      .slice(0, 20);
+  }, [churchFilterOptions, debouncedSearchChurch]);
+
+  // Comentario: igreja atualmente selecionada no combobox (pelo totvs_id).
+  const selectedFilterChurch = useMemo(
+    () => churchFilterOptions.find((c) => String(c.totvs_id) === filterTotvs) || null,
+    [churchFilterOptions, filterTotvs],
+  );
+
   const rodapeAuto = useMemo(() => churchFooter || form.ficha_rodape || "", [churchFooter, form.ficha_rodape]);
   const selectedMember = useMemo(
     () => workers.find((member) => String(member.id) === selectedMemberId) || null,
@@ -1013,32 +1041,68 @@ export default function PastorMembrosPage() {
 
       <Card className="mb-4 rounded-2xl border border-slate-200 bg-white shadow-sm">
         <CardContent className="p-4">
-          <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-              <p className="text-sm font-semibold text-slate-900">Filtrar por igreja</p>
-              <p className="text-xs text-slate-500">Mostra somente os membros da igreja selecionada.</p>
-            </div>
-            <div className="w-full lg:w-[360px]">
-              <Select
-                value={filterTotvs}
-                onValueChange={(value) => {
-                  setFilterTotvs(value);
-                  setMembersPage(1);
-                }}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione a igreja" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todas as igrejas do escopo</SelectItem>
-                  {churchFilterOptions.map((church) => (
-                    <SelectItem key={String(church.totvs_id)} value={String(church.totvs_id)}>
-                      {church.totvs_id} - {church.church_name}
-                    </SelectItem>
+          <p className="mb-3 text-sm font-semibold text-slate-900">Filtrar membros</p>
+          {/* Comentario: combobox de busca de igreja + filtro de cargo lado a lado */}
+          <div className="grid gap-3 sm:grid-cols-2 max-w-2xl">
+            {/* Combobox manual para busca de igreja por nome ou TOTVS */}
+            <div className="relative">
+              <Input
+                value={searchChurch}
+                onChange={(e) => { setSearchChurch(e.target.value); setShowChurchList(true); }}
+                onFocus={() => setShowChurchList(true)}
+                onBlur={() => setTimeout(() => setShowChurchList(false), 200)}
+                placeholder="Buscar igreja por nome ou TOTVS..."
+              />
+              {/* Comentario: exibe nome da igreja selecionada quando o dropdown esta fechado */}
+              {selectedFilterChurch && !showChurchList && (
+                <p className="mt-1 text-xs text-slate-500">
+                  Igreja: <span className="font-medium">{selectedFilterChurch.church_name}</span>
+                  {" "}<button className="text-blue-600 hover:underline" onClick={() => { setFilterTotvs("all"); setSearchChurch(""); setMembersPage(1); }}>Todas</button>
+                </p>
+              )}
+              {/* Comentario: dropdown de igrejas filtradas pelo texto digitado */}
+              {showChurchList && (
+                <div className="absolute z-20 mt-1 w-full rounded-lg border border-slate-200 bg-white shadow-lg max-h-60 overflow-y-auto">
+                  <button
+                    className="w-full px-3 py-2 text-left text-sm hover:bg-blue-50 font-medium text-blue-700 border-b"
+                    onMouseDown={() => { setFilterTotvs("all"); setSearchChurch(""); setShowChurchList(false); setMembersPage(1); }}
+                  >
+                    Todas as igrejas do escopo
+                  </button>
+                  {filteredChurchOptions.map((church) => (
+                    <button
+                      key={String(church.totvs_id)}
+                      className="w-full px-3 py-2 text-left text-sm hover:bg-slate-50"
+                      onMouseDown={() => {
+                        setFilterTotvs(String(church.totvs_id));
+                        setSearchChurch(`${church.totvs_id} - ${church.church_name}`);
+                        setShowChurchList(false);
+                        setMembersPage(1);
+                      }}
+                    >
+                      <span className="font-mono text-xs text-slate-400">{church.totvs_id}</span>{" "}
+                      {church.church_name}
+                    </button>
                   ))}
-                </SelectContent>
-              </Select>
+                  {debouncedSearchChurch.trim().length >= 2 && filteredChurchOptions.length === 0 && (
+                    <p className="px-3 py-2 text-sm text-slate-400">Nenhuma igreja encontrada.</p>
+                  )}
+                </div>
+              )}
             </div>
+
+            {/* Filtro por cargo ministerial */}
+            <Select value={filterCargo} onValueChange={(v) => { setFilterCargo(v); setMembersPage(1); }}>
+              <SelectTrigger><SelectValue placeholder="Todos os cargos" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os cargos</SelectItem>
+                <SelectItem value="pastor">Pastor</SelectItem>
+                <SelectItem value="presbitero">Presbitero</SelectItem>
+                <SelectItem value="diacono">Diacono</SelectItem>
+                <SelectItem value="obreiro">Obreiro</SelectItem>
+                <SelectItem value="membro">Membro</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </CardContent>
       </Card>
@@ -1068,6 +1132,7 @@ export default function PastorMembrosPage() {
           activeTotvsId={activeTotvsId}
           churchTotvsFilter={filterTotvs === "all" ? undefined : filterTotvs}
           forceSingleChurchFilter={filterTotvs !== "all"}
+          filterMinisterRole={filterCargo !== "all" ? filterCargo : undefined}
         />
       ) : null}
 

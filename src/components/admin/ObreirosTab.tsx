@@ -142,10 +142,13 @@ export function ObreirosTab({
   activeTotvsId,
   churchTotvsFilter,
   forceSingleChurchFilter = false,
+  filterMinisterRole,
 }: {
   activeTotvsId: string;
   churchTotvsFilter?: string;
   forceSingleChurchFilter?: boolean;
+  // Comentario: filterMinisterRole permite que a pagina pai pre-filtre o cargo exibido na tabela.
+  filterMinisterRole?: string;
 }) {
   const { session, usuario } = useUser();
   const roleLower = String(usuario?.role || session?.role || "").toLowerCase();
@@ -157,7 +160,14 @@ export function ObreirosTab({
   const [search, setSearch] = useState("");
   // Comentario: debounce de 400ms evita disparar chamadas a API a cada tecla pressionada no campo de busca.
   const debouncedSearch = useDebounce(search, 400);
-  const [ministerRole, setMinisterRole] = useState("all");
+  // Comentario: se filterMinisterRole vier de fora (pagina pai), usa ele como valor inicial do filtro de cargo.
+  const [ministerRole, setMinisterRole] = useState(filterMinisterRole ?? "all");
+
+  // Comentario: sincroniza o estado interno com a prop externa quando ela mudar.
+  useEffect(() => {
+    setMinisterRole(filterMinisterRole ?? "all");
+  }, [filterMinisterRole]);
+
   const [activeFilter, setActiveFilter] = useState<"all" | "active" | "inactive">("all");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(50);
