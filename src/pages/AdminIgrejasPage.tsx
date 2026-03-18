@@ -42,7 +42,7 @@ export default function AdminIgrejasPage() {
 
   const { data: optionsRows = [] } = useQuery({
     queryKey: ["admin-igrejas-options"],
-    queryFn: () => listChurchesInScope(1, 1000),
+    queryFn: () => listChurchesInScope(1, 5000),
     refetchInterval: 10000,
   });
 

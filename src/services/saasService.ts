@@ -1160,7 +1160,7 @@ export async function searchChurchesPublic(query: string, limit = 8): Promise<Ch
   return result?.churches ?? [];
 }
 
-export async function listChurchesInScope(page = 1, pageSize = 200, rootTotvsId?: string): Promise<ChurchInScopeItem[]> {
+export async function listChurchesInScope(page = 1, pageSize = 5000, rootTotvsId?: string): Promise<ChurchInScopeItem[]> {
   // Comentario: caminho direto via Supabase desativado — o rls_token causa 401.
   // Usa sempre a edge function via API para evitar erros no console.
   if (false && supabase && getRlsToken()) {
@@ -1629,12 +1629,12 @@ export async function listAnnouncements(limit = 10): Promise<AnnouncementItem[]>
       id: String(item?.id || ""),
       title: String(item?.title || "Aviso"),
       type: (item?.type || "text") as "text" | "image" | "video",
-      body_text: item?.body_text || null,
+      body_text: item?.body_text ? String(item.body_text) : "",
       media_url: toAnnouncementMediaUrl(item?.media_url),
-      link_url: item?.link_url || null,
+      link_url: item?.link_url ? String(item.link_url) : "",
       position: typeof item?.position === "number" ? item.position : null,
-      starts_at: item?.starts_at || null,
-      ends_at: item?.ends_at || null,
+      starts_at: item?.starts_at ? String(item.starts_at) : "",
+      ends_at: item?.ends_at ? String(item.ends_at) : "",
       is_active: typeof item?.is_active === "boolean" ? item.is_active : true,
     }));
   }
@@ -1652,12 +1652,12 @@ export async function listAnnouncements(limit = 10): Promise<AnnouncementItem[]>
       id: String(item?.id || ""),
       title: String(item?.title || "Aviso"),
       type: (item?.type || "text") as "text" | "image" | "video",
-      body_text: item?.body_text || null,
+      body_text: item?.body_text ? String(item.body_text) : "",
       media_url: toAnnouncementMediaUrl(item?.media_url),
-      link_url: item?.link_url || null,
+      link_url: item?.link_url ? String(item.link_url) : "",
       position: typeof item?.position === "number" ? item.position : null,
-      starts_at: item?.starts_at || null,
-      ends_at: item?.ends_at || null,
+      starts_at: item?.starts_at ? String(item.starts_at) : "",
+      ends_at: item?.ends_at ? String(item.ends_at) : "",
       is_active: typeof item?.is_active === "boolean" ? item.is_active : true,
     }));
   }
