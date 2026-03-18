@@ -908,9 +908,15 @@ export default function PastorMembrosPage() {
     }
     setSending(true);
     try {
-      const churchInScope = churchesInScope?.find((c) => String(c.totvs_id) === activeTotvsId);
+      // Comentario: busca dados pela igreja do MEMBRO, nao pela igreja ativa do pastor logado
+      const memberChurchTotvs = String(selectedMember.default_totvs_id || activeTotvsId);
+      const churchInScope = churchesInScope?.find((c) => String(c.totvs_id) === memberChurchTotvs);
       const churchStamp = churchInScope?.stamp_church_url || "";
-      const pastorSignature = pastorDaIgreja?.signature_url || "";
+      // Busca pastor da igreja do membro (pode ser diferente do pastor logado)
+      const pastorDaIgrejaMembro = workers.find(
+        (w) => w.role === "pastor" && String(w.default_totvs_id || "") === memberChurchTotvs,
+      );
+      const pastorSignature = pastorDaIgrejaMembro?.signature_url || pastorDaIgreja?.signature_url || "";
 
       // Monta os dados do membro no formato esperado pela edge function e pelo webhook
       const dados: Record<string, unknown> = {
