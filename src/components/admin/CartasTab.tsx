@@ -10,8 +10,9 @@ import { setLetterStatus, setWorkerDirectRelease, softDeleteLetter, type PastorL
 import { ArrowUpRight, FileText, Filter, MoreHorizontal, RotateCcw, Search, Share2, Trash2, Lock, Unlock, CheckCheck, Send, Zap } from "lucide-react";
 import { PastorLetterDialog, type LetterTarget } from "@/components/admin/PastorLetterDialog";
 
-// URL do webhook n8n — o mesmo usado pelo sistema de cartas (telas-cartas).
-const LETTERS_WEBHOOK_URL = "https://n8n-n8n.ynlng8.easypanel.host/webhook/carta-pregacao";
+// Comentario: URL do webhook n8n lida da variavel de ambiente para nao expor o endpoint no codigo-fonte.
+// Configurada em VITE_WEBHOOK_CARTA_PREGACAO no arquivo .env.
+const LETTERS_WEBHOOK_URL = String(import.meta.env.VITE_WEBHOOK_CARTA_PREGACAO || "").trim();
 import { FiltersBar } from "@/components/shared/FiltersBar";
 import { getFriendlyError } from "@/lib/error-map";
 import { addAuditLog } from "@/lib/audit";
@@ -142,6 +143,8 @@ export function CartasTab({
   // Chama o mesmo webhook n8n do sistema de cartas, enviando os mesmos dados.
   // Falha silenciosa: nao bloqueia a acao principal.
   async function callWebhook(letter: PastorLetter, action: string, extra?: Record<string, string>) {
+    // Comentario: se a URL do webhook nao estiver configurada, ignora silenciosamente.
+    if (!LETTERS_WEBHOOK_URL) return;
     try {
       const pdfUrl = getPublicPdfUrl(letter);
       const payload: Record<string, string> = {

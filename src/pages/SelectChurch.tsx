@@ -71,7 +71,6 @@ export default function SelectChurch() {
         ministerial: data.user.minister_role || null,
         can_create_released_letter: Boolean(data.user.can_create_released_letter),
         birth_date: data.user.birth_date || null,
-        address_json: data.user.address_json || null,
         totvs: fixedSession.totvs_id || null,
         default_totvs_id: fixedSession.totvs_id || null,
         church_name: fixedSession.church_name || null,

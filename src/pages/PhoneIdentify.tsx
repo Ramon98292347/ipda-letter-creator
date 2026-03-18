@@ -43,6 +43,24 @@ function maskCpf(value: string) {
   return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9)}`;
 }
 
+// Comentario: valida os digitos verificadores do CPF para evitar CPFs invalidos.
+// Verifica se o CPF tem 11 digitos, nao e uma sequencia repetida (ex: 111.111.111-11)
+// e se os dois digitos verificadores batem com o calculo matematico oficial.
+function validarCpf(cpf: string): boolean {
+  const digits = cpf.replace(/\D/g, "");
+  if (digits.length !== 11 || /^(\d)\1{10}$/.test(digits)) return false;
+  let sum = 0;
+  for (let i = 0; i < 9; i++) sum += parseInt(digits[i]) * (10 - i);
+  let remainder = (sum * 10) % 11;
+  if (remainder === 10 || remainder === 11) remainder = 0;
+  if (remainder !== parseInt(digits[9])) return false;
+  sum = 0;
+  for (let i = 0; i < 10; i++) sum += parseInt(digits[i]) * (11 - i);
+  remainder = (sum * 10) % 11;
+  if (remainder === 10 || remainder === 11) remainder = 0;
+  return remainder === parseInt(digits[10]);
+}
+
 function routeByRole(role: "admin" | "pastor" | "obreiro") {
   if (role === "admin") return "/admin/dashboard";
   if (role === "pastor") return "/pastor/dashboard";
@@ -124,6 +142,11 @@ export default function PhoneIdentify() {
       toast.error("Informe um CPF valido com 11 digitos.");
       return;
     }
+    // Comentario: valida os digitos verificadores do CPF antes de chamar o servidor.
+    if (!validarCpf(cpfRaw)) {
+      toast.error("CPF invalido. Verifique os digitos e tente novamente.");
+      return;
+    }
     if (!senha.trim()) {
       toast.error("Informe a senha.");
       return;
@@ -183,7 +206,6 @@ export default function PhoneIdentify() {
         email: result.user.email || null,
         avatar_url: result.user.avatar_url || null,
         birth_date: result.user.birth_date || null,
-        address_json: result.user.address_json || null,
         ministerial: result.user.minister_role || null,
         registration_status: registrationStatus,
         can_create_released_letter: Boolean(result.user.can_create_released_letter),

@@ -1,0 +1,9 @@
+# Arquivo de configuracao das edge functions do Supabase.
+# verify_jwt = false: desativa a verificacao padrao do JWT do Supabase para que
+# a propria funcao valide o JWT customizado (USER_SESSION_JWT_SECRET).
+
+[functions.mark-notification-read]
+verify_jwt = false
+
+[functions.mark-all-notifications-read]
+verify_jwt = false

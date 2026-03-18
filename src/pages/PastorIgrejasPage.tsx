@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { PageLoading } from "@/components/shared/PageLoading";
 import { useUser } from "@/context/UserContext";
+import { useDebounce } from "@/hooks/useDebounce";
 
 function KpiCard({
   title,
@@ -41,6 +42,8 @@ export default function PastorIgrejasPage() {
   const activeTotvsId = String(session?.totvs_id || "");
   const [filterTotvs, setFilterTotvs] = useState("all");
   const [filterNome, setFilterNome] = useState("");
+  // Comentario: debounce de 400ms evita recalcular o filtro a cada tecla pressionada.
+  const debouncedNome = useDebounce(filterNome, 400);
   const [filterClasse, setFilterClasse] = useState("all");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
@@ -87,24 +90,25 @@ export default function PastorIgrejasPage() {
     return optionsRows.filter((church) => scope.has(String(church.totvs_id)));
   }, [optionsRows, filterTotvs]);
 
-  const hasClientFilter = filterNome.trim().length >= 2 || filterClasse !== "all";
+  // Comentario: usa debouncedNome para nao reprocessar o filtro a cada tecla.
+  const hasClientFilter = debouncedNome.trim().length >= 2 || filterClasse !== "all";
 
   const clientFilteredRows = useMemo(() => {
     if (!hasClientFilter) return null;
     let result = filteredRowsForCounters;
-    if (filterNome.trim().length >= 2) {
-      const q = filterNome.trim().toLowerCase();
+    if (debouncedNome.trim().length >= 2) {
+      const q = debouncedNome.trim().toLowerCase();
       result = result.filter(
         (c) =>
           String(c.church_name || "").toLowerCase().includes(q) ||
-          String(c.totvs_id || "").includes(filterNome.trim()),
+          String(c.totvs_id || "").includes(debouncedNome.trim()),
       );
     }
     if (filterClasse !== "all") {
       result = result.filter((c) => String(c.church_class || "").toLowerCase() === filterClasse);
     }
     return result;
-  }, [filteredRowsForCounters, filterNome, filterClasse, hasClientFilter]);
+  }, [filteredRowsForCounters, debouncedNome, filterClasse, hasClientFilter]);
 
   const effectiveTotal = hasClientFilter ? (clientFilteredRows?.length ?? 0) : total;
   const totalPages = Math.max(1, Math.ceil(effectiveTotal / pageSize));

@@ -1,4 +1,5 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import { useDebounce } from "@/hooks/useDebounce";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -154,6 +155,8 @@ export function ObreirosTab({
   const isAdminUser = roleLower === "admin";
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
+  // Comentario: debounce de 400ms evita disparar chamadas a API a cada tecla pressionada no campo de busca.
+  const debouncedSearch = useDebounce(search, 400);
   const [ministerRole, setMinisterRole] = useState("all");
   const [activeFilter, setActiveFilter] = useState<"all" | "active" | "inactive">("all");
   const [page, setPage] = useState(1);
@@ -173,10 +176,10 @@ export function ObreirosTab({
   const [resetting, setResetting] = useState(false);
 
   const { data, isLoading } = useQuery({
-    queryKey: ["workers", activeTotvsId, search, ministerRole, activeFilter, page, pageSize],
+    queryKey: ["workers", activeTotvsId, debouncedSearch, ministerRole, activeFilter, page, pageSize],
     queryFn: () =>
       listMembers({
-        search: search || undefined,
+        search: debouncedSearch || undefined,
         minister_role: ministerRole === "all" ? undefined : ministerRole,
         is_active: activeFilter === "all" ? undefined : activeFilter === "active",
         roles: ["pastor", "obreiro"],

@@ -25,7 +25,6 @@ export type AuthSessionData = {
   church_name?: string | null;
   church_class?: string | null;
   pastor_name?: string | null;
-  address_json?: Record<string, unknown> | null;
   can_create_released_letter?: boolean | null;
   registration_status?: RegistrationStatus | null;
   payment_status?: PaymentStatus | null;
@@ -389,7 +388,6 @@ export type UserCreatePayload = {
   birth_date?: string;
   ordination_date?: string;
   minister_role?: string;
-  address_json?: Record<string, unknown>;
   is_active?: boolean;
   password?: string;
 };
@@ -596,7 +594,6 @@ function mapUserLike(raw: Record<string, unknown> | null | undefined): AuthSessi
     church_name: raw?.church_name || null,
     church_class: raw?.church_class || null,
     pastor_name: raw?.pastor_name || null,
-    address_json: raw?.address_json || null,
     can_create_released_letter: Boolean(raw?.can_create_released_letter),
     registration_status: resolveRegistrationStatus(raw),
     payment_status: String(raw?.payment_status || "").toUpperCase() === "BLOQUEADO_PAGAMENTO" ? "BLOQUEADO_PAGAMENTO" : "ATIVO",

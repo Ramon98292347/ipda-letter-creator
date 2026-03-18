@@ -19,7 +19,6 @@ export type Usuario = {
   email?: string | null;
   avatar_url?: string | null;
   birth_date?: string | null;
-  address_json?: Record<string, unknown> | null;
   ministerial?: string | null;
   data_separacao?: string | null;
   central_totvs?: string | null;
@@ -208,6 +207,31 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     setAvailableChurches([]);
     setTelefone(undefined);
   }
+
+  // Comentario: faz logout automatico apos 30 minutos de inatividade do usuario.
+  // Reseta o timer a cada clique, tecla ou movimento do mouse.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!token) return;
+    const IDLE_MS = 30 * 60 * 1000; // 30 minutos em milissegundos
+    let idleTimer: ReturnType<typeof setTimeout>;
+
+    function resetTimer() {
+      clearTimeout(idleTimer);
+      idleTimer = setTimeout(() => {
+        clearAuth();
+      }, IDLE_MS);
+    }
+
+    const events = ["click", "keydown", "mousemove", "touchstart", "scroll"];
+    events.forEach((e) => window.addEventListener(e, resetTimer, { passive: true }));
+    resetTimer();
+
+    return () => {
+      clearTimeout(idleTimer);
+      events.forEach((e) => window.removeEventListener(e, resetTimer));
+    };
+  }, [token]); // Comentario: clearAuth omitido das deps pois e redefinido a cada render.
 
   const value = useMemo(
     () => ({

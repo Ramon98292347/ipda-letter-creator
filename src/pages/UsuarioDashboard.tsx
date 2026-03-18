@@ -71,15 +71,6 @@ function toInputDate(date: Date) {
   return `${y}-${m}-${d}`;
 }
 
-function getAddressCity(addressJson: unknown) {
-  const address = (addressJson || {}) as Record<string, unknown>;
-  return String(address.city || "");
-}
-
-function getAddressField(addressJson: unknown, key: string) {
-  const address = (addressJson || {}) as Record<string, unknown>;
-  return String(address[key] || "");
-}
 
 function isLetterReadyForView(letter: PastorLetter) {
   const readyByUrl = String(letter.url_carta || "").trim().startsWith("http");
@@ -209,7 +200,7 @@ export default function UsuarioDashboard() {
       address_state: String(profileRaw?.address_state || ""),
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [profile?.phone, profile?.email, profile?.birth_date, profile?.avatar_url, profile?.address_json]);
+  }, [profile?.phone, profile?.email, profile?.birth_date, profile?.avatar_url, profile?.address_street, profile?.address_city]);
 
   async function autofillCep(force = false) {
     const cepDigits = onlyDigits(profileForm.cep);
@@ -1023,12 +1014,13 @@ async function openPdf(letter: PastorLetter) {
               <p><strong>Nascimento:</strong> {formatDate(profile?.birth_date || null)}</p>
               {/* Endereco (so aparece se tiver dados) */}
               {(() => {
-                const street = getAddressField(profile?.address_json, "street");
-                const number = getAddressField(profile?.address_json, "number");
-                const neighborhood = getAddressField(profile?.address_json, "neighborhood");
-                const city = getAddressField(profile?.address_json, "city");
-                const state = getAddressField(profile?.address_json, "state");
-                const cep = getAddressField(profile?.address_json, "cep");
+                // Comentario: leitura direta das colunas planas do banco (nao existe address_json).
+                const street = String((profileRaw?.address_street as string) || "");
+                const number = String((profileRaw?.address_number as string) || "");
+                const neighborhood = String((profileRaw?.address_neighborhood as string) || "");
+                const city = String((profileRaw?.address_city as string) || "");
+                const state = String((profileRaw?.address_state as string) || "");
+                const cep = String((profileRaw?.cep as string) || "");
                 const hasAddress = street || city;
                 return hasAddress ? (
                   <p><strong>Endereco:</strong> {[street, number, neighborhood, city, state, cep].filter(Boolean).join(", ")}</p>
