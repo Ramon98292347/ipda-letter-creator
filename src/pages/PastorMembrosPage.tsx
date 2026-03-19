@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { FileText, Grid2X2, IdCard, List, Loader2, MoreVertical, Save, Send, Users } from "lucide-react";
+import { AvatarCapture } from "@/components/shared/AvatarCapture";
+import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 import { ManagementShell } from "@/components/layout/ManagementShell";
 import { ObreirosTab } from "@/components/admin/ObreirosTab";
@@ -657,6 +659,10 @@ export default function PastorMembrosPage() {
   const [showChurchList, setShowChurchList] = useState(false);
   const [savingDraft, setSavingDraft] = useState(false);
   const [sending, setSending] = useState(false);
+  // Comentario: arquivo de foto capturado pela camera, aguardando upload.
+  const [pendingFotoFile, setPendingFotoFile] = useState<File | null>(null);
+  // Comentario: true enquanto o upload da foto esta em andamento.
+  const [uploadingFoto, setUploadingFoto] = useState(false);
   const [cepLookupLoading, setCepLookupLoading] = useState(false);
   const [lastCepLookup, setLastCepLookup] = useState("");
   const carteirinhaHtml = useMemo(() => buildCarteirinhaHtml(form), [form]);
@@ -806,6 +812,8 @@ export default function PastorMembrosPage() {
     if (!selectedMember) return;
     const pastorSignature = String((pastorDaIgreja as UserListItem | null)?.signature_url || "");
     setForm(memberToForm(selectedMember, churchName, pastorSignature, churchFooter));
+    // Comentario: limpa o arquivo de foto pendente ao trocar de membro.
+    setPendingFotoFile(null);
   }, [selectedMemberId, selectedMember, workers, churchName, pastorDaIgreja, churchFooter]);
 
   async function autofillCep(force = false) {
@@ -879,6 +887,32 @@ export default function PastorMembrosPage() {
       staleTime: 30_000,
     });
   }, [membersPage, membersPageSize, membersTotalPages, filterTotvs, queryClient]);
+
+  // Comentario: faz upload da foto para o bucket "avatars" e salva a URL no formulario.
+  async function uploadFoto(file: File) {
+    if (!supabase) { toast.error("Supabase nao configurado."); return; }
+    setUploadingFoto(true);
+    try {
+      const cpfRaw = onlyDigits(form.cpf);
+      const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
+      const path = `users/${cpfRaw || `temp_${Date.now()}`}.${ext}`;
+      const { error } = await supabase.storage.from("avatars").upload(path, file, {
+        upsert: true,
+        contentType: file.type || "image/jpeg",
+        cacheControl: "3600",
+      });
+      if (error) throw error;
+      const { data } = supabase.storage.from("avatars").getPublicUrl(path);
+      if (data?.publicUrl) {
+        // Comentario: timestamp no final evita que o navegador use o cache da foto antiga.
+        setForm((prev) => ({ ...prev, foto_3x4_url: `${data.publicUrl}?t=${Date.now()}` }));
+      }
+    } catch {
+      toast.error("Falha ao enviar a foto. Tente novamente.");
+    } finally {
+      setUploadingFoto(false);
+    }
+  }
 
   async function saveDraft() {
     if (!selectedMemberId) {
@@ -1348,7 +1382,30 @@ export default function PastorMembrosPage() {
               <div className="space-y-1"><Label>CPF</Label><Input value={form.cpf} onChange={(e) => setForm((prev) => ({ ...prev, cpf: e.target.value }))} /></div>
               <div className="space-y-1"><Label>RG</Label><Input value={form.rg} onChange={(e) => setForm((prev) => ({ ...prev, rg: e.target.value }))} /></div>
               <div className="space-y-1"><Label>Telefone</Label><Input value={form.telefone} onChange={(e) => setForm((prev) => ({ ...prev, telefone: e.target.value }))} /></div>
-              <div className="space-y-1"><Label>Foto 3x4 (URL)</Label><Input value={form.foto_3x4_url} onChange={(e) => setForm((prev) => ({ ...prev, foto_3x4_url: e.target.value }))} /></div>
+            </div>
+
+            {/* Comentario: captura de foto 3x4 pela camera ou galeria */}
+            <div className="space-y-1">
+              <Label>Foto 3x4</Label>
+              <AvatarCapture
+                onFileReady={(file) => {
+                  setPendingFotoFile(file);
+                  if (file) void uploadFoto(file);
+                  else setForm((prev) => ({ ...prev, foto_3x4_url: "" }));
+                }}
+                disabled={uploadingFoto || savingDraft || sending}
+              />
+              {uploadingFoto ? (
+                <p className="flex items-center gap-1 text-xs text-slate-500">
+                  <Loader2 className="h-3 w-3 animate-spin" /> Enviando foto...
+                </p>
+              ) : null}
+              {!pendingFotoFile && form.foto_3x4_url ? (
+                <div className="flex items-center gap-2 pt-1">
+                  <img src={form.foto_3x4_url} alt="Foto atual" className="h-20 w-16 rounded border border-slate-200 object-cover" />
+                  <a href={form.foto_3x4_url} target="_blank" rel="noreferrer" className="text-xs text-blue-600 underline">Ver foto atual</a>
+                </div>
+              ) : null}
             </div>
 
             <div className="space-y-1">
