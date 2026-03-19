@@ -29,7 +29,7 @@ function json(obj: unknown, status = 200) {
   return new Response(JSON.stringify(obj), { status, headers: corsHeaders() });
 }
 
-type Role = "admin" | "pastor" | "obreiro";
+type Role = "admin" | "pastor" | "obreiro" | "secretario" | "financeiro";
 type SessionClaims = { user_id: string; role: Role; active_totvs_id: string };
 type Body = {
   page?: number;
@@ -82,6 +82,11 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "",
     );
 
+    // Comentario: financeiro so ve notificacoes do tipo "financial" —
+    // nao precisa ver aniversarios, cartas ou documentos de outros roles.
+    // Pastor ve todos os tipos, incluindo financeiro.
+    const isFinanceiro = session.role === "financeiro";
+
     let qChurch = sb
       .from("notifications")
       .select("*")
@@ -93,6 +98,12 @@ Deno.serve(async (req) => {
       .select("*")
       .eq("user_id", session.user_id)
       .order("created_at", { ascending: false });
+
+    if (isFinanceiro) {
+      // Financeiro só vê notificações financeiras
+      qChurch = qChurch.eq("type", "financial");
+      qMine = qMine.eq("type", "financial");
+    }
 
     if (unreadOnly) {
       // Comentario: considera nao lida por qualquer um dos dois campos.

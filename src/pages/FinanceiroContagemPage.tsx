@@ -163,16 +163,16 @@ export default function FinanceiroContagemPage() {
   return (
     <ManagementShell roleMode="financeiro">
       <div className="space-y-6">
-        {/* Cabeçalho */}
-        <div className="flex flex-wrap items-center justify-between gap-3">
+        {/* Cabeçalho — card com fundo azul escuro #1A237E */}
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-[#1A237E] px-6 py-5 shadow-md">
           <div>
-            <h1 className="text-2xl font-bold text-slate-900">Contagem de Caixa</h1>
-            <p className="text-slate-500">Registre as notas e moedas físicas do caixa</p>
+            <h1 className="text-2xl font-bold text-white">Contagem de Caixa</h1>
+            <p className="text-blue-200">Registre as notas e moedas físicas do caixa</p>
           </div>
           <Button
             onClick={handleSalvar}
             disabled={salvarMutation.isPending}
-            className="bg-blue-600 hover:bg-blue-700"
+            className="bg-white text-[#1A237E] hover:bg-blue-50 font-semibold"
           >
             {salvarMutation.isPending ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -361,34 +361,34 @@ export default function FinanceiroContagemPage() {
           </div>
         </div>
 
-        {/* Resumo do total */}
-        <div className="rounded-xl border-2 border-blue-200 bg-blue-50 p-5">
-          <h2 className="mb-3 text-base font-semibold text-blue-900">Resumo da Contagem</h2>
+        {/* Resumo do total — cards com fundo colorido */}
+        <div className="rounded-xl bg-slate-100 p-5">
+          <h2 className="mb-3 text-base font-semibold text-slate-700">Resumo da Contagem</h2>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-            {/* Total contado */}
-            <div className="rounded-lg bg-white p-4 text-center shadow-sm">
-              <p className="text-sm text-slate-500">Total Contado</p>
-              <p className="text-2xl font-bold text-blue-700">{formatarMoeda(totalContado)}</p>
+            {/* Total contado — fundo azul escuro */}
+            <div className="rounded-xl bg-[#1A237E] p-4 text-center shadow-md">
+              <p className="text-sm font-medium text-blue-200">Total Contado</p>
+              <p className="mt-1 text-2xl font-bold text-white">{formatarMoeda(totalContado)}</p>
             </div>
 
-            {/* Saldo sistema */}
-            <div className="rounded-lg bg-white p-4 text-center shadow-sm">
-              <p className="text-sm text-slate-500">Saldo do Sistema</p>
-              <p className="text-2xl font-bold text-slate-700">{formatarMoeda(saldoSistemaNum)}</p>
+            {/* Saldo sistema — fundo cinza */}
+            <div className="rounded-xl bg-slate-600 p-4 text-center shadow-md">
+              <p className="text-sm font-medium text-slate-300">Saldo do Sistema</p>
+              <p className="mt-1 text-2xl font-bold text-white">{formatarMoeda(saldoSistemaNum)}</p>
             </div>
 
-            {/* Diferença */}
-            <div className={`rounded-lg p-4 text-center shadow-sm ${diferenca === 0 ? "bg-green-50" : diferenca > 0 ? "bg-yellow-50" : "bg-red-50"}`}>
-              <p className="text-sm text-slate-500">Diferença</p>
-              <p
-                className={`text-2xl font-bold ${
-                  diferenca === 0 ? "text-green-700" : diferenca > 0 ? "text-yellow-700" : "text-red-700"
-                }`}
-              >
+            {/* Diferença — verde (ok), amarelo (sobra) ou vermelho (falta) */}
+            <div
+              className={`rounded-xl p-4 text-center shadow-md ${
+                diferenca === 0 ? "bg-green-600" : diferenca > 0 ? "bg-yellow-500" : "bg-red-600"
+              }`}
+            >
+              <p className="text-sm font-medium text-white text-opacity-80">Diferença</p>
+              <p className="mt-1 text-2xl font-bold text-white">
                 {diferenca >= 0 ? "+" : ""}{formatarMoeda(diferenca)}
               </p>
               {/* Comentario: mensagem explicando o status da diferença */}
-              <p className={`mt-1 text-xs ${diferenca === 0 ? "text-green-600" : "text-slate-500"}`}>
+              <p className="mt-1 text-xs text-white text-opacity-80">
                 {diferenca === 0 ? "Caixa conferido!" : diferenca > 0 ? "Sobra no caixa" : "Falta no caixa"}
               </p>
             </div>
@@ -400,7 +400,7 @@ export default function FinanceiroContagemPage() {
           <Button
             onClick={handleSalvar}
             disabled={salvarMutation.isPending}
-            className="bg-blue-600 hover:bg-blue-700"
+            className="bg-[#1A237E] hover:bg-[#0D47A1] text-white"
             size="lg"
           >
             {salvarMutation.isPending ? (

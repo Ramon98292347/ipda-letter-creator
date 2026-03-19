@@ -207,7 +207,15 @@ export function ManagementShell({
                 </span>
               ) : null}
             </Button>
-            <span className="max-w-[240px] truncate text-sm text-slate-500">{usuario?.email || usuario?.nome || "Usuario"}</span>
+            {/* Comentario: para o role financeiro, exibe card com nome e totvs da igreja */}
+            {roleMode === "financeiro" && usuario?.church_name ? (
+              <div className="flex flex-col items-end rounded-lg border border-blue-200 bg-blue-50 px-3 py-1">
+                <span className="text-xs font-semibold text-blue-800 truncate max-w-[200px]">{usuario.church_name}</span>
+                <span className="text-[10px] text-blue-500">TOTVS: {usuario.default_totvs_id || usuario.totvs}</span>
+              </div>
+            ) : (
+              <span className="max-w-[240px] truncate text-sm text-slate-500">{usuario?.email || usuario?.nome || "Usuario"}</span>
+            )}
             <Button variant="outline" onClick={onLogout} className="hover:border-blue-600 hover:bg-blue-50">
               <LogOut className="mr-2 h-4 w-4" />
               Sair

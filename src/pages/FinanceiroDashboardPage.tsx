@@ -4,9 +4,10 @@
  * O que faz: Página principal do módulo financeiro.
  *            Mostra os totais do mês atual e botões de acesso rápido.
  * Quem acessa: Usuários com role "financeiro"
+ * Layout: cards com fundo colorido, igual ao sistema financeiro original.
  */
 import { ManagementShell } from "@/components/layout/ManagementShell";
-import { DollarSign, TrendingUp, TrendingDown, Wallet, Calculator, ClipboardList, Loader2, AlertCircle } from "lucide-react";
+import { DollarSign, TrendingUp, TrendingDown, Wallet, Calculator, Loader2, AlertCircle } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { getDashboard } from "@/services/financeiroService";
 import { useNavigate } from "react-router-dom";
@@ -38,12 +39,17 @@ export default function FinanceiroDashboardPage() {
     ? `${NOMES_MESES[(data.mes ?? 1) - 1]} de ${data.ano}`
     : "";
 
+  // Comentario: saldo positivo ou negativo para cor do card
+  const saldo = parseFloat(String(data?.saldo ?? "0"));
+  const saldoPositivo = saldo >= 0;
+
   return (
     <ManagementShell roleMode="financeiro">
       <div className="space-y-6">
+
         {/* Cabeçalho da página */}
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Financeiro</h1>
+          <h1 className="text-2xl font-bold text-slate-900">Dashboard Financeiro</h1>
           <p className="text-slate-500">
             {isLoading ? "Carregando dados..." : labelMes ? `Resumo de ${labelMes}` : "Gestão financeira da sua igreja"}
           </p>
@@ -60,134 +66,128 @@ export default function FinanceiroDashboardPage() {
           </div>
         )}
 
-        {/* Cards de resumo do mês */}
+        {/* Cards de resumo do mês — com fundo colorido */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {/* Card: Total Entradas */}
-          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-            <div className="flex items-center gap-3">
-              <div className="rounded-lg bg-green-100 p-2">
-                <TrendingUp className="h-5 w-5 text-green-600" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-sm text-slate-500">Total Entradas</p>
+
+          {/* Card: Total Entradas — fundo verde */}
+          <div className="rounded-xl bg-green-500 p-5 shadow-md text-white">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-green-100">Total Entradas</p>
                 {isLoading ? (
-                  <Loader2 className="mt-1 h-5 w-5 animate-spin text-slate-400" />
+                  <Loader2 className="mt-2 h-6 w-6 animate-spin text-green-100" />
                 ) : (
-                  <p className="truncate text-xl font-bold text-green-700">
+                  <p className="mt-1 text-2xl font-bold">
                     {formatarMoeda(data?.total_receitas ?? "0")}
                   </p>
                 )}
               </div>
+              <div className="rounded-full bg-green-400 bg-opacity-50 p-3">
+                <TrendingUp className="h-6 w-6 text-white" />
+              </div>
             </div>
+            <p className="mt-3 text-xs text-green-100">Entradas do mês atual</p>
           </div>
 
-          {/* Card: Total Saídas */}
-          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-            <div className="flex items-center gap-3">
-              <div className="rounded-lg bg-red-100 p-2">
-                <TrendingDown className="h-5 w-5 text-red-600" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-sm text-slate-500">Total Saídas</p>
+          {/* Card: Total Saídas — fundo vermelho */}
+          <div className="rounded-xl bg-red-500 p-5 shadow-md text-white">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-red-100">Total Saídas</p>
                 {isLoading ? (
-                  <Loader2 className="mt-1 h-5 w-5 animate-spin text-slate-400" />
+                  <Loader2 className="mt-2 h-6 w-6 animate-spin text-red-100" />
                 ) : (
-                  <p className="truncate text-xl font-bold text-red-700">
+                  <p className="mt-1 text-2xl font-bold">
                     {formatarMoeda(data?.total_despesas ?? "0")}
                   </p>
                 )}
               </div>
+              <div className="rounded-full bg-red-400 bg-opacity-50 p-3">
+                <TrendingDown className="h-6 w-6 text-white" />
+              </div>
             </div>
+            <p className="mt-3 text-xs text-red-100">Saídas do mês atual</p>
           </div>
 
-          {/* Card: Saldo Atual */}
-          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-            <div className="flex items-center gap-3">
-              <div className="rounded-lg bg-blue-100 p-2">
-                <Wallet className="h-5 w-5 text-blue-600" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-sm text-slate-500">Saldo Atual</p>
+          {/* Card: Saldo — fundo azul escuro (positivo) ou vermelho escuro (negativo) */}
+          <div
+            className={`rounded-xl p-5 shadow-md text-white ${
+              saldoPositivo ? "bg-[#1A237E]" : "bg-red-700"
+            }`}
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <p className={`text-sm font-medium ${saldoPositivo ? "text-blue-200" : "text-red-200"}`}>
+                  Saldo do Mês
+                </p>
                 {isLoading ? (
-                  <Loader2 className="mt-1 h-5 w-5 animate-spin text-slate-400" />
+                  <Loader2 className="mt-2 h-6 w-6 animate-spin text-blue-200" />
                 ) : (
-                  <p
-                    className={`truncate text-xl font-bold ${
-                      parseFloat(String(data?.saldo ?? "0")) >= 0
-                        ? "text-blue-700"
-                        : "text-red-700"
-                    }`}
-                  >
+                  <p className="mt-1 text-2xl font-bold">
                     {formatarMoeda(data?.saldo ?? "0")}
                   </p>
                 )}
               </div>
+              <div className={`rounded-full bg-opacity-30 p-3 ${saldoPositivo ? "bg-blue-300" : "bg-red-400"}`}>
+                <Wallet className="h-6 w-6 text-white" />
+              </div>
             </div>
+            <p className={`mt-3 text-xs ${saldoPositivo ? "text-blue-200" : "text-red-200"}`}>
+              {saldoPositivo ? "Saldo positivo ✓" : "Saldo negativo ✗"}
+            </p>
           </div>
 
-          {/* Card: Total de Transações */}
-          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-            <div className="flex items-center gap-3">
-              <div className="rounded-lg bg-purple-100 p-2">
-                <DollarSign className="h-5 w-5 text-purple-600" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-sm text-slate-500">Total Transações</p>
+          {/* Card: Total de Transações — fundo roxo */}
+          <div className="rounded-xl bg-purple-600 p-5 shadow-md text-white">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-purple-100">Transações</p>
                 {isLoading ? (
-                  <Loader2 className="mt-1 h-5 w-5 animate-spin text-slate-400" />
+                  <Loader2 className="mt-2 h-6 w-6 animate-spin text-purple-100" />
                 ) : (
-                  <p className="text-xl font-bold text-slate-900">
+                  <p className="mt-1 text-2xl font-bold">
                     {data?.total_transacoes ?? 0}
                   </p>
                 )}
               </div>
+              <div className="rounded-full bg-purple-400 bg-opacity-50 p-3">
+                <DollarSign className="h-6 w-6 text-white" />
+              </div>
             </div>
+            <p className="mt-3 text-xs text-purple-100">Total de lançamentos</p>
           </div>
         </div>
 
-        {/* Acesso rápido */}
+        {/* Ações rápidas — botões com cores sólidas */}
         <div>
-          <h2 className="mb-3 text-base font-semibold text-slate-700">Acesso Rápido</h2>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {/* Botão: Contagem de Caixa */}
+          <h2 className="mb-3 text-base font-semibold text-slate-700">Ações Rápidas</h2>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+
+            {/* Botão: Contagem de Caixa — azul escuro #1A237E */}
             <button
               onClick={() => nav("/financeiro/contagem")}
-              className="flex items-center gap-4 rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition-all hover:border-blue-400 hover:bg-blue-50 hover:shadow-md text-left"
+              className="flex items-center gap-4 rounded-xl bg-[#1A237E] p-5 text-white shadow-md transition-all hover:bg-[#0D47A1] hover:shadow-lg text-left"
             >
-              <div className="rounded-lg bg-blue-100 p-3">
-                <Calculator className="h-6 w-6 text-blue-600" />
+              <div className="rounded-full bg-white bg-opacity-20 p-3">
+                <Calculator className="h-6 w-6 text-white" />
               </div>
               <div>
-                <p className="font-semibold text-slate-900">Contagem de Caixa</p>
-                <p className="text-sm text-slate-500">Registrar contagem de notas e moedas</p>
+                <p className="font-semibold text-white">Contagem de Caixa</p>
+                <p className="text-sm text-blue-200">Registrar notas e moedas</p>
               </div>
             </button>
 
-            {/* Botão: Cadastro de Saídas */}
+            {/* Botão: Cadastro de Saídas — vermelho */}
             <button
               onClick={() => nav("/financeiro/saidas")}
-              className="flex items-center gap-4 rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition-all hover:border-red-400 hover:bg-red-50 hover:shadow-md text-left"
+              className="flex items-center gap-4 rounded-xl bg-red-500 p-5 text-white shadow-md transition-all hover:bg-red-600 hover:shadow-lg text-left"
             >
-              <div className="rounded-lg bg-red-100 p-3">
-                <TrendingDown className="h-6 w-6 text-red-600" />
+              <div className="rounded-full bg-white bg-opacity-20 p-3">
+                <TrendingDown className="h-6 w-6 text-white" />
               </div>
               <div>
-                <p className="font-semibold text-slate-900">Saídas</p>
-                <p className="text-sm text-slate-500">Registrar e gerenciar despesas</p>
-              </div>
-            </button>
-
-            {/* Botão: Histórico de Contagens */}
-            <button
-              onClick={() => nav("/financeiro/contagens")}
-              className="flex items-center gap-4 rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition-all hover:border-slate-400 hover:bg-slate-50 hover:shadow-md text-left"
-            >
-              <div className="rounded-lg bg-slate-100 p-3">
-                <ClipboardList className="h-6 w-6 text-slate-600" />
-              </div>
-              <div>
-                <p className="font-semibold text-slate-900">Histórico</p>
-                <p className="text-sm text-slate-500">Ver contagens e transações anteriores</p>
+                <p className="font-semibold text-white">Saídas</p>
+                <p className="text-sm text-red-100">Registrar e gerenciar despesas</p>
               </div>
             </button>
           </div>

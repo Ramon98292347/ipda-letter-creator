@@ -18,7 +18,7 @@ import {
   type Categoria,
 } from "@/services/financeiroService";
 import { toast } from "sonner";
-import { Loader2, Plus, Pencil, Trash2, AlertCircle, X, Tag } from "lucide-react";
+import { Loader2, Plus, Pencil, Trash2, AlertCircle, X, Tag, TrendingDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
@@ -216,11 +216,11 @@ export default function FinanceiroSaidasPage() {
   return (
     <ManagementShell roleMode="financeiro">
       <div className="space-y-6">
-        {/* Cabeçalho */}
-        <div className="flex flex-wrap items-center justify-between gap-3">
+        {/* Cabeçalho — card com fundo vermelho */}
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-red-600 px-6 py-5 shadow-md">
           <div>
-            <h1 className="text-2xl font-bold text-slate-900">Saídas</h1>
-            <p className="text-slate-500">Gerencie as despesas da sua igreja</p>
+            <h1 className="text-2xl font-bold text-white">Saídas</h1>
+            <p className="text-red-100">Gerencie as despesas da sua igreja</p>
           </div>
           <div className="flex flex-wrap gap-2">
             {/* Botão: Nova Categoria */}
@@ -230,12 +230,13 @@ export default function FinanceiroSaidasPage() {
                 setFormCategoria(categoriaVazia());
                 setModalCategoriaAberto(true);
               }}
+              className="border-white text-white hover:bg-red-700 hover:text-white bg-transparent"
             >
               <Tag className="mr-2 h-4 w-4" />
               Nova Categoria
             </Button>
             {/* Botão: Nova Saída */}
-            <Button onClick={abrirNovaSaida} className="bg-red-600 hover:bg-red-700">
+            <Button onClick={abrirNovaSaida} className="bg-white text-red-700 hover:bg-red-50 font-semibold">
               <Plus className="mr-2 h-4 w-4" />
               Nova Saída
             </Button>
@@ -270,6 +271,22 @@ export default function FinanceiroSaidasPage() {
             </span>
           )}
         </div>
+
+        {/* Card de total do mês — fundo vermelho */}
+        {!carregandoTransacoes && despesas.length > 0 && (
+          <div className="rounded-xl bg-red-500 p-5 shadow-md text-white">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-red-100">Total de Saídas do Mês</p>
+                <p className="mt-1 text-2xl font-bold">{formatarMoeda(totalDespesas)}</p>
+              </div>
+              <div className="rounded-full bg-red-400 bg-opacity-50 p-3">
+                <TrendingDown className="h-6 w-6 text-white" />
+              </div>
+            </div>
+            <p className="mt-2 text-xs text-red-100">{despesas.length} despesa(s) registrada(s)</p>
+          </div>
+        )}
 
         {/* Mensagem de erro */}
         {erroTransacoes && (
