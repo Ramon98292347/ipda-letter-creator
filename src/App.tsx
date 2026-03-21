@@ -8,6 +8,8 @@ import NotFound from "./pages/NotFound";
 import PhoneIdentify from "./pages/PhoneIdentify";
 import CadastroRapido from "./pages/CadastroRapido";
 import { UserProvider, useUser } from "./context/UserContext";
+// FinanceProvider: provedor do contexto financeiro local (contagens do dia, entradas salvas)
+import { FinanceProvider } from "./contexts/FinanceContext";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -166,13 +168,20 @@ const App = () => (
                 </RequireRole>
               }
             />
+            {/*
+              Todas as rotas /financeiro/* são envolvidas pelo FinanceProvider.
+              Isso garante que o contexto de contagens e entradas salvas seja
+              compartilhado entre Dashboard, Contagem, Ficha e Relatórios.
+            */}
             <Route
               path="/financeiro/dashboard"
               element={
                 <RequireRole role="financeiro">
-                  <Suspense fallback={pageFallback}>
-                    <FinanceiroDashboardPage />
-                  </Suspense>
+                  <FinanceProvider>
+                    <Suspense fallback={pageFallback}>
+                      <FinanceiroDashboardPage />
+                    </Suspense>
+                  </FinanceProvider>
                 </RequireRole>
               }
             />
@@ -180,9 +189,11 @@ const App = () => (
               path="/financeiro/contagem"
               element={
                 <RequireRole role="financeiro">
-                  <Suspense fallback={pageFallback}>
-                    <FinanceiroContagemPage />
-                  </Suspense>
+                  <FinanceProvider>
+                    <Suspense fallback={pageFallback}>
+                      <FinanceiroContagemPage />
+                    </Suspense>
+                  </FinanceProvider>
                 </RequireRole>
               }
             />
@@ -192,6 +203,41 @@ const App = () => (
                 <RequireRole role="financeiro">
                   <Suspense fallback={pageFallback}>
                     <FinanceiroSaidasPage />
+                  </Suspense>
+                </RequireRole>
+              }
+            />
+            {/* Novas rotas integradas do financeiro-novo */}
+            <Route
+              path="/financeiro/ficha"
+              element={
+                <RequireRole role="financeiro">
+                  <FinanceProvider>
+                    <Suspense fallback={pageFallback}>
+                      <FinanceiroFichaPage />
+                    </Suspense>
+                  </FinanceProvider>
+                </RequireRole>
+              }
+            />
+            <Route
+              path="/financeiro/relatorios"
+              element={
+                <RequireRole role="financeiro">
+                  <FinanceProvider>
+                    <Suspense fallback={pageFallback}>
+                      <FinanceiroRelatoriosPage />
+                    </Suspense>
+                  </FinanceProvider>
+                </RequireRole>
+              }
+            />
+            <Route
+              path="/financeiro/config"
+              element={
+                <RequireRole role="financeiro">
+                  <Suspense fallback={pageFallback}>
+                    <FinanceiroConfigPage />
                   </Suspense>
                 </RequireRole>
               }
@@ -355,3 +401,7 @@ const FinanceiroDashboardPage = lazy(() => import("./pages/FinanceiroDashboardPa
 const FinanceiroContagemPage = lazy(() => import("./pages/FinanceiroContagemPage"));
 const FinanceiroSaidasPage = lazy(() => import("./pages/FinanceiroSaidasPage"));
 const PastorFinanceiroPage = lazy(() => import("./pages/PastorFinanceiroPage"));
+// Novas páginas do financeiro integradas do financeiro-novo
+const FinanceiroFichaPage = lazy(() => import("./pages/FinanceiroFichaPage"));
+const FinanceiroRelatoriosPage = lazy(() => import("./pages/FinanceiroRelatoriosPage"));
+const FinanceiroConfigPage = lazy(() => import("./pages/FinanceiroConfigPage"));

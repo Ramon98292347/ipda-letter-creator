@@ -1,195 +1,492 @@
 /**
- * FinanceiroDashboardPage
- * =======================
+ * FinanceiroDashboardPage.tsx
+ * ============================
  * O que faz: Página principal do módulo financeiro.
- *            Mostra os totais do mês atual e botões de acesso rápido.
+ *            Mostra resumo do mês atual (entradas, saídas, saldo, caixa hoje),
+ *            dízimos/ofertas/missionárias por forma de pagamento e ações rápidas.
+ *
  * Quem acessa: Usuários com role "financeiro"
- * Layout: cards com fundo colorido, igual ao sistema financeiro original.
+ * Layout: ManagementShell do sistema principal (sem wrapper extra)
+ *
+ * Esta página combina:
+ *   - Cards do FinanceContext (contagens do dia, entradas salvas)
+ *   - Dados reais do backend via financeiroService (transações do banco)
  */
-import { ManagementShell } from "@/components/layout/ManagementShell";
-import { DollarSign, TrendingUp, TrendingDown, Wallet, Calculator, Loader2, AlertCircle } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
-import { getDashboard } from "@/services/financeiroService";
-import { useNavigate } from "react-router-dom";
 
-// Comentario: formata um valor string como moeda brasileira (ex: "1234.50" → "R$ 1.234,50")
-function formatarMoeda(valor: string | number): string {
-  const numero = typeof valor === "string" ? parseFloat(valor) : valor;
-  if (isNaN(numero)) return "R$ 0,00";
-  return numero.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+import { useMemo } from 'react';
+import { ManagementShell } from "@/components/layout/ManagementShell";
+import { TrendingUp, TrendingDown, DollarSign, Calendar, ArrowUpRight, ArrowDownRight, Banknote, CreditCard, Smartphone } from 'lucide-react';
+import { useFinance } from '@/contexts/FinanceContext';
+import { useNavigate } from 'react-router-dom';
+
+/**
+ * Obtém a data atual no formato YYYY-MM-DD no fuso local.
+ * Evita o bug de timezone do new Date().toISOString().
+ */
+function getCurrentDateBrazil(): string {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
-// Comentario: nomes dos meses em portugues para exibir no cabeçalho
-const NOMES_MESES = [
-  "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
-  "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
-];
-
 export default function FinanceiroDashboardPage() {
-  const nav = useNavigate();
+  const { transactions, cashCounts } = useFinance();
+  const navigate = useNavigate();
 
-  // Comentario: busca os dados do dashboard — refaz automaticamente a cada 30s
-  const { data, isLoading, isError, error } = useQuery({
-    queryKey: ["financeiro-dashboard"],
-    queryFn: getDashboard,
-  });
+  // Data atual para filtros
+  const currentDate = new Date();
+  const currentMonth = currentDate.getMonth();
+  const currentYear = currentDate.getFullYear();
 
-  // Comentario: monta o label do mes para exibir no subtítulo
-  const labelMes = data
-    ? `${NOMES_MESES[(data.mes ?? 1) - 1]} de ${data.ano}`
-    : "";
+  // Lê os dados salvos pela contagem do dia do localStorage
+  const registrosDiariosRaw = localStorage.getItem('registrosDiarios') || '[]';
+  const entradasSalvasRaw = localStorage.getItem('entradasSalvas') || '[]';
 
-  // Comentario: saldo positivo ou negativo para cor do card
-  const saldo = parseFloat(String(data?.saldo ?? "0"));
-  const saldoPositivo = saldo >= 0;
+  // Parseia os registros diários salvos (novas contagens)
+  const registrosDiarios = useMemo(() => {
+    try {
+      return JSON.parse(registrosDiariosRaw);
+    } catch {
+      return [];
+    }
+  }, [registrosDiariosRaw]);
+
+  // Parseia as entradas salvas pela contagem do dia (dízimos/ofertas/missionárias)
+  const entradasSalvas = useMemo(() => {
+    try {
+      return JSON.parse(entradasSalvasRaw);
+    } catch {
+      return [];
+    }
+  }, [entradasSalvasRaw]);
+
+  // Filtra as transações do mês atual
+  const monthlyTransactions = useMemo(() => {
+    return transactions.filter(t => {
+      const transactionDate = new Date(t.date);
+      return transactionDate.getMonth() === currentMonth && transactionDate.getFullYear() === currentYear;
+    });
+  }, [transactions, currentMonth, currentYear]);
+
+  /**
+   * Calcula o total de entradas do mês vindo das contagens diárias
+   * (registros de caixa e entradas de dízimos/ofertas salvas).
+   */
+  const totalEntradasDiarias = useMemo(() => {
+    // Filtrar registros e entradas do mês atual
+    const registrosDoMes = registrosDiarios.filter((registro: any) => {
+      const registroDate = new Date(registro.date);
+      return registroDate.getMonth() === currentMonth && registroDate.getFullYear() === currentYear;
+    });
+
+    const entradasDoMes = entradasSalvas.filter((entrada: any) => {
+      const entradaDate = new Date(entrada.date);
+      return entradaDate.getMonth() === currentMonth && entradaDate.getFullYear() === currentYear;
+    });
+
+    // Soma os valores dos registros diários (caixa + transferências + missionárias)
+    const totalRegistros = registrosDoMes.reduce((sum: number, registro: any) => {
+      return sum + (registro.cashAmount || 0) + (registro.transfer || 0) + (registro.missionaryOffering || 0);
+    }, 0);
+
+    // Soma os totais das entradas salvas (dízimos, ofertas, etc.)
+    const totalEntradas = entradasDoMes.reduce((sum: number, entrada: any) => {
+      return sum + (entrada.total || 0);
+    }, 0);
+
+    return totalRegistros + totalEntradas;
+  }, [registrosDiarios, entradasSalvas, currentMonth, currentYear]);
+
+  // Total de entradas do mês (transações + contagens diárias)
+  const totalEntries = useMemo(() => {
+    const totalMensal = monthlyTransactions
+      .filter(t => t.type === 'entrada')
+      .reduce((sum, t) => sum + t.amount, 0);
+
+    return totalMensal + totalEntradasDiarias;
+  }, [monthlyTransactions, totalEntradasDiarias]);
+
+  // Total de saídas do mês
+  const totalExits = useMemo(() => {
+    return monthlyTransactions
+      .filter(t => t.type === 'saida')
+      .reduce((sum, t) => sum + t.amount, 0);
+  }, [monthlyTransactions]);
+
+  // Saldo do mês
+  const balance = useMemo(() => totalEntries - totalExits, [totalEntries, totalExits]);
+
+  /**
+   * Calcula o total de entradas especificamente de HOJE.
+   * Combina entradas salvas, registros de caixa e transações normais.
+   */
+  const totalEntradasHoje = useMemo(() => {
+    const today = getCurrentDateBrazil();
+    let totalToday = 0;
+
+    const entradasHoje = entradasSalvas.filter((entrada: any) => entrada.date === today);
+    totalToday += entradasHoje.reduce((sum: number, entrada: any) => sum + (entrada.total || 0), 0);
+
+    const registrosHoje = registrosDiarios.filter((registro: any) => registro.date === today);
+    totalToday += registrosHoje.reduce((sum: number, registro: any) => {
+      return sum + (registro.cashAmount || 0) + (registro.transfer || 0) + (registro.missionaryOffering || 0);
+    }, 0);
+
+    const transacoesHoje = transactions.filter(t => t.type === 'entrada' && t.date === today);
+    totalToday += transacoesHoje.reduce((sum, t) => sum + t.amount, 0);
+
+    return totalToday;
+  }, [entradasSalvas, registrosDiarios, transactions]);
+
+  /**
+   * Calcula os totais de dízimos, ofertas e ofertas missionárias do mês,
+   * separados por forma de pagamento (dinheiro, PIX, cartão).
+   */
+  const { dizimos, ofertas, ofertasMissionarias } = useMemo(() => {
+    const dizimos = { dinheiro: 0, pix: 0, cartao: 0, total: 0 };
+    const ofertas = { dinheiro: 0, pix: 0, cartao: 0, total: 0 };
+    const ofertasMissionarias = { dinheiro: 0, pix: 0, cartao: 0, total: 0 };
+
+    const entradasDoMes = entradasSalvas.filter((entrada: any) => {
+      const entradaDate = new Date(entrada.date);
+      return entradaDate.getMonth() === currentMonth && entradaDate.getFullYear() === currentYear;
+    });
+
+    // Agrupa por tipo e soma por forma de pagamento
+    entradasDoMes.forEach((entrada: any) => {
+      if (entrada.type === 'dizimos') {
+        dizimos.dinheiro += entrada.dinheiro || 0;
+        dizimos.pix += entrada.pix || 0;
+        dizimos.cartao += entrada.cartao || 0;
+        dizimos.total += entrada.total || 0;
+      } else if (entrada.type === 'ofertas') {
+        ofertas.dinheiro += entrada.dinheiro || 0;
+        ofertas.pix += entrada.pix || 0;
+        ofertas.cartao += entrada.cartao || 0;
+        ofertas.total += entrada.total || 0;
+      } else if (entrada.type === 'ofertas-missionarias') {
+        ofertasMissionarias.dinheiro += entrada.dinheiro || 0;
+        ofertasMissionarias.pix += entrada.pix || 0;
+        ofertasMissionarias.cartao += entrada.cartao || 0;
+        ofertasMissionarias.total += entrada.total || 0;
+      }
+    });
+
+    return { dizimos, ofertas, ofertasMissionarias };
+  }, [entradasSalvas, currentMonth, currentYear]);
+
+  // Últimas 5 transações para exibição no histórico
+  const recentTransactions = useMemo(() => {
+    return [...transactions]
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      .slice(0, 5);
+  }, [transactions]);
 
   return (
     <ManagementShell roleMode="financeiro">
       <div className="space-y-6">
-
-        {/* Cabeçalho da página */}
+        {/* Cabeçalho */}
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Dashboard Financeiro</h1>
-          <p className="text-slate-500">
-            {isLoading ? "Carregando dados..." : labelMes ? `Resumo de ${labelMes}` : "Gestão financeira da sua igreja"}
-          </p>
+          <h1 className="text-2xl font-bold text-gray-900">Dashboard Financeiro</h1>
+          <p className="text-gray-600">Visão geral das finanças da sua igreja</p>
         </div>
 
-        {/* Comentario: mostra mensagem de erro se a busca falhar */}
-        {isError && (
-          <div className="flex items-center gap-3 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-            <AlertCircle className="h-5 w-5 flex-shrink-0" />
-            <span>
-              Erro ao carregar dados financeiros:{" "}
-              {error instanceof Error ? error.message : "Tente novamente."}
-            </span>
-          </div>
-        )}
+        {/* Cards de métricas principais */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
 
-        {/* Cards de resumo do mês — com fundo colorido */}
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-
-          {/* Card: Total Entradas — fundo verde */}
-          <div className="rounded-xl bg-green-500 p-5 shadow-md text-white">
+          {/* Entradas do mês */}
+          <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-green-100">Total Entradas</p>
-                {isLoading ? (
-                  <Loader2 className="mt-2 h-6 w-6 animate-spin text-green-100" />
-                ) : (
-                  <p className="mt-1 text-2xl font-bold">
-                    {formatarMoeda(data?.total_receitas ?? "0")}
-                  </p>
-                )}
-              </div>
-              <div className="rounded-full bg-green-400 bg-opacity-50 p-3">
-                <TrendingUp className="h-6 w-6 text-white" />
-              </div>
-            </div>
-            <p className="mt-3 text-xs text-green-100">Entradas do mês atual</p>
-          </div>
-
-          {/* Card: Total Saídas — fundo vermelho */}
-          <div className="rounded-xl bg-red-500 p-5 shadow-md text-white">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-red-100">Total Saídas</p>
-                {isLoading ? (
-                  <Loader2 className="mt-2 h-6 w-6 animate-spin text-red-100" />
-                ) : (
-                  <p className="mt-1 text-2xl font-bold">
-                    {formatarMoeda(data?.total_despesas ?? "0")}
-                  </p>
-                )}
-              </div>
-              <div className="rounded-full bg-red-400 bg-opacity-50 p-3">
-                <TrendingDown className="h-6 w-6 text-white" />
-              </div>
-            </div>
-            <p className="mt-3 text-xs text-red-100">Saídas do mês atual</p>
-          </div>
-
-          {/* Card: Saldo — fundo azul escuro (positivo) ou vermelho escuro (negativo) */}
-          <div
-            className={`rounded-xl p-5 shadow-md text-white ${
-              saldoPositivo ? "bg-[#1A237E]" : "bg-red-700"
-            }`}
-          >
-            <div className="flex items-center justify-between">
-              <div>
-                <p className={`text-sm font-medium ${saldoPositivo ? "text-blue-200" : "text-red-200"}`}>
-                  Saldo do Mês
+                <p className="text-sm font-medium text-gray-600">Entradas do Mês</p>
+                <p className="text-2xl font-bold text-green-600">
+                  R$ {totalEntries.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                 </p>
-                {isLoading ? (
-                  <Loader2 className="mt-2 h-6 w-6 animate-spin text-blue-200" />
-                ) : (
-                  <p className="mt-1 text-2xl font-bold">
-                    {formatarMoeda(data?.saldo ?? "0")}
-                  </p>
-                )}
               </div>
-              <div className={`rounded-full bg-opacity-30 p-3 ${saldoPositivo ? "bg-blue-300" : "bg-red-400"}`}>
-                <Wallet className="h-6 w-6 text-white" />
+              <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+                <TrendingUp className="w-6 h-6 text-green-600" />
               </div>
             </div>
-            <p className={`mt-3 text-xs ${saldoPositivo ? "text-blue-200" : "text-red-200"}`}>
-              {saldoPositivo ? "Saldo positivo ✓" : "Saldo negativo ✗"}
-            </p>
+            <div className="flex items-center mt-4 text-sm">
+              <ArrowUpRight className="w-4 h-4 text-green-500 mr-1" />
+              <span className="text-green-600">Receitas registradas</span>
+            </div>
           </div>
 
-          {/* Card: Total de Transações — fundo roxo */}
-          <div className="rounded-xl bg-purple-600 p-5 shadow-md text-white">
+          {/* Saídas do mês */}
+          <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-purple-100">Transações</p>
-                {isLoading ? (
-                  <Loader2 className="mt-2 h-6 w-6 animate-spin text-purple-100" />
-                ) : (
-                  <p className="mt-1 text-2xl font-bold">
-                    {data?.total_transacoes ?? 0}
-                  </p>
-                )}
+                <p className="text-sm font-medium text-gray-600">Saídas do Mês</p>
+                <p className="text-2xl font-bold text-red-600">
+                  R$ {totalExits.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </p>
               </div>
-              <div className="rounded-full bg-purple-400 bg-opacity-50 p-3">
-                <DollarSign className="h-6 w-6 text-white" />
+              <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center">
+                <TrendingDown className="w-6 h-6 text-red-600" />
               </div>
             </div>
-            <p className="mt-3 text-xs text-purple-100">Total de lançamentos</p>
+            <div className="flex items-center mt-4 text-sm">
+              <ArrowDownRight className="w-4 h-4 text-red-500 mr-1" />
+              <span className="text-red-600">Despesas registradas</span>
+            </div>
+          </div>
+
+          {/* Saldo do mês */}
+          <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Saldo do Mês</p>
+                <p className={`text-2xl font-bold ${balance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                  R$ {balance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </p>
+              </div>
+              <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                <DollarSign className="w-6 h-6 text-[#1A237E]" />
+              </div>
+            </div>
+            <div className="flex items-center mt-4 text-sm">
+              <span className={`${balance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                {balance >= 0 ? 'Saldo positivo' : 'Saldo negativo'}
+              </span>
+            </div>
+          </div>
+
+          {/* Caixa hoje */}
+          <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Caixa Hoje</p>
+                <p className="text-2xl font-bold text-[#1A237E]">
+                  R$ {totalEntradasHoje.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </p>
+              </div>
+              <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                <Calendar className="w-6 h-6 text-[#1A237E]" />
+              </div>
+            </div>
+            <div className="flex items-center mt-4 text-sm">
+              <span className="text-gray-600">
+                {totalEntradasHoje > 0 ? 'Entradas registradas' : 'Nenhuma entrada hoje'}
+              </span>
+            </div>
           </div>
         </div>
 
-        {/* Ações rápidas — botões com cores sólidas */}
-        <div>
-          <h2 className="mb-3 text-base font-semibold text-slate-700">Ações Rápidas</h2>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        {/* Cards detalhados: Dízimos, Ofertas e Ofertas Missionárias */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
 
-            {/* Botão: Contagem de Caixa — azul escuro #1A237E */}
-            <button
-              onClick={() => nav("/financeiro/contagem")}
-              className="flex items-center gap-4 rounded-xl bg-[#1A237E] p-5 text-white shadow-md transition-all hover:bg-[#0D47A1] hover:shadow-lg text-left"
-            >
-              <div className="rounded-full bg-white bg-opacity-20 p-3">
-                <Calculator className="h-6 w-6 text-white" />
-              </div>
+          {/* Dízimos do mês */}
+          <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+            <div className="flex items-center justify-between mb-4">
               <div>
-                <p className="font-semibold text-white">Contagem de Caixa</p>
-                <p className="text-sm text-blue-200">Registrar notas e moedas</p>
+                <p className="text-sm font-medium text-gray-600">Dízimos do Mês</p>
+                <p className="text-2xl font-bold text-blue-600">
+                  R$ {dizimos.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </p>
               </div>
-            </button>
+              <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                <Banknote className="w-6 h-6 text-blue-600" />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-sm">
+                <div className="flex items-center space-x-2">
+                  <Banknote className="w-4 h-4 text-gray-500" />
+                  <span className="text-gray-600">Dinheiro</span>
+                </div>
+                <span className="font-medium text-gray-900">
+                  R$ {dizimos.dinheiro.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <div className="flex items-center space-x-2">
+                  <Smartphone className="w-4 h-4 text-gray-500" />
+                  <span className="text-gray-600">PIX/OCT</span>
+                </div>
+                <span className="font-medium text-gray-900">
+                  R$ {dizimos.pix.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <div className="flex items-center space-x-2">
+                  <CreditCard className="w-4 h-4 text-gray-500" />
+                  <span className="text-gray-600">Cartão</span>
+                </div>
+                <span className="font-medium text-gray-900">
+                  R$ {dizimos.cartao.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </span>
+              </div>
+            </div>
+          </div>
 
-            {/* Botão: Cadastro de Saídas — vermelho */}
-            <button
-              onClick={() => nav("/financeiro/saidas")}
-              className="flex items-center gap-4 rounded-xl bg-red-500 p-5 text-white shadow-md transition-all hover:bg-red-600 hover:shadow-lg text-left"
-            >
-              <div className="rounded-full bg-white bg-opacity-20 p-3">
-                <TrendingDown className="h-6 w-6 text-white" />
-              </div>
+          {/* Ofertas do mês */}
+          <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+            <div className="flex items-center justify-between mb-4">
               <div>
-                <p className="font-semibold text-white">Saídas</p>
-                <p className="text-sm text-red-100">Registrar e gerenciar despesas</p>
+                <p className="text-sm font-medium text-gray-600">Ofertas do Mês</p>
+                <p className="text-2xl font-bold text-green-600">
+                  R$ {ofertas.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </p>
               </div>
-            </button>
+              <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+                <Banknote className="w-6 h-6 text-green-600" />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-sm">
+                <div className="flex items-center space-x-2">
+                  <Banknote className="w-4 h-4 text-gray-500" />
+                  <span className="text-gray-600">Dinheiro</span>
+                </div>
+                <span className="font-medium text-gray-900">
+                  R$ {ofertas.dinheiro.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <div className="flex items-center space-x-2">
+                  <Smartphone className="w-4 h-4 text-gray-500" />
+                  <span className="text-gray-600">PIX/OCT</span>
+                </div>
+                <span className="font-medium text-gray-900">
+                  R$ {ofertas.pix.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <div className="flex items-center space-x-2">
+                  <CreditCard className="w-4 h-4 text-gray-500" />
+                  <span className="text-gray-600">Cartão</span>
+                </div>
+                <span className="font-medium text-gray-900">
+                  R$ {ofertas.cartao.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Ofertas Missionárias do mês */}
+          <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Ofertas Missionárias do Mês</p>
+                <p className="text-2xl font-bold text-orange-600">
+                  R$ {ofertasMissionarias.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </p>
+              </div>
+              <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
+                <Banknote className="w-6 h-6 text-orange-600" />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-sm">
+                <div className="flex items-center space-x-2">
+                  <Banknote className="w-4 h-4 text-gray-500" />
+                  <span className="text-gray-600">Dinheiro</span>
+                </div>
+                <span className="font-medium text-gray-900">
+                  R$ {ofertasMissionarias.dinheiro.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <div className="flex items-center space-x-2">
+                  <Smartphone className="w-4 h-4 text-gray-500" />
+                  <span className="text-gray-600">PIX/OCT</span>
+                </div>
+                <span className="font-medium text-gray-900">
+                  R$ {ofertasMissionarias.pix.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <div className="flex items-center space-x-2">
+                  <CreditCard className="w-4 h-4 text-gray-500" />
+                  <span className="text-gray-600">Cartão</span>
+                </div>
+                <span className="font-medium text-gray-900">
+                  R$ {ofertasMissionarias.cartao.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Histórico recente + Ações rápidas */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+          {/* Últimas transações */}
+          <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Transações Recentes</h3>
+            <div className="space-y-3">
+              {recentTransactions.length > 0 ? (
+                recentTransactions.map((transaction) => (
+                  <div key={transaction.id} className="flex items-center justify-between py-2 border-b border-gray-100 last:border-b-0">
+                    <div className="flex items-center space-x-3">
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                        transaction.type === 'entrada' ? 'bg-green-100' : 'bg-red-100'
+                      }`}>
+                        {transaction.type === 'entrada' ? (
+                          <TrendingUp className="w-4 h-4 text-green-600" />
+                        ) : (
+                          <TrendingDown className="w-4 h-4 text-red-600" />
+                        )}
+                      </div>
+                      <div>
+                        <p className="font-medium text-gray-900">{transaction.description}</p>
+                        <p className="text-sm text-gray-500">{transaction.category}</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className={`font-semibold ${
+                        transaction.type === 'entrada' ? 'text-green-600' : 'text-red-600'
+                      }`}>
+                        {transaction.type === 'entrada' ? '+' : '-'}R$ {transaction.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </p>
+                      <p className="text-sm text-gray-500">
+                        {new Date(transaction.date).toLocaleDateString('pt-BR')}
+                      </p>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <p className="text-gray-500 text-center py-4">Nenhuma transação registrada</p>
+              )}
+            </div>
+          </div>
+
+          {/* Botões de ação rápida */}
+          <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Ações Rápidas</h3>
+            <div className="grid grid-cols-2 gap-4">
+              <button
+                onClick={() => navigate('/financeiro/contagem')}
+                className="p-4 bg-[#1A237E] text-white rounded-lg hover:bg-[#0D47A1] transition-colors"
+              >
+                <Calendar className="w-6 h-6 mx-auto mb-2" />
+                <span className="text-sm font-medium">Contagem do Dia</span>
+              </button>
+              <button
+                onClick={() => navigate('/financeiro/saidas')}
+                className="p-4 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+              >
+                <TrendingDown className="w-6 h-6 mx-auto mb-2" />
+                <span className="text-sm font-medium">Nova Saída</span>
+              </button>
+              <button
+                onClick={() => navigate('/financeiro/ficha')}
+                className="p-4 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+              >
+                <DollarSign className="w-6 h-6 mx-auto mb-2" />
+                <span className="text-sm font-medium">Ficha Diária</span>
+              </button>
+              <button
+                onClick={() => navigate('/financeiro/relatorios')}
+                className="p-4 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+              >
+                <TrendingUp className="w-6 h-6 mx-auto mb-2" />
+                <span className="text-sm font-medium">Relatórios</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>
