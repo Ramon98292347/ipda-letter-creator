@@ -20,6 +20,11 @@ CREATE INDEX IF NOT EXISTS idx_login_attempts_ip_created
   ON login_attempts (ip, created_at DESC);
 
 -- Comentario: habilita pg_cron para limpeza automática de registros antigos.
+-- Se a extensão não estiver ativa, habilite pelo painel do Supabase:
+-- Dashboard → Database → Extensions → pg_cron → ativar
+-- Depois rode o SELECT abaixo separadamente.
+CREATE EXTENSION IF NOT EXISTS pg_cron;
+
 -- Roda todo dia às 03:00 UTC e apaga tentativas com mais de 24 horas.
 -- Isso mantém a tabela pequena mesmo com 2000 usuários.
 SELECT cron.schedule(
