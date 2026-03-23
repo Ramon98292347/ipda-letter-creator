@@ -89,21 +89,22 @@ export const api = {
     meeting_date: string;
     expires_at?: string | null;
     notes?: string | null;
-  }) => post("create-ministerial-meeting", body),
-  listMinisterialMeetings: (body: { church_totvs_id?: string | null } = {}) => post("list-ministerial-meetings", body),
+  }) => post("meetings-api", { action: "create", ...body }),
+  listMinisterialMeetings: (body: { church_totvs_id?: string | null } = {}) =>
+    post("meetings-api", { action: "list", ...body }),
   manageMinisterialMeeting: (body: {
     meeting_id: string;
     action: "close" | "reopen" | "delete";
     church_totvs_id?: string | null;
     expires_at?: string | null;
-  }) => post("manage-ministerial-meeting", body),
+  }) => post("meetings-api", { action: "manage", manage_action: body.action, meeting_id: body.meeting_id, church_totvs_id: body.church_totvs_id, expires_at: body.expires_at }),
   saveMinisterialAttendance: (body: {
     user_id: string;
     meeting_date: string;
     church_totvs_id: string;
     status: "PRESENTE" | "FALTA" | "FALTA_JUSTIFICADA";
     justification_text?: string | null;
-  }) => post("save-ministerial-attendance", body),
+  }) => post("meetings-api", { action: "save-attendance", ...body }),
   deleteUser: (body: { user_id: string }) => post("delete-user", body),
 
   workerDashboard: (body: JsonBody) => post("worker-dashboard", body),
@@ -124,13 +125,14 @@ export const api = {
   updateMemberAvatar: (body: { user_id: string; cpf: string; avatar_url: string }) =>
     post("update-member-avatar", body, { skipAuth: true }),
   birthdaysToday: () => post("birthdays-today", {}),
-  getPublicMinisterialMeeting: (body: { token: string }) => post("get-public-ministerial-meeting", body, { skipAuth: true }),
+  getPublicMinisterialMeeting: (body: { token: string }) =>
+    post("meetings-api", { action: "get-public", ...body }, { skipAuth: true }),
   savePublicMinisterialAttendance: (body: {
     token: string;
     user_id: string;
     status: "PRESENTE" | "FALTA" | "FALTA_JUSTIFICADA";
     justification_text?: string | null;
-  }) => post("save-public-ministerial-attendance", body, { skipAuth: true }),
+  }) => post("meetings-api", { action: "save-public-attendance", ...body }, { skipAuth: true }),
   upsertAnnouncement: (body: JsonBody) => post("upsert-announcement", body),
   deleteAnnouncement: (body: { id: string }) => post("delete-announcement", body),
   upsertStamps: (body: { signature_url?: string | null; stamp_pastor_url?: string | null; stamp_church_url?: string | null }) =>

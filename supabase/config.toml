@@ -6,6 +6,9 @@
 [functions.notifications-api]
 verify_jwt = false
 
+[functions.meetings-api]
+verify_jwt = false
+
 [functions.approve-release]
 verify_jwt = false
 
