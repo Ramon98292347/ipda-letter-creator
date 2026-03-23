@@ -67,14 +67,17 @@ export default function AdminDashboardPage() {
   const memberCounters = useMemo(() => {
     const normalized = members.map((m) => ({
       role: String(m.role || "").toLowerCase(),
-      minister_role: String(m.minister_role || "").toLowerCase(),
+      minister_role: String(m.minister_role || "")
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, ""),
       is_active: m.is_active !== false,
     }));
 
     return {
       total: normalized.length,
       pastores: normalized.filter((m) => m.role === "pastor" || m.minister_role === "pastor").length,
-      obreiros: normalized.filter((m) => m.role === "obreiro" || m.minister_role === "obreiro").length,
+      obreiros: normalized.filter((m) => m.minister_role === "cooperador").length,
       presbiteros: normalized.filter((m) => m.minister_role === "presbitero").length,
       diaconos: normalized.filter((m) => m.minister_role === "diacono").length,
       membrosAtivos: normalized.filter((m) => m.minister_role === "membro" && m.is_active).length,
@@ -95,7 +98,7 @@ export default function AdminDashboardPage() {
           <div className="mt-4 grid gap-4 md:grid-cols-3 xl:grid-cols-6">
             <StatCard title="Total de membros" value={memberCounters.total} subtitle="membros no escopo" gradient="from-blue-600 to-blue-500" icon="users" />
             <StatCard title="Pastores" value={memberCounters.pastores} subtitle="cargo pastor" gradient="from-blue-600 to-blue-500" icon="users" />
-            <StatCard title="Obreiros" value={memberCounters.obreiros} subtitle="cargo obreiro" gradient="from-amber-500 to-amber-400" icon="users" />
+            <StatCard title="Cooperador" value={memberCounters.obreiros} subtitle="cargo cooperador" gradient="from-amber-500 to-amber-400" icon="users" />
             <StatCard title="Presbiteros" value={memberCounters.presbiteros} subtitle="cargo presbitero" gradient="from-purple-600 to-purple-500" icon="users" />
             <StatCard title="Diaconos" value={memberCounters.diaconos} subtitle="cargo diacono" gradient="from-emerald-600 to-emerald-500" icon="users" />
             <StatCard title="Membros ativos" value={memberCounters.membrosAtivos} subtitle="ministerio membro" gradient="from-slate-600 to-slate-500" icon="users" />

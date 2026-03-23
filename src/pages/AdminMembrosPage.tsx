@@ -12,6 +12,14 @@ import { PageLoading } from "@/components/shared/PageLoading";
 import { useUser } from "@/context/UserContext";
 import { useDebounce } from "@/hooks/useDebounce";
 
+function normalizeMinisterRole(value: string | null | undefined): string {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
 function MiniCard({
   title,
   value,
@@ -116,7 +124,7 @@ export default function AdminMembrosPage() {
         pastor: Number(metrics.pastor || 0),
         presbitero: Number(metrics.presbitero || 0),
         diacono: Number(metrics.diacono || 0),
-        obreiro: Number(metrics.obreiro || 0),
+        obreiro: Number(metrics.cooperador || 0),
         membrosAtivos: Number(metrics.membro || 0),
       };
     }
@@ -125,10 +133,10 @@ export default function AdminMembrosPage() {
     return {
       total: workers.length,
       pastor: workers.filter((w) => w.role === "pastor").length,
-      presbitero: workers.filter((w) => String(w.minister_role || "").toLowerCase() === "presbitero").length,
-      diacono: workers.filter((w) => String(w.minister_role || "").toLowerCase() === "diacono").length,
-      obreiro: workers.filter((w) => String(w.minister_role || "").toLowerCase() === "obreiro").length,
-      membrosAtivos: workers.filter((w) => String(w.minister_role || "").toLowerCase() === "membro" && w.is_active !== false).length,
+      presbitero: workers.filter((w) => normalizeMinisterRole(w.minister_role) === "presbitero").length,
+      diacono: workers.filter((w) => normalizeMinisterRole(w.minister_role) === "diacono").length,
+      obreiro: workers.filter((w) => normalizeMinisterRole(w.minister_role) === "cooperador").length,
+      membrosAtivos: workers.filter((w) => normalizeMinisterRole(w.minister_role) === "membro" && w.is_active !== false).length,
     };
   }, [membersRes]);
 
@@ -218,7 +226,7 @@ export default function AdminMembrosPage() {
           <MiniCard title="Pastor" value={counters.pastor} subtitle="cargo pastor" gradient={memberTone.pastor} />
           <MiniCard title="Presbitero" value={counters.presbitero} subtitle="cargo presbitero" gradient={memberTone.presbitero} />
           <MiniCard title="Diacono" value={counters.diacono} subtitle="cargo diacono" gradient={memberTone.diacono} />
-          <MiniCard title="Obreiro" value={counters.obreiro} subtitle="cargo obreiro" gradient={memberTone.obreiro} />
+          <MiniCard title="Cooperador" value={counters.obreiro} subtitle="cargo cooperador" gradient={memberTone.obreiro} />
           <MiniCard title="Membros ativos" value={counters.membrosAtivos} subtitle="ministerio membro" gradient={memberTone.ativo} />
         </section>
 

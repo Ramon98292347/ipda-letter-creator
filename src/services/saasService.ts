@@ -440,6 +440,7 @@ export type LetterCreatePayload = {
   preach_period?: "MANHA" | "TARDE" | "NOITE";
   church_origin: string;
   church_destination: string;
+  manual_destination?: boolean;
   preacher_user_id?: string;
   phone?: string;
   email?: string;
@@ -3132,6 +3133,7 @@ export async function createLetterByPastor(payload: LetterCreatePayload) {
       preach_period: payload.preach_period,
       church_origin: payload.church_origin.trim(),
       church_destination: payload.church_destination.trim(),
+      manual_destination: Boolean(payload.manual_destination),
       preacher_user_id: payload.preacher_user_id || null,
       phone: payload.phone || null,
       email: payload.email || null,

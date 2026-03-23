@@ -866,10 +866,7 @@ export default function PastorMembrosPage() {
       pastor: workers.filter((w) => normalizeMinisterRole(w.minister_role) === "pastor").length,
       presbitero: workers.filter((w) => normalizeMinisterRole(w.minister_role) === "presbitero").length,
       diacono: workers.filter((w) => normalizeMinisterRole(w.minister_role) === "diacono").length,
-      obreiro: workers.filter((w) => {
-        const role = normalizeMinisterRole(w.minister_role);
-        return role === "obreiro" || role === "cooperador" || role === "obreiro cooperador";
-      }).length,
+      obreiro: workers.filter((w) => normalizeMinisterRole(w.minister_role) === "cooperador").length,
       batizados: workers.filter((w) => normalizeMinisterRole(w.minister_role) === "membro").length,
     };
   }, [data?.metrics, workers]);
@@ -1071,7 +1068,7 @@ export default function PastorMembrosPage() {
         <MiniCard title="Pastor" value={counters.pastor} subtitle="pastores" gradient={memberTone.pastor} />
         <MiniCard title="Presbitero" value={counters.presbitero} subtitle="presbiteros" gradient={memberTone.presbitero} />
         <MiniCard title="Diacono" value={counters.diacono} subtitle="diaconos" gradient={memberTone.diacono} />
-        <MiniCard title="Obreiro" value={counters.obreiro} subtitle="obreiros" gradient={memberTone.obreiro} />
+        <MiniCard title="Cooperador" value={counters.obreiro} subtitle="cooperadores" gradient={memberTone.obreiro} />
         <MiniCard title="Membros ativos" value={counters.batizados} subtitle="ministerio membro" gradient={memberTone.batizados} />
       </section>
 

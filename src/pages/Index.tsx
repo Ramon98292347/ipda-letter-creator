@@ -499,6 +499,7 @@ const Index = () => {
         preach_period: preachPeriod as "MANHA" | "TARDE" | "NOITE",
         church_origin: origemText,
         church_destination: destinoText,
+        manual_destination: !igrejaDestino && Boolean(destinoManual),
         phone: (values.telefone || "").replace(/\D/g, ""),
         email: usuarioEmail || selectedPreacher?.email || (usuario as LegacyUsuarioExtra | null)?.email || null,
         // Pastor da igreja de origem — sempre é o pastor da igreja selecionada como origem

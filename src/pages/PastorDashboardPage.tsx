@@ -68,7 +68,7 @@ export default function PastorDashboardPage() {
   const counters = useMemo(() => {
     const totalMembers = members.length;
     const pastors = members.filter((m) => normalizeMinisterRole(m.minister_role) === "pastor").length;
-    const obreiros = members.filter((m) => normalizeMinisterRole(m.minister_role) === "obreiro").length;
+    const obreiros = members.filter((m) => normalizeMinisterRole(m.minister_role) === "cooperador").length;
     const presbiteros = members.filter((m) => normalizeMinisterRole(m.minister_role) === "presbitero").length;
     const diaconos = members.filter((m) => normalizeMinisterRole(m.minister_role) === "diacono").length;
     const membrosAtivos = members.filter((m) => normalizeMinisterRole(m.minister_role) === "membro" && m.is_active !== false).length;
@@ -106,7 +106,7 @@ export default function PastorDashboardPage() {
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3 xl:grid-cols-6">
             <KpiCard title="Total de membros" value={counters.totalMembers} subtitle="cadastros no escopo" icon={Users} gradient="from-blue-600 to-blue-500" onClick={() => navigate("/pastor/membros?status=ativo")} />
             <KpiCard title="Pastores" value={counters.pastors} subtitle="cargo pastor" icon={UserRound} gradient="from-blue-600 to-blue-500" onClick={() => navigate("/pastor/membros?cargo=pastor")} />
-            <KpiCard title="Obreiros" value={counters.obreiros} subtitle="cargo obreiro" icon={Users} gradient="from-amber-500 to-amber-400" onClick={() => navigate("/pastor/membros?cargo=obreiro")} />
+            <KpiCard title="Cooperador" value={counters.obreiros} subtitle="cargo cooperador" icon={Users} gradient="from-amber-500 to-amber-400" onClick={() => navigate("/pastor/membros?cargo=obreiro")} />
             <KpiCard title="Presbiteros" value={counters.presbiteros} subtitle="cargo presbitero" icon={UserRound} gradient="from-purple-600 to-purple-500" onClick={() => navigate("/pastor/membros?cargo=presbitero")} />
             <KpiCard title="Diaconos" value={counters.diaconos} subtitle="cargo diacono" icon={UserRound} gradient="from-emerald-600 to-emerald-500" onClick={() => navigate("/pastor/membros?cargo=diacono")} />
             <KpiCard title="Membros ativos" value={counters.membrosAtivos} subtitle="ministerio membro" icon={Users} gradient="from-slate-600 to-slate-500" onClick={() => navigate("/pastor/membros?status=ativo")} />
