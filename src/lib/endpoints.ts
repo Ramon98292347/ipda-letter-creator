@@ -112,9 +112,9 @@ export const api = {
   listReleaseRequests: (body: JsonBody) => post("list-release-requests", body),
   approveRelease: (body: { request_id: string }) => post("approve-release", body),
   denyRelease: (body: { request_id: string }) => post("deny-release", body),
-  listNotifications: (body: { page?: number; page_size?: number; unread_only?: boolean; church_totvs_id?: string } = {}) => post("list-notifications", body),
-  markNotificationRead: (body: { id: string; church_totvs_id?: string }) => post("mark-notification-read", body),
-  markAllNotificationsRead: (body: { church_totvs_id?: string } = {}) => post("mark-all-notifications-read", body),
+  listNotifications: (body: { page?: number; page_size?: number; unread_only?: boolean; church_totvs_id?: string } = {}) => post("notifications-api", { action: "list", ...body }),
+  markNotificationRead: (body: { id: string; church_totvs_id?: string }) => post("notifications-api", { action: "mark-read", ...body }),
+  markAllNotificationsRead: (body: { church_totvs_id?: string } = {}) => post("notifications-api", { action: "mark-all-read", ...body }),
 
   listAnnouncements: (body: JsonBody = { limit: 10 }) => post("list-announcements", body),
   getPastorContact: (body: { totvs_id: string }) => post("get-pastor-contact", body),

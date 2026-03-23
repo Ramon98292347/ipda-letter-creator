@@ -3,6 +3,9 @@
 # a propria funcao valide o JWT customizado (USER_SESSION_JWT_SECRET).
 # IMPORTANTE: Toda funcao nova deve ser adicionada aqui com verify_jwt = false.
 
+[functions.notifications-api]
+verify_jwt = false
+
 [functions.approve-release]
 verify_jwt = false
 
