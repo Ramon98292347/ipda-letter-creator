@@ -142,12 +142,12 @@ export default function PhoneIdentify() {
   async function handleLogin() {
     const cpfRaw = cpf.replace(/\D/g, "");
     if (cpfRaw.length !== 11) {
-      toast.error("Informe um CPF valido com 11 digitos.");
+      toast.error("Informe um CPF válido com 11 dígitos.");
       return;
     }
     // Comentario: valida os digitos verificadores do CPF antes de chamar o servidor.
     if (!validarCpf(cpfRaw)) {
-      toast.error("CPF invalido. Verifique os digitos e tente novamente.");
+      toast.error("CPF inválido. Verifique os dígitos e tente novamente.");
       return;
     }
     if (!senha.trim()) {

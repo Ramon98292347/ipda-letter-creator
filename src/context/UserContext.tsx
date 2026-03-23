@@ -143,7 +143,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     const nowSec = Math.floor(Date.now() / 1000);
     const msToExpire = (exp - nowSec) * 1000;
     if (msToExpire <= 0) {
-      toast.error("Sessao expirada. Faca login novamente.");
+      toast.error("Sessão expirada. Faça login novamente.");
       clearAuth();
       return;
     }
@@ -151,10 +151,10 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     const warnAt = msToExpire - 2 * 60 * 1000;
     let warnTimer: ReturnType<typeof setTimeout> | undefined;
     if (warnAt > 0) {
-      warnTimer = setTimeout(() => toast.message("Sua sessao expira em menos de 2 minutos."), warnAt);
+      warnTimer = setTimeout(() => toast.message("Sua sessão expira em menos de 2 minutos."), warnAt);
     }
     const logoutTimer = setTimeout(() => {
-      toast.error("Sessao expirada. Faca login novamente.");
+      toast.error("Sessão expirada. Faça login novamente.");
       clearAuth();
     }, msToExpire);
 
