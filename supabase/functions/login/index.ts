@@ -10,63 +10,60 @@
  * Quem pode usar: público (sem autenticação)
  * Recebe: { cpf: string, password: string }
  * Retorna: { ok, mode: "logged_in"|"select_church", token?, rls_token?, user, session?, churches? }
- * Observações: Proteção contra força bruta: rate limit de 10 tentativas por IP em 15 minutos.
+ * Observações: Rate limit persistente no banco — 10 tentativas por CPF em 15 minutos.
  *              O token da aplicação expira em 12 horas.
  *              O token RLS inclui scope_totvs_ids e root_totvs_id para uso nas políticas RLS.
  */
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+// deno-lint-ignore-file no-explicit-any
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import bcrypt from "https://esm.sh/bcryptjs@2.4.3";
 import { SignJWT } from "https://esm.sh/jose@5.2.4";
-
-function corsHeaders() {
-  return {
-    "Content-Type": "application/json",
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, Authorization, apikey",
-  };
-}
-
-function json(obj: unknown, status = 200) {
-  return new Response(JSON.stringify(obj), { status, headers: corsHeaders() });
-}
+import { corsHeaders, json } from "../_shared/cors.ts";
 
 function onlyDigits(s: string) {
   return String(s || "").replace(/\D+/g, "");
 }
 
-// ──────────────────────────────────────────────────────────────
-// Rate limiting por IP — proteção contra força bruta no login.
-//
-// Máximo de RATE_LIMIT_MAX tentativas por IP em RATE_LIMIT_WINDOW_MS.
-// Depois desse limite, o IP recebe 429 e deve aguardar a janela resetar.
-// O mapa fica em memória: é "melhor esforço" (zera no cold start),
-// mas dificulta muito ataques sem precisar de Redis ou banco externo.
-// ──────────────────────────────────────────────────────────────
-const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
 const RATE_LIMIT_MAX = 10;
-const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000; // 15 minutos
+const RATE_LIMIT_WINDOW_MINUTES = 15;
 
-function checkRateLimit(ip: string): boolean {
-  const now = Date.now();
-  const entry = rateLimitMap.get(ip);
-  if (!entry || now > entry.resetAt) {
-    rateLimitMap.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
-    return true;
-  }
-  if (entry.count >= RATE_LIMIT_MAX) return false;
-  entry.count += 1;
+// Comentario: verifica rate limit pelo banco — persistente mesmo após cold start.
+// Conta tentativas falhas do CPF nos últimos 15 minutos.
+async function checkRateLimitDB(
+  sb: ReturnType<typeof createClient>,
+  cpf: string,
+  ip: string,
+): Promise<boolean> {
+  const windowStart = new Date(Date.now() - RATE_LIMIT_WINDOW_MINUTES * 60 * 1000).toISOString();
+
+  const { count } = await sb
+    .from("login_attempts")
+    .select("id", { count: "exact", head: true })
+    .eq("cpf", cpf)
+    .eq("success", false)
+    .gte("created_at", windowStart);
+
+  if ((count ?? 0) >= RATE_LIMIT_MAX) return false;
+
+  // Registra esta tentativa (resultado será atualizado depois se for bem sucedida)
+  await sb.from("login_attempts").insert({ cpf, ip, success: false });
   return true;
 }
 
-// Limpeza periódica para evitar crescimento indefinido do mapa em memória.
-setInterval(() => {
-  const now = Date.now();
-  for (const [ip, entry] of rateLimitMap.entries()) {
-    if (now > entry.resetAt) rateLimitMap.delete(ip);
-  }
-}, 30 * 60 * 1000);
+// Comentario: marca a última tentativa como bem-sucedida para não contar no rate limit
+async function markLoginSuccess(
+  sb: ReturnType<typeof createClient>,
+  cpf: string,
+): Promise<void> {
+  await sb
+    .from("login_attempts")
+    .update({ success: true })
+    .eq("cpf", cpf)
+    .eq("success", false)
+    .order("created_at", { ascending: false })
+    .limit(1);
+}
 
 type TotvsAccessItem = string | { totvs_id?: string; role?: string };
 type ChurchRow = { totvs_id: string; parent_totvs_id: string | null };
@@ -123,13 +120,15 @@ function computeRootTotvs(activeTotvs: string, churches: ChurchRow[]): string {
 
   let cur = activeTotvs;
   const guard = new Set<string>();
-  while (true) {
+  // Comentario: limite de 100 níveis para evitar loop infinito em caso de dado corrompido
+  while (guard.size < 100) {
     if (guard.has(cur)) return activeTotvs;
     guard.add(cur);
     const parent = parentById.get(cur) ?? null;
     if (!parent) return cur;
     cur = parent;
   }
+  return activeTotvs;
 }
 
 async function signAppToken(payload: { sub: string; app_role: string; active_totvs_id: string }) {
@@ -172,20 +171,6 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { status: 200, headers: corsHeaders() });
   if (req.method !== "POST") return json({ ok: false, error: "method_not_allowed" }, 405);
 
-  // Extrai o IP do cliente e verifica o rate limit antes de qualquer acesso ao banco.
-  // x-forwarded-for pode conter múltiplos IPs (proxies) — pegamos o primeiro.
-  const clientIp =
-    req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-    req.headers.get("x-real-ip") ||
-    "unknown";
-
-  if (!checkRateLimit(clientIp)) {
-    return json(
-      { ok: false, error: "rate_limit_exceeded", message: "Muitas tentativas de login. Aguarde 15 minutos e tente novamente." },
-      429,
-    );
-  }
-
   try {
     const body = (await req.json().catch(() => ({}))) as Body;
     const cpf = onlyDigits(body.cpf || "");
@@ -195,30 +180,40 @@ Deno.serve(async (req) => {
 
     const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
+    // Comentario: rate limit persistente — bloqueia força bruta mesmo após cold start.
+    // 10 tentativas falhas por CPF em 15 minutos → erro 429.
+    const clientIp =
+      req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+      req.headers.get("x-real-ip") ||
+      "unknown";
+
+    const allowed = await checkRateLimitDB(sb, cpf, clientIp);
+    if (!allowed) {
+      return json(
+        { ok: false, error: "rate_limit_exceeded", message: "Muitas tentativas de login. Aguarde 15 minutos e tente novamente." },
+        429,
+      );
+    }
+
     const { data: user, error: uErr } = await sb
       .from("users")
       .select("id, cpf, full_name, role, password_hash, is_active, totvs_access, default_totvs_id, payment_status, discipline_status, discipline_block_reason")
       .eq("cpf", cpf)
       .maybeSingle();
 
-    if (uErr) return json({ ok: false, error: "db_error", details: uErr.message }, 500);
+    if (uErr) return json({ ok: false, error: "db_error" }, 500);
     if (!user) return json({ ok: false, error: "invalid-credentials" }, 401);
     if (!user.is_active) return json({ ok: false, error: "inactive_user" }, 403);
+
     if (String(user.payment_status || "").toUpperCase() === "BLOQUEADO_PAGAMENTO") {
-      return json(
-        { ok: false, error: "blocked_payment", message: "Acesso bloqueado por pagamento pendente." },
-        403,
-      );
+      return json({ ok: false, error: "blocked_payment", message: "Acesso bloqueado por pagamento pendente." }, 403);
     }
     if (String(user.discipline_status || "").toUpperCase() === "BLOQUEADO_DISCIPLINA") {
-      return json(
-        {
-          ok: false,
-          error: "blocked_discipline",
-          message: String(user.discipline_block_reason || "Acesso bloqueado por faltas sem justificativa em reunioes ministeriais."),
-        },
-        403,
-      );
+      return json({
+        ok: false,
+        error: "blocked_discipline",
+        message: String(user.discipline_block_reason || "Acesso bloqueado por faltas sem justificativa em reuniões ministeriais."),
+      }, 403);
     }
 
     const userRole = String(user.role || "obreiro").toLowerCase();
@@ -226,24 +221,24 @@ Deno.serve(async (req) => {
     if (!currentHash) {
       const newHash = bcrypt.hashSync(password, 10);
       const { error: setErr } = await sb.from("users").update({ password_hash: newHash }).eq("id", user.id);
-      if (setErr) return json({ ok: false, error: "set_password_failed", details: setErr.message }, 500);
+      if (setErr) return json({ ok: false, error: "set_password_failed" }, 500);
     } else {
       const ok = bcrypt.compareSync(password, currentHash);
       if (!ok) return json({ ok: false, error: "invalid-credentials" }, 401);
     }
 
+    // Comentario: login bem sucedido — marca no banco para não contar no rate limit
+    await markLoginSuccess(sb, cpf);
+
     let access = normalizeTotvsAccess(user.totvs_access, userRole);
 
     // Comentario: fallback para bases antigas/importadas sem totvs_access,
-    // usando default_totvs_id para nao bloquear primeiro login.
+    // usando default_totvs_id para não bloquear primeiro login.
     if (access.length === 0) {
       const defaultTotvsFallback = String(user.default_totvs_id || "").trim();
       if (defaultTotvsFallback) {
         access = [{ totvs_id: defaultTotvsFallback, role: userRole }];
-        await sb
-          .from("users")
-          .update({ totvs_access: access })
-          .eq("id", user.id);
+        await sb.from("users").update({ totvs_access: access }).eq("id", user.id);
       }
     }
 
@@ -252,22 +247,20 @@ Deno.serve(async (req) => {
         .from("churches")
         .select("totvs_id")
         .order("totvs_id", { ascending: true });
-      if (allForAdminErr) return json({ ok: false, error: "db_error_admin_access", details: allForAdminErr.message }, 500);
+      if (allForAdminErr) return json({ ok: false, error: "db_error" }, 500);
       const ids = (allForAdmin || []).map((c) => String(c.totvs_id || "")).filter(Boolean);
       access = ids.map((id) => ({ totvs_id: id, role: "admin" }));
-      if (ids.length > 0) {
-        await sb.from("users").update({ totvs_access: access }).eq("id", user.id);
-      }
+      if (ids.length > 0) await sb.from("users").update({ totvs_access: access }).eq("id", user.id);
     }
 
-    if (access.length === 0) return json({ ok: false, error: "no_totvs_access", message: "Usuario sem acesso de igreja." }, 403);
+    if (access.length === 0) return json({ ok: false, error: "no_totvs_access", message: "Usuário sem acesso de igreja." }, 403);
     const totvsIds = access.map((a) => a.totvs_id);
 
     const { data: churchesMeta, error: mErr } = await sb
       .from("churches")
       .select("totvs_id, church_name, class, parent_totvs_id")
       .in("totvs_id", totvsIds);
-    if (mErr) return json({ ok: false, error: "db_error_churches_meta", details: mErr.message }, 500);
+    if (mErr) return json({ ok: false, error: "db_error" }, 500);
 
     const metaByTotvs = new Map<string, Record<string, unknown>>();
     for (const c of churchesMeta || []) metaByTotvs.set(String(c.totvs_id), c as Record<string, unknown>);
@@ -309,7 +302,7 @@ Deno.serve(async (req) => {
     }
 
     const { data: allChurches, error: aErr } = await sb.from("churches").select("totvs_id, parent_totvs_id");
-    if (aErr) return json({ ok: false, error: "db_error_scope", details: aErr.message }, 500);
+    if (aErr) return json({ ok: false, error: "db_error" }, 500);
     const all = (allChurches || []) as ChurchRow[];
     const scope_totvs_ids =
       userRole === "admin" ? all.map((c) => String(c.totvs_id || "")).filter(Boolean) : computeScope(activeTotvs, all);
