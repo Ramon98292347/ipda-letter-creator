@@ -1747,55 +1747,9 @@ export async function listAnnouncements(limit = 10): Promise<AnnouncementItem[]>
 }
 
 export async function listBirthdaysToday(limit = 10): Promise<BirthdayItem[]> {
-  if (!isMockMode() && supabaseAnon) {
-    const session = getSession();
-    const scope = Array.isArray(session?.scope_totvs_ids) ? session.scope_totvs_ids.filter(Boolean) : [];
-    let query = supabaseAnon
-      .from("users")
-      .select("id, full_name, phone, email, birth_date, avatar_url")
-      .not("birth_date", "is", null)
-      .eq("is_active", true);
-
-    if (scope.length > 0) {
-      query = query.in("default_totvs_id", scope);
-    }
-
-    const { data: rowsRaw, error } = await query;
-    if (error) {
-      throw new Error(error.message || "Erro ao listar aniversariantes.");
-    }
-
-    const now = new Date();
-    const todayMd = new Intl.DateTimeFormat("pt-BR", {
-      timeZone: "America/Sao_Paulo",
-      month: "2-digit",
-      day: "2-digit",
-    }).format(now);
-
-    const rows = Array.isArray(rowsRaw) ? rowsRaw : [];
-    return rows
-      .map((item: Record<string, unknown>) => ({
-        id: String(item?.id || ""),
-        full_name: String(item?.full_name || ""),
-        phone: item?.phone ? String(item.phone) : null,
-        email: item?.email ? String(item.email) : null,
-        birth_date: item?.birth_date ? String(item.birth_date) : null,
-        avatar_url: item?.avatar_url || null,
-      }))
-      .filter((item: BirthdayItem) => {
-        if (!item.full_name || !item.birth_date) return false;
-        const d = new Date(item.birth_date);
-        if (Number.isNaN(d.getTime())) return false;
-        const md = new Intl.DateTimeFormat("pt-BR", {
-          timeZone: "America/Sao_Paulo",
-          month: "2-digit",
-          day: "2-digit",
-        }).format(d);
-        return md === todayMd;
-      })
-      .slice(0, limit);
-  }
-
+  // Comentario: sempre chama a edge function birthdays-today para garantir que
+  // o webhook de aniversário seja disparado (envia parabéns via n8n).
+  // A consulta direta ao banco foi removida pois ela ignorava o webhook.
   if (!isMockMode()) {
     const data = await api.birthdaysToday();
     const rows = Array.isArray(data?.birthdays) ? data.birthdays : [];
