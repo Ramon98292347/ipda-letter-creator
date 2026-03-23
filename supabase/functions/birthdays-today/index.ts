@@ -97,12 +97,13 @@ async function persistBirthdayNotifications(
   sb: ReturnType<typeof createClient>,
   churchTotvsId: string,
   birthdays: BirthdayRow[],
-) {
-  if (!birthdays.length) return 0;
+): Promise<{ inserted: number; webhookAlreadySent: boolean }> {
+  if (!birthdays.length) return { inserted: 0, webhookAlreadySent: false };
 
   const today = todayDateSaoPaulo();
   let insertedCount = 0;
 
+  // Comentario: insere uma notificação para cada aniversariante (evita duplicatas no mesmo dia).
   for (const b of birthdays) {
     const relatedId = `birthday:${churchTotvsId}:${b.id}:${today}`;
 
@@ -134,7 +135,41 @@ async function persistBirthdayNotifications(
     });
     if (!insertErr) insertedCount += 1;
   }
-  return insertedCount;
+
+  // Comentario: verifica se o webhook de aniversário já foi disparado hoje para esta igreja.
+  // Isso é rastreado por um registro interno separado (type: "birthday_webhook_log").
+  // Assim, mesmo que o webhook falhe na primeira tentativa, ele vai retentar no próximo login
+  // — mas só marca como enviado quando o n8n responder com sucesso.
+  const webhookMarker = `birthday_webhook:${churchTotvsId}:${today}`;
+  const { data: marker } = await sb
+    .from("notifications")
+    .select("id")
+    .eq("related_id", webhookMarker)
+    .limit(1)
+    .maybeSingle();
+
+  return { inserted: insertedCount, webhookAlreadySent: !!marker?.id };
+}
+
+async function markWebhookSent(
+  sb: ReturnType<typeof createClient>,
+  churchTotvsId: string,
+  count: number,
+): Promise<void> {
+  const today = todayDateSaoPaulo();
+  const webhookMarker = `birthday_webhook:${churchTotvsId}:${today}`;
+  // Comentario: insere um registro interno de controle para não disparar o webhook
+  // mais de uma vez por dia. Fica oculto (is_read: true, type interno).
+  await sb.from("notifications").insert({
+    church_totvs_id: churchTotvsId,
+    user_id: null,
+    type: "birthday_webhook_log",
+    title: "Webhook aniversário enviado",
+    message: `Webhook disparado: ${count} aniversariante(s)`,
+    is_read: true,
+    related_id: webhookMarker,
+    data: { count, date: today },
+  }).select("id").single();
 }
 
 Deno.serve(async (req) => {
@@ -176,13 +211,17 @@ Deno.serve(async (req) => {
         birth_date: u.birth_date,
       }));
 
-    const insertedBirthdays = await persistBirthdayNotifications(sb, session.active_totvs_id, birthdays as BirthdayRow[]);
+    const { inserted: insertedBirthdays, webhookAlreadySent } =
+      await persistBirthdayNotifications(sb, session.active_totvs_id, birthdays as BirthdayRow[]);
 
     let message = "";
     let n8n: { ok: boolean; status: number; response: unknown } | null = null;
 
-    // Comentario: dispara webhook apenas quando houver aniversario novo inserido no dia.
-    if (birthdays.length > 0 && insertedBirthdays > 0) {
+    // Comentario: dispara webhook se houver aniversariantes E o webhook ainda não foi
+    // enviado com sucesso hoje para esta igreja. Isso garante que:
+    // - Se o webhook falhou na tentativa anterior, ele vai retentar no próximo login.
+    // - Se já foi enviado com sucesso, não envia de novo (evita spam de mensagens).
+    if (birthdays.length > 0 && !webhookAlreadySent) {
       try {
         const resp = await fetch(N8N_BIRTHDAYS_WEBHOOK, {
           method: "POST",
@@ -209,8 +248,15 @@ Deno.serve(async (req) => {
         if (resp.ok && typeof parsed === "object" && parsed && "message" in parsed) {
           message = String((parsed as { message?: string }).message || "");
         }
+
+        // Comentario: só marca como enviado se o n8n respondeu com sucesso (2xx).
+        // Se falhou, não marca — próximo login vai tentar de novo.
+        if (resp.ok) {
+          await markWebhookSent(sb, session.active_totvs_id, birthdays.length);
+        }
       } catch (err) {
         n8n = { ok: false, status: 0, response: { error: String(err) } };
+        // Comentario: exceção de rede — não marca como enviado, vai retentar no próximo login.
       }
     }
 
