@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Users } from "lucide-react";
 import { ManagementShell } from "@/components/layout/ManagementShell";
 import { ObreirosTab } from "@/components/admin/ObreirosTab";
+import { MinisterialAttendanceTab } from "@/components/admin/MinisterialAttendanceTab";
 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
@@ -51,6 +52,7 @@ export default function AdminMembrosPage() {
 
   // Comentario: showChurchList controla se o dropdown de opcoes de igrejas esta visivel.
   const [showChurchList, setShowChurchList] = useState(false);
+  const [section, setSection] = useState<"membros" | "presenca">("membros");
 
   const { data: churches = [], isLoading: loadingChurches, isFetching: fetchingChurches } = useQuery({
     queryKey: ["admin-membros-churches", activeTotvsId],
@@ -220,12 +222,41 @@ export default function AdminMembrosPage() {
           <MiniCard title="Membros ativos" value={counters.membrosAtivos} subtitle="ministerio membro" gradient={memberTone.ativo} />
         </section>
 
-        {/* Comentario: passa filterCargo para ObreirosTab como filterMinisterRole quando nao for "all" */}
-        <ObreirosTab
-          activeTotvsId={selectedChurchTotvs}
-          forceSingleChurchFilter
-          filterMinisterRole={filterCargo !== "all" ? filterCargo : undefined}
-        />
+        <section className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+          <div className="flex w-full gap-2 overflow-x-auto">
+            <Button
+              className="rounded-none border-b-2 border-transparent px-2"
+              variant="ghost"
+              style={{ borderBottomColor: section === "membros" ? "#2563EB" : "transparent", color: section === "membros" ? "#2563EB" : "#6B7280" }}
+              onClick={() => setSection("membros")}
+            >
+              Lista de membros
+            </Button>
+            <Button
+              className="rounded-none border-b-2 border-transparent px-2"
+              variant="ghost"
+              style={{ borderBottomColor: section === "presenca" ? "#2563EB" : "transparent", color: section === "presenca" ? "#2563EB" : "#6B7280" }}
+              onClick={() => setSection("presenca")}
+            >
+              Presença
+            </Button>
+          </div>
+        </section>
+
+        {section === "membros" ? (
+          <ObreirosTab
+            activeTotvsId={selectedChurchTotvs}
+            forceSingleChurchFilter
+            filterMinisterRole={filterCargo !== "all" ? filterCargo : undefined}
+          />
+        ) : null}
+
+        {section === "presenca" ? (
+          <MinisterialAttendanceTab
+            activeTotvsId={activeTotvsId}
+            initialChurchTotvsId={selectedChurchTotvs || activeTotvsId}
+          />
+        ) : null}
         </div>
       )}
     </ManagementShell>

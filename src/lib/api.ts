@@ -1,7 +1,7 @@
 ﻿export type Session = {
   totvs_id: string;
   root_totvs_id?: string;
-  role: "admin" | "pastor" | "obreiro";
+  role: "admin" | "pastor" | "obreiro" | "secretario" | "financeiro";
   church_name: string;
   church_class?: string;
   scope_totvs_ids?: string[];
@@ -11,7 +11,7 @@ export type LoggedUser = {
   id: string;
   full_name: string;
   cpf: string;
-  role: "admin" | "pastor" | "obreiro";
+  role: "admin" | "pastor" | "obreiro" | "secretario" | "financeiro";
 };
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
@@ -244,3 +244,4 @@ export async function post<T = unknown>(
 
   return data as T;
 }
+

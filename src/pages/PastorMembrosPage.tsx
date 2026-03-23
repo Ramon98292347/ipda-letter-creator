@@ -6,6 +6,7 @@ import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 import { ManagementShell } from "@/components/layout/ManagementShell";
 import { ObreirosTab } from "@/components/admin/ObreirosTab";
+import { MinisterialAttendanceTab } from "@/components/admin/MinisterialAttendanceTab";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,7 +22,7 @@ import { fetchAddressByCep, maskCep, onlyDigits } from "@/lib/cep";
 import { PageLoading } from "@/components/shared/PageLoading";
 import { formatCepBr, formatCpfBr, formatDateBr as formatDateBrValue, formatPhoneBr as formatPhoneBrValue } from "@/lib/br-format";
 
-type MemberTab = "lista" | "ficha_membro" | "carteirinha" | "ficha_obreiro";
+type MemberTab = "lista" | "ficha_membro" | "carteirinha" | "ficha_obreiro" | "presenca";
 type MemberView = "lista" | "grid";
 type CarteirinhaTemplate = "padrao";
 type FichaTemplate = "padrao";
@@ -510,6 +511,7 @@ function memberToForm(member: UserListItem, churchName: string, pastorSignature:
 function tabLabel(tab: MemberTab) {
   if (tab === "ficha_membro") return "Ficha do membro";
   if (tab === "carteirinha") return "Carteirinha";
+  if (tab === "presenca") return "Presença";
   return "Ficha de obreiro";
 }
 
@@ -1147,16 +1149,21 @@ export default function PastorMembrosPage() {
             <Button className="rounded-none border-b-2 border-transparent px-2" variant="ghost" style={{ borderBottomColor: tab === "lista" ? "#2563EB" : "transparent", color: tab === "lista" ? "#2563EB" : "#6B7280" }} onClick={() => setTab("lista")}>Lista de membros</Button>
             <Button className="rounded-none border-b-2 border-transparent px-2" variant="ghost" style={{ borderBottomColor: tab === "ficha_membro" ? "#2563EB" : "transparent", color: tab === "ficha_membro" ? "#2563EB" : "#6B7280" }} onClick={() => setTab("ficha_membro")}>Ficha do membro</Button>
             <Button className="rounded-none border-b-2 border-transparent px-2" variant="ghost" style={{ borderBottomColor: tab === "carteirinha" ? "#2563EB" : "transparent", color: tab === "carteirinha" ? "#2563EB" : "#6B7280" }} onClick={() => setTab("carteirinha")}>Carteirinha</Button>
-            <Button variant="ghost" disabled className="text-slate-400">Ficha de obreiro (em breve)</Button>
+            <Button variant="ghost" disabled className="text-slate-400">Ficha de obreiro (bloqueada)</Button>
+            <Button className="rounded-none border-b-2 border-transparent px-2" variant="ghost" style={{ borderBottomColor: tab === "presenca" ? "#2563EB" : "transparent", color: tab === "presenca" ? "#2563EB" : "#6B7280" }} onClick={() => setTab("presenca")}>Presença</Button>
           </div>
 
           <div className="flex items-center gap-2">
+            {tab === "lista" ? (
+              <>
             <Button variant={view === "lista" ? "default" : "outline"} size="sm" onClick={() => setView("lista")}>
               <List className="mr-2 h-4 w-4" /> Lista
             </Button>
             <Button variant={view === "grid" ? "default" : "outline"} size="sm" onClick={() => setView("grid")}>
               <Grid2X2 className="mr-2 h-4 w-4" /> Grid
             </Button>
+              </>
+            ) : null}
           </div>
         </CardContent>
       </Card>
@@ -1167,6 +1174,13 @@ export default function PastorMembrosPage() {
           churchTotvsFilter={filterTotvs === "all" ? undefined : filterTotvs}
           forceSingleChurchFilter={filterTotvs !== "all"}
           filterMinisterRole={filterCargo !== "all" ? filterCargo : undefined}
+        />
+      ) : null}
+
+      {tab === "presenca" ? (
+        <MinisterialAttendanceTab
+          activeTotvsId={activeTotvsId}
+          initialChurchTotvsId={filterTotvs === "all" ? activeTotvsId : filterTotvs}
         />
       ) : null}
 
@@ -1274,7 +1288,7 @@ export default function PastorMembrosPage() {
         </Card>
       ) : null}
 
-      {tab !== "lista" ? (
+      {tab !== "lista" && tab !== "presenca" && tab !== "ficha_obreiro" ? (
         <Card className="rounded-2xl border border-slate-200 bg-white shadow-sm">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">

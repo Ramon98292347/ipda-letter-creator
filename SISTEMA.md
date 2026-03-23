@@ -106,6 +106,8 @@ address_neighborhood, address_city, address_state
 default_totvs_id, totvs_access (array), is_active
 can_create_released_letter, registration_status, payment_status
 payment_block_reason, password_hash
+discipline_status, discipline_block_reason
+discipline_blocked_at, discipline_unblocked_at, discipline_updated_by
 ```
 
 > **ATENÇÃO:** O endereço está em colunas planas (`address_street`, `cep` etc.).
@@ -140,6 +142,19 @@ id, church_totvs_id, user_id, title, message, type
 is_read, read_at, created_at
 ```
 
+### `ministerial_meeting_attendance`
+```
+id, meeting_date, church_totvs_id, user_id
+status (PRESENTE/FALTA/FALTA_JUSTIFICADA)
+justification_text, blocked_on_save, marked_by
+created_at, updated_at
+```
+
+Regra:
+- 3 faltas sem justificativa em 180 dias
+- bloqueio automatico em `users.is_active = false`
+- marca tambem `discipline_status = BLOQUEADO_DISCIPLINA`
+
 ### `announcements`
 ```
 id, church_totvs_id, title, type (text/image/video)
@@ -164,6 +179,7 @@ verify_jwt = false
 - `mark-notification-read` ⚠️ (ainda gerando 401 — aguardando configuração)
 - `mark-all-notifications-read` ⚠️ (ainda gerando 401 — aguardando configuração)
 - Todas as demais funções autenticadas
+- `save-ministerial-attendance`
 
 ### Funções públicas (sem JWT):
 - `forgot-password-request`
@@ -257,6 +273,27 @@ user: userRaw ? {
   ...mapUserLike(userRaw as Record<string, unknown>)
 } as AuthSessionData : null,
 ```
+
+---
+
+## 13. Presenca Ministerial
+
+Tela:
+- rota `/presenca`
+- acesso para `admin`, `pastor` e `secretario`
+
+Arquivos principais:
+- `src/pages/PresencaMinisterialPage.tsx`
+- `supabase/functions/save-ministerial-attendance/index.ts`
+- `supabase/migrations/20260322_ministerial_attendance.sql`
+
+Fluxo:
+1. Seleciona igreja da reuniao
+2. Seleciona data
+3. Busca e seleciona o usuario
+4. Marca `PRESENTE`, `FALTA` ou `FALTA_JUSTIFICADA`
+5. Ao salvar, a function conta faltas sem justificativa dos ultimos 180 dias
+6. Se chegar em 3, bloqueia automaticamente o acesso
 
 ### Anúncios públicos (tela de login)
 ```ts

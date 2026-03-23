@@ -63,6 +63,28 @@ function formatDateBr(v: unknown) {
   return dt.toLocaleDateString("pt-BR");
 }
 
+function getAttendanceLabel(worker: UserListItem) {
+  const status = String(worker.attendance_status || "SEM_REGISTRO").trim().toUpperCase();
+  if (status === "PRESENTE") return "Presente";
+  if (status === "FALTA") return "Falta";
+  if (status === "FALTA_JUSTIFICADA") return "Falta justificada";
+  return "Sem registro";
+}
+
+function getAttendanceTone(worker: UserListItem) {
+  const status = String(worker.attendance_status || "SEM_REGISTRO").trim().toUpperCase();
+  if (status === "PRESENTE") return "bg-emerald-100 text-emerald-700";
+  if (status === "FALTA") return "bg-rose-100 text-rose-700";
+  if (status === "FALTA_JUSTIFICADA") return "bg-amber-100 text-amber-700";
+  return "bg-slate-100 text-slate-600";
+}
+
+function getAttendanceTitle(worker: UserListItem) {
+  const meetingDate = worker.attendance_meeting_date ? formatDateBr(worker.attendance_meeting_date) : "sem reuniao";
+  const absences = Number(worker.attendance_absences_180_days || 0);
+  return `Ultima reuniao: ${meetingDate}. Faltas em 180 dias: ${absences}.`;
+}
+
 type WorkerForm = {
   id?: string;
   cpf: string;
@@ -625,8 +647,8 @@ export function ObreirosTab({
           </div>
 
           <div className="hidden overflow-x-auto rounded-xl border border-slate-200 md:block">
-            <div className="min-w-[1280px]">
-              <div className="grid grid-cols-[92px_200px_150px_140px_140px_120px_120px_120px_140px_120px_140px] border-b bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700">
+            <div className="min-w-[1420px]">
+              <div className="grid grid-cols-[92px_200px_150px_140px_140px_120px_120px_140px_120px_140px_120px_140px] border-b bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700">
                 <span>Avatar</span>
                 <span>Nome</span>
                 <span>CPF</span>
@@ -634,6 +656,7 @@ export function ObreirosTab({
                 <span>Cargo</span>
                 <span>Tipo</span>
                 <span>Status</span>
+                <span>Presença</span>
                 <span>Carta direta</span>
                 <span>Pagamento</span>
                 <span>Ver</span>
@@ -642,7 +665,7 @@ export function ObreirosTab({
               {isLoading ? <div className="px-4 py-4 text-sm text-slate-500">Carregando...</div> : null}
               {!isLoading && workers.length === 0 ? <div className="px-4 py-4 text-sm text-slate-500">Nenhum membro encontrado.</div> : null}
               {workers.map((w) => (
-                <div key={w.id} className="grid grid-cols-[92px_200px_150px_140px_140px_120px_120px_120px_140px_120px_140px] items-center border-b px-4 py-3 text-sm">
+                <div key={w.id} className="grid grid-cols-[92px_200px_150px_140px_140px_120px_120px_140px_120px_140px_120px_140px] items-center border-b px-4 py-3 text-sm">
                   <span>
                     <AvatarWithFallback
                       src={w.avatar_url || null}
@@ -657,6 +680,9 @@ export function ObreirosTab({
                   <span className="capitalize">{w.role || "-"}</span>
                   <span className={`inline-flex w-fit rounded-full px-2 py-1 text-xs ${w.is_active === false ? "bg-rose-100 text-rose-700" : "bg-emerald-100 text-emerald-700"}`}>
                     {w.is_active === false ? "Inativo" : "Ativo"}
+                  </span>
+                  <span className={`inline-flex w-fit rounded-full px-2 py-1 text-xs ${getAttendanceTone(w)}`} title={getAttendanceTitle(w)}>
+                    {getAttendanceLabel(w)}
                   </span>
                   <span className={`inline-flex w-fit rounded-full px-2 py-1 text-xs ${w.can_create_released_letter ? "bg-blue-100 text-blue-700" : "bg-rose-100 text-rose-700"}`}>
                     {w.can_create_released_letter ? "Liberado" : "Bloqueado"}
@@ -688,6 +714,7 @@ export function ObreirosTab({
                       <p className="text-slate-600">CPF: {maskCpf(w.cpf || "")}</p>
                       <p className="text-slate-600">Telefone: {w.phone || "-"}</p>
                       <p className="text-slate-600">Cargo: {w.minister_role || "-"}</p>
+                      <p className="text-slate-600" title={getAttendanceTitle(w)}>Presença: {getAttendanceLabel(w)}</p>
                       <p className="text-slate-600">
                         Carta direta: {w.can_create_released_letter ? "Liberado" : "Bloqueado"}
                       </p>

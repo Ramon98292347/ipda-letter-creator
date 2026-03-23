@@ -7,3 +7,18 @@ verify_jwt = false
 
 [functions.mark-all-notifications-read]
 verify_jwt = false
+
+[functions.create-ministerial-meeting]
+verify_jwt = false
+
+[functions.list-ministerial-meetings]
+verify_jwt = false
+
+[functions.manage-ministerial-meeting]
+verify_jwt = false
+
+[functions.get-public-ministerial-meeting]
+verify_jwt = false
+
+[functions.save-public-ministerial-attendance]
+verify_jwt = false

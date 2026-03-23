@@ -8,13 +8,20 @@ export const supabase = url && key
   ? createClient(url, key, {
       global: {
         fetch: async (input: RequestInfo | URL, init?: RequestInit) => {
+          const requestUrl = String(input);
           const headers = new Headers(init?.headers || {});
           const rlsToken = getRlsToken();
-          if (rlsToken) headers.set("Authorization", `Bearer ${rlsToken}`);
+          const isStorageRequest = requestUrl.includes("/storage/v1/");
+
+          // O rls_token e legado e falha com frequencia fora do PostgREST.
+          // Em uploads para o Storage ele pode gerar 400/401, entao nao o
+          // enviamos nessas rotas.
+          if (rlsToken && !isStorageRequest) headers.set("Authorization", `Bearer ${rlsToken}`);
+
           const res = await fetch(input, { ...(init || {}), headers });
           // Se o Supabase rejeitar o rls_token com 401, limpa o token para que
-          // as próximas chamadas usem o fallback via Edge Functions.
-          if (res.status === 401 && rlsToken) {
+          // as proximas chamadas usem o fallback via Edge Functions.
+          if (res.status === 401 && rlsToken && !isStorageRequest) {
             clearRlsToken();
           }
           return res;
@@ -23,6 +30,6 @@ export const supabase = url && key
     })
   : undefined;
 
-// Cliente anônimo sem injeção de rls_token — usado em queries públicas
-// (ex: aniversariantes na tela de login) para não interferir na sessão.
+// Cliente anonimo sem injecao de rls_token, usado em queries publicas
+// para nao interferir na sessao.
 export const supabaseAnon = url && key ? createClient(url, key) : undefined;

@@ -197,13 +197,29 @@ Deno.serve(async (req) => {
 
     const { data: user, error: uErr } = await sb
       .from("users")
-      .select("id, cpf, full_name, role, password_hash, is_active, totvs_access, default_totvs_id")
+      .select("id, cpf, full_name, role, password_hash, is_active, totvs_access, default_totvs_id, payment_status, discipline_status, discipline_block_reason")
       .eq("cpf", cpf)
       .maybeSingle();
 
     if (uErr) return json({ ok: false, error: "db_error", details: uErr.message }, 500);
     if (!user) return json({ ok: false, error: "invalid-credentials" }, 401);
     if (!user.is_active) return json({ ok: false, error: "inactive_user" }, 403);
+    if (String(user.payment_status || "").toUpperCase() === "BLOQUEADO_PAGAMENTO") {
+      return json(
+        { ok: false, error: "blocked_payment", message: "Acesso bloqueado por pagamento pendente." },
+        403,
+      );
+    }
+    if (String(user.discipline_status || "").toUpperCase() === "BLOQUEADO_DISCIPLINA") {
+      return json(
+        {
+          ok: false,
+          error: "blocked_discipline",
+          message: String(user.discipline_block_reason || "Acesso bloqueado por faltas sem justificativa em reunioes ministeriais."),
+        },
+        403,
+      );
+    }
 
     const userRole = String(user.role || "obreiro").toLowerCase();
     const currentHash = user.password_hash ? String(user.password_hash) : "";

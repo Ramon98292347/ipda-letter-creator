@@ -5,9 +5,10 @@ import { apiFetch } from "@/services/api";
 import type { AppSession, PendingChurch } from "@/context/UserContext";
 
 
-export type AppRole = "admin" | "pastor" | "obreiro";
+export type AppRole = "admin" | "pastor" | "obreiro" | "secretario" | "financeiro";
 export type RegistrationStatus = "APROVADO" | "PENDENTE";
 export type PaymentStatus = "ATIVO" | "BLOQUEADO_PAGAMENTO";
+export type DisciplineStatus = "ATIVO" | "BLOQUEADO_DISCIPLINA";
 
 export type AuthSessionData = {
   id: string;
@@ -29,6 +30,8 @@ export type AuthSessionData = {
   registration_status?: RegistrationStatus | null;
   payment_status?: PaymentStatus | null;
   payment_block_reason?: string | null;
+  discipline_status?: DisciplineStatus | null;
+  discipline_block_reason?: string | null;
 };
 
 export type LoginResult =
@@ -115,6 +118,43 @@ export type UserListItem = {
   registration_status?: RegistrationStatus | null;
   payment_status?: PaymentStatus | null;
   payment_block_reason?: string | null;
+  discipline_status?: DisciplineStatus | null;
+  discipline_block_reason?: string | null;
+  attendance_status?: string | null;
+  attendance_meeting_date?: string | null;
+  attendance_absences_180_days?: number | null;
+};
+
+export type MinisterialAttendanceStatus = "PRESENTE" | "FALTA" | "FALTA_JUSTIFICADA";
+
+export type SaveMinisterialAttendancePayload = {
+  user_id: string;
+  meeting_date: string;
+  church_totvs_id: string;
+  status: MinisterialAttendanceStatus;
+  justification_text?: string | null;
+};
+
+export type MinisterialMeetingItem = {
+  id: string;
+  church_totvs_id: string;
+  title?: string | null;
+  meeting_date: string;
+  public_token: string;
+  expires_at: string;
+  is_active: boolean;
+  notes?: string | null;
+  created_at?: string | null;
+  church_name?: string | null;
+  church_class?: string | null;
+};
+
+export type CreateMinisterialMeetingPayload = {
+  church_totvs_id?: string | null;
+  title?: string | null;
+  meeting_date: string;
+  expires_at?: string | null;
+  notes?: string | null;
 };
 
 export type WorkerListParams = {
@@ -598,6 +638,8 @@ function mapUserLike(raw: Record<string, unknown> | null | undefined): AuthSessi
     registration_status: resolveRegistrationStatus(raw),
     payment_status: String(raw?.payment_status || "").toUpperCase() === "BLOQUEADO_PAGAMENTO" ? "BLOQUEADO_PAGAMENTO" : "ATIVO",
     payment_block_reason: typeof raw?.payment_block_reason === "string" ? raw.payment_block_reason : null,
+    discipline_status: String(raw?.discipline_status || "").toUpperCase() === "BLOQUEADO_DISCIPLINA" ? "BLOQUEADO_DISCIPLINA" : "ATIVO",
+    discipline_block_reason: typeof raw?.discipline_block_reason === "string" ? raw.discipline_block_reason : null,
   };
 }
 
@@ -924,6 +966,10 @@ export async function listMembers(params: MemberListParams): Promise<WorkerListR
         payment_status:
           String(w?.payment_status || "").toUpperCase() === "BLOQUEADO_PAGAMENTO" ? "BLOQUEADO_PAGAMENTO" : "ATIVO",
         payment_block_reason: typeof w?.payment_block_reason === "string" ? w.payment_block_reason : null,
+        attendance_status: typeof w?.attendance_status === "string" ? w.attendance_status : null,
+        attendance_meeting_date: typeof w?.attendance_meeting_date === "string" ? w.attendance_meeting_date : null,
+        attendance_absences_180_days:
+          typeof w?.attendance_absences_180_days === "number" ? w.attendance_absences_180_days : 0,
       })),
       total: Number(count || rows.length),
       page,
@@ -981,6 +1027,10 @@ export async function listMembers(params: MemberListParams): Promise<WorkerListR
               : resolveRegistrationStatusFromTotvsAccess(w?.totvs_access || null)),
         payment_status: String(w?.payment_status || "").toUpperCase() === "BLOQUEADO_PAGAMENTO" ? "BLOQUEADO_PAGAMENTO" : "ATIVO",
         payment_block_reason: typeof w?.payment_block_reason === "string" ? w.payment_block_reason : null,
+        attendance_status: typeof w?.attendance_status === "string" ? w.attendance_status : null,
+        attendance_meeting_date: typeof w?.attendance_meeting_date === "string" ? w.attendance_meeting_date : null,
+        attendance_absences_180_days:
+          typeof w?.attendance_absences_180_days === "number" ? w.attendance_absences_180_days : 0,
       })),
       total: Number(data?.total || rows.length),
       page: Number(data?.page || params.page || 1),
@@ -2649,6 +2699,103 @@ export async function setUserPaymentStatus(payload: {
   }
 }
 
+export async function saveMinisterialAttendance(payload: SaveMinisterialAttendancePayload) {
+  if (!isMockMode()) {
+    return await api.saveMinisterialAttendance({
+      user_id: payload.user_id,
+      meeting_date: payload.meeting_date,
+      church_totvs_id: payload.church_totvs_id,
+      status: payload.status,
+      justification_text: payload.justification_text ?? null,
+    });
+  }
+
+  return {
+    ok: true,
+    absences_without_justification_180_days: payload.status === "FALTA" ? 1 : 0,
+    blocked_on_save: false,
+  };
+}
+
+function mapMinisterialMeeting(raw: Record<string, unknown> | null | undefined): MinisterialMeetingItem {
+  return {
+    id: String(raw?.id || ""),
+    church_totvs_id: String(raw?.church_totvs_id || ""),
+    title: raw?.title ? String(raw.title) : null,
+    meeting_date: String(raw?.meeting_date || ""),
+    public_token: String(raw?.public_token || ""),
+    expires_at: String(raw?.expires_at || ""),
+    is_active: Boolean(raw?.is_active),
+    notes: raw?.notes ? String(raw.notes) : null,
+    created_at: raw?.created_at ? String(raw.created_at) : null,
+    church_name: raw?.church_name ? String(raw.church_name) : null,
+    church_class: raw?.church_class ? String(raw.church_class) : null,
+  };
+}
+
+export async function createMinisterialMeeting(payload: CreateMinisterialMeetingPayload) {
+  const data = await api.createMinisterialMeeting({
+    church_totvs_id: payload.church_totvs_id ?? null,
+    title: payload.title ?? null,
+    meeting_date: payload.meeting_date,
+    expires_at: payload.expires_at ?? null,
+    notes: payload.notes ?? null,
+  });
+  return mapMinisterialMeeting((data?.meeting || null) as Record<string, unknown> | null);
+}
+
+export async function listMinisterialMeetings(church_totvs_id?: string | null) {
+  const data = await api.listMinisterialMeetings({ church_totvs_id: church_totvs_id ?? null });
+  const rows = Array.isArray(data?.meetings) ? data.meetings : [];
+  return rows.map((row: Record<string, unknown>) => mapMinisterialMeeting(row));
+}
+
+export async function manageMinisterialMeeting(payload: {
+  meeting_id: string;
+  action: "close" | "reopen" | "delete";
+  church_totvs_id?: string | null;
+  expires_at?: string | null;
+}) {
+  const data = await api.manageMinisterialMeeting({
+    meeting_id: payload.meeting_id,
+    action: payload.action,
+    church_totvs_id: payload.church_totvs_id ?? null,
+    expires_at: payload.expires_at ?? null,
+  });
+  return data?.meeting ? mapMinisterialMeeting(data.meeting as Record<string, unknown>) : null;
+}
+
+export async function getPublicMinisterialMeeting(token: string) {
+  const data = await api.getPublicMinisterialMeeting({ token });
+  const rows = Array.isArray(data?.users) ? data.users : [];
+  return {
+    meeting: mapMinisterialMeeting((data?.meeting || null) as Record<string, unknown> | null),
+    users: rows.map((row: Record<string, unknown>) => ({
+      id: String(row?.id || ""),
+      full_name: String(row?.full_name || ""),
+      phone: row?.phone ? String(row.phone) : null,
+      minister_role: row?.minister_role ? String(row.minister_role) : null,
+      is_active: typeof row?.is_active === "boolean" ? row.is_active : true,
+      attendance_status: row?.attendance_status ? String(row.attendance_status) : null,
+      justification_text: row?.justification_text ? String(row.justification_text) : null,
+    })),
+  };
+}
+
+export async function savePublicMinisterialAttendance(payload: {
+  token: string;
+  user_id: string;
+  status: MinisterialAttendanceStatus;
+  justification_text?: string | null;
+}) {
+  return await api.savePublicMinisterialAttendance({
+    token: payload.token,
+    user_id: payload.user_id,
+    status: payload.status,
+    justification_text: payload.justification_text ?? null,
+  });
+}
+
 export async function deleteUserPermanently(userId: string) {
   if (!isMockMode()) {
     await api.deleteUser({ user_id: userId });
@@ -3013,5 +3160,3 @@ export async function createLetterByPastor(payload: LetterCreatePayload) {
     n8n: { ok: true, status: 200 },
   };
 }
-
-

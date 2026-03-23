@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+﻿import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -10,9 +10,10 @@ import { selectChurchSession } from "@/services/saasService";
 import { useUser } from "@/context/UserContext";
 import { setRlsToken, setToken as setStoredToken } from "@/lib/api";
 
-function routeByRole(role: "admin" | "pastor" | "obreiro") {
+function routeByRole(role: "admin" | "pastor" | "obreiro" | "secretario" | "financeiro") {
   if (role === "admin") return "/admin/dashboard";
-  if (role === "pastor") return "/pastor/dashboard";
+  if (role === "pastor" || role === "secretario") return "/pastor/dashboard";
+  if (role === "financeiro") return "/financeiro/dashboard";
   return "/obreiro";
 }
 
@@ -37,7 +38,7 @@ export default function SelectChurch() {
 
   async function confirm() {
     if (!pendingCpf) {
-      toast.error("Sessão de escolha de igreja inválida. Faça login novamente.");
+      toast.error("SessÃ£o de escolha de igreja invÃ¡lida. FaÃ§a login novamente.");
       nav("/");
       return;
     }
@@ -123,3 +124,4 @@ export default function SelectChurch() {
     </div>
   );
 }
+

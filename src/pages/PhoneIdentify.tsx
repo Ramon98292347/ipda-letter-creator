@@ -403,12 +403,12 @@ export default function PhoneIdentify() {
           </div>
         </form>
 
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-lg lg:h-[700px]">
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-lg lg:min-h-[700px]">
           <p className="mb-3 text-sm font-semibold text-slate-700">Area de divulgacao</p>
           <AnnouncementCarousel
             items={announcements}
             birthdays={birthdays.slice(0, 10).map((b) => b.full_name)}
-            heightClass="h-[610px]"
+            heightClass="min-h-[610px]"
           />
         </div>
       </div>

@@ -249,6 +249,44 @@ Deno.serve(async (req) => {
       };
     });
 
+    const attendanceByUser = new Map<string, { status: string; meeting_date: string | null; absences180: number }>();
+    const memberIds = mapped.map((member) => String((member as Record<string, unknown>)?.id || "").trim()).filter(Boolean);
+    if (memberIds.length > 0) {
+      const cutoff = new Date();
+      cutoff.setDate(cutoff.getDate() - 180);
+      const cutoffDate = cutoff.toISOString().slice(0, 10);
+
+      const { data: attendanceRows, error: attendanceErr } = await sb
+        .from("ministerial_meeting_attendance")
+        .select("user_id,status,meeting_date,updated_at")
+        .in("user_id", memberIds)
+        .gte("meeting_date", cutoffDate)
+        .order("meeting_date", { ascending: false })
+        .order("updated_at", { ascending: false });
+
+      if (attendanceErr) {
+        return json({ ok: false, error: "db_error_attendance", details: attendanceErr.message }, 500);
+      }
+
+      for (const rawRow of attendanceRows || []) {
+        const row = rawRow as Record<string, unknown>;
+        const userId = String(row.user_id || "").trim();
+        if (!userId) continue;
+        const status = String(row.status || "").trim().toUpperCase() || "SEM_REGISTRO";
+        const meetingDate = String(row.meeting_date || "").trim() || null;
+        const current = attendanceByUser.get(userId);
+        if (!current) {
+          attendanceByUser.set(userId, {
+            status,
+            meeting_date: meetingDate,
+            absences180: status === "FALTA" ? 1 : 0,
+          });
+          continue;
+        }
+        current.absences180 += status === "FALTA" ? 1 : 0;
+      }
+    }
+
     const total = mapped.length;
     const metrics = {
       total,
@@ -268,7 +306,16 @@ Deno.serve(async (req) => {
     }
     const from = (page - 1) * page_size;
     const to = from + page_size;
-    const pageRows = mapped.slice(from, to);
+    const pageRows = mapped.slice(from, to).map((member) => {
+      const userId = String((member as Record<string, unknown>)?.id || "").trim();
+      const attendance = attendanceByUser.get(userId);
+      return {
+        ...member,
+        attendance_status: attendance?.status || "SEM_REGISTRO",
+        attendance_meeting_date: attendance?.meeting_date || null,
+        attendance_absences_180_days: attendance?.absences180 || 0,
+      };
+    });
 
     return json({ ok: true, members: pageRows, total, page, page_size, metrics }, 200);
   } catch (err) {

@@ -8,21 +8,15 @@ import NotFound from "./pages/NotFound";
 import PhoneIdentify from "./pages/PhoneIdentify";
 import CadastroRapido from "./pages/CadastroRapido";
 import { UserProvider, useUser } from "./context/UserContext";
-// FinanceProvider: provedor do contexto financeiro local (contagens do dia, entradas salvas)
 import { FinanceProvider } from "./contexts/FinanceContext";
 
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      // Dado fica "fresco" por 30 segundos. Depois disso, qualquer
-      // navegação ou retorno à aba vai buscar os dados novos do servidor.
       staleTime: 30 * 1000,
       gcTime: 30 * 60 * 1000,
-      // Atualiza quando o usuário volta para a aba do sistema
       refetchOnWindowFocus: true,
-      // Atualiza quando a conexão com a internet é restabelecida
       refetchOnReconnect: true,
-      // Atualiza quando o usuário navega entre páginas
       refetchOnMount: true,
       retry: 1,
     },
@@ -44,6 +38,14 @@ const App = () => (
           <Routes>
             <Route path="/" element={<PhoneIdentify />} />
             <Route
+              path="/presenca-publica/:token"
+              element={
+                <Suspense fallback={pageFallback}>
+                  <PresencaPublicaPage />
+                </Suspense>
+              }
+            />
+            <Route
               path="/select-church"
               element={
                 <Suspense fallback={pageFallback}>
@@ -51,10 +53,7 @@ const App = () => (
                 </Suspense>
               }
             />
-            <Route
-              path="/cadastro"
-              element={<CadastroRapido />}
-            />
+            <Route path="/cadastro" element={<CadastroRapido />} />
             <Route
               path="/reset-senha"
               element={
@@ -139,7 +138,6 @@ const App = () => (
                 </RequireAnyRole>
               }
             />
-            {/* Financeiro do pastor/secretario — somente leitura */}
             <Route
               path="/pastor/financeiro"
               element={
@@ -150,7 +148,6 @@ const App = () => (
                 </RequireAnyRole>
               }
             />
-            {/* Secretario — mesmo acesso que pastor */}
             <Route
               path="/secretario"
               element={
@@ -159,7 +156,6 @@ const App = () => (
                 </RequireRole>
               }
             />
-            {/* Financeiro — redirecionado para a página financeira */}
             <Route
               path="/financeiro"
               element={
@@ -168,11 +164,6 @@ const App = () => (
                 </RequireRole>
               }
             />
-            {/*
-              Todas as rotas /financeiro/* são envolvidas pelo FinanceProvider.
-              Isso garante que o contexto de contagens e entradas salvas seja
-              compartilhado entre Dashboard, Contagem, Ficha e Relatórios.
-            */}
             <Route
               path="/financeiro/dashboard"
               element={
@@ -207,7 +198,6 @@ const App = () => (
                 </RequireRole>
               }
             />
-            {/* Novas rotas integradas do financeiro-novo */}
             <Route
               path="/financeiro/ficha"
               element={
@@ -337,10 +327,9 @@ function RequireAuth({ children }: { children: JSX.Element }) {
   if (!usuario || !token) return <Navigate to="/" replace />;
   return children;
 }
-// Todos os roles possíveis no sistema
+
 type AppRole = "admin" | "pastor" | "obreiro" | "secretario" | "financeiro";
 
-// Redireciona para a página inicial de cada role
 function redirectByRole(role?: AppRole | null) {
   if (role === "admin") return <Navigate to="/admin/dashboard" replace />;
   if (role === "pastor") return <Navigate to="/pastor/dashboard" replace />;
@@ -356,29 +345,35 @@ function RequireRole({ children, role }: { children: JSX.Element; role: AppRole 
   if (usuario.role !== role) return redirectByRole(usuario.role as AppRole);
   return children;
 }
+
 function RequireAnyRole({ children, roles }: { children: JSX.Element; roles: AppRole[] }) {
   const { usuario, token } = useUser();
   if (!usuario || !token) return <Navigate to="/" replace />;
   if (!roles.includes(usuario.role as AppRole)) return redirectByRole(usuario.role as AppRole);
   return children;
 }
+
 function OnReloadRedirect() {
   const nav = useNavigate();
   const loc = useLocation();
   const { usuario, token, pendingCpf, availableChurches } = useUser();
+
   useEffect(() => {
     try {
       const entries = performance.getEntriesByType("navigation") as PerformanceEntry[];
       const last = entries && entries.length ? entries[entries.length - 1] : undefined;
       const type = (last && (last as unknown as { type?: string }).type) ?? undefined;
       const publicPaths = new Set(["/", "/cadastro", "/reset-senha"]);
-      const isPublicPath = publicPaths.has(loc.pathname);
+      const isPublicPath = publicPaths.has(loc.pathname) || loc.pathname.startsWith("/presenca-publica/");
       const isSelectChurchValid = loc.pathname === "/select-church" && !!pendingCpf && availableChurches.length > 0;
       if (type === "reload" && !isPublicPath && (!usuario || !token) && !isSelectChurchValid) {
         nav("/", { replace: true });
       }
-    } catch { return; }
+    } catch {
+      return;
+    }
   }, [nav, loc.pathname, usuario, token, pendingCpf, availableChurches.length]);
+
   return null;
 }
 
@@ -396,12 +391,11 @@ const SelectChurchPage = lazy(() => import("./pages/SelectChurch"));
 const ResetSenhaPage = lazy(() => import("./pages/ResetSenhaPage"));
 const ConfiguracoesPage = lazy(() => import("./pages/Configuracoes"));
 const DivulgacaoPage = lazy(() => import("./pages/Divulgacao"));
+const PresencaPublicaPage = lazy(() => import("./pages/PresencaPublica"));
 const FinanceiroDashboardPage = lazy(() => import("./pages/FinanceiroDashboardPage"));
-// Comentario: páginas do módulo financeiro — carregadas apenas quando necessário
 const FinanceiroContagemPage = lazy(() => import("./pages/FinanceiroContagemPage"));
 const FinanceiroSaidasPage = lazy(() => import("./pages/FinanceiroSaidasPage"));
 const PastorFinanceiroPage = lazy(() => import("./pages/PastorFinanceiroPage"));
-// Novas páginas do financeiro integradas do financeiro-novo
 const FinanceiroFichaPage = lazy(() => import("./pages/FinanceiroFichaPage"));
 const FinanceiroRelatoriosPage = lazy(() => import("./pages/FinanceiroRelatoriosPage"));
 const FinanceiroConfigPage = lazy(() => import("./pages/FinanceiroConfigPage"));

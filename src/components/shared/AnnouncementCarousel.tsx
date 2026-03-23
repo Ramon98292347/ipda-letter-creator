@@ -53,6 +53,7 @@ export function AnnouncementCarousel({
   const list = useMemo(() => items ?? [], [items]);
   const [idx, setIdx] = useState(0);
   const [videoOpen, setVideoOpen] = useState(false);
+  const [imageSizes, setImageSizes] = useState<Record<string, { width: number; height: number }>>({});
 
   useEffect(() => {
     if (idx >= list.length) setIdx(0);
@@ -94,8 +95,29 @@ export function AnnouncementCarousel({
       next?.media_url,
   );
 
+  function saveImageSize(id: string, width: number, height: number) {
+    if (!id || !width || !height) return;
+    setImageSizes((prev) => {
+      const current = prev[id];
+      if (current?.width === width && current?.height === height) return prev;
+      return { ...prev, [id]: { width, height } };
+    });
+  }
+
+  function getMediaFrameClass(item?: Announcement | null) {
+    if (!item?.id) return "aspect-video w-full max-w-full";
+    const size = imageSizes[item.id];
+    if (!size?.width || !size?.height) return "aspect-video w-full max-w-full";
+
+    const ratio = size.width / size.height;
+    if (ratio <= 0.8) return "aspect-[9/16] w-full max-w-[360px]";
+    if (ratio <= 1.15) return "aspect-square w-full max-w-[460px]";
+    if (ratio >= 1.7) return "aspect-[16/9] w-full max-w-full";
+    return "aspect-[4/3] w-full max-w-[720px]";
+  }
+
   return (
-    <div className={`w-full ${heightClass}`}>
+    <div className={`flex w-full flex-col ${heightClass}`}>
       <div className="rounded-xl border bg-slate-50 px-4 py-3">
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
@@ -113,31 +135,56 @@ export function AnnouncementCarousel({
         </div>
       </div>
 
-      <div className="mt-4 h-[calc(100%-64px)] rounded-2xl border bg-white p-3">
+      <div className="mt-4 flex min-h-0 flex-1 flex-col rounded-2xl border bg-white p-3">
         {dualImageMode ? (
           <div className="flex h-full gap-3 overflow-x-auto overflow-y-hidden pb-1 snap-x snap-mandatory md:grid md:grid-cols-2 md:overflow-visible md:pb-0">
             <div className="flex min-h-0 min-w-full snap-center flex-col overflow-hidden rounded-xl border bg-slate-50 md:min-w-0">
-              <img src={cur.media_url!} alt={cur.title} className="h-full w-full object-cover object-center" />
+              <div className="flex flex-1 items-center justify-center p-3">
+                <div className={`overflow-hidden rounded-xl bg-white ${getMediaFrameClass(cur)}`}>
+                  <img
+                    src={cur.media_url!}
+                    alt={cur.title}
+                    className="h-full w-full object-contain object-center"
+                    onLoad={(e) => saveImageSize(cur.id, e.currentTarget.naturalWidth, e.currentTarget.naturalHeight)}
+                  />
+                </div>
+              </div>
               <div className="truncate border-t bg-white px-3 py-2 text-xs font-medium text-slate-700">{cur.title}</div>
             </div>
             <div className="flex min-h-0 min-w-full snap-center flex-col overflow-hidden rounded-xl border bg-slate-50 md:min-w-0">
-              <img src={next!.media_url!} alt={next!.title} className="h-full w-full object-cover object-center" />
+              <div className="flex flex-1 items-center justify-center p-3">
+                <div className={`overflow-hidden rounded-xl bg-white ${getMediaFrameClass(next)}`}>
+                  <img
+                    src={next!.media_url!}
+                    alt={next!.title}
+                    className="h-full w-full object-contain object-center"
+                    onLoad={(e) => saveImageSize(next!.id, e.currentTarget.naturalWidth, e.currentTarget.naturalHeight)}
+                  />
+                </div>
+              </div>
               <div className="truncate border-t bg-white px-3 py-2 text-xs font-medium text-slate-700">{next!.title}</div>
             </div>
           </div>
         ) : null}
 
-        {!dualImageMode && cur.type === "text" ? <div className="h-full overflow-auto whitespace-pre-wrap text-slate-800">{cur.body_text || ""}</div> : null}
+        {!dualImageMode && cur.type === "text" ? <div className="min-h-0 flex-1 overflow-auto whitespace-pre-wrap text-slate-800">{cur.body_text || ""}</div> : null}
 
         {!dualImageMode && cur.type === "image" && cur.media_url ? (
-          <div className="flex h-full w-full items-center justify-center overflow-hidden rounded-xl bg-slate-50">
-            <img src={cur.media_url} alt={cur.title} className="h-full w-full rounded-xl object-cover object-center" />
+          <div className="flex min-h-0 flex-1 items-center justify-center overflow-auto rounded-xl bg-slate-50 p-3">
+            <div className={`overflow-hidden rounded-xl bg-white shadow-sm ${getMediaFrameClass(cur)}`}>
+              <img
+                src={cur.media_url}
+                alt={cur.title}
+                className="h-full w-full rounded-xl object-contain object-center"
+                onLoad={(e) => saveImageSize(cur.id, e.currentTarget.naturalWidth, e.currentTarget.naturalHeight)}
+              />
+            </div>
           </div>
         ) : null}
 
         {!dualImageMode && cur.type === "video" && cur.media_url ? (
           <>
-            <button className="flex h-full w-full items-center justify-center rounded-xl border bg-slate-50" onClick={() => setVideoOpen(true)}>
+            <button className="flex min-h-0 flex-1 items-center justify-center rounded-xl border bg-slate-50" onClick={() => setVideoOpen(true)}>
               <div className="flex items-center gap-3 rounded-xl border bg-white px-5 py-3 shadow-sm">
                 <span className="text-2xl">?</span>
                 <div className="text-left">
