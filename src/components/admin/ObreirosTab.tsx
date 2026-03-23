@@ -312,7 +312,7 @@ export function ObreirosTab({
       setLastCepLookup(cep);
     } catch (err) {
       if (force) {
-        toast.error(String((err as Error)?.message || "") === "cep_not_found" ? "CEP nao encontrado." : "Nao foi possivel buscar o CEP.");
+        toast.error(String((err as Error)?.message || "") === "cep_not_found" ? "CEP não encontrado." : "Não foi possível buscar o CEP.");
       }
     } finally {
       setCepLookupLoading(false);
@@ -322,7 +322,7 @@ export function ObreirosTab({
   async function save(e: FormEvent) {
     e.preventDefault();
     if (!activeTotvsId) {
-      toast.error("Igreja ativa nao encontrada.");
+      toast.error("Igreja ativa não encontrada.");
       return;
     }
     if (normalizeCpf(form.cpf).length !== 11) {
@@ -586,7 +586,7 @@ export function ObreirosTab({
             {worker.is_active === false ? "Ativar" : "Desativar"}
           </DropdownMenuItem>
           <DropdownMenuItem onClick={() => toggleDirectRelease(worker)} disabled={blockDirectRelease}>
-            {worker.can_create_released_letter ? "Remover liberacao direta" : "Liberar direto"}
+            {worker.can_create_released_letter ? "Remover liberação direta" : "Liberar direto"}
           </DropdownMenuItem>
           <DropdownMenuItem onClick={() => toggleRegistration(worker)} disabled={blockDangerActions}>
             {worker.registration_status === "PENDENTE" ? "Liberar cadastro" : "Bloquear cadastro"}

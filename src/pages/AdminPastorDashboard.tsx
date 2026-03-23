@@ -281,7 +281,7 @@ export default function AdminPastorDashboard() {
             items={[
               { label: "Total de Cartas", value: totalCartas, icon: FileText, gradient: "bg-gradient-to-r from-[#2f63d4] to-[#4b77d5]" },
               { label: isAdmin ? "Total de Igrejas" : "Cartas Hoje", value: cartasHoje, icon: CalendarDays, gradient: "bg-gradient-to-r from-[#2fa86f] to-[#49c280]" },
-              { label: isAdmin ? "Cartas Liberadas" : "Ãšltimos 7 dias", value: ultimos7, icon: LineChart, gradient: "bg-gradient-to-r from-[#f39b1c] to-[#f3b12c]" },
+              { label: isAdmin ? "Cartas Liberadas" : "Últimos 7 dias", value: ultimos7, icon: LineChart, gradient: "bg-gradient-to-r from-[#f39b1c] to-[#f3b12c]" },
               { label: "Total de Membros", value: totalObreiros, icon: Users, gradient: "bg-gradient-to-r from-[#8f3fd4] to-[#a957e4]" },
             ]}
           />

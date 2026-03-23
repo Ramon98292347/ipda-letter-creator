@@ -269,13 +269,13 @@ export default function CartasDashboardPage() {
       <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
         <KpiCard label="Total de cartas" value={totalCartas} icon={FileText} gradient={gradients.total} />
         <KpiCard label="Cartas hoje" value={cartasHoje} icon={CalendarDays} gradient={gradients.hoje} />
-        <KpiCard label="Ultimos 7 dias" value={ultimos7Dias} icon={LineChart} gradient={gradients.seteDias} />
+        <KpiCard label="Últimos 7 dias" value={ultimos7Dias} icon={LineChart} gradient={gradients.seteDias} />
         <KpiCard label="Total de membros" value={totalMembros} icon={Users} gradient={gradients.membros} />
       </section>
       <section className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3">
         <KpiCard label="Cartas liberadas" value={statusStats.liberadas} icon={FileText} gradient={gradients.liberadas} />
         <KpiCard label="Cartas bloqueadas" value={statusStats.bloqueadas} icon={FileText} gradient={gradients.bloqueadas} />
-        <KpiCard label="Aguardando liberacao" value={statusStats.aguardando} icon={FileText} gradient={gradients.aguardando} />
+        <KpiCard label="Aguardando liberação" value={statusStats.aguardando} icon={FileText} gradient={gradients.aguardando} />
       </section>
 
       <div className="mt-5">

@@ -231,9 +231,9 @@ export function PastorLetterDialog({ open, onOpenChange, letterTarget, onSuccess
   // ─── Submit ──────────────────────────────────────────────────────────────────
   const handleSubmit = async () => {
     if (!letterTarget) return;
-    if (!preachPeriod) { toast.error("Selecione o periodo da pregacao."); return; }
-    if (!preachDate) { toast.error("Selecione a data da pregacao."); return; }
-    if (preachDate < todayIso) { toast.error("A data de pregacao deve ser hoje ou no futuro."); return; }
+    if (!preachPeriod) { toast.error("Selecione o período da pregação."); return; }
+    if (!preachDate) { toast.error("Selecione a data da pregação."); return; }
+    if (preachDate < todayIso) { toast.error("A data de pregação deve ser hoje ou no futuro."); return; }
     if (!destino && !destinoOutros.trim()) { toast.error("Selecione a igreja de destino ou informe em Outros."); return; }
 
     const origemText = displayOriginName
@@ -271,9 +271,9 @@ export function PastorLetterDialog({ open, onOpenChange, letterTarget, onSuccess
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] w-[calc(100vw-1rem)] max-w-6xl overflow-y-auto p-3 sm:p-6">
         <DialogHeader>
-          <DialogTitle>Registro de Carta de Pregacao</DialogTitle>
+          <DialogTitle>Registro de Carta de Pregação</DialogTitle>
           <DialogDescription>
-            O pastor pode tirar carta para o usuario da linha ou para si mesmo. A origem segue a regra da igreja dele e da igreja mae.
+            O pastor pode tirar carta para o usuário da linha ou para si mesmo. A origem segue a regra da igreja dele e da igreja mãe.
           </DialogDescription>
         </DialogHeader>
 
@@ -400,13 +400,13 @@ export function PastorLetterDialog({ open, onOpenChange, letterTarget, onSuccess
                 )}
 
                 <p className="text-xs text-muted-foreground">
-                  Se escolher uma igreja do escopo no seletor, a origem volta para a igreja do seu papel logado. Se digitar um destino fora do escopo, a origem sobe para a igreja mae.
+                  Se escolher uma igreja do escopo no seletor, a origem volta para a igreja do seu papel logado. Se digitar um destino fora do escopo, a origem sobe para a igreja mãe.
                 </p>
               </div>
 
               {/* Outros: busca em TODAS as igrejas do banco */}
               <div className="space-y-2">
-                <Label>Outros (se nao encontrar na lista)</Label>
+                <Label>Outros (se não encontrar na lista)</Label>
 
                 {/* Campo unico: digitar busca automaticamente, ao sair formata o valor */}
                 <div className="relative">
@@ -467,17 +467,17 @@ export function PastorLetterDialog({ open, onOpenChange, letterTarget, onSuccess
                 )}
                 {/* Sem resultados apos digitar 2+ chars */}
                 {!outrosLoading && outrosDebounced.trim().length >= 2 && outrosSuggestions.length === 0 && (
-                  <p className="text-xs text-muted-foreground">Nenhuma igreja encontrada. Digite o nome ou codigo manualmente.</p>
+                  <p className="text-xs text-muted-foreground">Nenhuma igreja encontrada. Digite o nome ou código manualmente.</p>
                 )}
                 <p className="text-xs text-muted-foreground">
                   Modelo: <span className="font-medium">9901 - PIUMA-NITEROI</span>. Se digitar diferente, o sistema formata automaticamente ao sair do campo.
                 </p>
               </div>
 
-              {/* Data da pregacao e data de emissao */}
+              {/* Data da pregação e data de emissão */}
               <div className="grid gap-3 md:grid-cols-2">
                 <div className="space-y-2">
-                  <Label>Data da pregacao</Label>
+                  <Label>Data da pregação</Label>
                   <Input
                     type="date"
                     min={todayIso}
@@ -487,7 +487,7 @@ export function PastorLetterDialog({ open, onOpenChange, letterTarget, onSuccess
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Data de emissao da carta</Label>
+                  <Label>Data de emissão da carta</Label>
                   <Input value={formatDateBr(todayIso)} disabled />
                 </div>
               </div>
@@ -510,7 +510,7 @@ export function PastorLetterDialog({ open, onOpenChange, letterTarget, onSuccess
                 </Select>
               </div>
 
-              <p className="text-xs text-muted-foreground">A data da pregacao pode ser escolhida entre hoje e os proximos 30 dias.</p>
+              <p className="text-xs text-muted-foreground">A data da pregação pode ser escolhida entre hoje e os próximos 30 dias.</p>
             </CardContent>
           </Card>
 
@@ -528,7 +528,7 @@ export function PastorLetterDialog({ open, onOpenChange, letterTarget, onSuccess
                 <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Pregador</p>
                 <div className="flex items-start gap-3 text-slate-900 sm:items-center">
                   <UserCircle2 className="h-5 w-5 text-emerald-600" />
-                  <span className="text-base font-semibold sm:text-lg">{letterTarget?.nome || "Nao informado"}</span>
+                  <span className="text-base font-semibold sm:text-lg">{letterTarget?.nome || "Não informado"}</span>
                 </div>
               </div>
 

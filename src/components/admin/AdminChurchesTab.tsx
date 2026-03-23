@@ -244,7 +244,7 @@ export function AdminChurchesTab({
       setLastNewCep(cep);
     } catch (err) {
       if (force) {
-        toast.error(String((err as Error)?.message || "") === "cep_not_found" ? "CEP nao encontrado." : "Falha ao buscar CEP.");
+        toast.error(String((err as Error)?.message || "") === "cep_not_found" ? "CEP não encontrado." : "Falha ao buscar CEP.");
       }
     } finally {
       setNewCepLoading(false);
@@ -270,7 +270,7 @@ export function AdminChurchesTab({
       setLastEditCep(cep);
     } catch (err) {
       if (force) {
-        toast.error(String((err as Error)?.message || "") === "cep_not_found" ? "CEP nao encontrado." : "Falha ao buscar CEP.");
+        toast.error(String((err as Error)?.message || "") === "cep_not_found" ? "CEP não encontrado." : "Falha ao buscar CEP.");
       }
     } finally {
       setEditCepLoading(false);
@@ -320,21 +320,21 @@ export function AdminChurchesTab({
   async function onCreateChurch(e: FormEvent) {
     e.preventDefault();
     if (!newForm.totvs_id.trim()) {
-      toast.error("TOTVS e obrigatorio.");
+      toast.error("TOTVS é obrigatório.");
       return;
     }
     if (!newForm.church_name.trim()) {
-      toast.error("Nome da igreja e obrigatorio.");
+      toast.error("Nome da igreja é obrigatório.");
       return;
     }
 
     if (newChurchNeedsParent && !newForm.parent_totvs_id.trim()) {
-      toast.error("Igreja mae obrigatoria para cadastro.");
+      toast.error("Igreja mãe obrigatória para cadastro.");
       return;
     }
 
     if (!allowedCreateClasses.includes(newForm.class)) {
-      toast.error("Classe da nova igreja invalida para seu nivel de acesso.");
+      toast.error("Classe da nova igreja inválida para seu nível de acesso.");
       return;
     }
 
@@ -501,7 +501,7 @@ export function AdminChurchesTab({
         <p className="truncate text-base font-semibold text-slate-900">{church.church_name}</p>
         <p className="text-sm text-slate-500">TOTVS {church.totvs_id}</p>
         <p className="text-sm text-slate-600 capitalize">Classe: {church.church_class || "-"}</p>
-        <p className="text-sm text-slate-600">Pastor: {church.pastor?.full_name || "Nao definido"}</p>
+        <p className="text-sm text-slate-600">Pastor: {church.pastor?.full_name || "Não definido"}</p>
         <p className="text-sm text-slate-600">Obreiros: {church.workers_count ?? 0}</p>
       </>
     );
@@ -514,7 +514,7 @@ export function AdminChurchesTab({
         <p className="text-sm text-slate-500">
           TOTVS: {viewValue(church.totvs_id)} • {viewValue(church.address_city)} / {viewValue(church.address_state)}
         </p>
-        <p className="text-sm text-slate-600">Pastor: {viewValue(church.pastor?.full_name || "Nao definido")}</p>
+        <p className="text-sm text-slate-600">Pastor: {viewValue(church.pastor?.full_name || "Não definido")}</p>
         <p className="text-sm text-slate-600">Obreiros: {church.workers_count ?? 0}</p>
       </div>
     );
@@ -592,7 +592,7 @@ export function AdminChurchesTab({
                       </div>
                       <span className="truncate">{church.church_name}</span>
                       <span className="capitalize">{church.church_class || "-"}</span>
-                      <span className="truncate">{church.pastor?.full_name || "Nao definido"}</span>
+                      <span className="truncate">{church.pastor?.full_name || "Não definido"}</span>
                       <span>
                         <Badge
                           variant="outline"
@@ -767,29 +767,29 @@ export function AdminChurchesTab({
                   ))}
                 </SelectContent>
               </Select>
-              {!canCreateChurch ? <p className="text-xs text-amber-700">Seu nivel atual nao permite criar novas igrejas.</p> : null}
+              {!canCreateChurch ? <p className="text-xs text-amber-700">Seu nível atual não permite criar novas igrejas.</p> : null}
             </div>
 
             {newChurchNeedsParent ? (
               <div className="space-y-1">
-                <Label>Igreja mae (TOTVS)</Label>
+                <Label>Igreja mãe (TOTVS)</Label>
                 <Input
                   value={newForm.parent_totvs_id}
                   onChange={(e) => setNewForm((p) => ({ ...p, parent_totvs_id: e.target.value }))}
                   readOnly={!isAdmin && Boolean(parentTotvsFromSession)}
-                  placeholder="TOTVS da igreja mae"
+                  placeholder="TOTVS da igreja mãe"
                 />
                 {!isAdmin && parentTotvsFromSession ? (
-                  <p className="text-xs text-slate-500">Igreja mae definida automaticamente pelo login atual.</p>
+                  <p className="text-xs text-slate-500">Igreja mãe definida automaticamente pelo login atual.</p>
                 ) : null}
               </div>
             ) : isAdmin ? (
               <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600">
-                Como administrador, voce pode cadastrar qualquer classe sem informar TOTVS mae.
+                Como administrador, você pode cadastrar qualquer classe sem informar TOTVS mãe.
               </div>
             ) : (
               <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600">
-                Igreja estadual nao possui igreja mae.
+                Igreja estadual não possui igreja mãe.
               </div>
             )}
 
@@ -994,7 +994,7 @@ export function AdminChurchesTab({
                   onChange={(file) => setEditStampFile(file)}
                 />
                 {editForm.stamp_church_url ? (
-                  <p className="text-xs text-emerald-700">Carimbo ja cadastrado. Caso precise trocar, fale com a secretaria.</p>
+                  <p className="text-xs text-emerald-700">Carimbo já cadastrado. Caso precise trocar, fale com a secretaria.</p>
                 ) : (
                   <p className="text-xs text-slate-500">Envie o carimbo apenas se a igreja ainda nao tiver.</p>
                 )}
@@ -1163,7 +1163,7 @@ export function AdminChurchesTab({
                       <p className="text-base font-semibold text-slate-900">{viewValue(viewChurch.totvs_id)}</p>
                     </div>
                     <div>
-                      <p className="text-xs text-slate-500">Igreja mae</p>
+                      <p className="text-xs text-slate-500">Igreja mãe</p>
                       <p className="text-base font-semibold text-slate-900">{viewValue(viewChurch.parent_totvs_id)}</p>
                     </div>
                   </div>
@@ -1173,7 +1173,7 @@ export function AdminChurchesTab({
                   <h4 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Contato</h4>
                   <div className="grid gap-3 md:grid-cols-2">
                     <div>
-                      <p className="text-xs text-slate-500">Pastor responsavel</p>
+                      <p className="text-xs text-slate-500">Pastor responsável</p>
                       <p className="text-base font-semibold text-slate-900">{viewValue(viewChurch.pastor?.full_name)}</p>
                     </div>
                     <div>

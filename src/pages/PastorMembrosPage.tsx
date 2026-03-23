@@ -837,7 +837,7 @@ export default function PastorMembrosPage() {
       setLastCepLookup(cepDigits);
     } catch (err) {
       if (force) {
-        toast.error(String((err as Error)?.message || "") === "cep_not_found" ? "CEP nao encontrado." : "Falha ao buscar CEP.");
+        toast.error(String((err as Error)?.message || "") === "cep_not_found" ? "CEP não encontrado." : "Falha ao buscar CEP.");
       }
     } finally {
       setCepLookupLoading(false);
@@ -889,7 +889,7 @@ export default function PastorMembrosPage() {
 
   // Comentario: faz upload da foto para o bucket "avatars" e salva a URL no formulario.
   async function uploadFoto(file: File) {
-    if (!supabase) { toast.error("Supabase nao configurado."); return; }
+    if (!supabase) { toast.error("Supabase não configurado."); return; }
     setUploadingFoto(true);
     try {
       const cpfRaw = onlyDigits(form.cpf);

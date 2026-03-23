@@ -75,7 +75,7 @@ export function ChurchDocsDialog({
         setContrato(conData.draft);
         setLaudo(conData.laudo);
       } catch {
-        toast.error("Nao foi possivel carregar os dados dos documentos.");
+        toast.error("Não foi possível carregar os dados dos documentos.");
       } finally {
         setLoading(false);
       }
@@ -119,7 +119,7 @@ export function ChurchDocsDialog({
       setLastCepLookup(cep);
     } catch (err) {
       if (force) {
-        toast.error(String((err as Error)?.message || "") === "cep_not_found" ? "CEP nao encontrado." : "Falha ao buscar CEP.");
+        toast.error(String((err as Error)?.message || "") === "cep_not_found" ? "CEP não encontrado." : "Falha ao buscar CEP.");
       }
     } finally {
       setCepLoading(false);
@@ -135,7 +135,7 @@ export function ChurchDocsDialog({
 
   async function uploadLaudoPhoto(file: File, slot: "foto_interna_1_url" | "foto_interna_2_url" | "foto_interna_3_url" | "foto_interna_4_url") {
     if (!church || !supabase) {
-      toast.error("Supabase nao configurado.");
+      toast.error("Supabase não configurado.");
       return;
     }
     setBusyPhoto(slot);
@@ -241,7 +241,7 @@ export function ChurchDocsDialog({
                 {hierarchy.message ||
                   (hierarchy.requires_setorial_signature
                     ? "Esta igreja precisa da assinatura do Pastor Setorial."
-                    : "Esta igreja esta ligada diretamente a Estadual. Assinatura Setorial nao e necessaria.")}
+                    : "Esta igreja está ligada diretamente à Estadual. Assinatura Setorial não é necessária.")}
               </AlertDescription>
             </Alert>
 

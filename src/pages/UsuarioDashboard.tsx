@@ -340,7 +340,7 @@ async function openPdf(letter: PastorLetter) {
       if (!url) throw new Error("signed-url-empty");
       window.open(url, "_blank");
     } catch {
-      toast.error("PDF ainda nao liberado. Use o botao Pedir liberacao.");
+      toast.error("PDF ainda não liberado. Use o botão Pedir liberação.");
     }
   }
 
@@ -349,27 +349,27 @@ async function openPdf(letter: PastorLetter) {
     if (!isLetterReadyForView(letter)) return toast.error("Carta bloqueada para compartilhamento.");
     const directUrl = String(letter.url_carta || "").trim();
     if (directUrl.startsWith("http://") || directUrl.startsWith("https://")) {
-      window.open(`https://wa.me/?text=${encodeURIComponent(`Carta de pregacao: ${directUrl}`)}`, "_blank");
+      window.open(`https://wa.me/?text=${encodeURIComponent(`Carta de pregação: ${directUrl}`)}`, "_blank");
       return;
     }
     try {
       const url = await getSignedPdfUrl(letter.id);
       if (!url) throw new Error("share-url-empty");
-      window.open(`https://wa.me/?text=${encodeURIComponent(`Carta de pregacao: ${url}`)}`, "_blank");
+      window.open(`https://wa.me/?text=${encodeURIComponent(`Carta de pregação: ${url}`)}`, "_blank");
     } catch {
-      toast.error("PDF ainda nao liberado para compartilhamento.");
+      toast.error("PDF ainda não liberado para compartilhamento.");
     }
   }
 
   async function pedirLiberacao(letter: PastorLetter) {
     if (isCadastroPendente) return toast.error("Cadastro pendente. Procure a secretaria da igreja.");
-    if (hasDirectRelease) return toast.info("Sua liberacao direta esta ativa. Nao e necessario pedir liberacao.");
+    if (hasDirectRelease) return toast.info("Sua liberação direta está ativa. Não é necessário pedir liberação.");
     try {
       await requestRelease(letter.id, userId, session?.totvs_id || "");
       toast.success("Pedido enviado.");
       await queryClient.invalidateQueries({ queryKey: ["worker-dashboard"] });
     } catch {
-      toast.error("Falha ao solicitar liberacao.");
+      toast.error("Falha ao solicitar liberação.");
     }
   }
 
@@ -557,11 +557,11 @@ async function openPdf(letter: PastorLetter) {
       return;
     }
     if (!letterForm.dia_pregacao) {
-      toast.error("Informe a data da pregacao.");
+      toast.error("Informe a data da pregação.");
       return;
     }
     if (letterForm.dia_pregacao < todayIso || letterForm.dia_pregacao > maxPregacaoIso) {
-      toast.error("A data da pregacao deve ficar entre hoje e os proximos 30 dias.");
+      toast.error("A data da pregação deve ficar entre hoje e os próximos 30 dias.");
       return;
     }
 
@@ -585,7 +585,7 @@ async function openPdf(letter: PastorLetter) {
       setOpenLetterDialog(false);
       await queryClient.invalidateQueries({ queryKey: ["worker-dashboard"] });
     } catch (err) {
-      toast.error(String((err as Error)?.message || "Nao foi possivel enviar a carta."));
+      toast.error(String((err as Error)?.message || "Não foi possível enviar a carta."));
     } finally {
       setCreatingLetter(false);
     }
@@ -657,7 +657,7 @@ async function openPdf(letter: PastorLetter) {
         <section className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
           {isCadastroPendente ? (
             <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-              Seu cadastro esta pendente de liberacao. Cartas e documentos ficam bloqueados ate aprovacao.
+              Seu cadastro está pendente de liberação. Cartas e documentos ficam bloqueados até aprovação.
             </div>
           ) : null}
           <div className="grid gap-2 md:grid-cols-3">
@@ -665,7 +665,7 @@ async function openPdf(letter: PastorLetter) {
               Pedir carta
             </Button>
             <Button variant="outline" onClick={pedirPrimeiraLiberacao} className="w-full" disabled={isCadastroPendente || hasDirectRelease}>
-              <Unlock className="mr-2 h-4 w-4" /> Pedir liberacao de carta
+              <Unlock className="mr-2 h-4 w-4" /> Pedir liberação de carta
             </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -805,11 +805,11 @@ async function openPdf(letter: PastorLetter) {
               <div className="min-w-[840px]">
                 <div className="grid grid-cols-[120px_120px_180px_180px_180px_60px] border-b bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-600">
                   <span>Criada em</span>
-                  <span>Data pregacao</span>
+                  <span>Data pregação</span>
                   <span>Origem</span>
                   <span>Destino</span>
                   <span>Status</span>
-                  <span>Acoes</span>
+                  <span>Ações</span>
                 </div>
                 {filteredLetters.map((letter) => {
                   const canOpen = isLetterReadyForView(letter);
@@ -857,15 +857,15 @@ async function openPdf(letter: PastorLetter) {
       <Dialog open={openLetterDialog} onOpenChange={setOpenLetterDialog}>
         <DialogContent className="max-h-[90vh] w-[calc(100vw-1rem)] max-w-6xl overflow-y-auto p-3 sm:p-6">
           <DialogHeader>
-            <DialogTitle>Registro de Carta de Pregacao</DialogTitle>
-            <DialogDescription>Preencha os dados para emissao da carta.</DialogDescription>
+            <DialogTitle>Registro de Carta de Pregação</DialogTitle>
+            <DialogDescription>Preencha os dados para emissão da carta.</DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 sm:gap-6 xl:grid-cols-[1.35fr_1fr]">
             {/* Form card */}
             <Card className="border-slate-200 shadow-sm">
               <CardHeader className="space-y-1">
                 <CardTitle className="flex items-start gap-2 text-xl text-slate-900 sm:items-center sm:text-2xl">
-                  <FileText className="h-6 w-6 text-blue-600" /> Registro de Carta de Pregacao
+                  <FileText className="h-6 w-6 text-blue-600" /> Registro de Carta de Pregação
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-5">
@@ -875,7 +875,7 @@ async function openPdf(letter: PastorLetter) {
                 </div>
                 <div className="space-y-2">
                   <Label>Telefone</Label>
-                  <Input value={profile?.phone || usuario?.telefone || ""} disabled placeholder="Telefone nao informado" />
+                  <Input value={profile?.phone || usuario?.telefone || ""} disabled placeholder="Telefone não informado" />
                 </div>
                 <div className="space-y-2">
                   <Label>Igreja que faz a carta (origem)</Label>
@@ -1033,7 +1033,7 @@ async function openPdf(letter: PastorLetter) {
                     <Input value={formatDateBr(todayIso)} disabled />
                   </div>
                 </div>
-                <p className="text-xs text-slate-500">A data da pregacao pode ser escolhida entre hoje e os proximos 30 dias.</p>
+                <p className="text-xs text-slate-500">A data da pregação pode ser escolhida entre hoje e os próximos 30 dias.</p>
               </CardContent>
             </Card>
 
@@ -1049,13 +1049,13 @@ async function openPdf(letter: PastorLetter) {
                   <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Pregador</p>
                   <div className="flex items-start gap-3 text-slate-900 sm:items-center">
                     <UserCircle2 className="h-5 w-5 text-emerald-600" />
-                    <span className="text-base font-semibold sm:text-lg">{profile?.full_name || usuario?.nome || "Nao informado"}</span>
+                    <span className="text-base font-semibold sm:text-lg">{profile?.full_name || usuario?.nome || "Não informado"}</span>
                   </div>
                 </div>
                 <div className="rounded-2xl border border-slate-200 bg-white p-4">
                   <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Igreja de origem e destino</p>
                   <div className="space-y-2 text-slate-900">
-                    <div className="text-base font-semibold sm:text-lg">{session?.church_name || church?.church_name || "Nao informada"}</div>
+                    <div className="text-base font-semibold sm:text-lg">{session?.church_name || church?.church_name || "Não informada"}</div>
                     <div className="flex items-center gap-2 text-slate-600">
                       <Building2 className="h-4 w-4 text-slate-400" />
                       <span>{(letterForm.igreja_destino || letterForm.igreja_destino_manual).trim() || "-"}</span>
@@ -1064,14 +1064,14 @@ async function openPdf(letter: PastorLetter) {
                 </div>
                 <div className="grid gap-3 sm:gap-4 md:grid-cols-2">
                   <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                    <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Data de emissao</p>
+                    <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Data de emissão</p>
                     <div className="flex items-center gap-2 text-base font-semibold text-slate-900 sm:text-lg">
                       <CalendarDays className="h-5 w-5 text-emerald-600" />
                       <span>{formatDateBr(todayIso)}</span>
                     </div>
                   </div>
                   <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                    <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Data da pregacao</p>
+                    <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Data da pregação</p>
                     <div className="flex items-center gap-2 text-base font-semibold text-slate-900 sm:text-lg">
                       <CalendarDays className="h-5 w-5 text-emerald-600" />
                       <span>{letterForm.dia_pregacao ? formatDateBr(letterForm.dia_pregacao) : "-"}</span>
@@ -1079,7 +1079,7 @@ async function openPdf(letter: PastorLetter) {
                   </div>
                 </div>
                 <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Assinatura responsavel</p>
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Assinatura responsável</p>
                   <div className="space-y-2 text-slate-900">
                     <div className="text-base font-semibold sm:text-lg">{pastorFromUsers?.full_name || church?.pastor_name || "Resolvido pela hierarquia"}</div>
                     <div className="flex items-center gap-2 text-slate-600">

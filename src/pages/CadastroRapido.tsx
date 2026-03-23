@@ -165,7 +165,7 @@ export default function CadastroRapido() {
       setLastCepLookup(cepDigits);
     } catch (err) {
       if (force) {
-        toast.error(String((err as Error)?.message || "") === "cep_not_found" ? "CEP nao encontrado." : "Falha ao buscar CEP.");
+        toast.error(String((err as Error)?.message || "") === "cep_not_found" ? "CEP não encontrado." : "Falha ao buscar CEP.");
       }
     } finally {
       setCepLookupLoading(false);
@@ -181,7 +181,7 @@ export default function CadastroRapido() {
   async function submit() {
     const cpfRaw = normalizeCpf(cpf);
     if (cpfRaw.length !== 11) {
-      toast.error("Informe um CPF valido com 11 digitos.");
+      toast.error("Informe um CPF válido com 11 dígitos.");
       return;
     }
     if (!nome.trim()) {
@@ -201,7 +201,7 @@ export default function CadastroRapido() {
       return;
     }
     if (senha !== confirmarSenha) {
-      toast.error("As senhas nao conferem.");
+      toast.error("As senhas não conferem.");
       return;
     }
 
@@ -233,7 +233,7 @@ export default function CadastroRapido() {
         password: senha,
         totvs_id: totvs,
       });
-      toast.success("Cadastro enviado. Aguarde liberacao da secretaria/pastor.");
+      toast.success("Cadastro enviado. Aguarde liberação da secretaria/pastor.");
       nav("/");
     } catch (err) {
       toast.error(getFriendlyError(err, "workers"));
@@ -255,7 +255,7 @@ export default function CadastroRapido() {
               <UserPlus className="h-6 w-6 text-blue-600" /> Cadastro rapido de membro
             </CardTitle>
             <CardDescription>
-              Preencha seus dados. Seu cadastro entra como pendente de liberacao.
+              Preencha seus dados. Seu cadastro entra como pendente de liberação.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">

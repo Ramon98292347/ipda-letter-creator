@@ -330,7 +330,7 @@ export function CartasTab({
   async function toggleAutoRelease(letter: PastorLetter) {
     const userId = String(letter.preacher_user_id || "").trim();
     if (!userId) {
-      toast.error("Obreiro nao identificado para liberar automaticamente.");
+      toast.error("Obreiro não identificado para liberar automaticamente.");
       return;
     }
     // Verifica o estado atual: primeiro no estado local, depois no mapa vindo da pagina pai

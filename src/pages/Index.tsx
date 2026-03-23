@@ -653,7 +653,7 @@ const Index = () => {
                 {/* Aviso quando a origem foi ajustada automaticamente para a mae */}
                 {(shouldUseParentOrigin || shouldUseParentOriginForOthers) && parentChurch && (
                   <p className="text-xs text-amber-700">
-                    Destino fora do seu escopo. A origem foi ajustada para a mae: {parentChurch.codigoTotvs} - {parentChurch.nome}.
+                    Destino fora do seu escopo. A origem foi ajustada para a mãe: {parentChurch.codigoTotvs} - {parentChurch.nome}.
                   </p>
                 )}
                 {errors.origemId && <p className="text-xs text-destructive">Selecione a igreja de origem</p>}
@@ -730,7 +730,7 @@ const Index = () => {
                     </div>
                   )}
                   <p className="text-xs text-muted-foreground">
-                    Se escolher uma igreja do escopo no seletor, a origem volta para a igreja do seu papel logado. Se digitar um destino fora do escopo, a origem sobe para a igreja mae.
+                    Se escolher uma igreja do escopo no seletor, a origem volta para a igreja do seu papel logado. Se digitar um destino fora do escopo, a origem sobe para a igreja mãe.
                   </p>
                 </div>
                 <div className="space-y-2">

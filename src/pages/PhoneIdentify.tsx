@@ -224,7 +224,7 @@ export default function PhoneIdentify() {
       setTelefone(undefined);
 
       if (registrationStatus === "PENDENTE" && result.user.role === "obreiro") {
-        toast.message("Cadastro pendente. Cartas e documentos ficam bloqueados ate liberacao.");
+        toast.message("Cadastro pendente. Cartas e documentos ficam bloqueados até liberação.");
       }
 
       try {

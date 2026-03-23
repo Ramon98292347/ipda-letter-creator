@@ -80,7 +80,7 @@ export function ModalTrocarPastor({
   const [members, setMembers] = useState<MemberCandidate[]>([]);
   const [selectedPastorId, setSelectedPastorId] = useState("");
 
-  const currentPastorName = church?.pastor?.full_name || "Nao definido";
+  const currentPastorName = church?.pastor?.full_name || "Não definido";
   const churchLabel = church ? `${church.church_name} (TOTVS ${church.totvs_id})` : "";
   const hasPastor = Boolean(church?.pastor_user_id || church?.pastor?.id);
 
@@ -162,7 +162,7 @@ export function ModalTrocarPastor({
             </div>
             {!hasPastor ? (
               <div className="mt-2 text-xs text-blue-700">
-                Esta igreja ainda nao tem pastor. Selecione um membro com perfil de pastor para cadastrar.
+                Esta igreja ainda não tem pastor. Selecione um membro com perfil de pastor para cadastrar.
               </div>
             ) : null}
           </div>
