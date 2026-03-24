@@ -705,13 +705,15 @@ async function handleCreate(session: SessionClaims, body: Record<string, unknown
         },
       });
 
-      if (status === "LIBERADA" && preacher_user_id) {
-        const preacherReleaseTitle = "Carta liberada";
-        const preacherReleaseMessage = `Sua carta para ${created.church_destination} foi liberada.`;
+      if (preacher_user_id) {
+        const preacherReleaseTitle = status === "LIBERADA" ? "Carta liberada" : "Carta aguardando liberacao";
+        const preacherReleaseMessage = status === "LIBERADA"
+          ? `Sua carta para ${created.church_destination} foi liberada.`
+          : `Sua carta para ${created.church_destination} foi criada e esta aguardando liberacao.`;
         await insertNotification({
           church_totvs_id,
           user_id: preacher_user_id,
-          type: "letter_liberada",
+          type: status === "LIBERADA" ? "letter_liberada" : "letter_aguardando_liberacao",
           title: preacherReleaseTitle,
           message: preacherReleaseMessage,
         });
@@ -771,8 +773,8 @@ async function handleList(session: SessionClaims, body: Record<string, unknown>)
     // 3) query principal
     function buildQueryByChurch(scopeIds: string[], includeOptional = true) {
       const fields = includeOptional
-        ? "id, church_totvs_id, preacher_user_id, preacher_name, minister_role, preach_date, preach_period, church_origin, church_destination, status, storage_path, url_pronta, url_carta, signer_user_id, signer_totvs_id, created_at, updated_at"
-        : "id, church_totvs_id, preacher_user_id, preacher_name, minister_role, preach_date, preach_period, church_origin, church_destination, status, storage_path, signer_user_id, signer_totvs_id, created_at, updated_at";
+        ? "id, church_totvs_id, preacher_user_id, preacher_name, minister_role, preach_date, preach_period, church_origin, church_destination, status, storage_path, url_pronta, url_carta, pdf_url, doc_id, preacher_phone, phone, email, signer_user_id, signer_totvs_id, created_at, updated_at"
+        : "id, church_totvs_id, preacher_user_id, preacher_name, minister_role, preach_date, preach_period, church_origin, church_destination, status, storage_path, preacher_phone, phone, email, signer_user_id, signer_totvs_id, created_at, updated_at";
 
       return sb
         .from("letters")
@@ -783,8 +785,8 @@ async function handleList(session: SessionClaims, body: Record<string, unknown>)
 
     function buildQueryByPreacher(userId: string, includeOptional = true) {
       const fields = includeOptional
-        ? "id, church_totvs_id, preacher_user_id, preacher_name, minister_role, preach_date, preach_period, church_origin, church_destination, status, storage_path, url_pronta, url_carta, signer_user_id, signer_totvs_id, created_at, updated_at"
-        : "id, church_totvs_id, preacher_user_id, preacher_name, minister_role, preach_date, preach_period, church_origin, church_destination, status, storage_path, signer_user_id, signer_totvs_id, created_at, updated_at";
+        ? "id, church_totvs_id, preacher_user_id, preacher_name, minister_role, preach_date, preach_period, church_origin, church_destination, status, storage_path, url_pronta, url_carta, pdf_url, doc_id, preacher_phone, phone, email, signer_user_id, signer_totvs_id, created_at, updated_at"
+        : "id, church_totvs_id, preacher_user_id, preacher_name, minister_role, preach_date, preach_period, church_origin, church_destination, status, storage_path, preacher_phone, phone, email, signer_user_id, signer_totvs_id, created_at, updated_at";
 
       return sb
         .from("letters")
