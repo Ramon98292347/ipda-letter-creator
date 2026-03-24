@@ -117,10 +117,10 @@ export const api = {
   markNotificationRead: (body: { id: string; church_totvs_id?: string }) => post("notifications-api", { action: "mark-read", ...body }),
   markAllNotificationsRead: (body: { church_totvs_id?: string } = {}) => post("notifications-api", { action: "mark-all-read", ...body }),
 
-  listAnnouncements: (body: JsonBody = { limit: 10 }) => post("list-announcements", body),
+  listAnnouncements: (body: JsonBody = { limit: 10 }) => post("announcements-api", { action: "list", ...body }),
   getPastorContact: (body: { totvs_id: string }) => post("get-pastor-contact", body),
   // Busca divulgacoes pelo CPF sem precisar de JWT (usado na tela de login)
-  listAnnouncementsByCpf: (body: { cpf: string; limit?: number }) => post("list-announcements", body, { skipAuth: true }),
+  listAnnouncementsByCpf: (body: { cpf: string; limit?: number }) => post("announcements-api", { action: "list", ...body }, { skipAuth: true }),
   // Atualiza avatar apos cadastro publico (usa user_id + cpf para verificacao)
   updateMemberAvatar: (body: { user_id: string; cpf: string; avatar_url: string }) =>
     post("update-member-avatar", body, { skipAuth: true }),
@@ -133,21 +133,21 @@ export const api = {
     status: "PRESENTE" | "FALTA" | "FALTA_JUSTIFICADA";
     justification_text?: string | null;
   }) => post("meetings-api", { action: "save-public-attendance", ...body }, { skipAuth: true }),
-  upsertAnnouncement: (body: JsonBody) => post("upsert-announcement", body),
-  deleteAnnouncement: (body: { id: string }) => post("delete-announcement", body),
+  upsertAnnouncement: (body: JsonBody) => post("announcements-api", { action: "upsert", ...body }),
+  deleteAnnouncement: (body: { id: string }) => post("announcements-api", { action: "delete", ...body }),
   upsertStamps: (body: { signature_url?: string | null; stamp_pastor_url?: string | null; stamp_church_url?: string | null }) =>
     post("upsert-stamps", body),
 
   // Comentario: modulo Igrejas > Remanejamento/Contrato.
-  getChurchRemanejamentoForm: (body: { church_totvs_id: string }) => post("get-church-remanejamento-form", body),
-  upsertChurchRemanejamento: (body: JsonBody) => post("upsert-church-remanejamento", body),
+  getChurchRemanejamentoForm: (body: { church_totvs_id: string }) => post("church-docs-api", { action: "get-remanejamento-form", ...body }),
+  upsertChurchRemanejamento: (body: JsonBody) => post("church-docs-api", { action: "upsert-remanejamento", ...body }),
   generateChurchRemanejamentoPdf: (body: { church_totvs_id: string; remanejamento_id?: string }) =>
-    post("generate-church-remanejamento-pdf", body),
-  getChurchContratoForm: (body: { church_totvs_id: string }) => post("get-church-contrato-form", body),
-  upsertChurchContrato: (body: JsonBody) => post("upsert-church-contrato", body),
-  upsertChurchLaudo: (body: JsonBody) => post("upsert-church-laudo", body),
+    post("church-docs-api", { action: "generate-remanejamento-pdf", ...body }),
+  getChurchContratoForm: (body: { church_totvs_id: string }) => post("church-docs-api", { action: "get-contrato-form", ...body }),
+  upsertChurchContrato: (body: JsonBody) => post("church-docs-api", { action: "upsert-contrato", ...body }),
+  upsertChurchLaudo: (body: JsonBody) => post("church-docs-api", { action: "upsert-laudo", ...body }),
   generateChurchContratoPdf: (body: { church_totvs_id: string; contrato_id?: string }) =>
-    post("generate-church-contrato-pdf", body),
+    post("church-docs-api", { action: "generate-contrato-pdf", ...body }),
 
   // Comentario: gera ficha/carteirinha de membro via webhook n8n.
   generateMemberDocs: (body: JsonBody) => post("generate-member-docs", body),

@@ -12,6 +12,15 @@ verify_jwt = false
 [functions.meetings-api]
 verify_jwt = false
 
+[functions.members-api]
+verify_jwt = false
+
+[functions.announcements-api]
+verify_jwt = false
+
+[functions.church-docs-api]
+verify_jwt = false
+
 [functions.approve-release]
 verify_jwt = false
 

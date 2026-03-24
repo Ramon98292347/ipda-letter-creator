@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
+import { post } from "@/lib/api";
 
 // Chave pública VAPID gerada para este projeto.
 // A chave privada correspondente deve ser configurada como variável de ambiente
@@ -57,18 +58,19 @@ export function usePushNotifications(userId?: string) {
         });
       }
 
-      if (supabase && userId) {
+      if (userId) {
         const p256dh = sub.getKey("p256dh");
         const auth = sub.getKey("auth");
-        await supabase.from("push_subscriptions").upsert(
-          {
-            user_id: userId,
+        await post("notifications-api", {
+          action: "subscribe-push",
+          subscription: {
             endpoint: sub.endpoint,
-            p256dh: p256dh ? btoa(String.fromCharCode(...new Uint8Array(p256dh))) : null,
-            auth: auth ? btoa(String.fromCharCode(...new Uint8Array(auth))) : null,
+            keys: {
+              p256dh: p256dh ? btoa(String.fromCharCode(...new Uint8Array(p256dh))) : "",
+              auth: auth ? btoa(String.fromCharCode(...new Uint8Array(auth))) : "",
+            },
           },
-          { onConflict: "endpoint" },
-        );
+        });
       }
 
       setSubscribed(true);

@@ -10,7 +10,7 @@ export function corsHeaders() {
     "Content-Type": "application/json",
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Methods": "POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, Authorization, apikey, X-Cron-Secret",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization, apikey, X-Cron-Secret, x-admin-key, x-internal-key, x-client-info",
   };
 }
 

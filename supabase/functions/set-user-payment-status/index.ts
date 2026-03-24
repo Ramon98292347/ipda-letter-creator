@@ -16,6 +16,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { jwtVerify } from "https://esm.sh/jose@5.2.4";
+import { insertNotification, sendInternalPushNotification } from "../_shared/push.ts";
 
 function corsHeaders() {
   return {
@@ -114,6 +115,30 @@ Deno.serve(async (req) => {
       .single();
     if (updateErr) return json({ ok: false, error: "db_error_update", details: updateErr.message }, 500);
 
+    const notificationTitle = payment_status === "BLOQUEADO_PAGAMENTO" ? "Pagamento bloqueado" : "Pagamento liberado";
+    const notificationMessage = payment_status === "BLOQUEADO_PAGAMENTO"
+      ? `Seu cadastro foi bloqueado por pagamento.${reason ? ` Motivo: ${reason}` : ""}`
+      : "Seu cadastro foi liberado na verificacao de pagamento.";
+    try {
+      await insertNotification({
+        church_totvs_id: String(target.default_totvs_id || session.active_totvs_id || ""),
+        user_id: String(target.id || ""),
+        type: "payment_status_changed",
+        title: notificationTitle,
+        message: notificationMessage,
+      });
+      await sendInternalPushNotification({
+        title: notificationTitle,
+        body: notificationMessage,
+        url: "/usuario",
+        user_ids: [String(target.id || "")],
+        totvs_ids: [String(target.default_totvs_id || session.active_totvs_id || "")],
+        data: { user_id: String(target.id || ""), payment_status },
+      });
+    } catch {
+      // Comentario: falha de notificacao nao pode impedir a mudanca de status.
+    }
+
     // Comentario: webhook de pagamento não pode quebrar o fluxo principal.
     let n8nOk = false;
     let n8nStatus = 0;
@@ -166,4 +191,3 @@ Deno.serve(async (req) => {
     return json({ ok: false, error: "exception", details: String(err) }, 500);
   }
 });
-

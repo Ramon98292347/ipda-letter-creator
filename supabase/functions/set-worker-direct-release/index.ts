@@ -16,6 +16,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { jwtVerify } from "https://esm.sh/jose@5.2.4";
+import { insertNotification, sendInternalPushNotification } from "../_shared/push.ts";
 
 function corsHeaders() {
   return {
@@ -115,7 +116,7 @@ Deno.serve(async (req) => {
 
     const { data: target, error: targetErr } = await sb
       .from("users")
-      .select("id, role, default_totvs_id")
+      .select("id, role, default_totvs_id, full_name")
       .eq("id", worker_id)
       .maybeSingle();
 
@@ -155,6 +156,31 @@ Deno.serve(async (req) => {
       .single();
 
     if (updateErr) return json({ ok: false, error: "db_error_update", details: updateErr.message }, 500);
+
+    const notificationTitle = body.can_create_released_letter ? "Liberacao direta ativada" : "Liberacao direta removida";
+    const notificationMessage = body.can_create_released_letter
+      ? "Suas cartas agora podem nascer liberadas automaticamente."
+      : "Suas cartas voltaram a depender de liberacao manual.";
+    try {
+      await insertNotification({
+        church_totvs_id: String(target.default_totvs_id || session.active_totvs_id || ""),
+        user_id: String(target.id || ""),
+        type: "direct_release_changed",
+        title: notificationTitle,
+        message: notificationMessage,
+      });
+      await sendInternalPushNotification({
+        title: notificationTitle,
+        body: notificationMessage,
+        url: "/usuario",
+        user_ids: [String(target.id || "")],
+        totvs_ids: [String(target.default_totvs_id || session.active_totvs_id || "")],
+        data: { user_id: String(target.id || ""), can_create_released_letter: body.can_create_released_letter },
+      });
+    } catch {
+      // Comentario: falha de notificacao nao impede salvar a configuracao.
+    }
+
     return json({ ok: true, worker: updated }, 200);
   } catch (err) {
     return json({ ok: false, error: "exception", details: String(err) }, 500);

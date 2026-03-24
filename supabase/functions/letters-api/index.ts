@@ -17,6 +17,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { jwtVerify } from "https://esm.sh/jose@5.2.4";
+import { insertNotification, sendInternalPushNotification } from "../_shared/push.ts";
 
 // URL do webhook N8N que gera o PDF da carta de pregacao
 const N8N_WEBHOOK_URL = "https://n8n-n8n.ynlng8.easypanel.host/webhook/carta-pregacao";
@@ -1094,6 +1095,44 @@ async function handleSetStatus(session: SessionClaims, body: Record<string, unkn
       }
     }
 
+    const preacherUserId = String(letter.preacher_user_id || "").trim();
+    if (preacherUserId) {
+      let notificationTitle = "";
+      let notificationMessage = "";
+      if (status === "LIBERADA") {
+        notificationTitle = "Carta liberada";
+        notificationMessage = `Sua carta para ${String(letter.church_destination || "").trim() || "pregacao"} foi liberada.`;
+      } else if (status === "BLOQUEADO") {
+        notificationTitle = "Carta bloqueada";
+        notificationMessage = `Sua carta para ${String(letter.church_destination || "").trim() || "pregacao"} foi bloqueada.`;
+      } else if (status === "ENVIADA") {
+        notificationTitle = "Carta enviada";
+        notificationMessage = `A carta para ${String(letter.church_destination || "").trim() || "pregacao"} foi enviada.`;
+      }
+
+      if (notificationTitle) {
+        try {
+          await insertNotification({
+            church_totvs_id: String(letter.church_totvs_id || ""),
+            user_id: preacherUserId,
+            type: `letter_${status.toLowerCase()}`,
+            title: notificationTitle,
+            message: notificationMessage,
+          });
+          await sendInternalPushNotification({
+            title: notificationTitle,
+            body: notificationMessage,
+            url: "/usuario",
+            user_ids: [preacherUserId],
+            totvs_ids: [String(letter.church_totvs_id || "")],
+            data: { letter_id, status },
+          });
+        } catch {
+          // Comentario: falha de notificacao nao quebra alteracao de status.
+        }
+      }
+    }
+
     // Retorna o resultado incluindo informação do webhook para facilitar debug
     return json({ ok: true, letter: updated, n8n: { fired: n8nFired, status: n8nStatus, error: n8nError } }, 200);
 }
@@ -1158,14 +1197,27 @@ async function handleApproveRelease(session: SessionClaims, body: Record<string,
     if (updLetterErr) return json({ ok: false, error: "db_error_update_letter", details: updLetterErr.message }, 500);
 
     // Notificacao para o solicitante
-    await sb.from("notifications").insert({
-      church_totvs_id: session.active_totvs_id,
-      user_id: reqRow.requester_user_id,
-      title: "Carta liberada",
-      message: `Sua carta de ${letter.preacher_name || "pregacao"} foi liberada.`,
-      type: "release_approved",
-      read_at: null,
-    });
+    const releaseTitle = "Carta liberada";
+    const releaseMessage = `Sua carta de ${letter.preacher_name || "pregacao"} foi liberada.`;
+    try {
+      await insertNotification({
+        church_totvs_id: session.active_totvs_id,
+        user_id: String(reqRow.requester_user_id || ""),
+        title: releaseTitle,
+        message: releaseMessage,
+        type: "release_approved",
+      });
+      await sendInternalPushNotification({
+        title: releaseTitle,
+        body: releaseMessage,
+        url: "/usuario",
+        user_ids: [String(reqRow.requester_user_id || "")],
+        totvs_ids: [session.active_totvs_id],
+        data: { request_id, letter_id: String(reqRow.letter_id || "") },
+      });
+    } catch {
+      // Comentario: falha de notificacao nao impede liberar a carta.
+    }
 
     // Variáveis para registrar o resultado do webhook no response (facilita debug)
     let n8nFired = false;

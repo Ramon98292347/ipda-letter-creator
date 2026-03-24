@@ -20,6 +20,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import bcrypt from "https://esm.sh/bcryptjs@2.4.3";
 import { jwtVerify } from "https://esm.sh/jose@5.2.4";
+import { insertNotification, sendInternalPushNotification } from "../_shared/push.ts";
 
 function corsHeaders() {
   return {
@@ -284,6 +285,30 @@ Deno.serve(async (req) => {
       .select("id, cpf, full_name, role, default_totvs_id, totvs_access, is_active, updated_at")
       .single();
     if (saveErr) return json({ ok: false, error: "db_error_save_user", details: saveErr.message }, 500);
+
+    if (!existingUser?.id) {
+      const title = "Cadastro criado";
+      const message = "Seu cadastro foi criado no sistema.";
+      try {
+        await insertNotification({
+          church_totvs_id: String(saved.default_totvs_id || default_totvs_id || ""),
+          user_id: String(saved.id || ""),
+          type: "account_created",
+          title,
+          message,
+        });
+        await sendInternalPushNotification({
+          title,
+          body: message,
+          url: "/usuario",
+          user_ids: [String(saved.id || "")],
+          totvs_ids: [String(saved.default_totvs_id || default_totvs_id || "")],
+          data: { user_id: String(saved.id || ""), role: String(saved.role || "") },
+        });
+      } catch {
+        // Comentario: falha de notificacao nao impede o cadastro.
+      }
+    }
 
     return json({ ok: true, user: saved }, 200);
   } catch (err) {
