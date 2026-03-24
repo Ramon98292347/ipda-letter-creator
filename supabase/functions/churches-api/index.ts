@@ -7,6 +7,7 @@
  * Quem pode usar: admin, pastor e funcoes publicas conforme a action encaminhada.
  * Recebe:
  *   action: "get-panel" -> get-panel-data
+ *   action: "list" -> list-churches-in-scope
  *   action: "list-in-scope" -> list-churches-in-scope
  *   action: "save" -> save-church
  *   action: "create" -> create-church
@@ -36,6 +37,7 @@ function json(data: unknown, status = 200) {
 
 const ACTION_TO_SLUG: Record<string, string> = {
   "get-panel": "get-panel-data",
+  "list": "list-churches-in-scope",
   "list-in-scope": "list-churches-in-scope",
   "save": "save-church",
   "create": "create-church",
@@ -74,7 +76,7 @@ Deno.serve(async (req) => {
         {
           ok: false,
           error: "invalid_action",
-          message: 'Use uma action valida: "get-panel", "list-in-scope", "save", "create", "delete", "set-pastor", "list-pastors", "list-public", "search-public".',
+          message: 'Use uma action valida: "get-panel", "list", "list-in-scope", "save", "create", "delete", "set-pastor", "list-pastors", "list-public", "search-public".',
         },
         400,
       );
