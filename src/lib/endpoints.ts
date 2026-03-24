@@ -50,11 +50,11 @@ export const api = {
     is_active?: boolean;
   }) => post("create-church", body),
   deleteChurch: (body: { church_totvs_id: string }) => post("delete-church", body),
-  listLetters: (body: JsonBody) => post("list-letters", body),
-  setLetterStatus: (body: { letter_id: string; status: string }) => post("set-letter-status", body),
-  getLetterPdfUrl: (body: { letter_id: string }) => post("get-letter-pdf-url", body),
+  listLetters: (body: JsonBody) => post("letters-api", { action: "list", ...body }),
+  setLetterStatus: (body: { letter_id: string; status: string }) => post("letters-api", { action: "set-status", ...body }),
+  getLetterPdfUrl: (body: { letter_id: string }) => post("letters-api", { action: "get-pdf-url", ...body }),
 
-  createLetter: (body: JsonBody) => post("create-letter", body),
+  createLetter: (body: JsonBody) => post("letters-api", { action: "create", ...body }),
   createUser: (body: JsonBody) => post("create-user", body),
   resetPassword: (body: { cpf?: string; user_id?: string; new_password: string }) => post("reset-password", body),
   updateMyProfile: (body: JsonBody) => post("update-my-profile", body),
@@ -111,7 +111,7 @@ export const api = {
   requestRelease: (body: { letter_id: string; message?: string | null }) => post("request-release", body),
 
   listReleaseRequests: (body: JsonBody) => post("list-release-requests", body),
-  approveRelease: (body: { request_id: string }) => post("approve-release", body),
+  approveRelease: (body: { request_id: string }) => post("letters-api", { action: "approve-release", ...body }),
   denyRelease: (body: { request_id: string }) => post("deny-release", body),
   listNotifications: (body: { page?: number; page_size?: number; unread_only?: boolean; church_totvs_id?: string } = {}) => post("notifications-api", { action: "list", ...body }),
   markNotificationRead: (body: { id: string; church_totvs_id?: string }) => post("notifications-api", { action: "mark-read", ...body }),
