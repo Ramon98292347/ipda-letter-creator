@@ -81,6 +81,7 @@ export function CartasTab({
   // Estado do dialog de criar carta para um obreiro/pastor especifico
   const [letterDialogOpen, setLetterDialogOpen] = useState(false);
   const [letterDialogTarget, setLetterDialogTarget] = useState<LetterTarget | null>(null);
+  const [showAllLetters, setShowAllLetters] = useState(false);
   const [filters, setFilters] = useState({
     dateStart: "",
     dateEnd: "",
@@ -120,6 +121,8 @@ export function CartasTab({
       })
       .sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
   }, [letters, period, filters]);
+
+  const visibleLetters = useMemo(() => (showAllLetters ? filtered : filtered.slice(0, 5)), [filtered, showAllLetters]);
 
   const churchOptions = useMemo(() => {
     const set = new Set<string>();
@@ -508,7 +511,7 @@ export function CartasTab({
             <div className="grid grid-cols-[110px_1fr_130px_1fr_1fr_130px_140px_200px] border-b border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-600">
               <span>Data</span><span>Nome</span><span>Dia da pregação</span><span>Igreja origem</span><span>Igreja destino</span><span>Status</span><span>PDF</span><span>Ações</span>
             </div>
-            {filtered.map((carta) => {
+            {visibleLetters.map((carta) => {
               const blocked = carta.status === "BLOQUEADO";
               const tone = blocked ? "bg-rose-50" : "bg-emerald-50/50";
               const pulse = blocked && flashing.includes(carta.id) ? "animate-pulse" : "";
@@ -533,7 +536,7 @@ export function CartasTab({
         {filtered.length === 0 ? <p className="px-5 py-4 text-sm text-slate-500">Nenhuma carta encontrada.</p> : null}
 
         <div className="space-y-3 p-4 xl:hidden">
-          {filtered.map((carta) => {
+          {visibleLetters.map((carta) => {
             const blocked = carta.status === "BLOQUEADO";
             const tone = blocked ? "border-rose-200 bg-rose-50" : "border-emerald-200 bg-emerald-50/60";
             const pulse = blocked && flashing.includes(carta.id) ? "animate-pulse" : "";
@@ -565,6 +568,13 @@ export function CartasTab({
             );
           })}
         </div>
+        {filtered.length > 5 ? (
+          <div className="border-t border-slate-200 px-4 py-3 text-center">
+            <Button variant="outline" onClick={() => setShowAllLetters((prev) => !prev)}>
+              {showAllLetters ? "Mostrar apenas 5" : `Exibir mais (${filtered.length - 5} restantes)`}
+            </Button>
+          </div>
+        ) : null}
       </section>
 
       {/* Dialog para criar carta de pregacao para um obreiro/pastor especifico */}

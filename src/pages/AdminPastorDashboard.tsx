@@ -50,6 +50,7 @@ export default function AdminPastorDashboard() {
     if (fromChurches.length) return fromChurches;
     return scopeTotvsIds;
   }, [fullScopeChurches, scopeTotvsIds]);
+  const allowScopeView = isAdmin || effectiveScopeTotvsIds.length > 1;
 
   const { data: metrics, isFetching: loadingMetrics } = useQuery({
     queryKey: ["pastor-metrics"],
@@ -314,7 +315,7 @@ export default function AdminPastorDashboard() {
             phonesByName={phonesByName}
             viewerRole={usuario?.role as "admin" | "pastor"}
             viewerUserId={String(usuario?.id || "")}
-            allowScopeView={isAdmin}
+            allowScopeView={allowScopeView}
           />
         ) : (
           <AdminChurchesTab

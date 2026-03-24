@@ -82,9 +82,33 @@ async function actionList(sb: ReturnType<typeof createClient>, session: Awaited<
   if (myErr) return json({ ok: false, error: "db_error_list_user" }, 500);
 
   const merged = [...(churchRows || []), ...(myRows || [])];
-  const uniq = new Map<string, Record<string, unknown>>();
-  for (const item of merged) uniq.set(String(item.id), item);
-  const sorted = [...uniq.values()].sort((a, b) => String(b.created_at || "").localeCompare(String(a.created_at || "")));
+  const byBusinessKey = new Map<string, Record<string, unknown>>();
+  for (const item of merged) {
+    const row = item as Record<string, unknown>;
+    const relatedId = String(row.related_id || "").trim();
+    const type = String(row.type || "").trim();
+    const churchId = String(row.church_totvs_id || "").trim();
+    const title = String(row.title || "").trim();
+    const message = String(row.message || "").trim();
+    const key = relatedId
+      ? `${churchId}|${type}|${relatedId}`
+      : `${churchId}|${type}|${title}|${message}`;
+    const current = byBusinessKey.get(key);
+    if (!current) {
+      byBusinessKey.set(key, row);
+      continue;
+    }
+    const currentIsMine = String(current.user_id || "").trim() === session!.user_id;
+    const nextIsMine = String(row.user_id || "").trim() === session!.user_id;
+    if (!currentIsMine && nextIsMine) {
+      byBusinessKey.set(key, row);
+      continue;
+    }
+    const currentCreatedAt = String(current.created_at || "");
+    const nextCreatedAt = String(row.created_at || "");
+    if (nextCreatedAt > currentCreatedAt) byBusinessKey.set(key, row);
+  }
+  const sorted = [...byBusinessKey.values()].sort((a, b) => String(b.created_at || "").localeCompare(String(a.created_at || "")));
 
   const total = sorted.length;
   const notifications = sorted.slice((page - 1) * page_size, page * page_size);
@@ -94,10 +118,14 @@ async function actionList(sb: ReturnType<typeof createClient>, session: Awaited<
 }
 
 async function actionMarkRead(sb: ReturnType<typeof createClient>, session: Awaited<ReturnType<typeof verifySessionJWT>>, body: Record<string, unknown>) {
-  const id = String(body.id || "").trim();
-  if (!id) return json({ ok: false, error: "missing_id" }, 400);
+  const id = String(body.id || body.notification_id || "").trim();
+  if (!id) return json({ ok: true, skipped: true, reason: "missing_id" });
 
-  const { data: row, error: findErr } = await sb.from("notifications").select("id, church_totvs_id, user_id, read_at").eq("id", id).maybeSingle();
+  const { data: row, error: findErr } = await sb
+    .from("notifications")
+    .select("id, church_totvs_id, user_id, read_at, related_id, type, title, message")
+    .eq("id", id)
+    .maybeSingle();
   if (findErr) return json({ ok: false, error: "db_error_find" }, 500);
   if (!row) return json({ ok: false, error: "notification_not_found" }, 404);
 
@@ -115,9 +143,33 @@ async function actionMarkRead(sb: ReturnType<typeof createClient>, session: Awai
 
   if (!isMine && !isChurchAllowed) return json({ ok: false, error: "forbidden" }, 403);
 
-  const { data: updated, error: updErr } = await sb.from("notifications").update({ is_read: true, read_at: new Date().toISOString() }).eq("id", id).select("*").single();
+  const idsToUpdate = new Set<string>([id]);
+  const relatedId = String(row.related_id || "").trim();
+  const type = String(row.type || "").trim();
+  const churchId = String(row.church_totvs_id || "").trim();
+  const title = String(row.title || "").trim();
+  const message = String(row.message || "").trim();
+
+  let siblingsQuery = sb
+    .from("notifications")
+    .select("id")
+    .eq("church_totvs_id", churchId)
+    .eq("type", type);
+
+  if (relatedId) siblingsQuery = siblingsQuery.eq("related_id", relatedId);
+  else siblingsQuery = siblingsQuery.eq("title", title).eq("message", message);
+
+  const { data: siblings, error: siblingsErr } = await siblingsQuery;
+  if (siblingsErr) return json({ ok: false, error: "db_error_update_scope" }, 500);
+  for (const sibling of siblings || []) idsToUpdate.add(String((sibling as Record<string, unknown>).id || "").trim());
+
+  const idList = [...idsToUpdate].filter(Boolean);
+  const { error: updErr } = await sb
+    .from("notifications")
+    .delete()
+    .in("id", idList);
   if (updErr) return json({ ok: false, error: "db_error_update" }, 500);
-  return json({ ok: true, notification: updated });
+  return json({ ok: true, deleted_ids: idList });
 }
 
 async function actionMarkAllRead(sb: ReturnType<typeof createClient>, session: Awaited<ReturnType<typeof verifySessionJWT>>) {

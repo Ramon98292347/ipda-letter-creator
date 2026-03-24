@@ -28,6 +28,7 @@ import { getFriendlyError } from "@/lib/error-map";
 import { addAuditLog } from "@/lib/audit";
 import { supabase } from "@/lib/supabase";
 import { fetchAddressByCep, maskCep, onlyDigits } from "@/lib/cep";
+import { isValidCpf } from "@/lib/cpf";
 
 function normalizeCpf(v: string) {
   return (v || "").replace(/\D/g, "").slice(0, 11);
@@ -332,7 +333,7 @@ export function ObreirosTab({
       toast.error("Igreja ativa não encontrada.");
       return;
     }
-    if (normalizeCpf(form.cpf).length !== 11) {
+    if (!isValidCpf(form.cpf)) {
       toast.error("CPF invalido.");
       return;
     }

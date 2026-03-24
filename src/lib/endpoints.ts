@@ -3,10 +3,10 @@
 type JsonBody = Record<string, unknown>;
 
 export const api = {
-  login: (body: { cpf: string; password: string }) => post("login", body, { skipAuth: true }),
-  selectChurch: (body: { cpf: string; totvs_id: string }) => post("select-church", body, { skipAuth: true }),
-  forgotPasswordRequest: (body: { cpf?: string; email?: string }) => post("forgot-password-request", body, { skipAuth: true }),
-  resetPasswordConfirm: (body: { token: string; new_password: string }) => post("reset-password-confirm", body, { skipAuth: true }),
+  login: (body: { cpf: string; password: string }) => post("auth-api", { action: "login", ...body }, { skipAuth: true }),
+  selectChurch: (body: { cpf: string; totvs_id: string }) => post("auth-api", { action: "select-church", ...body }, { skipAuth: true }),
+  forgotPasswordRequest: (body: { cpf?: string; email?: string }) => post("auth-api", { action: "forgot-password", ...body }, { skipAuth: true }),
+  resetPasswordConfirm: (body: { token: string; new_password: string }) => post("auth-api", { action: "reset-password", ...body }, { skipAuth: true }),
   publicRegisterMember: (body: {
     cpf: string;
     full_name: string;
@@ -26,11 +26,12 @@ export const api = {
     address_state?: string | null;
     password: string;
     totvs_id: string;
-  }) => post("public-register-member", body, { skipAuth: true }),
-  getMyRegistrationStatus: () => post("get-my-registration-status", {}),
+  }) => post("auth-api", { action: "public-register", ...body }, { skipAuth: true }),
+  getMyRegistrationStatus: () => post("auth-api", { action: "get-registration-status" }),
 
   dashboardStats: (body: JsonBody = {}) => post("dashboard-stats", body),
-  listChurchesInScope: (body: { page?: number; page_size?: number; root_totvs_id?: string } = {}) => post("list-churches-in-scope", body),
+  listChurchesInScope: (body: { page?: number; page_size?: number; root_totvs_id?: string } = {}) =>
+    post("churches-api", { action: "list-in-scope", ...body }),
   createChurch: (body: {
     totvs_id: string;
     parent_totvs_id?: string | null;
@@ -48,8 +49,8 @@ export const api = {
     address_state?: string | null;
     address_country?: string | null;
     is_active?: boolean;
-  }) => post("create-church", body),
-  deleteChurch: (body: { church_totvs_id: string }) => post("delete-church", body),
+  }) => post("churches-api", { action: "create", ...body }),
+  deleteChurch: (body: { church_totvs_id: string }) => post("churches-api", { action: "delete", ...body }),
   listLetters: (body: JsonBody) => post("letters-api", { action: "list", ...body }),
   setLetterStatus: (body: { letter_id: string; status: string }) => post("letters-api", { action: "set-status", ...body }),
   getLetterPdfUrl: (body: { letter_id: string }) => post("letters-api", { action: "get-pdf-url", ...body }),
@@ -57,9 +58,10 @@ export const api = {
   createLetter: (body: JsonBody) => post("letters-api", { action: "create", ...body }),
   createUser: (body: JsonBody) => post("create-user", body),
   resetPassword: (body: { cpf?: string; user_id?: string; new_password: string }) => post("reset-password", body),
-  updateMyProfile: (body: JsonBody) => post("update-my-profile", body),
+  updateMyProfile: (body: JsonBody) => post("members-api", { action: "save-profile", ...body }),
+  getMyProfile: (body: JsonBody = {}) => post("members-api", { action: "get-profile", ...body }),
   listWorkers: (body: { search?: string; minister_role?: string; is_active?: boolean; include_pastor?: boolean; page?: number; page_size?: number }) =>
-    post("list-workers", body),
+    post("members-api", { action: "list-workers", ...body }),
   listMembers: (body: {
     search?: string;
     minister_role?: string;
@@ -68,9 +70,10 @@ export const api = {
     church_totvs_id?: string;
     page?: number;
     page_size?: number;
-  }) => post("list-members", body),
-  listPastors: (body: JsonBody) => post("list-pastors", body),
-  setChurchPastor: (body: { church_totvs_id: string; pastor_user_id: string }) => post("set-church-pastor", body),
+  }) => post("members-api", { action: "list-members", ...body }),
+  listPastors: (body: JsonBody) => post("churches-api", { action: "list-pastors", ...body }),
+  setChurchPastor: (body: { church_totvs_id: string; pastor_user_id: string }) =>
+    post("churches-api", { action: "set-pastor", ...body }),
   toggleWorkerActive: (body: { worker_id: string; is_active: boolean }) => post("toggle-worker-active", body),
   setWorkerDirectRelease: (body: { worker_id: string; can_create_released_letter: boolean }) =>
     post("set-worker-direct-release", body),
@@ -118,12 +121,14 @@ export const api = {
   markAllNotificationsRead: (body: { church_totvs_id?: string } = {}) => post("notifications-api", { action: "mark-all-read", ...body }),
 
   listAnnouncements: (body: JsonBody = { limit: 10 }) => post("announcements-api", { action: "list", ...body }),
-  getPastorContact: (body: { totvs_id: string }) => post("get-pastor-contact", body),
+  listAnnouncementsPublic: (body: JsonBody = {}) => post("announcements-api", { action: "list-public", ...body }, { skipAuth: true }),
+  listAnnouncementsAdmin: (body: JsonBody = {}) => post("announcements-api", { action: "list-admin", ...body }),
+  getPastorContact: (body: { totvs_id: string }) => post("auth-api", { action: "get-pastor-contact", ...body }),
   // Busca divulgacoes pelo CPF sem precisar de JWT (usado na tela de login)
   listAnnouncementsByCpf: (body: { cpf: string; limit?: number }) => post("announcements-api", { action: "list", ...body }, { skipAuth: true }),
   // Atualiza avatar apos cadastro publico (usa user_id + cpf para verificacao)
   updateMemberAvatar: (body: { user_id: string; cpf: string; avatar_url: string }) =>
-    post("update-member-avatar", body, { skipAuth: true }),
+    post("members-api", { action: "update-avatar", ...body }, { skipAuth: true }),
   birthdaysToday: () => post("birthdays-today", {}),
   getPublicMinisterialMeeting: (body: { token: string }) =>
     post("meetings-api", { action: "get-public", ...body }, { skipAuth: true }),
@@ -135,8 +140,16 @@ export const api = {
   }) => post("meetings-api", { action: "save-public-attendance", ...body }, { skipAuth: true }),
   upsertAnnouncement: (body: JsonBody) => post("announcements-api", { action: "upsert", ...body }),
   deleteAnnouncement: (body: { id: string }) => post("announcements-api", { action: "delete", ...body }),
+  listEvents: (body: JsonBody = {}) => post("announcements-api", { action: "list-events", ...body }),
+  upsertEvent: (body: JsonBody) => post("announcements-api", { action: "upsert-event", ...body }),
+  deleteEvent: (body: { id: string }) => post("announcements-api", { action: "delete-event", ...body }),
+  listEventsPublic: (body: JsonBody = {}) => post("announcements-api", { action: "list-events-public", ...body }, { skipAuth: true }),
+  listBanners: (body: JsonBody = {}) => post("announcements-api", { action: "list-banners", ...body }),
+  upsertBanner: (body: JsonBody) => post("announcements-api", { action: "upsert-banner", ...body }),
+  deleteBanner: (body: { id: string }) => post("announcements-api", { action: "delete-banner", ...body }),
+  listBannersPublic: (body: JsonBody = {}) => post("announcements-api", { action: "list-banners-public", ...body }, { skipAuth: true }),
   upsertStamps: (body: { signature_url?: string | null; stamp_pastor_url?: string | null; stamp_church_url?: string | null }) =>
-    post("upsert-stamps", body),
+    post("members-api", { action: "upsert-stamps", ...body }),
 
   // Comentario: modulo Igrejas > Remanejamento/Contrato.
   getChurchRemanejamentoForm: (body: { church_totvs_id: string }) => post("church-docs-api", { action: "get-remanejamento-form", ...body }),
@@ -150,7 +163,7 @@ export const api = {
     post("church-docs-api", { action: "generate-contrato-pdf", ...body }),
 
   // Comentario: gera ficha/carteirinha de membro via webhook n8n.
-  generateMemberDocs: (body: JsonBody) => post("generate-member-docs", body),
+  generateMemberDocs: (body: JsonBody) => post("member-docs-api", { action: "generate", ...body }),
   getMemberDocsStatus: (body: { member_id?: string; church_totvs_id?: string } = {}) =>
-    post("get-member-docs-status", body),
+    post("member-docs-api", { action: "status", ...body }),
 };

@@ -80,6 +80,8 @@ export function getFriendlyErrorMessage(err: unknown): string {
         return "Informe a igreja de origem.";
       case "missing_church_destination":
         return "Informe a igreja de destino.";
+      case "destination_totvs_required":
+        return "Escolha a igreja destino usando uma opcao com codigo TOTVS valido.";
       case "invalid_preach_period":
         return "Selecione o horario da pregacao: Manha, Tarde ou Noite.";
       case "insert_failed":

@@ -9,6 +9,7 @@
  *   "list"            -> lista cartas com filtros e paginacao (antigo list-letters)
  *   "get-pdf-url"     -> obtem a URL do PDF de uma carta (antigo get-letter-pdf-url)
  *   "set-status"      -> altera o status de uma carta (antigo set-letter-status)
+ *   "manage"          -> compatibilidade legada para release/share/delete
  *   "approve-release" -> aprova uma solicitacao de liberacao (antigo approve-release)
  *
  * Todas as actions exigem autenticacao via JWT customizado (USER_SESSION_JWT_SECRET),
@@ -59,6 +60,7 @@ type Body = {
   preach_period?: PreachPeriod;
   church_origin?: string;
   church_destination?: string; // Ex.: "9639 - PEDRA AZUL"
+  destination_totvs_id?: string | null;
   preacher_user_id?: string | null;
   phone?: string | null;
   email?: string | null;
@@ -87,6 +89,33 @@ function normalizeClass(v: unknown): ChurchClass | null {
 function parseTotvsFromText(value: string): string {
   const m = String(value || "").trim().match(/^(\d{3,})\b/);
   return m ? m[1] : "";
+}
+
+function isUuid(value: string | null | undefined): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value || "").trim());
+}
+
+function resolveRegistrationStatusFromTotvsAccess(totvsAccess: unknown, preferredTotvsId?: string | null): string | null {
+  if (!Array.isArray(totvsAccess)) return null;
+
+  const preferred = String(preferredTotvsId || "").trim();
+  for (const item of totvsAccess) {
+    if (!item || typeof item !== "object") continue;
+    const entry = item as Record<string, unknown>;
+    const entryTotvs = String(entry.totvs_id || "").trim();
+    const status = String(entry.registration_status || "").trim().toUpperCase();
+    if (preferred && entryTotvs !== preferred) continue;
+    if (status === "PENDENTE" || status === "APROVADO") return status;
+  }
+
+  for (const item of totvsAccess) {
+    if (!item || typeof item !== "object") continue;
+    const entry = item as Record<string, unknown>;
+    const status = String(entry.registration_status || "").trim().toUpperCase();
+    if (status === "PENDENTE" || status === "APROVADO") return status;
+  }
+
+  return null;
 }
 
 function mapById(churches: ChurchNode[]) {
@@ -150,61 +179,21 @@ function findFirstAncestorByClass(startTotvs: string, churches: ChurchNode[], ta
 }
 
 function resolveAllowedOriginTotvs(session: SessionClaims, activeChurch: ChurchNode, churches: ChurchNode[]): Set<string> {
-  // Comentario: regra por classe para "Igreja que faz a carta (origem)".
-  // - estadual: estadual
-  // - setorial: setorial + estadual
-  // - central: central + setorial + estadual
-  // - regional/local: central do escopo
-  // - obreiro: somente a igreja ativa
+  // Comentario: regra simplificada para manter compatibilidade com as telas atuais.
+  // Todos os perfis podem usar a igreja ativa e as maes acima dela como origem.
+  // Isso acompanha o comportamento atual das telas, que sobem a assinatura/origem
+  // para a mae quando necessario.
   const allowed = new Set<string>();
-  const byId = mapById(churches);
   const activeTotvs = session.active_totvs_id;
-  const activeClass = activeChurch.class;
 
-  if (session.role === "obreiro") {
-    allowed.add(activeTotvs);
-    return allowed;
+  allowed.add(activeTotvs);
+  for (const ancestor of collectAncestors(activeTotvs, churches)) {
+    allowed.add(ancestor);
   }
-
-  if (!activeClass) {
-    allowed.add(activeTotvs);
-    return allowed;
-  }
-
-  if (activeClass === "estadual") {
-    allowed.add(activeTotvs);
-    return allowed;
-  }
-
-  if (activeClass === "setorial") {
-    allowed.add(activeTotvs);
-    const estadual = findFirstAncestorByClass(activeTotvs, churches, "estadual");
-    if (estadual) allowed.add(estadual.totvs_id);
-    return allowed;
-  }
-
-  if (activeClass === "central") {
-    allowed.add(activeTotvs);
-    const setorial = findFirstAncestorByClass(activeTotvs, churches, "setorial");
-    if (setorial) allowed.add(setorial.totvs_id);
-    const estadual = findFirstAncestorByClass(activeTotvs, churches, "estadual");
-    if (estadual) allowed.add(estadual.totvs_id);
-    return allowed;
-  }
-
-  if (activeClass === "regional" || activeClass === "local") {
+  if (activeChurch.class === "regional" || activeChurch.class === "local") {
     const central = findFirstAncestorByClass(activeTotvs, churches, "central");
-    if (central) {
-      allowed.add(central.totvs_id);
-      return allowed;
-    }
-    // Comentario: fallback defensivo se a arvore estiver incompleta.
-    allowed.add(activeTotvs);
-    return allowed;
+    if (central) allowed.add(central.totvs_id);
   }
-
-  // Comentario: fallback geral.
-  if (byId.has(activeTotvs)) allowed.add(activeTotvs);
   return allowed;
 }
 
@@ -353,7 +342,8 @@ async function handleCreate(session: SessionClaims, body: Record<string, unknown
 
     const preach_date_str = String(body.preach_date || "").trim();
     const church_origin = String(body.church_origin || "").trim();
-    const church_destination = String(body.church_destination || "").trim();
+    let church_destination = String(body.church_destination || "").trim();
+    const manual_destination = Boolean(body.manual_destination);
 
     const preach_period = String(body.preach_period || "NOITE").trim().toUpperCase() as PreachPeriod;
     if (!["MANHA", "TARDE", "NOITE"].includes(preach_period)) return json({ ok: false, error: "invalid_preach_period" }, 400);
@@ -415,12 +405,21 @@ async function handleCreate(session: SessionClaims, body: Record<string, unknown
     const ancestors = collectAncestors(church_totvs_id, churches);
     const allowedDestinations = new Set<string>([...scope, ...ancestors]);
 
-    const destinationTotvs = parseTotvsFromText(church_destination);
-    if (!destinationTotvs) {
+    const destinationTotvsExplicit = String(body.destination_totvs_id || "").trim();
+    const destinationTotvs = destinationTotvsExplicit || parseTotvsFromText(church_destination);
+    if (!destinationTotvs && !manual_destination) {
       return json({ ok: false, error: "destination_totvs_required", detail: "Selecione a igreja destino da lista com TOTVS." }, 400);
     }
 
-    if (!allowedDestinations.has(destinationTotvs)) {
+    if (destinationTotvs) {
+      const destinationChurch = byId.get(destinationTotvs) || null;
+      if (destinationChurch) {
+        const destinationName = String(destinationChurch.church_name || "").trim() || churchNameOnly(church_destination) || destinationTotvs;
+        church_destination = `${destinationTotvs} - ${destinationName}`;
+      }
+    }
+
+    if (destinationTotvs && !allowedDestinations.has(destinationTotvs) && session.role === "obreiro") {
       return json({
         ok: false,
         error: "destination_out_of_scope_use_parent",
@@ -447,7 +446,7 @@ async function handleCreate(session: SessionClaims, body: Record<string, unknown
     // Comentario: dados de quem esta logado e emitindo a carta.
     const { data: actorUser } = await sb
       .from("users")
-      .select("id, full_name, phone, email, minister_role, data_separacao, registration_status")
+      .select("id, full_name, phone, email, minister_role, ordination_date, baptism_date, totvs_access")
       .eq("id", session.user_id)
       .maybeSingle();
 
@@ -464,12 +463,12 @@ async function handleCreate(session: SessionClaims, body: Record<string, unknown
       originPastorUser = (data as Record<string, unknown> | null) || null;
     }
 
-    let preacher_user_id: string | null = body.preacher_user_id ?? null;
+    let preacher_user_id = String(body.preacher_user_id || "").trim() || null;
     let preacher_name = String(body.preacher_name || "").trim();
     let minister_role = String(body.minister_role || "").trim();
     let preacher_phone = String(body.phone || "").trim() || null;
     let preacher_email = String(body.email || "").trim() || null;
-    let preacher_data_separacao: string | null = null;
+    let preacher_ministerial_date: string | null = null;
     let preacher_registration_status: string | null = null;
 
     // ─── REGRA DE LIBERAÇÃO AUTOMÁTICA ───────────────────────────────────────
@@ -491,7 +490,7 @@ async function handleCreate(session: SessionClaims, body: Record<string, unknown
       // Obreiro cria carta para si mesmo: busca seus próprios dados na tabela users
       const { data: me, error: meErr } = await sb
         .from("users")
-        .select("id, full_name, minister_role, phone, email, can_create_released_letter, data_separacao, registration_status")
+        .select("id, full_name, minister_role, phone, email, can_create_released_letter, ordination_date, baptism_date, totvs_access")
         .eq("id", session.user_id)
         .maybeSingle();
 
@@ -503,8 +502,14 @@ async function handleCreate(session: SessionClaims, body: Record<string, unknown
       minister_role = String(me.minister_role || "").trim();
       preacher_phone = String((me as Record<string, unknown>).phone || "").trim() || null;
       preacher_email = String((me as Record<string, unknown>).email || "").trim() || null;
-      preacher_data_separacao = String((me as Record<string, unknown>).data_separacao || "").trim() || null;
-      preacher_registration_status = String((me as Record<string, unknown>).registration_status || "").trim() || null;
+      preacher_ministerial_date =
+        String((me as Record<string, unknown>).ordination_date || "").trim() ||
+        String((me as Record<string, unknown>).baptism_date || "").trim() ||
+        null;
+      preacher_registration_status = resolveRegistrationStatusFromTotvsAccess(
+        (me as Record<string, unknown>).totvs_access,
+        church_totvs_id,
+      );
 
       if (!preacher_name) return json({ ok: false, error: "missing_preacher_name_in_profile" }, 400);
       if (!minister_role) return json({ ok: false, error: "missing_minister_role_in_profile" }, 400);
@@ -521,28 +526,41 @@ async function handleCreate(session: SessionClaims, body: Record<string, unknown
       if (!preacher_user_id) preacher_user_id = session.user_id;
 
       // Busca dados do pregador na tabela users para verificar liberação automática
-      const { data: target, error: targetErr } = await sb
-        .from("users")
-        .select("id, phone, email, can_create_released_letter, data_separacao, registration_status")
-        .eq("id", preacher_user_id)
-        .maybeSingle();
+      let target: Record<string, unknown> | null = null;
+      if (isUuid(preacher_user_id)) {
+        const targetResult = await sb
+          .from("users")
+          .select("id, phone, email, can_create_released_letter, ordination_date, baptism_date, totvs_access")
+          .eq("id", preacher_user_id)
+          .maybeSingle();
 
-      if (targetErr) return json({ ok: false, error: "db_error_target_user", details: targetErr.message }, 500);
+        if (targetResult.error) return json({ ok: false, error: "db_error_target_user", details: targetResult.error.message }, 500);
+        target = (targetResult.data as Record<string, unknown> | null) || null;
+      }
 
       // ← DECISÃO DE LIBERAÇÃO: lê can_create_released_letter do pregador informado
-      canDirectRelease = Boolean((target as Record<string, unknown> | null)?.can_create_released_letter);
+      canDirectRelease = Boolean(target?.can_create_released_letter);
 
-      if (!preacher_phone) preacher_phone = String((target as Record<string, unknown> | null)?.phone || "").trim() || null;
-      if (!preacher_email) preacher_email = String((target as Record<string, unknown> | null)?.email || "").trim() || null;
-      preacher_data_separacao = String((target as Record<string, unknown> | null)?.data_separacao || "").trim() || null;
-      preacher_registration_status = String((target as Record<string, unknown> | null)?.registration_status || "").trim() || null;
+      if (!preacher_phone) preacher_phone = String(target?.phone || "").trim() || null;
+      if (!preacher_email) preacher_email = String(target?.email || "").trim() || null;
+      preacher_ministerial_date =
+        String(target?.ordination_date || "").trim() ||
+        String(target?.baptism_date || "").trim() ||
+        null;
+      preacher_registration_status = resolveRegistrationStatusFromTotvsAccess(target?.totvs_access, church_totvs_id);
 
       // Fallback: usa dados do actor (pastor logado) se o target não tiver data_separacao
-      if (!preacher_data_separacao) {
-        preacher_data_separacao = String((actorUser as Record<string, unknown> | null)?.data_separacao || "").trim() || null;
+      if (!preacher_ministerial_date) {
+        preacher_ministerial_date =
+          String((actorUser as Record<string, unknown> | null)?.ordination_date || "").trim() ||
+          String((actorUser as Record<string, unknown> | null)?.baptism_date || "").trim() ||
+          null;
       }
       if (!preacher_registration_status) {
-        preacher_registration_status = String((actorUser as Record<string, unknown> | null)?.registration_status || "").trim() || null;
+        preacher_registration_status = resolveRegistrationStatusFromTotvsAccess(
+          (actorUser as Record<string, unknown> | null)?.totvs_access,
+          church_totvs_id,
+        );
       }
     }
 
@@ -588,12 +606,12 @@ async function handleCreate(session: SessionClaims, body: Record<string, unknown
       dia_pregacao: formatDMY(created.preach_date),
       data_emissao: formatExtended(created.created_at),
       origem_totvs: church_totvs_id,
-      destino_totvs: destinationTotvs,
+      destino_totvs: destinationTotvs || "",
       origem_nome: originChurch?.church_name || churchNameOnly(created.church_origin),
       destino_nome: churchNameOnly(created.church_destination),
       email: preacher_email ?? "",
       ministerial: minister_role,
-      data_separacao: preacher_data_separacao ? formatDMY(preacher_data_separacao) : "",
+      data_separacao: preacher_ministerial_date ? formatDMY(preacher_ministerial_date) : "",
       pastor_responsavel: String((pastorUser as Record<string, unknown>).full_name ?? ""),
       telefone_pastor: String((pastorUser as Record<string, unknown>).phone ?? ""),
       assinatura_url: String((pastorUser as Record<string, unknown>).signature_url ?? ""),
@@ -634,7 +652,7 @@ async function handleCreate(session: SessionClaims, body: Record<string, unknown
       }
     }
 
-    // Comentario: gera notificacao para o pastor assinante e para o feed da igreja.
+    // Comentario: gera notificacao pessoal para o pastor assinante e uma do feed da igreja.
     const notificationTitle = status === "LIBERADA" ? "Carta liberada criada" : "Nova carta aguardando liberacao";
     const notificationMessage = `${preacher_name} - ${created.preach_date} (${created.preach_period})`;
     try {
@@ -672,6 +690,45 @@ async function handleCreate(session: SessionClaims, body: Record<string, unknown
           },
         },
       ]);
+
+      await sendInternalPushNotification({
+        title: notificationTitle,
+        body: notificationMessage,
+        url: "/admin",
+        user_ids: [signerPastorId],
+        totvs_ids: [church_totvs_id],
+        data: {
+          letter_id: created.id,
+          status: created.status,
+          preacher_name,
+          preacher_user_id,
+        },
+      });
+
+      if (status === "LIBERADA" && preacher_user_id) {
+        const preacherReleaseTitle = "Carta liberada";
+        const preacherReleaseMessage = `Sua carta para ${created.church_destination} foi liberada.`;
+        await insertNotification({
+          church_totvs_id,
+          user_id: preacher_user_id,
+          type: "letter_liberada",
+          title: preacherReleaseTitle,
+          message: preacherReleaseMessage,
+        });
+        await sendInternalPushNotification({
+          title: preacherReleaseTitle,
+          body: preacherReleaseMessage,
+          url: "/usuario",
+          user_ids: [preacher_user_id],
+          totvs_ids: [church_totvs_id],
+          data: {
+            letter_id: created.id,
+            status: created.status,
+            preacher_name,
+            preacher_user_id,
+          },
+        });
+      }
     } catch {
       // Comentario: notificacao nao pode quebrar criacao da carta.
     }
@@ -991,6 +1048,14 @@ async function handleSetStatus(session: SessionClaims, body: Record<string, unkn
 
     const prevStatus = String(letter.status || "").toUpperCase();
 
+    if (status === "EXCLUIDA") {
+      await sb.from("release_requests").delete().eq("letter_id", letter_id);
+      await sb.from("notifications").delete().eq("related_id", letter_id);
+      const { error: delErr } = await sb.from("letters").delete().eq("id", letter_id);
+      if (delErr) return json({ ok: false, error: "db_error_delete", details: delErr.message }, 500);
+      return json({ ok: true, deleted: true, letter_id }, 200);
+    }
+
     const { data: updated, error: uErr } = await sb
       .from("letters")
       .update({ status })
@@ -1033,7 +1098,7 @@ async function handleSetStatus(session: SessionClaims, body: Record<string, unkn
 
           // Se tem pregador, busca data de separação e status de cadastro dele
           preacherUserId
-            ? sb.from("users").select("id,data_separacao,registration_status").eq("id", preacherUserId).maybeSingle()
+            ? sb.from("users").select("id,ordination_date,baptism_date,totvs_access").eq("id", preacherUserId).maybeSingle()
             : Promise.resolve({ data: null, error: null }),
         ]);
 
@@ -1045,8 +1110,14 @@ async function handleSetStatus(session: SessionClaims, body: Record<string, unkn
         const preacherUser = (preacherRes.data as Record<string, unknown> | null) || null;
 
         // Define status do usuário: AUTORIZADO se aprovado, PENDENTE se pendente
-        const preacherDataSeparacao = String(preacherUser?.data_separacao || "").trim() || null;
-        const preacherRegistrationStatus = String(preacherUser?.registration_status || "").trim() || null;
+        const preacherDataSeparacao =
+          String(preacherUser?.ordination_date || "").trim() ||
+          String(preacherUser?.baptism_date || "").trim() ||
+          null;
+        const preacherRegistrationStatus = resolveRegistrationStatusFromTotvsAccess(
+          preacherUser?.totvs_access,
+          churchTotvs,
+        );
         const statusUsuario = preacherRegistrationStatus === "PENDENTE" ? "PENDENTE" : "AUTORIZADO";
 
         // Monta o payload completo que será enviado ao N8N para gerar o PDF
@@ -1135,6 +1206,27 @@ async function handleSetStatus(session: SessionClaims, body: Record<string, unkn
 
     // Retorna o resultado incluindo informação do webhook para facilitar debug
     return json({ ok: true, letter: updated, n8n: { fired: n8nFired, status: n8nStatus, error: n8nError } }, 200);
+}
+
+// ---------------------------------------------------------------------------
+// HANDLER: manage  (compatibilidade com telas-cartas)
+// ---------------------------------------------------------------------------
+async function handleManage(session: SessionClaims, body: Record<string, unknown>): Promise<Response> {
+    const letter_id = String(body.letter_id || "").trim();
+    const manage_action = String(body.manage_action || "").trim().toLowerCase();
+    if (!letter_id) return json({ ok: false, error: "missing_letter_id" }, 400);
+
+    if (manage_action === "release") {
+      return await handleSetStatus(session, { letter_id, status: "LIBERADA" });
+    }
+    if (manage_action === "share") {
+      return await handleSetStatus(session, { letter_id, status: "ENVIADA" });
+    }
+    if (manage_action === "delete") {
+      return await handleSetStatus(session, { letter_id, status: "EXCLUIDA" });
+    }
+
+    return json({ ok: false, error: "invalid_manage_action", received: manage_action }, 400);
 }
 
 // ---------------------------------------------------------------------------
@@ -1250,7 +1342,7 @@ async function handleApproveRelease(session: SessionClaims, body: Record<string,
 
         // Busca data de separação e status de cadastro do pregador
         preacherUserId
-          ? sb.from("users").select("id,data_separacao,registration_status").eq("id", preacherUserId).maybeSingle()
+          ? sb.from("users").select("id,ordination_date,baptism_date,totvs_access").eq("id", preacherUserId).maybeSingle()
           : Promise.resolve({ data: null, error: null }),
       ]);
 
@@ -1261,8 +1353,14 @@ async function handleApproveRelease(session: SessionClaims, body: Record<string,
       const pastorUser = (signerRes.data as Record<string, unknown> | null) || null;
       const preacherUser = (preacherRes.data as Record<string, unknown> | null) || null;
 
-      const preacherDataSeparacao = String(preacherUser?.data_separacao || "").trim() || null;
-      const preacherRegistrationStatus = String(preacherUser?.registration_status || "").trim() || null;
+      const preacherDataSeparacao =
+        String(preacherUser?.ordination_date || "").trim() ||
+        String(preacherUser?.baptism_date || "").trim() ||
+        null;
+      const preacherRegistrationStatus = resolveRegistrationStatusFromTotvsAccess(
+        preacherUser?.totvs_access,
+        churchTotvs,
+      );
 
       // Status do usuário para o webhook: PENDENTE se cadastro pendente, AUTORIZADO nos demais casos
       const statusUsuario = preacherRegistrationStatus === "PENDENTE" ? "PENDENTE" : "AUTORIZADO";
@@ -1343,6 +1441,8 @@ Deno.serve(async (req) => {
         return await handleGetPdfUrl(session, body);
       case "set-status":
         return await handleSetStatus(session, body);
+      case "manage":
+        return await handleManage(session, body);
       case "approve-release":
         return await handleApproveRelease(session, body);
       default:

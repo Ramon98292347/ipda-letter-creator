@@ -21,6 +21,15 @@ verify_jwt = false
 [functions.church-docs-api]
 verify_jwt = false
 
+[functions.auth-api]
+verify_jwt = false
+
+[functions.churches-api]
+verify_jwt = false
+
+[functions.member-docs-api]
+verify_jwt = false
+
 [functions.approve-release]
 verify_jwt = false
 

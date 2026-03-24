@@ -3,6 +3,7 @@ import { api } from "@/lib/endpoints";
 import { supabase, supabaseAnon } from "@/lib/supabase";
 import { apiFetch } from "@/services/api";
 import type { AppSession, PendingChurch } from "@/context/UserContext";
+import { isValidCpf } from "@/lib/cpf";
 
 
 export type AppRole = "admin" | "pastor" | "obreiro" | "secretario" | "financeiro";
@@ -670,7 +671,7 @@ function isMockMode() {
 
 export async function loginWithCpfPassword(cpfInput: string, password: string): Promise<LoginResult> {
   const cpf = normalizeCpf(cpfInput);
-  if (cpf.length !== 11) throw new Error("cpf-invalid");
+  if (!isValidCpf(cpf)) throw new Error("cpf-invalid");
 
   const data = await api.login({ cpf, password });
   const directToken = data?.token || data?.jwt;
@@ -701,7 +702,7 @@ export async function loginWithCpfPassword(cpfInput: string, password: string): 
 
 export async function selectChurchSession(cpfInput: string, totvsId: string): Promise<{ token: string; rls_token?: string; user: AuthSessionData; session: AppSession }> {
   const cpf = normalizeCpf(cpfInput);
-  if (cpf.length !== 11) throw new Error("cpf-invalid");
+  if (!isValidCpf(cpf)) throw new Error("cpf-invalid");
   if (!totvsId) throw new Error("totvs-required");
 
   const data = await api.selectChurch({ cpf, totvs_id: totvsId });
@@ -2188,7 +2189,7 @@ export async function publicRegisterMember(payload: {
   totvs_id: string;
 }) {
   const cpf = normalizeCpf(payload.cpf);
-  if (cpf.length !== 11) throw new Error("cpf-invalid");
+  if (!isValidCpf(cpf)) throw new Error("cpf-invalid");
   if (!payload.full_name.trim()) throw new Error("name-required");
   if (!payload.minister_role.trim()) throw new Error("minister-role-required");
   if (!payload.totvs_id.trim()) throw new Error("totvs-required");
@@ -2449,7 +2450,7 @@ export async function listObreiroLetters(_userId: string) {
 
 export async function createUserByPastor(payload: UserCreatePayload, actorRole: AppRole) {
   const cpf = normalizeCpf(payload.cpf);
-  if (cpf.length !== 11) throw new Error("cpf-invalid");
+  if (!isValidCpf(cpf)) throw new Error("cpf-invalid");
   if (!payload.full_name.trim()) throw new Error("name-required");
   if (!payload.role) throw new Error("role-required");
   if (actorRole === "pastor" && payload.role === "admin") throw new Error("pastor-cannot-create-admin");
@@ -2519,7 +2520,7 @@ export async function upsertWorkerByPastor(payload: {
   password?: string | null;
 }) {
   const cpf = normalizeCpf(payload.cpf);
-  if (cpf.length !== 11) throw new Error("cpf_invalid");
+  if (!isValidCpf(cpf)) throw new Error("cpf_invalid");
   if (!payload.full_name.trim()) throw new Error("full_name_required");
   if (!payload.minister_role.trim()) throw new Error("minister_role_required");
   if (!payload.active_totvs_id) throw new Error("active_totvs_required");
@@ -2805,7 +2806,7 @@ export async function resetWorkerPassword(payload: { cpf?: string; user_id?: str
   if (nextPassword.length < 8) throw new Error("password-too-short");
 
   const cpf = payload.cpf ? normalizeCpf(payload.cpf) : undefined;
-  if (cpf && cpf.length !== 11) throw new Error("cpf-invalid");
+  if (cpf && !isValidCpf(cpf)) throw new Error("cpf-invalid");
 
   if (!isMockMode()) {
     await api.resetPassword({

@@ -13,6 +13,7 @@ import { publicRegisterMember, searchChurchesPublic, type ChurchSearchResult } f
 import { getFriendlyError } from "@/lib/error-map";
 import { fetchAddressByCep, maskCep, onlyDigits } from "@/lib/cep";
 import { formatPhoneBr } from "@/lib/br-format";
+import { isValidCpf } from "@/lib/cpf";
 
 function normalizeCpf(value: string) {
   return String(value || "").replace(/\D/g, "").slice(0, 11);
@@ -180,7 +181,7 @@ export default function CadastroRapido() {
 
   async function submit() {
     const cpfRaw = normalizeCpf(cpf);
-    if (cpfRaw.length !== 11) {
+    if (!isValidCpf(cpfRaw)) {
       toast.error("Informe um CPF válido com 11 dígitos.");
       return;
     }

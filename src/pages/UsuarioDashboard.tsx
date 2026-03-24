@@ -95,6 +95,7 @@ export default function UsuarioDashboard() {
   const [openCadastroModal, setOpenCadastroModal] = useState(false);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [showAllLetters, setShowAllLetters] = useState(false);
   const [savingProfile, setSavingProfile] = useState(false);
   const [cepLookupLoading, setCepLookupLoading] = useState(false);
   const [lastCepLookup, setLastCepLookup] = useState("");
@@ -311,6 +312,11 @@ export default function UsuarioDashboard() {
       return matchesStatus && (!q || haystack.includes(q));
     });
   }, [letters, search, statusFilter, dateStart, dateEnd]);
+
+  const visibleLetters = useMemo(
+    () => (showAllLetters ? filteredLetters : filteredLetters.slice(0, 5)),
+    [filteredLetters, showAllLetters],
+  );
 
   const stats = useMemo(() => {
     const now = new Date();
@@ -567,16 +573,17 @@ async function openPdf(letter: PastorLetter) {
 
     setCreatingLetter(true);
     try {
-      await post("create-letter", {
+      await api.createLetter({
         church_destination: churchDestination,
-        manual_destination: !selectedDestination || !!letterForm.igreja_destino_manual.trim(),
+        destination_totvs_id: selectedDestination?.totvs_id || undefined,
+        manual_destination: !selectedDestination && !!letterForm.igreja_destino_manual.trim(),
         preacher_name: String(profile?.full_name || usuario?.nome || ""),
         minister_role: ministerialRole,
         preach_date: letterForm.dia_pregacao,
         preach_period: "NOITE",
         // Comentario: origem e sempre a mae com pastor (signerChurch), nunca a propria regional/local.
         // Para "Outros", usa a mae mais alta (highestSignerForOthers). Igual ao telas-cartas.
-        church_origin: displayOriginTotvs ? `${displayOriginTotvs} ${displayOriginName}`.trim() : (displayOriginName || String(session?.church_name || "")),
+        church_origin: displayOriginTotvs ? `${displayOriginTotvs} - ${displayOriginName}`.trim() : (displayOriginName || String(session?.church_name || "")),
         preacher_user_id: userId,
         phone: String(profile?.phone || usuario?.telefone || ""),
         email: String(profile?.email || "") || null,
@@ -765,7 +772,7 @@ async function openPdf(letter: PastorLetter) {
             {isLoading ? <p className="text-sm text-slate-500">Carregando...</p> : null}
 
             <div className="space-y-3 md:hidden">
-              {filteredLetters.map((letter) => {
+              {visibleLetters.map((letter) => {
                 const canOpen = isLetterReadyForView(letter);
                 const canRequest = !hasDirectRelease && (letter.status === "AUTORIZADO" || letter.status === "AGUARDANDO_LIBERACAO");
                 return (
@@ -811,7 +818,7 @@ async function openPdf(letter: PastorLetter) {
                   <span>Status</span>
                   <span>Ações</span>
                 </div>
-                {filteredLetters.map((letter) => {
+                {visibleLetters.map((letter) => {
                   const canOpen = isLetterReadyForView(letter);
                   return (
                     <div key={letter.id} className="grid grid-cols-[120px_120px_180px_180px_180px_60px] items-center border-b px-4 py-3 text-sm">
@@ -849,6 +856,13 @@ async function openPdf(letter: PastorLetter) {
             </div>
 
             {!isLoading && filteredLetters.length === 0 ? <div className="rounded-xl border border-slate-200 p-4 text-sm text-slate-500">Nenhuma carta encontrada.</div> : null}
+            {!isLoading && filteredLetters.length > 5 ? (
+              <div className="flex justify-center">
+                <Button variant="outline" onClick={() => setShowAllLetters((prev) => !prev)}>
+                  {showAllLetters ? "Mostrar apenas 5" : `Exibir mais (${filteredLetters.length - 5} restantes)`}
+                </Button>
+              </div>
+            ) : null}
           </CardContent>
         </Card>
       </div>

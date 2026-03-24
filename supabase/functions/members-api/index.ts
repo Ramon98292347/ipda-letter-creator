@@ -8,6 +8,10 @@
  *   action: "save-profile"  → atualiza o próprio perfil (requer JWT: qualquer role)
  *   action: "get-profile"   → obtém o próprio perfil (requer JWT: qualquer role)
  *   action: "upload-photo"  → faz upload de foto de obreiro (requer JWT: qualquer role)
+ *   action: "update-avatar" → atualiza avatar por user_id + cpf (uso publico do cadastro)
+ *   action: "upsert-stamps" → salva assinatura/carimbos do usuario e da igreja ativa
+ *   action: "list-members"  → lista membros com filtros e resumo de presenca
+ *   action: "list-workers"  → lista obreiros com filtros
  */
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
@@ -61,6 +65,25 @@ type ChurchRow = {
   class: string | null;
 };
 
+type ListMembersBody = {
+  search?: string;
+  minister_role?: string;
+  is_active?: boolean;
+  roles?: Array<"pastor" | "obreiro" | "secretario" | "financeiro">;
+  church_totvs_id?: string;
+  page?: number;
+  page_size?: number;
+};
+
+type ListWorkersBody = {
+  search?: string;
+  minister_role?: string;
+  is_active?: boolean;
+  include_pastor?: boolean;
+  page?: number;
+  page_size?: number;
+};
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Verificação de JWT de sessão
 // ─────────────────────────────────────────────────────────────────────────────
@@ -91,6 +114,25 @@ async function verifySessionJWT(req: Request): Promise<SessionClaims | null> {
   }
 }
 
+async function resolveScopeRootTotvs(
+  sb: ReturnType<typeof createClient>,
+  session: SessionClaims,
+): Promise<string> {
+  if (session.role !== "pastor") return session.active_totvs_id;
+
+  const { data, error } = await sb
+    .from("churches")
+    .select("totvs_id")
+    .eq("pastor_user_id", session.user_id)
+    .eq("is_active", true);
+
+  if (error || !data || data.length === 0) return session.active_totvs_id;
+
+  const pastorChurches = data.map((row: Record<string, unknown>) => String(row.totvs_id || "")).filter(Boolean);
+  if (pastorChurches.includes(session.active_totvs_id)) return session.active_totvs_id;
+  return pastorChurches[0];
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Funções auxiliares para a action "save"
 // ─────────────────────────────────────────────────────────────────────────────
@@ -116,6 +158,15 @@ function normalizeChurchClass(value: string | null | undefined): ChurchClass | n
   return null;
 }
 
+function normalizeMinisterRole(value: unknown): string {
+  return String(value || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^\w]+/g, " ")
+    .trim();
+}
+
 // Comentario: calcula o conjunto de igrejas que o pastor pode gerenciar —
 // a sua própria igreja e todas as filhas, netas etc.
 function computeScope(rootTotvs: string, churches: ChurchRow[]): Set<string> {
@@ -135,6 +186,28 @@ function computeScope(rootTotvs: string, churches: ChurchRow[]): Set<string> {
     for (const child of children.get(current) || []) queue.push(child);
   }
   return scope;
+}
+
+function canManageMember(
+  sessionRole: Role,
+  sessionActiveTotvs: string,
+  memberDefaultTotvs: string,
+  sessionChurchClass: ChurchClass | null,
+  memberChurchClass: ChurchClass | null,
+  scope: Set<string>,
+): boolean {
+  if (sessionRole === "admin") return true;
+  if (!scope.has(memberDefaultTotvs)) return false;
+  if (memberDefaultTotvs === sessionActiveTotvs) return true;
+  if (!sessionChurchClass || !memberChurchClass) return false;
+  const rank: Record<ChurchClass, number> = {
+    estadual: 5,
+    setorial: 4,
+    central: 3,
+    regional: 2,
+    local: 1,
+  };
+  return rank[memberChurchClass] <= rank[sessionChurchClass];
 }
 
 // Comentario: normaliza o campo totvs_access que pode chegar como array de
@@ -387,6 +460,18 @@ type SaveProfileBody = {
   address_state?: string | null;
 };
 
+type UpdateAvatarBody = {
+  user_id?: string;
+  cpf?: string;
+  avatar_url?: string;
+};
+
+type UpsertStampsBody = {
+  signature_url?: string | null;
+  stamp_pastor_url?: string | null;
+  stamp_church_url?: string | null;
+};
+
 async function handleSaveProfile(
   session: SessionClaims,
   body: SaveProfileBody
@@ -450,6 +535,83 @@ async function handleGetProfile(session: SessionClaims): Promise<Response> {
   if (error) return json({ ok: false, error: "db_error_get_profile" }, 500);
 
   return json({ ok: true, profile: data }, 200);
+}
+
+async function handleUpdateAvatar(body: UpdateAvatarBody): Promise<Response> {
+  const userId = String(body.user_id || "").trim();
+  const cpf = onlyDigits(body.cpf || "");
+  const avatarUrl = String(body.avatar_url || "").trim();
+
+  if (!userId) return json({ ok: false, error: "user_id_required" }, 400);
+  if (cpf.length !== 11) return json({ ok: false, error: "cpf_required" }, 400);
+  if (!avatarUrl) return json({ ok: false, error: "avatar_url_required" }, 400);
+
+  const sb = createClient(
+    Deno.env.get("SUPABASE_URL") || "",
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "",
+  );
+
+  const { data: user, error: findErr } = await sb
+    .from("users")
+    .select("id")
+    .eq("id", userId)
+    .eq("cpf", cpf)
+    .maybeSingle();
+
+  if (findErr) return json({ ok: false, error: "db_error", details: findErr.message }, 500);
+  if (!user) return json({ ok: false, error: "user_not_found" }, 404);
+
+  const { error: updateErr } = await sb
+    .from("users")
+    .update({ avatar_url: avatarUrl })
+    .eq("id", userId);
+
+  if (updateErr) return json({ ok: false, error: "update_failed", details: updateErr.message }, 500);
+  return json({ ok: true, avatar_url: avatarUrl }, 200);
+}
+
+async function handleUpsertStamps(session: SessionClaims, body: UpsertStampsBody): Promise<Response> {
+  if (session.role !== "admin" && session.role !== "pastor") {
+    return json({ ok: false, error: "forbidden" }, 403);
+  }
+
+  const signatureUrl = body.signature_url === undefined ? undefined : String(body.signature_url || "").trim() || null;
+  const stampPastorUrl = body.stamp_pastor_url === undefined ? undefined : String(body.stamp_pastor_url || "").trim() || null;
+  const stampChurchUrl = body.stamp_church_url === undefined ? undefined : String(body.stamp_church_url || "").trim() || null;
+
+  const sb = createClient(
+    Deno.env.get("SUPABASE_URL") || "",
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "",
+  );
+
+  const userPayload: Record<string, string | null> = {};
+  if (signatureUrl !== undefined) userPayload.signature_url = signatureUrl;
+  if (stampPastorUrl !== undefined) userPayload.stamp_pastor_url = stampPastorUrl;
+
+  if (Object.keys(userPayload).length > 0) {
+    const { error: userErr } = await sb
+      .from("users")
+      .update(userPayload)
+      .eq("id", session.user_id);
+    if (userErr) return json({ ok: false, error: "db_error_update_user_stamps", details: userErr.message }, 500);
+  }
+
+  if (stampChurchUrl !== undefined) {
+    const { error: churchErr } = await sb
+      .from("churches")
+      .update({ stamp_church_url: stampChurchUrl })
+      .eq("totvs_id", session.active_totvs_id);
+    if (churchErr) return json({ ok: false, error: "db_error_update_church_stamp", details: churchErr.message }, 500);
+  }
+
+  return json({
+    ok: true,
+    stamps: {
+      signature_url: signatureUrl ?? null,
+      stamp_pastor_url: stampPastorUrl ?? null,
+      stamp_church_url: stampChurchUrl ?? null,
+    },
+  }, 200);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -669,6 +831,161 @@ async function handleUploadPhoto(
   }
 }
 
+async function handleListMembers(session: SessionClaims, body: ListMembersBody): Promise<Response> {
+  if (session.role === "obreiro") return json({ ok: false, error: "forbidden" }, 403);
+
+  const page = Number.isFinite(body.page) ? Math.max(1, Number(body.page)) : 1;
+  const page_size = Number.isFinite(body.page_size) ? Math.max(1, Math.min(1000, Number(body.page_size))) : 20;
+  const roles = Array.isArray(body.roles) && body.roles.length ? body.roles : ["pastor", "obreiro"];
+  const churchTotvsFilter = String(body.church_totvs_id || "").trim();
+
+  const sb = createClient(Deno.env.get("SUPABASE_URL") || "", Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "");
+  const { data: churches, error: churchesErr } = await sb.from("churches").select("totvs_id,parent_totvs_id,class");
+  if (churchesErr) return json({ ok: false, error: "db_error_churches", details: churchesErr.message }, 500);
+
+  const churchRows = (churches || []) as ChurchRow[];
+  let scopeRootTotvs = session.active_totvs_id;
+  let scope: Set<string>;
+  if (session.role === "admin") {
+    scope = new Set(churchRows.map((c) => String(c.totvs_id)).filter(Boolean));
+    if (churchTotvsFilter && !scope.has(churchTotvsFilter)) return json({ ok: false, error: "church_not_found" }, 404);
+  } else {
+    scopeRootTotvs = await resolveScopeRootTotvs(sb, session);
+    scope = computeScope(scopeRootTotvs, churchRows);
+    if (churchTotvsFilter && !scope.has(churchTotvsFilter)) {
+      return json({ ok: false, error: "forbidden_church_out_of_scope" }, 403);
+    }
+  }
+
+  const sessionChurchClass = normalizeChurchClass(churchRows.find((c) => c.totvs_id === scopeRootTotvs)?.class);
+  const churchMap = new Map(churchRows.map((c) => [String(c.totvs_id), c]));
+
+  let q = sb
+    .from("users")
+    .select(
+      "id,full_name,role,cpf,rg,phone,email,profession,minister_role,birth_date,baptism_date,marital_status,matricula,ordination_date,avatar_url,signature_url,cep,address_street,address_number,address_complement,address_neighborhood,address_city,address_state,default_totvs_id,totvs_access,is_active,can_create_released_letter,payment_status,payment_block_reason",
+      { count: "exact" },
+    )
+    .in("role", roles)
+    .order("full_name", { ascending: true });
+
+  if (typeof body.is_active === "boolean") q = q.eq("is_active", body.is_active);
+  if (body.search) {
+    const safe = String(body.search).replace(/"/g, "").trim();
+    if (safe) q = q.or(`full_name.ilike.%${safe}%,cpf.ilike.%${safe}%,phone.ilike.%${safe}%`);
+  }
+
+  const { data: users, error: usersErr } = await q;
+  if (usersErr) return json({ ok: false, error: "db_error_users", details: usersErr.message }, 500);
+
+  const normalizedRoleFilter = body.minister_role ? normalizeMinisterRole(body.minister_role) : null;
+  const filtered = (users || []).filter((u: Record<string, unknown>) => {
+    const defaultTotvs = String(u.default_totvs_id || "").trim();
+    if (!defaultTotvs) return false;
+    if (!scope.has(defaultTotvs)) return false;
+    if (churchTotvsFilter && defaultTotvs !== churchTotvsFilter) return false;
+    if (normalizedRoleFilter && normalizeMinisterRole(u.minister_role) !== normalizedRoleFilter) return false;
+    return true;
+  });
+
+  const mapped = filtered.map((u: Record<string, unknown>) => {
+    const defaultTotvs = String(u.default_totvs_id || "").trim();
+    const targetClass = normalizeChurchClass(churchMap.get(defaultTotvs)?.class);
+    const can_manage = canManageMember(
+      session.role,
+      scopeRootTotvs,
+      defaultTotvs,
+      sessionChurchClass,
+      targetClass,
+      scope,
+    );
+    return { ...u, can_manage };
+  });
+
+  const attendanceByUser = new Map<string, { status: string; meeting_date: string | null; absences180: number }>();
+  const memberIds = mapped.map((member) => String((member as Record<string, unknown>)?.id || "").trim()).filter(Boolean);
+  if (memberIds.length > 0) {
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - 180);
+    const cutoffDate = cutoff.toISOString().slice(0, 10);
+
+    const { data: attendanceRows, error: attendanceErr } = await sb
+      .from("ministerial_meeting_attendance")
+      .select("user_id,status,meeting_date,updated_at")
+      .in("user_id", memberIds)
+      .gte("meeting_date", cutoffDate)
+      .order("meeting_date", { ascending: false })
+      .order("updated_at", { ascending: false });
+
+    if (attendanceErr) return json({ ok: false, error: "db_error_attendance", details: attendanceErr.message }, 500);
+
+    for (const rawRow of attendanceRows || []) {
+      const row = rawRow as Record<string, unknown>;
+      const userId = String(row.user_id || "").trim();
+      if (!userId) continue;
+      const status = String(row.status || "").trim().toUpperCase() || "SEM_REGISTRO";
+      const meetingDate = String(row.meeting_date || "").trim() || null;
+      const current = attendanceByUser.get(userId);
+      if (!current) {
+        attendanceByUser.set(userId, {
+          status,
+          meeting_date: meetingDate,
+          absences180: status === "FALTA" ? 1 : 0,
+        });
+          continue;
+      }
+      current.absences180 += status === "FALTA" ? 1 : 0;
+    }
+  }
+
+  const total = mapped.length;
+  const metrics = { total, pastor: 0, presbitero: 0, diacono: 0, obreiro: 0, membro: 0 };
+  for (const member of mapped as Array<Record<string, unknown>>) {
+    const role = normalizeMinisterRole(member.minister_role);
+    if (role === "pastor") metrics.pastor += 1;
+    else if (role === "presbitero") metrics.presbitero += 1;
+    else if (role === "diacono") metrics.diacono += 1;
+    else if (role === "membro") metrics.membro += 1;
+    else if (role === "obreiro" || role === "cooperador" || role === "obreiro cooperador") metrics.obreiro += 1;
+  }
+
+  const from = (page - 1) * page_size;
+  const to = from + page_size;
+  const pageRows = mapped.slice(from, to).map((member) => {
+    const userId = String((member as Record<string, unknown>)?.id || "").trim();
+    const attendance = attendanceByUser.get(userId);
+    return {
+      ...member,
+      attendance_status: attendance?.status || "SEM_REGISTRO",
+      attendance_meeting_date: attendance?.meeting_date || null,
+      attendance_absences_180_days: attendance?.absences180 || 0,
+    };
+  });
+
+  return json({ ok: true, members: pageRows, total, page, page_size, metrics }, 200);
+}
+
+async function handleListWorkers(session: SessionClaims, body: ListWorkersBody): Promise<Response> {
+  const roles: Array<"pastor" | "obreiro" | "secretario" | "financeiro"> = body.include_pastor ? ["pastor", "obreiro"] : ["obreiro"];
+  const response = await handleListMembers(session, {
+    search: body.search,
+    minister_role: body.minister_role,
+    is_active: body.is_active,
+    roles,
+    page: body.page,
+    page_size: body.page_size,
+  });
+  const raw = (await response.clone().json().catch(() => ({}))) as Record<string, unknown>;
+  if (!response.ok) return response;
+  return json({
+    ok: true,
+    workers: Array.isArray(raw.members) ? raw.members : [],
+    total: Number(raw.total || 0),
+    page: Number(raw.page || body.page || 1),
+    page_size: Number(raw.page_size || body.page_size || 20),
+  }, 200);
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Entrada principal — roteamento por campo "action"
 // ─────────────────────────────────────────────────────────────────────────────
@@ -716,6 +1033,15 @@ Deno.serve(async (req) => {
         return await handleGetProfile(session);
       }
 
+      case "update-avatar": {
+        return await handleUpdateAvatar(body as UpdateAvatarBody);
+      }
+
+      case "upsert-stamps": {
+        if (!session) return json({ ok: false, error: "unauthorized" }, 401);
+        return await handleUpsertStamps(session, body as UpsertStampsBody);
+      }
+
       // ── action: "upload-photo" ───────────────────────────────────────────
       case "upload-photo": {
         // Comentario: qualquer usuário autenticado pode fazer upload de foto.
@@ -723,6 +1049,16 @@ Deno.serve(async (req) => {
         return await handleUploadPhoto(
           body as { obreiroId?: string; imageBase64?: string; mimeType?: string }
         );
+      }
+
+      case "list-members": {
+        if (!session) return json({ ok: false, error: "unauthorized" }, 401);
+        return await handleListMembers(session, body as ListMembersBody);
+      }
+
+      case "list-workers": {
+        if (!session) return json({ ok: false, error: "unauthorized" }, 401);
+        return await handleListWorkers(session, body as ListWorkersBody);
       }
 
       default:

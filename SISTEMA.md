@@ -84,6 +84,27 @@ A função `post()` em `src/lib/api.ts`:
 
 ---
 
+## 4.1 Grouped APIs
+
+O sistema está sendo consolidado por grupos para facilitar manutenção e reduzir functions soltas.
+
+Grouped APIs já usadas no projeto:
+- `letters-api`
+- `meetings-api`
+- `notifications-api`
+- `members-api`
+- `churches-api`
+- `announcements-api`
+- `church-docs-api`
+- `auth-api`
+
+Regra de compatibilidade:
+- manter as functions antigas enquanto o frontend migra
+- novas telas e ajustes devem priorizar as grouped APIs
+- todas devem usar `verify_jwt = false` e validar o JWT customizado manualmente quando necessário
+
+---
+
 ## 5. Papéis (Roles)
 
 | Role | Acesso | Rota inicial |
@@ -205,6 +226,18 @@ verify_jwt = false
 
 > **Regra do n8n:** O webhook do n8n NÃO deve ser alterado. O fluxo de geração de PDF é mantido como está.
 
+### Regra dos dados ministeriais na carta
+- a carta usa `users.ordination_date` como data ministerial principal
+- se `ordination_date` estiver vazia, usa `users.baptism_date`
+- o status de cadastro do usuário não vem de coluna `users.registration_status`
+- o status é resolvido pelo `totvs_access[].registration_status`, priorizando a igreja da carta
+
+### Regra atual de origem/destino na `letters-api`
+- `Outros` pode ser enviado sem TOTVS quando `manual_destination=true`
+- para pastor/admin, a origem aceita a igreja ativa e as igrejas mãe da árvore
+- para obreiro, a tela pode subir a origem para a igreja mãe conforme a hierarquia
+- para compatibilidade com os dois frontends, `letters-api` também aceita `action: "manage"` com `manage_action`
+
 ---
 
 ## 9. Hierarquia de Igrejas (Totvs)
@@ -225,6 +258,43 @@ verify_jwt = false
 | `ipda_rls_token` | Token legado (não funcional para queries diretas) |
 | `ipda_session` | `{ totvs_id, root_totvs_id, role, church_name, church_class, scope_totvs_ids }` |
 | `ipda_user` | `{ id, full_name, cpf, role }` |
+
+---
+
+## 10.1 Atualizacoes Recentes
+
+### Cartas
+- o botao `Excluir` remove a carta fisicamente do banco
+- antes da exclusao, o backend limpa relacoes basicas como `release_requests` e notificacoes com `related_id`
+- as listas de cartas mostram inicialmente apenas as 5 mais novas
+- quando houver mais registros, a interface mostra um botao para expandir
+
+### Notificacoes
+- ao marcar como lida, a notificacao e removida do banco
+- notificacoes duplicadas do mesmo evento de carta sao tratadas juntas para nao reaparecerem
+- o push web depende da tabela `push_subscriptions` com `user_id` e `totvs_id` corretos
+
+### Members API
+- o frontend principal ja usa `members-api` para `list-members` e `list-workers`
+- a function agrupada tambem concentra `save`, `save-profile`, `get-profile`, `upload-photo`, `update-avatar` e `upsert-stamps`
+- depois do deploy dessa etapa, `list-members` e `list-workers` legadas viram candidatas a exclusao
+
+### Announcements API
+- o frontend principal ja esta consolidado em `announcements-api`
+- as actions em uso sao `list`, `upsert` e `delete`
+- a grouped API agora tambem aceita conteudo legado de `events` e `banners` via encaminhamento interno
+- actions preparadas: `list-public`, `list-admin`, `list-events`, `upsert-event`, `delete-event`, `list-events-public`, `list-banners`, `upsert-banner`, `delete-banner`, `list-banners-public`
+- as legadas `list-announcements`, `upsert-announcement`, `delete-announcement`, `list-events`, `upsert-event`, `delete-event`, `list-banners` e semelhantes podem ser avaliadas para remocao depois da validacao final
+
+### Churches API
+- o frontend principal agora usa `churches-api` para listar igrejas, criar, excluir e definir pastor
+- nesta etapa a grouped API encaminha para as functions legadas por baixo, preservando a regra atual
+- depois da validacao, `list-churches-in-scope`, `create-church`, `delete-church`, `set-church-pastor` e `list-pastors` podem entrar na fila de remocao
+
+### Member Docs API
+- o frontend principal agora usa `member-docs-api` para gerar documentos e consultar status
+- as actions em uso sao `generate` e `status`
+- a action `finish` ficou preparada para consolidar o callback do n8n no mesmo grupo
 | `ipda_last_totvs` | Último totvs_id do usuário logado |
 | `ipda_root_totvs` | Totvs da igreja raiz (para divulgações na tela de login) |
 

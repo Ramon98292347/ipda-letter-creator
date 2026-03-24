@@ -254,6 +254,8 @@ export function PastorLetterDialog({ open, onOpenChange, letterTarget, onSuccess
         preach_period: preachPeriod,
         church_origin: origemText,
         church_destination: destinoText,
+        destination_totvs_id: destino?.codigoTotvs || undefined,
+        manual_destination: !destino && Boolean(normalizeManual(destinoOutros)),
         phone: (letterTarget.telefone || "").replace(/\D/g, ""),
         email: null,
       });

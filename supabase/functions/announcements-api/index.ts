@@ -2,22 +2,34 @@
  * announcements-api
  * =================
  * O que faz: Centraliza as operacoes de divulgacoes/comunicados em uma unica edge function.
- * Para que serve: Simplifica a manutencao do modulo de divulgacoes sem quebrar o contrato do sistema.
+ * Para que serve: Simplifica a manutencao do modulo de conteudo sem quebrar o contrato do sistema.
  * Quem pode usar:
  *   - action="list": admin, pastor, obreiro com JWT; ou publico com cpf no body e sem JWT
+ *   - action="list-public": publico
+ *   - action="list-admin": admin, pastor
  *   - action="upsert": admin, pastor
  *   - action="delete": admin, pastor
+ *   - action="list-events": admin, pastor
+ *   - action="upsert-event": admin, pastor
+ *   - action="delete-event": admin, pastor
+ *   - action="list-events-public": publico
+ *   - action="list-banners": admin, pastor
+ *   - action="upsert-banner": admin, pastor
+ *   - action="delete-banner": admin, pastor
+ *   - action="list-banners-public": publico
  * Recebe:
  *   - list: { action: "list", limit?: number, cpf?: string }
+ *   - list-public: payload da function legada list-announcements-public
+ *   - list-admin: payload da function legada list-announcements-admin
  *   - upsert: { action: "upsert", id?: string, title, type, body_text?, media_url?, link_url?, position?, starts_at?, ends_at?, is_active? }
  *   - delete: { action: "delete", id: string }
- * Retorna:
- *   - list: { ok, active_totvs_id, root_totvs_id, announcements }
- *   - upsert: { ok, announcement }
- *   - delete: { ok, deleted_id }
+ *   - list-events/upsert-event/delete-event/list-events-public: payload da function legada correspondente
+ *   - list-banners/upsert-banner/delete-banner/list-banners-public: payload da function legada correspondente
+ * Retorna: o mesmo payload de cada operacao correspondente.
  * Observacoes:
  *   - verify_jwt deve permanecer desligado no config.toml.
  *   - A propria function valida o JWT customizado quando necessario.
+ *   - Events e banners sao encaminhados para as functions legadas do projeto remoto.
  */
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -27,7 +39,20 @@ type Role = "admin" | "pastor" | "obreiro";
 type SessionClaims = { user_id: string; role: Role; active_totvs_id: string };
 type ChurchRow = { totvs_id: string; parent_totvs_id: string | null };
 type AnnouncementType = "text" | "image" | "video";
-type Action = "list" | "upsert" | "delete";
+type Action =
+  | "list"
+  | "list-public"
+  | "list-admin"
+  | "upsert"
+  | "delete"
+  | "list-events"
+  | "upsert-event"
+  | "delete-event"
+  | "list-events-public"
+  | "list-banners"
+  | "upsert-banner"
+  | "delete-banner"
+  | "list-banners-public";
 type Body = {
   action?: Action;
   limit?: number;
@@ -55,6 +80,52 @@ function corsHeaders() {
 
 function json(obj: unknown, status = 200) {
   return new Response(JSON.stringify(obj), { status, headers: corsHeaders() });
+}
+
+const FORWARDED_ACTIONS: Record<string, string> = {
+  "list-public": "list-announcements-public",
+  "list-admin": "list-announcements-admin",
+  "list-events": "list-events",
+  "upsert-event": "upsert-event",
+  "delete-event": "delete-event",
+  "list-events-public": "list-events-public",
+  "list-banners": "list-banners",
+  "upsert-banner": "upsert-banner",
+  "delete-banner": "delete-banner",
+  "list-banners-public": "list-banners-public",
+};
+
+function buildForwardHeaders(req: Request) {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+  const auth = req.headers.get("authorization");
+  const apikey = req.headers.get("apikey");
+  const clientInfo = req.headers.get("x-client-info");
+  if (auth) headers.authorization = auth;
+  if (apikey) headers.apikey = apikey;
+  if (clientInfo) headers["x-client-info"] = clientInfo;
+  return headers;
+}
+
+async function forwardToLegacy(req: Request, body: Body, slug: string) {
+  const supabaseUrl = String(Deno.env.get("SUPABASE_URL") || "").replace(/\/$/, "");
+  if (!supabaseUrl) return json({ ok: false, error: "missing_supabase_url" }, 500);
+
+  const forwardBody = { ...body };
+  delete (forwardBody as Record<string, unknown>).action;
+
+  const resp = await fetch(`${supabaseUrl}/functions/v1/${slug}`, {
+    method: "POST",
+    headers: buildForwardHeaders(req),
+    body: JSON.stringify(forwardBody),
+  });
+
+  const text = await resp.text();
+  return new Response(text, {
+    status: resp.status,
+    headers: corsHeaders(),
+  });
 }
 
 async function verifySessionJWT(req: Request): Promise<SessionClaims | null> {
@@ -272,11 +343,34 @@ Deno.serve(async (req) => {
     const action = String(body.action || "").trim() as Action;
     const sb = createClient(Deno.env.get("SUPABASE_URL") || "", Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "");
 
+    const forwardedSlug = FORWARDED_ACTIONS[action];
+    if (forwardedSlug) return await forwardToLegacy(req, body, forwardedSlug);
     if (action === "list") return await actionList(sb, req, body);
     if (action === "upsert") return await actionUpsert(sb, req, body);
     if (action === "delete") return await actionDelete(sb, req, body);
 
-    return json({ ok: false, error: "invalid_action", allowed: ["list", "upsert", "delete"] }, 400);
+    return json(
+      {
+        ok: false,
+        error: "invalid_action",
+        allowed: [
+          "list",
+          "list-public",
+          "list-admin",
+          "upsert",
+          "delete",
+          "list-events",
+          "upsert-event",
+          "delete-event",
+          "list-events-public",
+          "list-banners",
+          "upsert-banner",
+          "delete-banner",
+          "list-banners-public",
+        ],
+      },
+      400,
+    );
   } catch (err) {
     return json({ ok: false, error: "exception", details: String(err) }, 500);
   }
