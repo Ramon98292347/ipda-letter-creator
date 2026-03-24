@@ -652,44 +652,27 @@ async function handleCreate(session: SessionClaims, body: Record<string, unknown
       }
     }
 
-    // Comentario: gera notificacao pessoal para o pastor assinante e uma do feed da igreja.
+    // Comentario: gera notificacao pessoal para o pastor assinante.
     const notificationTitle = status === "LIBERADA" ? "Carta liberada criada" : "Nova carta aguardando liberacao";
     const notificationMessage = `${preacher_name} - ${created.preach_date} (${created.preach_period})`;
     try {
-      await sb.from("notifications").insert([
-        {
-          church_totvs_id,
-          user_id: signerPastorId,
-          type: "LETTER_CREATED",
-          title: notificationTitle,
-          message: notificationMessage,
-          is_read: false,
-          related_id: String(created.id),
-          data: {
-            letter_id: created.id,
-            status: created.status,
-            preacher_name,
-            preacher_user_id,
-            phone: preacher_phone,
-            email: preacher_email,
-          },
+      await sb.from("notifications").insert({
+        church_totvs_id,
+        user_id: signerPastorId,
+        type: "letter_created",
+        title: notificationTitle,
+        message: notificationMessage,
+        is_read: false,
+        related_id: String(created.id),
+        data: {
+          letter_id: created.id,
+          status: created.status,
+          preacher_name,
+          preacher_user_id,
+          phone: preacher_phone,
+          email: preacher_email,
         },
-        {
-          church_totvs_id,
-          user_id: null,
-          type: "LETTER_CREATED",
-          title: notificationTitle,
-          message: notificationMessage,
-          is_read: false,
-          related_id: String(created.id),
-          data: {
-            letter_id: created.id,
-            status: created.status,
-            preacher_name,
-            preacher_user_id,
-          },
-        },
-      ]);
+      });
 
       await sendInternalPushNotification({
         title: notificationTitle,

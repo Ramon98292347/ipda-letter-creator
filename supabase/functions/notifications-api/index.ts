@@ -87,7 +87,14 @@ async function actionList(sb: ReturnType<typeof createClient>, session: Awaited<
 
 async function actionMarkRead(sb: ReturnType<typeof createClient>, session: Awaited<ReturnType<typeof verifySessionJWT>>, body: Record<string, unknown>) {
   const id = String(body.id || body.notification_id || "").trim();
-  if (!id) return json({ ok: true, skipped: true, reason: "missing_id" });
+  const churchTotvsId = String(body.church_totvs_id || "").trim();
+  if (!id) {
+    let bulkDelete = sb.from("notifications").delete().eq("user_id", session!.user_id);
+    if (churchTotvsId) bulkDelete = bulkDelete.eq("church_totvs_id", churchTotvsId);
+    const { error: bulkErr } = await bulkDelete;
+    if (bulkErr) return json({ ok: false, error: "db_error_bulk_delete" }, 500);
+    return json({ ok: true, deleted_scope: churchTotvsId || "all" });
+  }
 
   const { data: row, error: findErr } = await sb
     .from("notifications")
