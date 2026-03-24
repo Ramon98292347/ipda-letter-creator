@@ -1,4 +1,4 @@
-﻿import { useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,7 @@ import { AdminChurchesTab } from "@/components/admin/AdminChurchesTab";
 import { StatCards } from "@/components/shared/StatCards";
 import { Skeleton } from "@/components/ui/skeleton";
 import { usePwaInstall } from "@/hooks/usePwaInstall";
+import { supabaseRealtime } from "@/lib/supabaseRealtime";
 
 type Tab = "cartas" | "igrejas";
 
@@ -126,6 +127,37 @@ export default function AdminPastorDashboard() {
   });
   const notifications = notificationsData?.notifications || [];
   const unreadCount = notificationsData?.unread_count || 0;
+
+  useEffect(() => {
+    if (!effectiveScopeTotvsIds.length) return;
+
+    const scopeSet = new Set(effectiveScopeTotvsIds.map(String));
+    const channel = supabaseRealtime
+      .channel(`admin-pastor-letters-${effectiveScopeTotvsIds.join("-")}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "letters" },
+        (payload) => {
+          const row = ((payload.new || payload.old || {}) as Record<string, unknown>);
+          const churchTotvsId = String(row.church_totvs_id || "").trim();
+          const preacherUserId = String(row.preacher_user_id || "").trim();
+          const inScope = scopeSet.has(churchTotvsId);
+          const isOwnPastorLetter = !isAdmin && preacherUserId === String(usuario?.id || "");
+          if (!inScope && !isOwnPastorLetter) return;
+
+          void Promise.all([
+            queryClient.invalidateQueries({ queryKey: ["pastor-letters"] }),
+            queryClient.invalidateQueries({ queryKey: ["pastor-metrics"] }),
+            queryClient.invalidateQueries({ queryKey: ["notifications"] }),
+          ]);
+        },
+      )
+      .subscribe();
+
+    return () => {
+      void supabaseRealtime.removeChannel(channel);
+    };
+  }, [effectiveScopeTotvsIds, isAdmin, queryClient, usuario?.id]);
 
   async function refreshAll() {
     await Promise.all([

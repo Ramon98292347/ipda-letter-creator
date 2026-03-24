@@ -1,6 +1,6 @@
-﻿import { useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import { useNavigate, Navigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CalendarDays, FileText, LineChart, Users } from "lucide-react";
 import { ManagementShell } from "@/components/layout/ManagementShell";
 import { CartasTab } from "@/components/admin/CartasTab";
@@ -9,6 +9,7 @@ import { useUser } from "@/context/UserContext";
 import { getPastorMetrics, listChurchesInScope, listMembers, listPastorLetters } from "@/services/saasService";
 import { PageLoading } from "@/components/shared/PageLoading";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { supabaseRealtime } from "@/lib/supabaseRealtime";
 
 function KpiCard({
   label,
@@ -35,6 +36,7 @@ function KpiCard({
 // Comentario: dashboard exclusivo de cartas para pastor/admin.
 export default function CartasDashboardPage() {
   const nav = useNavigate();
+  const queryClient = useQueryClient();
   const { usuario, session } = useUser();
   const [selectedChurchTotvs, setSelectedChurchTotvs] = useState<string>("all");
 
@@ -123,6 +125,36 @@ export default function CartasDashboardPage() {
     (fetchingMetrics && !metrics) ||
     (fetchingLetters && !letters.length) ||
     (fetchingMembers && !membrosRes);
+
+  useEffect(() => {
+    if (!selectedScopeForLetters.length) return;
+
+    const scopeSet = new Set(selectedScopeForLetters.map(String));
+    const channel = supabaseRealtime
+      .channel(`cartas-dashboard-letters-${roleMode}-${selectedScopeForLetters.join("-")}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "letters" },
+        (payload) => {
+          const row = ((payload.new || payload.old || {}) as Record<string, unknown>);
+          const churchTotvsId = String(row.church_totvs_id || "").trim();
+          const preacherUserId = String(row.preacher_user_id || "").trim();
+          const inScope = scopeSet.has(churchTotvsId);
+          const isOwnPastorLetter = roleMode === "pastor" && preacherUserId === String(usuario?.id || "");
+          if (!inScope && !isOwnPastorLetter) return;
+
+          void Promise.all([
+            queryClient.invalidateQueries({ queryKey: ["cartas-dashboard-letters"] }),
+            queryClient.invalidateQueries({ queryKey: ["cartas-dashboard-metrics"] }),
+          ]);
+        },
+      )
+      .subscribe();
+
+    return () => {
+      void supabaseRealtime.removeChannel(channel);
+    };
+  }, [queryClient, roleMode, selectedScopeForLetters, usuario?.id]);
 
   const obreiros = membrosRes?.workers || [];
   const phonesByUserId = useMemo(() => {

@@ -268,6 +268,9 @@ verify_jwt = false
 - antes da exclusao, o backend limpa relacoes basicas como `release_requests` e notificacoes com `related_id`
 - as listas de cartas mostram inicialmente apenas as 5 mais novas
 - quando houver mais registros, a interface mostra um botao para expandir
+- a tabela `letters` e a fonte de verdade para atualizacao em tempo real das telas de cartas
+- no obreiro, `url_pronta` e `url_carta` liberam o botao do PDF sem reload manual
+- no pastor/admin, novas cartas entram automaticamente na lista quando surgem na tabela
 
 ### Notificacoes
 - ao marcar como lida, a notificacao e removida do banco
