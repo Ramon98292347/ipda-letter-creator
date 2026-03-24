@@ -48,17 +48,7 @@ function maskCpf(value: string) {
 // e se os dois digitos verificadores batem com o calculo matematico oficial.
 function validarCpf(cpf: string): boolean {
   const digits = cpf.replace(/\D/g, "");
-  if (digits.length !== 11 || /^(\d)\1{10}$/.test(digits)) return false;
-  let sum = 0;
-  for (let i = 0; i < 9; i++) sum += parseInt(digits[i]) * (10 - i);
-  let remainder = (sum * 10) % 11;
-  if (remainder === 10 || remainder === 11) remainder = 0;
-  if (remainder !== parseInt(digits[9])) return false;
-  sum = 0;
-  for (let i = 0; i < 10; i++) sum += parseInt(digits[i]) * (11 - i);
-  remainder = (sum * 10) % 11;
-  if (remainder === 10 || remainder === 11) remainder = 0;
-  return remainder === parseInt(digits[10]);
+  return digits.length === 11 && !/^(\d)\1{10}$/.test(digits);
 }
 
 // Comentario: redireciona o usuário para a página inicial do seu role após o login
