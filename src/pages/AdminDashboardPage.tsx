@@ -64,6 +64,9 @@ export default function AdminDashboardPage() {
     };
   }, [churches, totalIgrejasEscopo]);
 
+  // Comentario: total real vem do campo "total" da API (não do length do array retornado)
+  const totalMembrosReal = Number(membersData?.total || members.length || 0);
+
   const memberCounters = useMemo(() => {
     const normalized = members.map((m) => ({
       role: String(m.role || "").toLowerCase(),
@@ -75,14 +78,16 @@ export default function AdminDashboardPage() {
     }));
 
     return {
-      total: normalized.length,
+      // Comentario: usa o total da API — representa todos os registros, não só os baixados
+      total: totalMembrosReal,
+      // Comentario: pastores = role pastor OU minister_role pastor
       pastores: normalized.filter((m) => m.role === "pastor" || m.minister_role === "pastor").length,
       obreiros: normalized.filter((m) => m.minister_role === "cooperador").length,
       presbiteros: normalized.filter((m) => m.minister_role === "presbitero").length,
       diaconos: normalized.filter((m) => m.minister_role === "diacono").length,
       membrosAtivos: normalized.filter((m) => m.minister_role === "membro" && m.is_active).length,
     };
-  }, [members]);
+  }, [members, totalMembrosReal]);
 
   return (
     <ManagementShell roleMode="admin">
