@@ -308,7 +308,13 @@ async function handleLogin(req: Request, body: Record<string, unknown>) {
   if (userError) return json({ ok: false, error: "db_error" }, 500);
   // Comentario: retorna user_not_found (nao invalid-credentials) para o front saber abrir o cadastro rapido
   if (!user) return json({ ok: false, error: "user_not_found" }, 401);
-  if (!user.is_active) return json({ ok: false, error: "inactive_user" }, 403);
+  if (!user.is_active) {
+    // Comentario: se inativo por cadastro pendente, informa mensagem especifica
+    const rawAccess = Array.isArray(user.totvs_access) ? user.totvs_access as Record<string, unknown>[] : [];
+    const hasPending = rawAccess.some((item) => String(item?.registration_status || "").trim().toUpperCase() === "PENDENTE");
+    if (hasPending) return json({ ok: false, error: "registration_pending", message: "Seu cadastro está pendente de aprovação. Aguarde a liberação do pastor da sua igreja." }, 403);
+    return json({ ok: false, error: "inactive_user" }, 403);
+  }
 
   if (String(user.payment_status || "").toUpperCase() === "BLOQUEADO_PAGAMENTO") {
     return json({ ok: false, error: "blocked_payment", message: "Acesso bloqueado por pagamento pendente." }, 403);
@@ -779,7 +785,8 @@ async function handlePublicRegister(body: Record<string, unknown>) {
       password_hash: passwordHash,
       default_totvs_id: totvsId,
       totvs_access: totvsAccess,
-      is_active: true,
+      // Comentario: cadastro rapido nasce inativo — so ativa apos o pastor liberar
+      is_active: false,
     })
     .select("id, cpf, full_name, role, minister_role, default_totvs_id")
     .single();

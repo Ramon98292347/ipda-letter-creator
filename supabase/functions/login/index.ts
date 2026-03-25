@@ -204,7 +204,13 @@ Deno.serve(async (req) => {
     if (uErr) return json({ ok: false, error: "db_error" }, 500);
     // Comentario: retorna user_not_found (nao invalid-credentials) para o front saber abrir o cadastro rapido
     if (!user) return json({ ok: false, error: "user_not_found" }, 401);
-    if (!user.is_active) return json({ ok: false, error: "inactive_user" }, 403);
+    if (!user.is_active) {
+      // Comentario: se inativo por cadastro pendente, informa mensagem especifica
+      const rawAccess = Array.isArray(user.totvs_access) ? user.totvs_access as Record<string, unknown>[] : [];
+      const hasPending = rawAccess.some((item: Record<string, unknown>) => String(item?.registration_status || "").trim().toUpperCase() === "PENDENTE");
+      if (hasPending) return json({ ok: false, error: "registration_pending", message: "Seu cadastro está pendente de aprovação. Aguarde a liberação do pastor da sua igreja." }, 403);
+      return json({ ok: false, error: "inactive_user" }, 403);
+    }
 
     if (String(user.payment_status || "").toUpperCase() === "BLOQUEADO_PAGAMENTO") {
       return json({ ok: false, error: "blocked_payment", message: "Acesso bloqueado por pagamento pendente." }, 403);
