@@ -20,6 +20,7 @@ import { useUser } from "@/context/UserContext";
 import { useDebounce } from "@/hooks/useDebounce";
 import { fetchAddressByCep, maskCep, onlyDigits } from "@/lib/cep";
 import { PageLoading } from "@/components/shared/PageLoading";
+import { MobileFiltersCard } from "@/components/shared/MobileFiltersCard";
 import { formatCepBr, formatCpfBr, formatDateBr as formatDateBrValue, formatPhoneBr as formatPhoneBrValue } from "@/lib/br-format";
 
 type MemberTab = "lista" | "ficha_membro" | "carteirinha" | "ficha_obreiro" | "presenca";
@@ -1072,9 +1073,11 @@ export default function PastorMembrosPage() {
         <MiniCard title="Membros ativos" value={counters.batizados} subtitle="ministerio membro" gradient={memberTone.batizados} />
       </section>
 
-      <Card className="mb-4 rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <CardContent className="p-4">
-          <p className="mb-3 text-sm font-semibold text-slate-900">Filtrar membros</p>
+      <MobileFiltersCard
+        title="Filtros de membros"
+        description="Escolha a igreja e o cargo para refinar a lista."
+        className="mb-4 rounded-2xl"
+      >
           {/* Comentario: combobox de busca de igreja + filtro de cargo lado a lado */}
           <div className="grid gap-3 sm:grid-cols-2 max-w-2xl">
             {/* Combobox manual para busca de igreja por nome ou TOTVS */}
@@ -1137,8 +1140,7 @@ export default function PastorMembrosPage() {
               </SelectContent>
             </Select>
           </div>
-        </CardContent>
-      </Card>
+      </MobileFiltersCard>
 
       <Card className="mb-4 rounded-2xl border border-slate-200 bg-white shadow-sm">
         <CardContent className="flex flex-col gap-3 p-4 lg:flex-row lg:items-center lg:justify-between">

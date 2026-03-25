@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { listChurchesInScope, listMembers } from "@/services/saasService";
 import { PageLoading } from "@/components/shared/PageLoading";
+import { MobileFiltersCard } from "@/components/shared/MobileFiltersCard";
 import { useUser } from "@/context/UserContext";
 import { useDebounce } from "@/hooks/useDebounce";
 
@@ -158,66 +159,68 @@ export default function AdminMembrosPage() {
         <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
           <h2 className="text-4xl font-extrabold tracking-tight text-slate-900">Membros</h2>
           <p className="mt-1 text-base text-slate-600">Visualize os membros por igreja e cadastre pastores/obreiros.</p>
-          {/* Comentario: combobox de busca de igreja + filtro de cargo lado a lado no header */}
-          <div className="mt-4 grid gap-3 sm:grid-cols-2 max-w-2xl">
-            {/* Combobox de busca de igreja com dropdown manual */}
-            <div className="relative">
-              <Input
-                value={searchChurch}
-                onChange={(e) => { setSearchChurch(e.target.value); setShowChurchList(true); }}
-                onFocus={() => setShowChurchList(true)}
-                onBlur={() => setTimeout(() => setShowChurchList(false), 200)}
-                placeholder="Buscar igreja por nome ou TOTVS..."
-              />
-              {/* Comentario: mostra a igreja selecionada com opcao de limpar quando o dropdown esta fechado */}
-              {selectedChurch && !showChurchList && (
-                <p className="mt-1 text-xs text-slate-500">
-                  Igreja: <span className="font-medium">{selectedChurch.church_name}</span>
-                  {" "}<button className="text-blue-600 hover:underline" onClick={() => { setSelectedChurchTotvs(""); setSearchChurch(""); }}>Todas</button>
-                </p>
-              )}
-              {/* Comentario: dropdown de opcoes de igrejas filtradas pelo texto digitado */}
-              {showChurchList && (
-                <div className="absolute z-20 mt-1 w-full rounded-lg border border-slate-200 bg-white shadow-lg max-h-60 overflow-y-auto">
-                  <button
-                    className="w-full px-3 py-2 text-left text-sm hover:bg-blue-50 font-medium text-blue-700 border-b"
-                    onMouseDown={() => { setSelectedChurchTotvs(""); setSearchChurch(""); setShowChurchList(false); }}
-                  >
-                    Todas as igrejas do escopo
-                  </button>
-                  {filteredChurches.map((church) => (
-                    <button
-                      key={church.totvs_id}
-                      className="w-full px-3 py-2 text-left text-sm hover:bg-slate-50"
-                      onMouseDown={() => {
-                        setSelectedChurchTotvs(String(church.totvs_id));
-                        setSearchChurch(`${church.totvs_id} - ${church.church_name}`);
-                        setShowChurchList(false);
-                      }}
-                    >
-                      <span className="font-mono text-xs text-slate-400">{church.totvs_id}</span>{" "}
-                      {church.church_name}
-                    </button>
-                  ))}
-                  {debouncedSearch.trim().length >= 2 && filteredChurches.length === 0 && (
-                    <p className="px-3 py-2 text-sm text-slate-400">Nenhuma igreja encontrada.</p>
+          <div className="mt-4 max-w-3xl">
+            <MobileFiltersCard
+              title="Filtros de membros"
+              description="Escolha a igreja e o cargo que deseja visualizar."
+            >
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="relative">
+                  <Input
+                    value={searchChurch}
+                    onChange={(e) => { setSearchChurch(e.target.value); setShowChurchList(true); }}
+                    onFocus={() => setShowChurchList(true)}
+                    onBlur={() => setTimeout(() => setShowChurchList(false), 200)}
+                    placeholder="Buscar igreja por nome ou TOTVS..."
+                  />
+                  {selectedChurch && !showChurchList && (
+                    <p className="mt-1 text-xs text-slate-500">
+                      Igreja: <span className="font-medium">{selectedChurch.church_name}</span>
+                      {" "}<button className="text-blue-600 hover:underline" onClick={() => { setSelectedChurchTotvs(""); setSearchChurch(""); }}>Todas</button>
+                    </p>
+                  )}
+                  {showChurchList && (
+                    <div className="absolute z-20 mt-1 max-h-60 w-full overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-lg">
+                      <button
+                        className="w-full border-b px-3 py-2 text-left text-sm font-medium text-blue-700 hover:bg-blue-50"
+                        onMouseDown={() => { setSelectedChurchTotvs(""); setSearchChurch(""); setShowChurchList(false); }}
+                      >
+                        Todas as igrejas do escopo
+                      </button>
+                      {filteredChurches.map((church) => (
+                        <button
+                          key={church.totvs_id}
+                          className="w-full px-3 py-2 text-left text-sm hover:bg-slate-50"
+                          onMouseDown={() => {
+                            setSelectedChurchTotvs(String(church.totvs_id));
+                            setSearchChurch(`${church.totvs_id} - ${church.church_name}`);
+                            setShowChurchList(false);
+                          }}
+                        >
+                          <span className="font-mono text-xs text-slate-400">{church.totvs_id}</span>{" "}
+                          {church.church_name}
+                        </button>
+                      ))}
+                      {debouncedSearch.trim().length >= 2 && filteredChurches.length === 0 && (
+                        <p className="px-3 py-2 text-sm text-slate-400">Nenhuma igreja encontrada.</p>
+                      )}
+                    </div>
                   )}
                 </div>
-              )}
-            </div>
 
-            {/* Filtro por cargo */}
-            <Select value={filterCargo} onValueChange={setFilterCargo}>
-              <SelectTrigger><SelectValue placeholder="Todos os cargos" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos os cargos</SelectItem>
-                <SelectItem value="pastor">Pastor</SelectItem>
-                <SelectItem value="presbitero">Presbítero</SelectItem>
-                <SelectItem value="diacono">Diácono</SelectItem>
-                <SelectItem value="cooperador">Cooperador</SelectItem>
-                <SelectItem value="membro">Membro</SelectItem>
-              </SelectContent>
-            </Select>
+                <Select value={filterCargo} onValueChange={setFilterCargo}>
+                  <SelectTrigger><SelectValue placeholder="Todos os cargos" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos os cargos</SelectItem>
+                    <SelectItem value="pastor">Pastor</SelectItem>
+                    <SelectItem value="presbitero">Presb?tero</SelectItem>
+                    <SelectItem value="diacono">Di?cono</SelectItem>
+                    <SelectItem value="cooperador">Cooperador</SelectItem>
+                    <SelectItem value="membro">Membro</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </MobileFiltersCard>
           </div>
         </section>
 

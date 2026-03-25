@@ -7,6 +7,7 @@ import { listChurchesInScope, listChurchesInScopePaged } from "@/services/saasSe
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { PageLoading } from "@/components/shared/PageLoading";
+import { MobileFiltersCard } from "@/components/shared/MobileFiltersCard";
 import { useUser } from "@/context/UserContext";
 import { useDebounce } from "@/hooks/useDebounce";
 
@@ -135,32 +136,38 @@ export default function PastorIgrejasPage() {
         <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
           <h2 className="text-4xl font-extrabold tracking-tight text-slate-900">Igrejas</h2>
           <p className="mt-1 text-base text-slate-600">Gerencie as igrejas da sua regiao com visualizacao em lista ou grade.</p>
-          {/* Comentario: filtros de busca por nome/TOTVS e classificacao ficam no header para economia de espaco */}
-          <div className="mt-4 grid gap-3 sm:grid-cols-2 max-w-2xl">
-            <Input
-              value={filterNome}
-              onChange={(e) => { setFilterNome(e.target.value); setPage(1); }}
-              placeholder="Buscar por nome ou TOTVS (min. 2 caracteres)..."
-            />
-            <Select value={filterClasse} onValueChange={(v) => { setFilterClasse(v); setPage(1); }}>
-              <SelectTrigger><SelectValue placeholder="Todas as classificacoes" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todas as classificacoes</SelectItem>
-                <SelectItem value="estadual">Estadual</SelectItem>
-                <SelectItem value="setorial">Setorial</SelectItem>
-                <SelectItem value="central">Central</SelectItem>
-                <SelectItem value="regional">Regional</SelectItem>
-                <SelectItem value="local">Local</SelectItem>
-              </SelectContent>
-            </Select>
+          <div className="mt-4 max-w-3xl">
+            <MobileFiltersCard
+              title="Filtros de igrejas"
+              description="Busque por nome, TOTVS ou classificação."
+              defaultOpenMobile={false}
+            >
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Input
+                  value={filterNome}
+                  onChange={(e) => { setFilterNome(e.target.value); setPage(1); }}
+                  placeholder="Buscar por nome ou TOTVS (min. 2 caracteres)..."
+                />
+                <Select value={filterClasse} onValueChange={(v) => { setFilterClasse(v); setPage(1); }}>
+                  <SelectTrigger><SelectValue placeholder="Todas as classificacoes" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas as classificacoes</SelectItem>
+                    <SelectItem value="estadual">Estadual</SelectItem>
+                    <SelectItem value="setorial">Setorial</SelectItem>
+                    <SelectItem value="central">Central</SelectItem>
+                    <SelectItem value="regional">Regional</SelectItem>
+                    <SelectItem value="local">Local</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {(debouncedNome.trim().length > 0 || filterClasse !== "all") && (
+                <p className="text-xs text-slate-500">
+                  {effectiveTotal} resultado{effectiveTotal !== 1 ? "s" : ""} encontrado{effectiveTotal !== 1 ? "s" : ""}
+                  {" "}<button className="text-blue-600 hover:underline" onClick={() => { setFilterNome(""); setFilterClasse("all"); setPage(1); }}>Limpar filtros</button>
+                </p>
+              )}
+            </MobileFiltersCard>
           </div>
-          {/* Comentario: exibe contagem de resultados e botao para limpar filtros quando algum esta ativo */}
-          {(debouncedNome.trim().length > 0 || filterClasse !== "all") && (
-            <p className="mt-2 text-xs text-slate-500">
-              {effectiveTotal} resultado{effectiveTotal !== 1 ? "s" : ""} encontrado{effectiveTotal !== 1 ? "s" : ""}
-              {" "}<button className="text-blue-600 hover:underline" onClick={() => { setFilterNome(""); setFilterClasse("all"); setPage(1); }}>Limpar filtros</button>
-            </p>
-          )}
         </section>
 
         <section className="grid gap-4 md:grid-cols-3 xl:grid-cols-6">

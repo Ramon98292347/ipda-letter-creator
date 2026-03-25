@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
 import { setLetterStatus, setWorkerDirectRelease, softDeleteLetter, type PastorLetter } from "@/services/saasService";
-import { ArrowUpRight, FileText, Filter, MoreHorizontal, RotateCcw, Search, Share2, Trash2, Lock, Unlock, CheckCheck, Send, Zap } from "lucide-react";
+import { ArrowUpRight, FileText, MoreHorizontal, RotateCcw, Search, Share2, Trash2, Lock, Unlock, CheckCheck, Send, Zap } from "lucide-react";
 import { PastorLetterDialog, type LetterTarget } from "@/components/admin/PastorLetterDialog";
 
 // Comentario: URL do webhook n8n lida da variavel de ambiente para nao expor o endpoint no codigo-fonte.
@@ -438,12 +438,10 @@ export function CartasTab({
 
   return (
     <>
-      <FiltersBar>
-        <div className="mb-5 flex items-center justify-between">
-          <h2 className="flex items-center gap-2 text-3xl font-semibold text-slate-900"><Filter className="h-6 w-6 text-[#2f63d4]" /> Filtros</h2>
-          <div className="text-xs text-slate-500">Escopo TOTVS: {scopeMode === "scope" ? scopeTotvsIds.join(", ") : "ativo"}</div>
-        </div>
-
+      <FiltersBar
+        title="Filtros de cartas"
+        headerRight={<div className="text-xs text-slate-500">Escopo TOTVS: {scopeMode === "scope" ? scopeTotvsIds.join(", ") : "ativo"}</div>}
+      >
         <div className="mb-3 flex flex-wrap items-center gap-2">
           <div className="flex items-center gap-2 overflow-x-auto whitespace-nowrap pb-1 sm:pb-0">
             <Button variant={period === "today" ? "default" : "outline"} onClick={() => setQuick("today")}>Hoje</Button>

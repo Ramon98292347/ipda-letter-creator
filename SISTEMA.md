@@ -506,3 +506,36 @@ que abre editor de recorte com zoom e proporção livre. Não usa face-api.js.
 - `0ac19c4` — Corrige problemas críticos/altos/médios (env, tokens, confirm, webhook, skeleton)
 - `75d9e27` — Adiciona upload de foto com IA nos formulários de cadastro de membro e igreja
 - `654e87a` — Atualiza AvatarCapture com detecção de rosto via face-api.js
+
+
+---
+
+## 18. Ajustes Recentes de UX e Financeiro
+
+### Filtros recolhidos no mobile
+- As telas principais com filtro agora usam bot?o de recolher/mostrar no celular
+- Desktop continua exibindo os filtros abertos normalmente
+- Padr?o aplicado em:
+  - Igrejas (admin e pastor)
+  - Membros (admin e pastor)
+  - Cartas
+  - Financeiro > Sa?das
+  - Financeiro > Relat?rios
+
+### Financeiro ligado ao banco
+- `FinanceiroDashboardPage` agora usa `fin-api` via `financeiroService`
+- `FinanceiroRelatoriosPage` agora usa `fin-api` via `financeiroService`
+- `FinanceiroSaidasPage` j? estava conectada ao backend e agora tamb?m segue o padr?o de filtro mobile
+- As actions usadas s?o:
+  - `dashboard`
+  - `list-transacoes`
+  - `list-categorias`
+  - `list-contagens`
+
+### Observa??o
+- A parte de ficha mensal detalhada do Financeiro ainda conserva campos locais onde ainda n?o existe tabela dedicada no backend
+
+### Projeto de refer?ncia do Financeiro
+- A refer?ncia funcional e visual do m?dulo financeiro fica em:
+  - `C:\Users\ramon\OneDrive\Documentos\Ramon\Projeto trae\financeiro-novo`
+- Sempre que houver d?vida sobre comportamento, layout ou fluxo do Financeiro no sistema completo, comparar primeiro com esse projeto

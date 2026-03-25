@@ -21,6 +21,7 @@ import { toast } from "sonner";
 import { Loader2, Plus, Pencil, Trash2, AlertCircle, X, Tag, TrendingDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { MobileFiltersCard } from "@/components/shared/MobileFiltersCard";
 
 // Comentario: formata numero como moeda brasileira
 function formatarMoeda(valor: number): string {
@@ -243,34 +244,38 @@ export default function FinanceiroSaidasPage() {
           </div>
         </div>
 
-        {/* Filtro de mês e ano */}
-        <div className="flex flex-wrap items-center gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <span className="text-sm font-medium text-slate-700">Filtrar por período:</span>
-          <select
-            value={mesFiltro}
-            onChange={(e) => setMesFiltro(Number(e.target.value))}
-            className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none"
-          >
-            {["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"].map((nome, i) => (
-              <option key={i + 1} value={i + 1}>{nome}</option>
-            ))}
-          </select>
-          <select
-            value={anoFiltro}
-            onChange={(e) => setAnoFiltro(Number(e.target.value))}
-            className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none"
-          >
-            {anosDisponiveis.map((ano) => (
-              <option key={ano} value={ano}>{ano}</option>
-            ))}
-          </select>
-          {/* Comentario: total do mês em destaque no filtro */}
-          {!carregandoTransacoes && (
-            <span className="ml-auto text-sm font-semibold text-red-700">
-              Total: {formatarMoeda(totalDespesas)}
-            </span>
-          )}
-        </div>
+        <MobileFiltersCard
+          title="Filtros de sa?das"
+          description="Escolha o m?s e o ano para listar as despesas."
+          headerRight={!carregandoTransacoes ? <span className="text-sm font-semibold text-red-700">Total: {formatarMoeda(totalDespesas)}</span> : null}
+        >
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="text-sm font-medium text-slate-700">Filtrar por per?odo:</span>
+            <select
+              value={mesFiltro}
+              onChange={(e) => setMesFiltro(Number(e.target.value))}
+              className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none"
+            >
+              {["Janeiro","Fevereiro","Mar?o","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"].map((nome, i) => (
+                <option key={i + 1} value={i + 1}>{nome}</option>
+              ))}
+            </select>
+            <select
+              value={anoFiltro}
+              onChange={(e) => setAnoFiltro(Number(e.target.value))}
+              className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm focus:border-blue-500 focus:outline-none"
+            >
+              {anosDisponiveis.map((ano) => (
+                <option key={ano} value={ano}>{ano}</option>
+              ))}
+            </select>
+            {!carregandoTransacoes && (
+              <span className="text-sm font-semibold text-red-700 md:hidden">
+                Total: {formatarMoeda(totalDespesas)}
+              </span>
+            )}
+          </div>
+        </MobileFiltersCard>
 
         {/* Card de total do mês — fundo vermelho */}
         {!carregandoTransacoes && despesas.length > 0 && (
