@@ -30,6 +30,7 @@ import {
   type PastorLetter,
 } from "@/services/saasService";
 import { post } from "@/lib/api";
+import { api } from "@/lib/endpoints";
 import { Bell, BellOff, Building2, CalendarDays, Download, Eye, FileText, IdCard, Loader2, MoreHorizontal, Phone, RefreshCw, Search, Share2, Trash2, Unlock, UserCircle2 } from "lucide-react";
 import { ImageCaptureInput } from "@/components/shared/ImageCaptureInput";
 import { AvatarCapture } from "@/components/shared/AvatarCapture";

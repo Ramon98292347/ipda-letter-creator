@@ -170,6 +170,41 @@ function computeRootTotvs(activeTotvs: string, churches: ChurchRow[]): string {
   return activeTotvs;
 }
 
+// Comentario: tipo da classificacao da igreja (usado na hierarquia)
+type ChurchClass = "estadual" | "setorial" | "central" | "regional" | "local";
+
+// Comentario: normaliza o campo class da igreja para um valor valido
+function normalizeChurchClass(value: string | null | undefined): ChurchClass | null {
+  const safe = String(value || "").trim().toLowerCase();
+  if (safe === "estadual" || safe === "setorial" || safe === "central" || safe === "regional" || safe === "local") return safe;
+  return null;
+}
+
+// Comentario: verifica se o usuario logado pode gerenciar o membro alvo (hierarquia de igrejas)
+function canManageMember(
+  sessionRole: Role,
+  sessionActiveTotvs: string,
+  memberDefaultTotvs: string,
+  sessionChurchClass: ChurchClass | null,
+  memberChurchClass: ChurchClass | null,
+  scope: string[],
+): boolean {
+  if (sessionRole === "admin") return true;
+  if (!scope.includes(memberDefaultTotvs)) return false;
+  if (memberDefaultTotvs === sessionActiveTotvs) return true;
+  if (!sessionChurchClass || !memberChurchClass) return false;
+
+  const rank: Record<ChurchClass, number> = {
+    estadual: 5,
+    setorial: 4,
+    central: 3,
+    regional: 2,
+    local: 1,
+  };
+
+  return rank[memberChurchClass] <= rank[sessionChurchClass];
+}
+
 async function signAppToken(payload: { sub: string; app_role: string; active_totvs_id: string }) {
   const secret = Deno.env.get("USER_SESSION_JWT_SECRET") || "";
   if (!secret) return null;
@@ -831,6 +866,75 @@ async function handleGetRegistrationStatus(req: Request) {
   }, 200);
 }
 
+// Comentario: handler para pastor/admin/secretario resetar a senha de um membro do seu escopo
+async function handleAdminResetPassword(req: Request, body: Record<string, unknown>) {
+  // Comentario: somente pastor, admin ou secretario podem resetar senhas
+  const session = await verifySessionJWT(req);
+  if (!session) return json({ ok: false, error: "unauthorized" }, 401);
+  if (session.role === "obreiro" || session.role === "financeiro") {
+    return json({ ok: false, error: "forbidden" }, 403);
+  }
+
+  const userId = String(body.user_id || "").trim();
+  const cpf = String(body.cpf || "").replace(/\D/g, "").trim();
+  const newPassword = String(body.new_password || "");
+
+  if (!userId && !cpf) return json({ ok: false, error: "missing_user_id" }, 400);
+  if (newPassword.length < 6) return json({ ok: false, error: "weak_password" }, 400);
+
+  const sb = createAdminClient();
+
+  // Comentario: busca o usuario alvo por id ou por cpf
+  let targetQuery = sb.from("users").select("id, role, default_totvs_id").limit(1);
+  if (userId) {
+    targetQuery = targetQuery.eq("id", userId);
+  } else {
+    targetQuery = targetQuery.eq("cpf", cpf);
+  }
+  const { data: targets, error: targetError } = await targetQuery;
+
+  if (targetError) return json({ ok: false, error: "db_error_target", details: targetError.message }, 500);
+  if (!targets || targets.length === 0) return json({ ok: false, error: "user_not_found" }, 404);
+
+  const target = targets[0] as { id: string; role: string; default_totvs_id: string | null };
+
+  // Comentario: busca todas as igrejas para calcular escopo e hierarquia
+  const { data: churches, error: churchesErr } = await sb
+    .from("churches")
+    .select("totvs_id,parent_totvs_id,class");
+
+  if (churchesErr) return json({ ok: false, error: "db_error_churches", details: churchesErr.message }, 500);
+
+  const rows = (churches || []) as (ChurchRow & { class?: string | null })[];
+  const scope = computeScope(session.active_totvs_id, rows);
+  const sessionClass = normalizeChurchClass(rows.find((c) => c.totvs_id === session.active_totvs_id)?.class);
+  const targetTotvs = String(target.default_totvs_id || "").trim();
+  const targetClass = normalizeChurchClass(rows.find((c) => c.totvs_id === targetTotvs)?.class);
+
+  const allowed = canManageMember(
+    session.role,
+    session.active_totvs_id,
+    targetTotvs,
+    sessionClass,
+    targetClass,
+    scope,
+  );
+
+  if (!allowed) return json({ ok: false, error: "forbidden" }, 403);
+
+  // Comentario: gera o hash bcrypt e atualiza a senha do membro
+  const password_hash = bcrypt.hashSync(newPassword, 10);
+
+  const { error: updateError } = await sb
+    .from("users")
+    .update({ password_hash })
+    .eq("id", target.id);
+
+  if (updateError) return json({ ok: false, error: "db_error_update_password", details: updateError.message }, 500);
+
+  return json({ ok: true, message: "Senha redefinida com sucesso." }, 200);
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders() });
   if (req.method !== "POST") return json({ ok: false, error: "method_not_allowed" }, 405);
@@ -850,6 +954,8 @@ Deno.serve(async (req) => {
       case "reset-password":
       case "reset-password-confirm":
         return await handleResetPassword(body);
+      case "admin-reset-password":
+        return await handleAdminResetPassword(req, body);
       case "get-pastor-contact":
         return await handleGetPastorContact(req, body);
       case "public-register":
