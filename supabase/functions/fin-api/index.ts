@@ -315,10 +315,9 @@ async function handleSaveContagem(
 
   const churchId = getChurchFilter(session, body);
 
-  // Comentario: calcula a diferenca entre o saldo contado e o saldo do sistema
+  // Comentario: diferenca e calculada automaticamente pelo banco (coluna gerada)
   const saldo_sistema = Number(body.saldo_sistema) || 0;
   const saldo_contado = Number(body.saldo_contado) || 0;
-  const diferenca = saldo_contado - saldo_sistema;
 
   // Comentario: insere o registro principal da contagem
   const { data: contagem, error: contagemError } = await sb
@@ -328,7 +327,6 @@ async function handleSaveContagem(
       data_contagem: String(body.data_contagem || ""),
       saldo_sistema,
       saldo_contado,
-      diferenca,
       observacoes: body.observacoes ? String(body.observacoes) : null,
       status: "finalizada",
       user_id: session.user_id,
