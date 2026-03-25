@@ -50,9 +50,18 @@ export default function PastorDashboardPage() {
   const navigate = useNavigate();
   const { session } = useUser();
 
+  // Comentario: usa root_totvs_id (mãe) como escopo — nunca puxa o banco todo para o role pastor
+  const rootTotvs = session?.root_totvs_id || session?.totvs_id || "";
+
   const { data: membersRes } = useQuery({
-    queryKey: ["pastor-dashboard-members"],
-    queryFn: () => listMembers({ page: 1, page_size: 300, roles: ["pastor", "obreiro"] }),
+    queryKey: ["pastor-dashboard-members", rootTotvs],
+    queryFn: () => listMembers({
+      page: 1,
+      page_size: 1000,
+      roles: ["pastor", "obreiro"],
+      church_totvs_id: rootTotvs || undefined,
+    }),
+    enabled: Boolean(rootTotvs),
     refetchInterval: 10000,
   });
   const { data: churchesRes } = useQuery({
