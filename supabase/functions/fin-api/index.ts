@@ -450,6 +450,25 @@ async function handleSaveFechamento(
   return json({ ok: true, data });
 }
 
+// Comentario: lista os fechamentos mensais da igreja, do mais recente para o mais antigo
+async function handleListFechamentos(
+  sb: ReturnType<typeof createClient>,
+  session: SessionClaims,
+  body: Record<string, unknown>,
+) {
+  const churchId = getChurchFilter(session, body);
+
+  const { data, error } = await sb
+    .from("fin_fechamentos_mensais")
+    .select("id, ano, mes, total_receitas, total_despesas, saldo_final_mes, status, fechado_em, responsavel_atual")
+    .eq("church_totvs_id", churchId)
+    .order("ano", { ascending: false })
+    .order("mes", { ascending: false });
+
+  if (error) return json({ ok: false, error: "db_error", details: error.message }, 500);
+  return json({ ok: true, data: data || [] });
+}
+
 // Comentario: pesquisa igrejas pelo nome ou codigo PDA (totvs_id)
 async function handleSearchChurches(
   sb: ReturnType<typeof createClient>,
@@ -515,6 +534,8 @@ Deno.serve(async (req) => {
         return await handleSearchChurches(sb, session, body);
       case "save-fechamento":
         return await handleSaveFechamento(sb, session, body);
+      case "list-fechamentos":
+        return await handleListFechamentos(sb, session, body);
       default:
         return json({ ok: false, error: "unknown_action", action }, 400);
     }
