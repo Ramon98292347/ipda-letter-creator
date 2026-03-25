@@ -331,7 +331,7 @@ async function handleSaveContagem(
       diferenca,
       observacoes: body.observacoes ? String(body.observacoes) : null,
       status: "finalizada",
-      usuario_id: session.user_id,
+      user_id: session.user_id,
     })
     .select()
     .single();
