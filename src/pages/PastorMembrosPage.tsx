@@ -1217,6 +1217,7 @@ export default function PastorMembrosPage() {
           churchTotvsFilter={filterTotvs === "all" ? undefined : filterTotvs}
           forceSingleChurchFilter={filterTotvs !== "all"}
           filterMinisterRole={filterCargo !== "all" ? filterCargo : undefined}
+          initialActiveFilter={filterActive === false ? "inactive" : "all"}
         />
       ) : null}
 

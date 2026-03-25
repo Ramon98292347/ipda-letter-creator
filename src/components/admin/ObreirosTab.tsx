@@ -205,7 +205,8 @@ export function ObreirosTab({
 
   // Comentario: sincroniza o filtro de ativo/inativo com a prop externa (ex: clique no card de inativos)
   useEffect(() => {
-    if (initialActiveFilter) setActiveFilter(initialActiveFilter);
+    setActiveFilter(initialActiveFilter || "all");
+    setPage(1);
   }, [initialActiveFilter]);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(50);
