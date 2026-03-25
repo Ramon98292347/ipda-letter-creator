@@ -450,6 +450,92 @@ async function handleSaveFechamento(
   return json({ ok: true, data });
 }
 
+// Comentario: salva (ou incrementa) a ficha diária do dia com o valor da contagem.
+// Se já existe uma ficha para esse dia, adiciona o valor ao total_entradas existente.
+// Se não existe, cria uma nova ficha com saldo_inicial = 0.
+async function handleSaveFichaDiaria(
+  sb: ReturnType<typeof createClient>,
+  session: SessionClaims,
+  body: Record<string, unknown>,
+) {
+  if (!["financeiro", "admin"].includes(session.role)) {
+    return json({ ok: false, error: "forbidden" }, 403);
+  }
+
+  const churchId = getChurchFilter(session, body);
+  const data_ficha = String(body.data_ficha || "");
+  const valor_entrada = Number(body.valor_entrada) || 0;
+
+  if (!data_ficha) return json({ ok: false, error: "missing_data_ficha" }, 400);
+
+  // Comentario: busca se já existe ficha para esse dia e igreja
+  const { data: existing, error: findError } = await sb
+    .from("fin_fichas_diarias")
+    .select("id, total_entradas")
+    .eq("data_ficha", data_ficha)
+    .eq("church_totvs_id", churchId)
+    .maybeSingle();
+
+  if (findError) return json({ ok: false, error: "db_error", details: findError.message }, 500);
+
+  if (existing) {
+    // Comentario: já existe — incrementa total_entradas com o novo valor
+    const novoTotal = Number(existing.total_entradas) + valor_entrada;
+    const { data, error } = await sb
+      .from("fin_fichas_diarias")
+      .update({ total_entradas: novoTotal })
+      .eq("id", existing.id)
+      .select()
+      .single();
+    if (error) return json({ ok: false, error: "db_error", details: error.message }, 500);
+    return json({ ok: true, data });
+  } else {
+    // Comentario: não existe — cria nova ficha para o dia
+    const { data, error } = await sb
+      .from("fin_fichas_diarias")
+      .insert({
+        church_totvs_id: churchId,
+        data_ficha,
+        user_id: session.user_id,
+        saldo_inicial: 0,
+        total_entradas: valor_entrada,
+        total_saidas: 0,
+        status: "aberta",
+      })
+      .select()
+      .single();
+    if (error) return json({ ok: false, error: "db_error", details: error.message }, 500);
+    return json({ ok: true, data });
+  }
+}
+
+// Comentario: lista as fichas diárias do mês (padrão: mês atual)
+async function handleListFichasDiarias(
+  sb: ReturnType<typeof createClient>,
+  session: SessionClaims,
+  body: Record<string, unknown>,
+) {
+  const churchId = getChurchFilter(session, body);
+  const now = new Date();
+  const mes = body.mes ? Number(body.mes) : now.getMonth() + 1;
+  const ano = body.ano ? Number(body.ano) : now.getFullYear();
+
+  const inicioMes = `${ano}-${String(mes).padStart(2, "0")}-01`;
+  const ultimoDia = new Date(ano, mes, 0).getDate();
+  const fimMes = `${ano}-${String(mes).padStart(2, "0")}-${String(ultimoDia).padStart(2, "0")}`;
+
+  const { data, error } = await sb
+    .from("fin_fichas_diarias")
+    .select("id, data_ficha, saldo_inicial, total_entradas, total_saidas, saldo_final, observacoes, status, created_at")
+    .eq("church_totvs_id", churchId)
+    .gte("data_ficha", inicioMes)
+    .lte("data_ficha", fimMes)
+    .order("data_ficha", { ascending: true });
+
+  if (error) return json({ ok: false, error: "db_error", details: error.message }, 500);
+  return json({ ok: true, data: data || [] });
+}
+
 // Comentario: lista os fechamentos mensais da igreja, do mais recente para o mais antigo
 async function handleListFechamentos(
   sb: ReturnType<typeof createClient>,
@@ -536,6 +622,10 @@ Deno.serve(async (req) => {
         return await handleSaveFechamento(sb, session, body);
       case "list-fechamentos":
         return await handleListFechamentos(sb, session, body);
+      case "save-ficha-diaria":
+        return await handleSaveFichaDiaria(sb, session, body);
+      case "list-fichas-diarias":
+        return await handleListFichasDiarias(sb, session, body);
       default:
         return json({ ok: false, error: "unknown_action", action }, 400);
     }
