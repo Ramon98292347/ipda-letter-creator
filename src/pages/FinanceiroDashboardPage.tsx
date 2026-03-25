@@ -1,20 +1,27 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ManagementShell } from "@/components/layout/ManagementShell";
-import { TrendingUp, TrendingDown, DollarSign, Calendar, ArrowUpRight, ArrowDownRight, Banknote, CreditCard, Smartphone, Loader2 } from "lucide-react";
+import {
+  TrendingUp, TrendingDown, DollarSign, Calendar,
+  ArrowUpRight, ArrowDownRight, Loader2,
+} from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { getDashboard, listCategorias, listContagens, listTransacoes } from "@/services/financeiroService";
+import { listFechamentos, listContagens } from "@/services/financeiroService";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-function getCurrentDateBrazil(): string {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, "0");
-  const day = String(now.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
+// Comentario: nomes dos meses em portugues para exibir no filtro
+const MESES = [
+  "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+  "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
+];
 
 function formatCurrency(value: number) {
   return value.toLocaleString("pt-BR", { minimumFractionDigits: 2 });
+}
+
+// Comentario: chave unica para identificar um fechamento pelo ano e mes
+function fechamentoKey(ano: number, mes: number) {
+  return `${ano}-${String(mes).padStart(2, "0")}`;
 }
 
 export default function FinanceiroDashboardPage() {
@@ -22,283 +29,273 @@ export default function FinanceiroDashboardPage() {
   const currentDate = new Date();
   const currentMonth = currentDate.getMonth() + 1;
   const currentYear = currentDate.getFullYear();
-  const today = getCurrentDateBrazil();
+  const today = `${currentYear}-${String(currentMonth).padStart(2, "0")}-${String(currentDate.getDate()).padStart(2, "0")}`;
 
-  const { data: dashboard, isLoading: loadingDashboard } = useQuery({
-    queryKey: ["financeiro-dashboard"],
-    queryFn: getDashboard,
+  // Comentario: filtro selecionado no formato "YYYY-MM" — inicia no mes atual
+  const [filtroMes, setFiltroMes] = useState(fechamentoKey(currentYear, currentMonth));
+
+  // Comentario: busca todos os fechamentos mensais (Total Entradas vem de total_receitas)
+  const { data: fechamentos = [], isLoading: loadingFechamentos } = useQuery({
+    queryKey: ["financeiro-dashboard-fechamentos"],
+    queryFn: listFechamentos,
+    staleTime: 2 * 60 * 1000,
   });
 
-  const { data: transactions = [], isLoading: loadingTransactions } = useQuery({
-    queryKey: ["financeiro-dashboard-transacoes", currentMonth, currentYear],
-    queryFn: () => listTransacoes(currentMonth, currentYear),
-  });
-
-  const { data: categories = [] } = useQuery({
-    queryKey: ["financeiro-dashboard-categorias"],
-    queryFn: listCategorias,
-  });
-
+  // Comentario: contagens para calcular entradas do dia atual
   const { data: contagens = [], isLoading: loadingContagens } = useQuery({
     queryKey: ["financeiro-dashboard-contagens"],
     queryFn: listContagens,
+    staleTime: 2 * 60 * 1000,
   });
 
-  const categoryById = useMemo(() => {
-    const map = new Map<string, string>();
-    categories.forEach((category) => map.set(category.id, category.nome));
-    return map;
-  }, [categories]);
+  // Comentario: opcoes de mes para o Select — gerado a partir dos fechamentos existentes
+  const opcoesMes = useMemo(() => {
+    const set = new Set<string>();
+    // Sempre inclui o mes atual mesmo que nao haja fechamento ainda
+    set.add(fechamentoKey(currentYear, currentMonth));
+    fechamentos.forEach((f) => set.add(fechamentoKey(f.ano, f.mes)));
+    return Array.from(set).sort().reverse(); // mais recente primeiro
+  }, [fechamentos, currentYear, currentMonth]);
 
-  const totalEntries = Number(dashboard?.total_receitas || 0);
-  const totalExits = Number(dashboard?.total_despesas || 0);
-  const balance = Number(dashboard?.saldo || 0);
+  // Comentario: encontra o fechamento do mes selecionado
+  const fechamentoSelecionado = useMemo(() => {
+    const [ano, mes] = filtroMes.split("-").map(Number);
+    return fechamentos.find((f) => f.ano === ano && f.mes === mes) || null;
+  }, [fechamentos, filtroMes]);
 
+  // Comentario: total do dia vem das contagens registradas hoje
   const totalEntradasHoje = useMemo(() => {
-    const receitasHoje = transactions
-      .filter((transaction) => transaction.tipo === "receita" && transaction.data_transacao === today)
-      .reduce((sum, transaction) => sum + Number(transaction.valor || 0), 0);
+    return contagens
+      .filter((c) => c.data_contagem === today)
+      .reduce((sum, c) => sum + Number(c.saldo_contado || 0), 0);
+  }, [contagens, today]);
 
-    const contagensHoje = contagens
-      .filter((contagem) => contagem.data_contagem === today)
-      .reduce((sum, contagem) => sum + Number(contagem.saldo_contado || 0), 0);
+  // Comentario: valores do mes selecionado — usa o fechamento se existir, senao mostra zeros
+  const totalEntradas = Number(fechamentoSelecionado?.total_receitas || 0);
+  const totalSaidas = Number(fechamentoSelecionado?.total_despesas || 0);
+  const saldoMes = Number(fechamentoSelecionado?.saldo_final_mes || 0);
 
-    return receitasHoje || contagensHoje;
-  }, [contagens, today, transactions]);
+  // Comentario: nome legivel do mes selecionado para mostrar no subtitulo
+  const [anoFiltro, mesFiltro] = filtroMes.split("-").map(Number);
+  const nomeMesSelecionado = `${MESES[mesFiltro - 1]} ${anoFiltro}`;
 
-  const groupedEntries = useMemo(() => {
-    const empty = {
-      dinheiro: 0,
-      pix: 0,
-      cartao: 0,
-      total: 0,
-    };
-
-    const data = {
-      dizimos: { ...empty },
-      ofertas: { ...empty },
-      ofertasMissionarias: { ...empty },
-    };
-
-    for (const transaction of transactions) {
-      if (transaction.tipo !== "receita") continue;
-      const categoryName = String(categoryById.get(String(transaction.categoria_id || "")) || "").toLowerCase();
-      const value = Number(transaction.valor || 0);
-
-      if (categoryName.includes("diz")) {
-        data.dizimos.total += value;
-        data.dizimos.pix += value;
-      } else if (categoryName.includes("mission")) {
-        data.ofertasMissionarias.total += value;
-        data.ofertasMissionarias.pix += value;
-      } else if (categoryName.includes("ofert")) {
-        data.ofertas.total += value;
-        data.ofertas.pix += value;
-      }
-    }
-
-    return data;
-  }, [categoryById, transactions]);
-
-  const recentTransactions = useMemo(() => {
-    return [...transactions]
-      .sort((a, b) => new Date(b.data_transacao).getTime() - new Date(a.data_transacao).getTime())
-      .slice(0, 5);
-  }, [transactions]);
-
-  const loading = loadingDashboard || loadingTransactions || loadingContagens;
+  const loading = loadingFechamentos || loadingContagens;
 
   return (
     <ManagementShell roleMode="financeiro">
       <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Dashboard Financeiro</h1>
-          <p className="text-gray-600">Visão geral das finanças da sua igreja</p>
+
+        {/* ── Cabeçalho + Filtro de Mês ──────────────────────────────── */}
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Dashboard Financeiro</h1>
+            <p className="text-gray-600">Visão geral das finanças — {nomeMesSelecionado}</p>
+          </div>
+
+          {/* Comentario: filtro por mes — carregado dos fechamentos existentes */}
+          <div className="flex items-center gap-2">
+            <Calendar className="h-4 w-4 text-slate-500" />
+            <Select value={filtroMes} onValueChange={setFiltroMes}>
+              <SelectTrigger className="w-[200px]">
+                <SelectValue placeholder="Selecionar mês" />
+              </SelectTrigger>
+              <SelectContent>
+                {opcoesMes.map((key) => {
+                  const [a, m] = key.split("-").map(Number);
+                  return (
+                    <SelectItem key={key} value={key}>
+                      {MESES[m - 1]} {a}
+                    </SelectItem>
+                  );
+                })}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
-          <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+        {/* ── Aviso se não há fechamento para o mês ─────────────────── */}
+        {!loading && !fechamentoSelecionado && (
+          <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            Nenhum fechamento registrado para <b>{nomeMesSelecionado}</b>. Os valores abaixo são R$ 0,00.
+          </div>
+        )}
+
+        {/* ── Cards principais ───────────────────────────────────────── */}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+
+          {/* Total Entradas — vem de total_receitas do fin_fechamentos_mensais */}
+          <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Entradas do Mês</p>
-                <p className="text-2xl font-bold text-green-600">R$ {formatCurrency(totalEntries)}</p>
+                <p className="text-sm font-medium text-gray-600">Total Entradas</p>
+                {loading
+                  ? <Loader2 className="mt-1 h-6 w-6 animate-spin text-slate-400" />
+                  : <p className="text-2xl font-bold text-green-600">R$ {formatCurrency(totalEntradas)}</p>
+                }
               </div>
-              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-green-100">
-                <TrendingUp className="h-6 w-6 text-green-600" />
+              <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-green-100">
+                <TrendingUp className="h-5 w-5 text-green-600" />
               </div>
             </div>
-            <div className="mt-4 flex items-center text-sm">
-              <ArrowUpRight className="mr-1 h-4 w-4 text-green-500" />
-              <span className="text-green-600">Receitas registradas</span>
+            <div className="mt-3 flex items-center gap-1 text-sm">
+              <ArrowUpRight className="h-4 w-4 text-green-500" />
+              <span className="text-green-600">Fechamento de {nomeMesSelecionado}</span>
             </div>
           </div>
 
-          <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+          {/* Total Saídas */}
+          <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Saídas do Mês</p>
-                <p className="text-2xl font-bold text-red-600">R$ {formatCurrency(totalExits)}</p>
+                <p className="text-sm font-medium text-gray-600">Total Saídas</p>
+                {loading
+                  ? <Loader2 className="mt-1 h-6 w-6 animate-spin text-slate-400" />
+                  : <p className="text-2xl font-bold text-red-600">R$ {formatCurrency(totalSaidas)}</p>
+                }
               </div>
-              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-red-100">
-                <TrendingDown className="h-6 w-6 text-red-600" />
+              <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-red-100">
+                <TrendingDown className="h-5 w-5 text-red-600" />
               </div>
             </div>
-            <div className="mt-4 flex items-center text-sm">
-              <ArrowDownRight className="mr-1 h-4 w-4 text-red-500" />
-              <span className="text-red-600">Despesas registradas</span>
+            <div className="mt-3 flex items-center gap-1 text-sm">
+              <ArrowDownRight className="h-4 w-4 text-red-500" />
+              <span className="text-red-600">Despesas do mês</span>
             </div>
           </div>
 
-          <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+          {/* Saldo do Mês */}
+          <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Saldo do Mês</p>
-                <p className={`text-2xl font-bold ${balance >= 0 ? "text-green-600" : "text-red-600"}`}>R$ {formatCurrency(balance)}</p>
+                {loading
+                  ? <Loader2 className="mt-1 h-6 w-6 animate-spin text-slate-400" />
+                  : <p className={`text-2xl font-bold ${saldoMes >= 0 ? "text-green-600" : "text-red-600"}`}>
+                      R$ {formatCurrency(saldoMes)}
+                    </p>
+                }
               </div>
-              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-blue-100">
-                <DollarSign className="h-6 w-6 text-[#1A237E]" />
+              <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-blue-100">
+                <DollarSign className="h-5 w-5 text-[#1A237E]" />
               </div>
             </div>
-            <div className="mt-4 flex items-center text-sm">
-              <span className={balance >= 0 ? "text-green-600" : "text-red-600"}>
-                {balance >= 0 ? "Saldo positivo" : "Saldo negativo"}
+            <div className="mt-3 text-sm">
+              <span className={saldoMes >= 0 ? "text-green-600" : "text-red-600"}>
+                {saldoMes >= 0 ? "Saldo positivo" : "Saldo negativo"}
               </span>
             </div>
           </div>
 
-          <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+          {/* Caixa Hoje */}
+          <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Caixa Hoje</p>
-                <p className="text-2xl font-bold text-[#1A237E]">R$ {formatCurrency(totalEntradasHoje)}</p>
+                {loading
+                  ? <Loader2 className="mt-1 h-6 w-6 animate-spin text-slate-400" />
+                  : <p className="text-2xl font-bold text-[#1A237E]">R$ {formatCurrency(totalEntradasHoje)}</p>
+                }
               </div>
-              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-blue-100">
-                <Calendar className="h-6 w-6 text-[#1A237E]" />
+              <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-blue-100">
+                <Calendar className="h-5 w-5 text-[#1A237E]" />
               </div>
             </div>
-            <div className="mt-4 flex items-center text-sm">
-              <span className="text-gray-600">{totalEntradasHoje > 0 ? "Entradas registradas" : "Nenhuma entrada hoje"}</span>
+            <div className="mt-3 text-sm text-gray-600">
+              {totalEntradasHoje > 0 ? "Contagens de hoje" : "Nenhuma entrada hoje"}
             </div>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {[
-            { title: "Dízimos do Mês", color: "blue", icon: <Banknote className="h-6 w-6 text-blue-600" />, data: groupedEntries.dizimos },
-            { title: "Ofertas do Mês", color: "green", icon: <Banknote className="h-6 w-6 text-green-600" />, data: groupedEntries.ofertas },
-            { title: "Ofertas Missionárias do Mês", color: "orange", icon: <Banknote className="h-6 w-6 text-orange-600" />, data: groupedEntries.ofertasMissionarias },
-          ].map((item) => (
-            <div key={item.title} className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
-              <div className="mb-4 flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">{item.title}</p>
-                  <p className={`text-2xl font-bold ${item.color === "blue" ? "text-blue-600" : item.color === "green" ? "text-green-600" : "text-orange-600"}`}>
-                    R$ {formatCurrency(item.data.total)}
-                  </p>
-                </div>
-                <div className={`flex h-12 w-12 items-center justify-center rounded-lg ${item.color === "blue" ? "bg-blue-100" : item.color === "green" ? "bg-green-100" : "bg-orange-100"}`}>
-                  {item.icon}
-                </div>
-              </div>
-              <div className="space-y-2">
-                <div className="flex items-center justify-between text-sm">
-                  <div className="flex items-center space-x-2">
-                    <Banknote className="h-4 w-4 text-gray-500" />
-                    <span className="text-gray-600">Dinheiro</span>
-                  </div>
-                  <span className="font-medium text-gray-900">R$ {formatCurrency(item.data.dinheiro)}</span>
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <div className="flex items-center space-x-2">
-                    <Smartphone className="h-4 w-4 text-gray-500" />
-                    <span className="text-gray-600">PIX/OCT</span>
-                  </div>
-                  <span className="font-medium text-gray-900">R$ {formatCurrency(item.data.pix)}</span>
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <div className="flex items-center space-x-2">
-                    <CreditCard className="h-4 w-4 text-gray-500" />
-                    <span className="text-gray-600">Cartão</span>
-                  </div>
-                  <span className="font-medium text-gray-900">R$ {formatCurrency(item.data.cartao)}</span>
-                </div>
-              </div>
+        {/* ── Histórico de fechamentos ───────────────────────────────── */}
+        <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
+          <h3 className="mb-4 text-base font-semibold text-gray-900">Histórico de Fechamentos</h3>
+          {loading ? (
+            <div className="flex justify-center py-6">
+              <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
             </div>
-          ))}
+          ) : fechamentos.length === 0 ? (
+            <p className="py-4 text-center text-sm text-gray-500">Nenhum fechamento registrado ainda.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b bg-slate-50 text-left text-slate-600">
+                    <th className="px-3 py-2 font-semibold">Mês / Ano</th>
+                    <th className="px-3 py-2 font-semibold text-green-700">Entradas</th>
+                    <th className="px-3 py-2 font-semibold text-red-700">Saídas</th>
+                    <th className="px-3 py-2 font-semibold">Saldo Final</th>
+                    <th className="px-3 py-2 font-semibold">Status</th>
+                    <th className="px-3 py-2 font-semibold">Responsável</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {fechamentos.map((f) => (
+                    <tr
+                      key={f.id}
+                      className={`cursor-pointer border-b transition-colors hover:bg-slate-50 ${fechamentoKey(f.ano, f.mes) === filtroMes ? "bg-blue-50" : ""}`}
+                      onClick={() => setFiltroMes(fechamentoKey(f.ano, f.mes))}
+                    >
+                      <td className="px-3 py-2 font-medium text-slate-800">
+                        {MESES[f.mes - 1]} {f.ano}
+                      </td>
+                      <td className="px-3 py-2 font-semibold text-green-700">
+                        R$ {formatCurrency(Number(f.total_receitas))}
+                      </td>
+                      <td className="px-3 py-2 font-semibold text-red-700">
+                        R$ {formatCurrency(Number(f.total_despesas))}
+                      </td>
+                      <td className={`px-3 py-2 font-semibold ${Number(f.saldo_final_mes) >= 0 ? "text-green-700" : "text-red-700"}`}>
+                        R$ {formatCurrency(Number(f.saldo_final_mes))}
+                      </td>
+                      <td className="px-3 py-2">
+                        <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${f.status === "fechado" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>
+                          {f.status === "fechado" ? "Fechado" : "Aberto"}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2 text-slate-600">{f.responsavel_atual || "-"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
 
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-          <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
-            <h3 className="mb-4 text-lg font-semibold text-gray-900">Transações Recentes</h3>
-            <div className="space-y-3">
-              {loading ? (
-                <div className="flex justify-center py-4">
-                  <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
-                </div>
-              ) : recentTransactions.length > 0 ? (
-                recentTransactions.map((transaction) => (
-                  <div key={transaction.id} className="flex items-center justify-between border-b border-gray-100 py-2 last:border-b-0">
-                    <div className="flex items-center space-x-3">
-                      <div className={`flex h-8 w-8 items-center justify-center rounded-full ${transaction.tipo === "receita" ? "bg-green-100" : "bg-red-100"}`}>
-                        {transaction.tipo === "receita" ? (
-                          <TrendingUp className="h-4 w-4 text-green-600" />
-                        ) : (
-                          <TrendingDown className="h-4 w-4 text-red-600" />
-                        )}
-                      </div>
-                      <div>
-                        <p className="font-medium text-gray-900">{transaction.descricao}</p>
-                        <p className="text-sm text-gray-500">{categoryById.get(String(transaction.categoria_id || "")) || "Sem categoria"}</p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className={`font-semibold ${transaction.tipo === "receita" ? "text-green-600" : "text-red-600"}`}>
-                        {transaction.tipo === "receita" ? "+" : "-"}R$ {formatCurrency(Number(transaction.valor || 0))}
-                      </p>
-                      <p className="text-sm text-gray-500">{transaction.data_transacao.split("-").reverse().join("/")}</p>
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <p className="py-4 text-center text-gray-500">Nenhuma transação registrada</p>
-              )}
-            </div>
-          </div>
-
-          <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
-            <h3 className="mb-4 text-lg font-semibold text-gray-900">Ações Rápidas</h3>
-            <div className="grid grid-cols-2 gap-4">
-              <button
-                onClick={() => navigate("/financeiro/contagem")}
-                className="rounded-lg bg-[#1A237E] p-4 text-white transition-colors hover:bg-[#0D47A1]"
-              >
-                <Calendar className="mx-auto mb-2 h-6 w-6" />
-                <span className="text-sm font-medium">Contagem do Dia</span>
-              </button>
-              <button
-                onClick={() => navigate("/financeiro/saidas")}
-                className="rounded-lg bg-red-600 p-4 text-white transition-colors hover:bg-red-700"
-              >
-                <TrendingDown className="mx-auto mb-2 h-6 w-6" />
-                <span className="text-sm font-medium">Nova Saída</span>
-              </button>
-              <button
-                onClick={() => navigate("/financeiro/ficha")}
-                className="rounded-lg bg-green-600 p-4 text-white transition-colors hover:bg-green-700"
-              >
-                <DollarSign className="mx-auto mb-2 h-6 w-6" />
-                <span className="text-sm font-medium">Ficha Diária</span>
-              </button>
-              <button
-                onClick={() => navigate("/financeiro/relatorios")}
-                className="rounded-lg bg-gray-600 p-4 text-white transition-colors hover:bg-gray-700"
-              >
-                <TrendingUp className="mx-auto mb-2 h-6 w-6" />
-                <span className="text-sm font-medium">Relatórios</span>
-              </button>
-            </div>
+        {/* ── Ações Rápidas ─────────────────────────────────────────── */}
+        <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
+          <h3 className="mb-4 text-base font-semibold text-gray-900">Ações Rápidas</h3>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <button
+              onClick={() => navigate("/financeiro/contagem")}
+              className="rounded-lg bg-[#1A237E] p-4 text-white transition-colors hover:bg-[#0D47A1]"
+            >
+              <Calendar className="mx-auto mb-2 h-6 w-6" />
+              <span className="text-sm font-medium">Contagem do Dia</span>
+            </button>
+            <button
+              onClick={() => navigate("/financeiro/saidas")}
+              className="rounded-lg bg-red-600 p-4 text-white transition-colors hover:bg-red-700"
+            >
+              <TrendingDown className="mx-auto mb-2 h-6 w-6" />
+              <span className="text-sm font-medium">Nova Saída</span>
+            </button>
+            <button
+              onClick={() => navigate("/financeiro/ficha")}
+              className="rounded-lg bg-green-600 p-4 text-white transition-colors hover:bg-green-700"
+            >
+              <DollarSign className="mx-auto mb-2 h-6 w-6" />
+              <span className="text-sm font-medium">Ficha Diária</span>
+            </button>
+            <button
+              onClick={() => navigate("/financeiro/relatorios")}
+              className="rounded-lg bg-gray-600 p-4 text-white transition-colors hover:bg-gray-700"
+            >
+              <TrendingUp className="mx-auto mb-2 h-6 w-6" />
+              <span className="text-sm font-medium">Relatórios</span>
+            </button>
           </div>
         </div>
+
       </div>
     </ManagementShell>
   );

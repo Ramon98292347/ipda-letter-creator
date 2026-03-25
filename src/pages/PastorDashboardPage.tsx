@@ -52,7 +52,13 @@ export default function PastorDashboardPage() {
 
   const { data: membersRes } = useQuery({
     queryKey: ["pastor-dashboard-members"],
-    queryFn: () => listMembers({ page: 1, page_size: 300, roles: ["pastor", "obreiro"] }),
+    queryFn: () =>
+      listMembers({
+        page: 1,
+        page_size: 1000,
+        roles: ["pastor", "obreiro"],
+        // Comentario: sem church_totvs_id — a API ja limita pelo escopo do usuario logado
+      }),
     refetchInterval: 10000,
   });
   const { data: churchesRes } = useQuery({
@@ -66,8 +72,35 @@ export default function PastorDashboardPage() {
   const totalIgrejasEscopo = Number(churchesRes?.total || churches.length || 0);
 
   const counters = useMemo(() => {
-    const totalMembers = members.length;
-    const pastors = members.filter((m) => normalizeMinisterRole(m.minister_role) === "pastor").length;
+    // Comentario: usa metrics da API (igual a pagina Membros) para ter contagens corretas por cargo
+    if (membersRes?.metrics) {
+      const m = membersRes.metrics;
+      // Comentario: byClass ainda calcula das igrejas mesmo usando metrics para membros
+      const byClass = {
+        estadual: churches.filter((c) => String(c.church_class || "").toLowerCase() === "estadual").length,
+        setorial: churches.filter((c) => String(c.church_class || "").toLowerCase() === "setorial").length,
+        central: churches.filter((c) => String(c.church_class || "").toLowerCase() === "central").length,
+        regional: churches.filter((c) => String(c.church_class || "").toLowerCase() === "regional").length,
+        local: churches.filter((c) => String(c.church_class || "").toLowerCase() === "local").length,
+      };
+      return {
+        totalMembers: Number(m.total || 0),
+        pastors: Number(m.pastor || 0),
+        obreiros: Number(m.obreiro || 0),
+        presbiteros: Number(m.presbitero || 0),
+        diaconos: Number(m.diacono || 0),
+        membrosAtivos: Number(m.membro || 0),
+        byClass,
+      };
+    }
+
+    // Comentario: fallback — calcula manualmente se a API nao retornar metrics
+    const totalMembers = Number(membersRes?.total || members.length || 0);
+    const pastors = members.filter(
+      (m) =>
+        String(m.role || "").toLowerCase() === "pastor" ||
+        normalizeMinisterRole(m.minister_role) === "pastor",
+    ).length;
     const obreiros = members.filter((m) => normalizeMinisterRole(m.minister_role) === "cooperador").length;
     const presbiteros = members.filter((m) => normalizeMinisterRole(m.minister_role) === "presbitero").length;
     const diaconos = members.filter((m) => normalizeMinisterRole(m.minister_role) === "diacono").length;
@@ -82,7 +115,7 @@ export default function PastorDashboardPage() {
     };
 
     return { totalMembers, pastors, obreiros, presbiteros, diaconos, membrosAtivos, byClass };
-  }, [members, churches]);
+  }, [membersRes, members, churches]);
 
   return (
     <ManagementShell roleMode="pastor">
@@ -107,8 +140,8 @@ export default function PastorDashboardPage() {
             <h3 className="text-xl font-bold text-slate-900">Membros</h3>
             <p className="text-sm text-slate-500">Indicadores por cargo ministerial. Clique para filtrar.</p>
           </div>
-          {/* Comentario: 1 col no celular | 2 no sm | 3 no md | 6 no desktop */}
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6">
+          {/* Comentario: 1 col no celular | 2 no sm | 3 no md/lg | 6 no xl+ */}
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6">
             <KpiCard title="Total de membros" value={counters.totalMembers} subtitle="cadastros no escopo" icon={Users} gradient="from-blue-600 to-blue-500" onClick={() => navigate("/pastor/membros?status=ativo")} />
             <KpiCard title="Pastor" value={counters.pastors} subtitle="cargo pastor" icon={UserRound} gradient="from-blue-700 to-blue-600" onClick={() => navigate("/pastor/membros?cargo=pastor")} />
             <KpiCard title="Presbítero" value={counters.presbiteros} subtitle="cargo presbítero" icon={UserRound} gradient="from-purple-600 to-purple-500" onClick={() => navigate("/pastor/membros?cargo=presbitero")} />
@@ -127,7 +160,7 @@ export default function PastorDashboardPage() {
               <p className="text-sm text-slate-500">Distribuição por classificação no seu escopo.</p>
             </div>
           </div>
-          {/* Comentario: 2 col no celular | 3 no tablet | 6 no desktop */}
+          {/* Comentario: 2 col no celular | 3 no sm/md/lg | 6 no xl+ */}
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
             <KpiCard title="Total" value={totalIgrejasEscopo} subtitle="igrejas no escopo" icon={Church} gradient="from-purple-600 to-purple-500" onClick={() => navigate("/pastor/igrejas")} />
             <KpiCard title="Estadual" value={counters.byClass.estadual} subtitle="classe estadual" icon={Church} gradient="from-blue-600 to-blue-500" onClick={() => navigate("/pastor/igrejas?class=estadual")} />

@@ -13,10 +13,14 @@ import { FinanceProvider } from "./contexts/FinanceContext";
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 30 * 1000,
+      // Comentario: dados ficam "frescos" por 5 minutos — evita refetch ao navegar entre paginas
+      staleTime: 5 * 60 * 1000,
+      // Comentario: cache fica na memoria por 30 minutos apos sair da tela
       gcTime: 30 * 60 * 1000,
-      refetchOnWindowFocus: true,
+      // Comentario: nao refaz chamada so porque o usuario voltou para a aba
+      refetchOnWindowFocus: false,
       refetchOnReconnect: true,
+      // Comentario: se dado ainda esta "fresco" (dentro do staleTime), usa o cache sem chamar a API
       refetchOnMount: true,
       retry: 1,
     },

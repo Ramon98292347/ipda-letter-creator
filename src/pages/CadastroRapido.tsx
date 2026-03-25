@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from "react";
+﻿import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { ArrowLeft, Eye, EyeOff, Loader2, Search, UserPlus } from "lucide-react";
@@ -55,7 +55,7 @@ export default function CadastroRapido() {
   const [telefone, setTelefone] = useState("");
   const [email, setEmail] = useState("");
   const [totvs, setTotvs] = useState("");
-  const [ministerRole, setMinisterRole] = useState("Membro");
+  const [ministerRole, setMinisterRole] = useState("membro");
   const [profession, setProfession] = useState("");
   const [baptismDate, setBaptismDate] = useState("");
   const [ordinationDate, setOrdinationDate] = useState("");
@@ -72,6 +72,8 @@ export default function CadastroRapido() {
   // Campo B: busca da igreja especifica no escopo
   const [igrejaSearch, setIgrejaSearch] = useState("");
   const [showIgrejaSug, setShowIgrejaSug] = useState(false);
+  // Comentario: ref para saber se o usuario selecionou da lista (evita bug de closure no onBlur)
+  const igrejaSelectedRef = useRef(false);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [cep, setCep] = useState("");
   const [addressStreet, setAddressStreet] = useState("");
@@ -296,16 +298,17 @@ export default function CadastroRapido() {
 
               <div className="space-y-2">
                 <Label>Cargo ministerial</Label>
+                {/* Comentario: os values tem que bater com as chaves do normalizeMinisterRole na auth-api (sem acento, lowercase) */}
                 <select
                   value={ministerRole}
                   onChange={(e) => setMinisterRole(e.target.value)}
                   className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm"
                 >
-                  <option value="Membro">Membro</option>
-                  <option value="Obreiro">Obreiro/Cooperador</option>
-                  <option value="Diácono">Diácono</option>
-                  <option value="Presbítero">Presbítero</option>
-                  <option value="Pastor">Pastor</option>
+                  <option value="membro">Membro</option>
+                  <option value="obreiro">Obreiro/Cooperador</option>
+                  <option value="diacono">Diácono</option>
+                  <option value="presbitero">Presbítero</option>
+                  <option value="pastor">Pastor</option>
                 </select>
                 <p className="text-xs text-slate-500">Cadastro rápido cria usuário com role obreiro; este campo define apenas o cargo ministerial.</p>
               </div>
@@ -382,6 +385,7 @@ export default function CadastroRapido() {
                       setSelectedEstadual(null);
                       setTotvs("");
                       setIgrejaSearch("");
+                      igrejaSelectedRef.current = false;
                       setShowEstadualSug(true);
                     }}
                     onFocus={() => setShowEstadualSug(true)}
@@ -435,13 +439,15 @@ export default function CadastroRapido() {
                     onChange={(e) => {
                       setIgrejaSearch(e.target.value);
                       setTotvs("");
+                      igrejaSelectedRef.current = false;
                       setShowIgrejaSug(true);
                     }}
                     onFocus={() => setShowIgrejaSug(true)}
                     onBlur={() => {
                       setTimeout(() => setShowIgrejaSug(false), 150);
-                      // Digitacao manual: se nao selecionou da lista, extrai digitos como TOTVS
-                      if (!totvs) {
+                      // Comentario: usa o ref (nao a variavel totvs) para evitar bug de closure do React.
+                      // Se o usuario nao selecionou da lista, tenta extrair digitos como TOTVS manual.
+                      if (!igrejaSelectedRef.current) {
                         const digits = igrejaSearch.replace(/\D/g, "");
                         if (digits) setTotvs(digits);
                       }
@@ -460,6 +466,8 @@ export default function CadastroRapido() {
                             e.preventDefault();
                             setIgrejaSearch(`${r.church_name} (${r.totvs_id})`);
                             setTotvs(r.totvs_id);
+                            // Comentario: marca que o totvs veio da lista — evita que o onBlur sobrescreva com digitos errados
+                            igrejaSelectedRef.current = true;
                             setIgrejaResults([]);
                             setShowIgrejaSug(false);
                           }}

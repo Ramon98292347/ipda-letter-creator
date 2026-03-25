@@ -31,9 +31,11 @@ interface AvatarCaptureProps {
   /** Chamado quando a foto final estiver pronta (ou null se removida) */
   onFileReady: (file: File | null) => void;
   disabled?: boolean;
+  /** URL da foto já cadastrada — mostra a imagem atual ao editar */
+  currentUrl?: string;
 }
 
-export function AvatarCapture({ onFileReady, disabled = false }: AvatarCaptureProps) {
+export function AvatarCapture({ onFileReady, disabled = false, currentUrl }: AvatarCaptureProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
@@ -407,15 +409,16 @@ export function AvatarCapture({ onFileReady, disabled = false }: AvatarCapturePr
           </div>
 
           <div className="flex gap-2">
+            {/* Comentario: se modelos nao carregaram, permite capturar mesmo sem detecção de rosto */}
             <Button
               type="button"
               onClick={() => void capturarFoto()}
-              disabled={!faceDetected || capturing || !modelsLoaded}
+              disabled={capturing || (modelsLoaded && !faceDetected)}
               className="flex-1"
               size="sm"
             >
               {capturing ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Camera className="h-4 w-4 mr-1" />}
-              {capturing ? "Capturando..." : "Capturar"}
+              {capturing ? "Capturando..." : modelsLoaded && !faceDetected ? "Enquadre o rosto..." : "Capturar"}
             </Button>
             {/* Botão para alternar entre câmera frontal e traseira */}
             <Button
@@ -492,17 +495,25 @@ export function AvatarCapture({ onFileReady, disabled = false }: AvatarCapturePr
             )}
           </div>
 
-          {/* Preview vazio */}
+          {/* Comentario: mostra foto atual se existir, senão mostra area vazia de pré-visualização */}
           <div className="flex flex-col items-center gap-1">
             <div
-              className="flex items-center justify-center overflow-hidden rounded-md border border-slate-300 bg-slate-50 text-center text-[10px] text-slate-500 px-1"
+              className="overflow-hidden rounded-md border border-slate-300 bg-slate-50"
               style={{ width: 90, height: 120 }}
             >
-              {processing
-                ? <Loader2 className="h-5 w-5 animate-spin text-blue-500" />
-                : "Pré-visualização 3x4"}
+              {processing ? (
+                <div className="flex h-full w-full items-center justify-center">
+                  <Loader2 className="h-5 w-5 animate-spin text-blue-500" />
+                </div>
+              ) : currentUrl ? (
+                <img src={currentUrl} alt="Foto atual" className="h-full w-full object-cover object-top" />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center text-center text-[10px] text-slate-500 px-1">
+                  Pré-visualização 3x4
+                </div>
+              )}
             </div>
-            <span className="text-[10px] text-slate-500">3x4</span>
+            <span className="text-[10px] text-slate-500">{currentUrl ? "Foto atual" : "3x4"}</span>
           </div>
         </div>
       )}

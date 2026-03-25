@@ -220,15 +220,13 @@ export function ObreirosTab({
     queryFn: () =>
       listMembers({
         search: debouncedSearch || undefined,
-        // Comentario: secretario e financeiro sao roles do sistema, nao minister_role.
-        // Para eles, filtramos pelo array roles; para os demais, usamos minister_role.
-        // Comentario: todos = todos; pastor = filtra por role; demais = filtra por minister_role (normalizado no backend)
-        minister_role: ministerRole === "all" || ministerRole === "pastor" ? undefined : ministerRole,
+        // Comentario: sempre filtra pelo minister_role para todos os cargos (inclusive pastor).
+        // O campo minister_role = "pastor" é o cargo ministerial, diferente do role do sistema.
+        minister_role: ministerRole === "all" ? undefined : ministerRole,
         is_active: activeFilter === "all" ? undefined : activeFilter === "active",
+        // Comentario: secretario e financeiro filtram pelo role do sistema; demais trazem pastor+obreiro.
         roles: ministerRole === "all"
           ? ["pastor", "obreiro", "secretario", "financeiro"]
-          : ministerRole === "pastor"
-          ? ["pastor"]
           : ["pastor", "obreiro"],
         church_totvs_id: selectedChurchFilter || (useScopeList ? undefined : activeTotvsId || undefined),
         page,
@@ -462,7 +460,11 @@ export function ObreirosTab({
 
     try {
       await setUserRegistrationStatus(String(worker.id), next);
-      toast.success(next === "APROVADO" ? "Cadastro liberado." : "Cadastro marcado como pendente.");
+      // Comentario: ao liberar o cadastro, ativa o usuario para que ele possa entrar no sistema
+      if (next === "APROVADO" && worker.is_active === false) {
+        await setWorkerActive(String(worker.id), true);
+      }
+      toast.success(next === "APROVADO" ? "Cadastro liberado e usuário ativado." : "Cadastro marcado como pendente.");
       await refresh();
     } catch (err: unknown) {
       toast.error(getFriendlyError(err, "workers"));
@@ -654,9 +656,12 @@ export function ObreirosTab({
             <Button className="shrink-0" variant="outline" onClick={resetFilters}>Limpar</Button>
           </div>
 
+          {/* Comentario: overflow-x-auto no wrapper externo = scroll horizontal em mobile/tablet */}
           <div className="hidden overflow-x-auto rounded-xl border border-slate-200 md:block">
-            <div className="min-w-[1420px]">
-              <div className="grid grid-cols-[92px_200px_150px_140px_140px_120px_120px_140px_120px_140px_120px_140px] border-b bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700">
+            {/* Comentario: overflow-y-auto + max-h aqui = scroll vertical com header fixo */}
+            <div className="min-w-[1420px] overflow-y-auto" style={{ maxHeight: "70vh" }}>
+              {/* Comentario: sticky top-0 mantém o cabeçalho visível ao rolar verticalmente */}
+              <div className="sticky top-0 z-10 grid grid-cols-[92px_200px_150px_140px_140px_120px_120px_140px_120px_140px_120px_140px] border-b bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700">
                 <span>Avatar</span>
                 <span>Nome</span>
                 <span>CPF</span>
@@ -818,18 +823,15 @@ export function ObreirosTab({
               <div className="space-y-1 md:col-span-2">
                 <Label>Foto 3x4</Label>
                 {/* AvatarCapture: inclui câmera/galeria, remoção de fundo por IA e preview 3x4 */}
+                {/* Comentario: currentUrl mostra a foto ja cadastrada ao editar */}
                 <AvatarCapture
                   onFileReady={(file) => {
                     setPendingAvatarFile(file);
                     if (file) setForm((p) => ({ ...p, avatar_url: "" }));
                   }}
                   disabled={saving}
+                  currentUrl={!pendingAvatarFile && form.avatar_url ? form.avatar_url : undefined}
                 />
-                {!pendingAvatarFile && form.avatar_url ? (
-                  <a href={form.avatar_url} target="_blank" rel="noreferrer" className="text-xs text-blue-600 underline">
-                    Ver foto atual
-                  </a>
-                ) : null}
               </div>
             </div>
 

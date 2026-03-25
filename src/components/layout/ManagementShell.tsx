@@ -62,7 +62,7 @@ const financeiroMenu: MenuItem[] = [
   { to: "/financeiro/config", label: "Configurações", icon: Settings },
 ];
 
-// Comentario: item de menu com estilo SaaS corporativo (pill azul suave + underline no ativo).
+// Comentario: item de menu compacto em telas médias (lg) e normal em telas grandes (xl+).
 function MenuNavLink({ item, onClick, loading }: { item: MenuItem; onClick?: () => void; loading?: boolean }) {
   const Icon = item.icon;
   return (
@@ -70,7 +70,7 @@ function MenuNavLink({ item, onClick, loading }: { item: MenuItem; onClick?: () 
       to={item.to}
       onClick={onClick}
       className={({ isActive }) =>
-        `group relative flex min-h-10 items-center gap-2 rounded-full px-3 py-2 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 ${
+        `group relative flex min-h-9 items-center gap-1.5 rounded-full px-2 py-1.5 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 xl:min-h-10 xl:gap-2 xl:px-3 xl:py-2 xl:text-sm ${
           isActive
             ? "bg-blue-50 text-blue-700"
             : "text-slate-700 hover:bg-blue-50 hover:text-blue-600"
@@ -80,12 +80,12 @@ function MenuNavLink({ item, onClick, loading }: { item: MenuItem; onClick?: () 
       {({ isActive }) => (
         <>
           {loading ? (
-            <Loader2 className="h-4 w-4 animate-spin text-blue-700" />
+            <Loader2 className="h-3.5 w-3.5 animate-spin text-blue-700 xl:h-4 xl:w-4" />
           ) : (
-            <Icon className={`h-4 w-4 ${isActive ? "text-blue-700" : "text-slate-500 group-hover:text-blue-600"}`} />
+            <Icon className={`h-3.5 w-3.5 xl:h-4 xl:w-4 ${isActive ? "text-blue-700" : "text-slate-500 group-hover:text-blue-600"}`} />
           )}
           <span>{loading ? `${item.label}...` : item.label}</span>
-          <span className={`absolute inset-x-3 -bottom-1 h-0.5 rounded-full ${isActive ? "bg-blue-600" : "bg-transparent"}`} />
+          <span className={`absolute inset-x-2 -bottom-1 h-0.5 rounded-full xl:inset-x-3 ${isActive ? "bg-blue-600" : "bg-transparent"}`} />
         </>
       )}
     </NavLink>
@@ -171,14 +171,19 @@ export function ManagementShell({
   return (
     <div className="min-h-screen bg-[#F6F8FC]">
       <header className="border-b border-slate-200 bg-white">
-        <div className="mx-auto flex h-16 w-full max-w-[1600px] items-center justify-between gap-3 px-4">
-          <div className="min-w-0 flex items-center gap-2">
-            <Church className="h-6 w-6 text-blue-600" />
-            <span className="truncate text-base font-bold text-slate-900 sm:text-lg">Sistema de Gestao Eclesiastica</span>
+        <div className="mx-auto flex h-14 w-full max-w-[1600px] items-center justify-between gap-2 px-3 xl:h-16 xl:gap-3 xl:px-4">
+          {/* Comentario: logo — texto curto em lg, completo em xl+ */}
+          <div className="flex shrink-0 items-center gap-2">
+            <Church className="h-5 w-5 text-blue-600 xl:h-6 xl:w-6" />
+            <span className="hidden text-sm font-bold text-slate-900 sm:block lg:hidden xl:block xl:text-lg">
+              Sistema de Gestao Eclesiastica
+            </span>
+            <span className="block text-sm font-bold text-slate-900 sm:hidden">IPDA</span>
           </div>
 
-          <div className="hidden flex-1 px-4 lg:block">
-            <nav className="flex items-center justify-center gap-3 overflow-x-auto pb-1">
+          {/* Comentario: nav visível a partir de lg, gap compacto em lg e normal em xl */}
+          <div className="hidden min-w-0 flex-1 px-2 lg:block xl:px-4">
+            <nav className="flex items-center justify-center gap-1 overflow-x-auto pb-1 xl:gap-2">
               {menu.map((item) => (
                 <MenuNavLink
                   key={item.to}
@@ -190,38 +195,38 @@ export function ManagementShell({
             </nav>
           </div>
 
-          <div className="hidden items-center gap-2 lg:flex">
+          <div className="hidden shrink-0 items-center gap-1.5 lg:flex xl:gap-2">
             {canInstall ? (
-              <Button variant="outline" onClick={onInstallApp} className="hover:border-blue-600 hover:bg-blue-50">
-                <Download className="mr-2 h-4 w-4" />
-                Baixar app
+              <Button variant="outline" size="sm" onClick={onInstallApp} className="hover:border-blue-600 hover:bg-blue-50">
+                <Download className="mr-1 h-3.5 w-3.5 xl:mr-2 xl:h-4 xl:w-4" />
+                <span className="hidden xl:inline">Baixar app</span>
               </Button>
             ) : null}
             <Button
               variant="outline"
               size="icon"
               onClick={() => setOpenNotifications(true)}
-              className="relative hover:border-blue-600 hover:bg-blue-50"
+              className="relative h-8 w-8 hover:border-blue-600 hover:bg-blue-50 xl:h-9 xl:w-9"
             >
-              <Bell className="h-4 w-4" />
+              <Bell className="h-3.5 w-3.5 xl:h-4 xl:w-4" />
               {unreadCount > 0 ? (
-                <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-rose-500 text-[10px] font-semibold text-white">
+                <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-[9px] font-semibold text-white xl:h-5 xl:w-5 xl:text-[10px]">
                   {unreadCount > 99 ? "99+" : unreadCount}
                 </span>
               ) : null}
             </Button>
             {/* Comentario: para o role financeiro, exibe card com nome e totvs da igreja */}
             {roleMode === "financeiro" && usuario?.church_name ? (
-              <div className="flex flex-col items-end rounded-lg border border-blue-200 bg-blue-50 px-3 py-1">
-                <span className="text-xs font-semibold text-blue-800 truncate max-w-[200px]">{usuario.church_name}</span>
+              <div className="flex flex-col items-end rounded-lg border border-blue-200 bg-blue-50 px-2 py-1 xl:px-3">
+                <span className="max-w-[140px] truncate text-xs font-semibold text-blue-800 xl:max-w-[200px]">{usuario.church_name}</span>
                 <span className="text-[10px] text-blue-500">TOTVS: {usuario.default_totvs_id || usuario.totvs}</span>
               </div>
             ) : (
-              <span className="max-w-[240px] truncate text-sm text-slate-500">{usuario?.email || usuario?.nome || "Usuario"}</span>
+              <span className="hidden max-w-[140px] truncate text-xs text-slate-500 xl:block xl:max-w-[200px] xl:text-sm">{usuario?.email || usuario?.nome || "Usuario"}</span>
             )}
-            <Button variant="outline" onClick={onLogout} className="hover:border-blue-600 hover:bg-blue-50">
-              <LogOut className="mr-2 h-4 w-4" />
-              Sair
+            <Button variant="outline" size="sm" onClick={onLogout} className="hover:border-blue-600 hover:bg-blue-50">
+              <LogOut className="mr-1 h-3.5 w-3.5 xl:mr-2 xl:h-4 xl:w-4" />
+              <span className="hidden xl:inline">Sair</span>
             </Button>
           </div>
 
@@ -304,7 +309,8 @@ export function ManagementShell({
         </div>
       ) : null}
 
-      <main className={`mx-auto w-full max-w-[1600px] px-4 py-5 transition-opacity ${pendingRoute ? "opacity-80" : "opacity-100"}`}>{children}</main>
+      {/* Comentario: padding menor em telas médias, normal em xl+ */}
+      <main className={`mx-auto w-full max-w-[1600px] px-3 py-4 transition-opacity xl:px-4 xl:py-5 ${pendingRoute ? "opacity-80" : "opacity-100"}`}>{children}</main>
 
       <Dialog open={openNotifications} onOpenChange={setOpenNotifications}>
         <DialogContent className="max-w-2xl">

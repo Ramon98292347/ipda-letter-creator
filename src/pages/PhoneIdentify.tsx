@@ -238,6 +238,21 @@ export default function PhoneIdentify() {
 
       nav(routeByRole(result.user.role));
     } catch (err) {
+      const code = (err as { code?: string })?.code || (err as Error)?.message || "";
+
+      // Comentario: cadastro pendente — usuario existe mas o pastor ainda nao aprovou
+      if (code === "registration_pending") {
+        toast.error("Seu cadastro está pendente de aprovação. Aguarde a liberação do pastor da sua igreja.", { duration: 8000 });
+        return;
+      }
+
+      // Comentario: se o CPF nao existir no sistema, redireciona para o cadastro rapido automaticamente.
+      // O usuario nao precisa saber que precisa se cadastrar — o sistema ja encaminha.
+      if (code === "user_not_found" || code === "cpf_not_registered") {
+        toast.message("CPF não encontrado. Preencha o cadastro rápido para solicitar acesso.");
+        nav("/cadastro");
+        return;
+      }
       const msg = getFriendlyError(err, "auth");
       if (isBlockedPaymentError(err)) {
         toast.error(msg, {

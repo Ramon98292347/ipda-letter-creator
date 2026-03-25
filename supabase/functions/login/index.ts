@@ -202,7 +202,8 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     if (uErr) return json({ ok: false, error: "db_error" }, 500);
-    if (!user) return json({ ok: false, error: "invalid-credentials" }, 401);
+    // Comentario: retorna user_not_found (nao invalid-credentials) para o front saber abrir o cadastro rapido
+    if (!user) return json({ ok: false, error: "user_not_found" }, 401);
     if (!user.is_active) return json({ ok: false, error: "inactive_user" }, 403);
 
     if (String(user.payment_status || "").toUpperCase() === "BLOQUEADO_PAGAMENTO") {
@@ -299,6 +300,22 @@ Deno.serve(async (req) => {
         user: { id: user.id, full_name: user.full_name, cpf: user.cpf, role: user.role },
         churches: churchesForUI,
       }, 200);
+    }
+
+    // Comentario: bloqueia login se o cadastro estiver PENDENTE de aprovacao do pastor.
+    // Obreiros recem-cadastrados nascem com registration_status PENDENTE e so acessam
+    // apos o pastor aprovar. Admin e pastor nunca sao bloqueados por este check.
+    if (userRole === "obreiro") {
+      const rawAccess = Array.isArray(user.totvs_access) ? user.totvs_access as Record<string, unknown>[] : [];
+      const activeEntry = rawAccess.find((item: Record<string, unknown>) => String(item?.totvs_id || "").trim() === activeTotvs);
+      const regStatus = String(activeEntry?.registration_status || "APROVADO").trim().toUpperCase();
+      if (regStatus === "PENDENTE") {
+        return json({
+          ok: false,
+          error: "registration_pending",
+          message: "Seu cadastro está pendente de aprovação. Aguarde a liberação do pastor da sua igreja.",
+        }, 403);
+      }
     }
 
     const { data: allChurches, error: aErr } = await sb.from("churches").select("totvs_id, parent_totvs_id");

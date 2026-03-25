@@ -179,3 +179,28 @@ export async function listContagens(): Promise<ContagemCaixa[]> {
   });
   return res.data;
 }
+
+/** Um fechamento mensal — resume o mês financeiro da igreja */
+export type FechamentoMensal = {
+  id: string;
+  ano: number;
+  mes: number;
+  total_receitas: number;
+  total_despesas: number;
+  saldo_final_mes: number;
+  status: string;
+  fechado_em: string;
+  responsavel_atual?: string;
+};
+
+/**
+ * listFechamentos
+ * Lista os fechamentos mensais da igreja, do mais recente para o mais antigo.
+ * Cada fechamento tem total_receitas, total_despesas e saldo_final_mes do mês.
+ */
+export async function listFechamentos(): Promise<FechamentoMensal[]> {
+  const res = await post<{ ok: boolean; data: FechamentoMensal[] }>("fin-api", {
+    action: "list-fechamentos",
+  });
+  return res.data;
+}

@@ -103,8 +103,8 @@ export default function AdminDashboardPage() {
         <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
           <h3 className="text-xl font-bold text-slate-900 sm:text-2xl">Membros</h3>
           <p className="mt-1 text-sm text-slate-600">Indicadores por cargo ministerial.</p>
-          {/* Comentario: 1 col no celular | 2 no sm | 3 no md | 6 no desktop */}
-          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6">
+          {/* Comentario: 1 col no celular | 2 no sm | 3 no md/lg | 6 no xl+ */}
+          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6">
             <StatCard title="Total de membros" value={memberCounters.total} subtitle="membros no escopo" gradient="from-blue-600 to-blue-500" icon="users" />
             <StatCard title="Pastor" value={memberCounters.pastores} subtitle="cargo pastor" gradient="from-blue-700 to-blue-600" icon="users" />
             <StatCard title="Presbítero" value={memberCounters.presbiteros} subtitle="cargo presbítero" gradient="from-purple-600 to-purple-500" icon="users" />
