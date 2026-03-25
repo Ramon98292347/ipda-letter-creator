@@ -5,6 +5,7 @@
  *            Visualização somente leitura dos dados financeiros da sua igreja.
  * Quem acessa: pastor e secretario
  */
+import { useMemo } from "react";
 import { ManagementShell } from "@/components/layout/ManagementShell";
 import { useUser } from "@/context/UserContext";
 import { getDashboard, listTransacoes, listContagens } from "@/services/financeiroService";
@@ -59,6 +60,12 @@ export default function PastorFinanceiroPage() {
     ? `${NOMES_MESES[(dashboard.mes ?? 1) - 1]} de ${dashboard.ano}`
     : "";
 
+  // Comentario: Total Entradas = soma de todos os saldo_contado das contagens de caixa do mes
+  const totalEntradas = useMemo(() => {
+    if (!contagens || contagens.length === 0) return 0;
+    return contagens.reduce((soma, c) => soma + Number(c.saldo_contado || 0), 0);
+  }, [contagens]);
+
   const isLoading = loadingDash || loadingTrans || loadingContagens;
 
   return (
@@ -81,19 +88,21 @@ export default function PastorFinanceiroPage() {
         )}
 
         {/* Cards de resumo */}
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {/* Comentario: 2 colunas no celular, 4 no desktop */}
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
             <div className="flex items-center gap-3">
               <div className="rounded-lg bg-green-100 p-2">
                 <TrendingUp className="h-5 w-5 text-green-600" />
               </div>
               <div className="min-w-0">
+                {/* Comentario: Total Entradas agora é a soma das contagens de caixa */}
                 <p className="text-sm text-slate-500">Total Entradas</p>
-                {loadingDash ? (
+                {loadingContagens ? (
                   <Loader2 className="mt-1 h-5 w-5 animate-spin text-slate-400" />
                 ) : (
                   <p className="truncate text-xl font-bold text-green-700">
-                    {formatarMoeda(dashboard?.total_receitas ?? "0")}
+                    {formatarMoeda(totalEntradas)}
                   </p>
                 )}
               </div>
