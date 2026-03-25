@@ -536,6 +536,94 @@ async function handleListFichasDiarias(
   return json({ ok: true, data: data || [] });
 }
 
+// Comentario: salva todas as fichas diárias do mês de uma vez, incluindo
+// os valores de transferência recebida e enviada. Para cada dia com entradas,
+// faz upsert em fin_fichas_diarias. As transferências ficam na primeira ficha.
+async function handleSaveFichasMes(
+  sb: ReturnType<typeof createClient>,
+  session: SessionClaims,
+  body: Record<string, unknown>,
+) {
+  if (!["financeiro", "admin"].includes(session.role)) {
+    return json({ ok: false, error: "forbidden" }, 403);
+  }
+
+  const churchId = getChurchFilter(session, body);
+  const now = new Date();
+  const mes = Number(body.mes) || now.getMonth() + 1;
+  const ano = Number(body.ano) || now.getFullYear();
+  const transferencia_recebida = Number(body.transferencia_recebida) || 0;
+  const transferencia_enviada = Number(body.transferencia_enviada) || 0;
+  const entradas = Array.isArray(body.entradas) ? body.entradas : [];
+
+  // Comentario: upsert de cada dia com entradas
+  for (const entrada of entradas as Record<string, unknown>[]) {
+    const data_ficha = String(entrada.data_ficha || "");
+    const total_entradas = Number(entrada.total_entradas) || 0;
+    if (!data_ficha) continue;
+
+    const { data: existing } = await sb
+      .from("fin_fichas_diarias")
+      .select("id")
+      .eq("data_ficha", data_ficha)
+      .eq("church_totvs_id", churchId)
+      .maybeSingle();
+
+    if (existing) {
+      await sb.from("fin_fichas_diarias")
+        .update({ total_entradas })
+        .eq("id", existing.id);
+    } else {
+      await sb.from("fin_fichas_diarias")
+        .insert({
+          church_totvs_id: churchId,
+          data_ficha,
+          user_id: session.user_id,
+          saldo_inicial: 0,
+          total_entradas,
+          total_saidas: 0,
+          status: "aberta",
+        });
+    }
+  }
+
+  // Comentario: salva os valores de transferência na primeira ficha do mês
+  const primeirodia = `${ano}-${String(mes).padStart(2, "0")}-01`;
+  const ultimoDia = new Date(ano, mes, 0).getDate();
+  const fimMes = `${ano}-${String(mes).padStart(2, "0")}-${String(ultimoDia).padStart(2, "0")}`;
+
+  const { data: fichas } = await sb
+    .from("fin_fichas_diarias")
+    .select("id")
+    .eq("church_totvs_id", churchId)
+    .gte("data_ficha", primeirodia)
+    .lte("data_ficha", fimMes)
+    .order("data_ficha", { ascending: true })
+    .limit(1);
+
+  if (fichas && fichas.length > 0) {
+    await sb.from("fin_fichas_diarias")
+      .update({ transferencia_recebida, transferencia_enviada })
+      .eq("id", (fichas[0] as Record<string, unknown>).id);
+  } else {
+    // Comentario: nenhuma ficha no mês — cria uma só com os valores de transferência
+    await sb.from("fin_fichas_diarias")
+      .insert({
+        church_totvs_id: churchId,
+        data_ficha: primeirodia,
+        user_id: session.user_id,
+        saldo_inicial: 0,
+        total_entradas: 0,
+        total_saidas: 0,
+        transferencia_recebida,
+        transferencia_enviada,
+        status: "aberta",
+      });
+  }
+
+  return json({ ok: true, data: null });
+}
+
 // Comentario: lista os fechamentos mensais da igreja, do mais recente para o mais antigo
 async function handleListFechamentos(
   sb: ReturnType<typeof createClient>,
@@ -626,6 +714,8 @@ Deno.serve(async (req) => {
         return await handleSaveFichaDiaria(sb, session, body);
       case "list-fichas-diarias":
         return await handleListFichasDiarias(sb, session, body);
+      case "save-fichas-mes":
+        return await handleSaveFichasMes(sb, session, body);
       default:
         return json({ ok: false, error: "unknown_action", action }, 400);
     }
