@@ -901,6 +901,16 @@ export default function PastorMembrosPage() {
       setSelectedMemberId(String(filteredDocsMembers[0].id));
     }
   }, [memberPickerSearch, filteredDocsMembers]);
+  useEffect(() => {
+    const q = normalizeSearchText(memberPickerSearch);
+    const qDigits = onlyDigits(memberPickerSearch || "");
+    if (q.length < 3 && qDigits.length < 3) return;
+    if (!filteredDocsMembers.length) return;
+    const existsInFiltered = filteredDocsMembers.some((m) => String(m.id) === selectedMemberId);
+    if (!existsInFiltered) {
+      setSelectedMemberId(String(filteredDocsMembers[0].id));
+    }
+  }, [memberPickerSearch, filteredDocsMembers, selectedMemberId]);
   const selectedMember = useMemo(
     () => docsMembers.find((member) => String(member.id) === selectedMemberId) || null,
     [docsMembers, selectedMemberId],

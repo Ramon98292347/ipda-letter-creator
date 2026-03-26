@@ -4,6 +4,7 @@ import { supabase, supabaseAnon } from "@/lib/supabase";
 import { apiFetch } from "@/services/api";
 import type { AppSession, PendingChurch } from "@/context/UserContext";
 import { isValidCpf } from "@/lib/cpf";
+import { getChurchesCache, getMembersCache, saveChurchesCache, saveMembersCache } from "@/lib/offline/repository";
 
 
 export type AppRole = "admin" | "pastor" | "obreiro" | "secretario" | "financeiro";
@@ -981,74 +982,121 @@ export async function listMembers(params: MemberListParams): Promise<WorkerListR
   }
 
   if (!isMockMode()) {
-    const data = await api.listMembers({
-      search: params.search || undefined,
-      minister_role: params.minister_role || undefined,
-      is_active: typeof params.is_active === "boolean" ? params.is_active : undefined,
-      roles: params.roles?.length ? params.roles : undefined,
-      church_totvs_id: params.church_totvs_id || undefined,
-      page: params.page || 1,
-      page_size: params.page_size || 20,
+    const mapMemberRow = (w: Record<string, unknown>) => ({
+      id: String(w?.id || ""),
+      full_name: String(w?.full_name || ""),
+      role: (w?.role || null) as AppRole | null,
+      cpf: w?.cpf || null,
+      rg: w?.rg || null,
+      phone: w?.phone || null,
+      email: w?.email || null,
+      profession: w?.profession || null,
+      minister_role: w?.minister_role || null,
+      birth_date: w?.birth_date || null,
+      baptism_date: w?.baptism_date || null,
+      marital_status: w?.marital_status || null,
+      matricula: w?.matricula || null,
+      ordination_date: w?.ordination_date || null,
+      avatar_url: w?.avatar_url || null,
+      signature_url: w?.signature_url || null,
+      cep: w?.cep || null,
+      address_street: w?.address_street || null,
+      address_number: w?.address_number || null,
+      address_complement: w?.address_complement || null,
+      address_neighborhood: w?.address_neighborhood || null,
+      address_city: w?.address_city || null,
+      address_state: w?.address_state || null,
+      default_totvs_id: w?.default_totvs_id || null,
+      totvs_access: w?.totvs_access || null,
+      is_active: typeof w?.is_active === "boolean" ? w.is_active : true,
+      can_create_released_letter: typeof w?.can_create_released_letter === "boolean" ? w.can_create_released_letter : false,
+      can_manage: typeof w?.can_manage === "boolean" ? w.can_manage : true,
+      registration_status:
+        (String(w?.registration_status || "").toUpperCase() === "PENDENTE"
+          ? "PENDENTE"
+          : String(w?.registration_status || "").toUpperCase() === "APROVADO"
+            ? "APROVADO"
+            : resolveRegistrationStatusFromTotvsAccess(w?.totvs_access || null)),
+      payment_status: String(w?.payment_status || "").toUpperCase() === "BLOQUEADO_PAGAMENTO" ? "BLOQUEADO_PAGAMENTO" : "ATIVO",
+      payment_block_reason: typeof w?.payment_block_reason === "string" ? w.payment_block_reason : null,
+      attendance_status: typeof w?.attendance_status === "string" ? w.attendance_status : null,
+      attendance_meeting_date: typeof w?.attendance_meeting_date === "string" ? w.attendance_meeting_date : null,
+      attendance_absences_180_days:
+        typeof w?.attendance_absences_180_days === "number" ? w.attendance_absences_180_days : 0,
     });
 
-    const rows = Array.isArray(data?.members) ? data.members : [];
-    return {
-      workers: rows.map((w: Record<string, unknown>) => ({
-        id: String(w?.id || ""),
-        full_name: String(w?.full_name || ""),
-        role: (w?.role || null) as AppRole | null,
-        cpf: w?.cpf || null,
-        rg: w?.rg || null,
-        phone: w?.phone || null,
-        email: w?.email || null,
-        profession: w?.profession || null,
-        minister_role: w?.minister_role || null,
-        birth_date: w?.birth_date || null,
-        baptism_date: w?.baptism_date || null,
-        marital_status: w?.marital_status || null,
-        matricula: w?.matricula || null,
-        ordination_date: w?.ordination_date || null,
-        avatar_url: w?.avatar_url || null,
-        signature_url: w?.signature_url || null,
-        cep: w?.cep || null,
-        address_street: w?.address_street || null,
-        address_number: w?.address_number || null,
-        address_complement: w?.address_complement || null,
-        address_neighborhood: w?.address_neighborhood || null,
-        address_city: w?.address_city || null,
-        address_state: w?.address_state || null,
-        default_totvs_id: w?.default_totvs_id || null,
-        totvs_access: w?.totvs_access || null,
-        is_active: typeof w?.is_active === "boolean" ? w.is_active : true,
-        can_create_released_letter: typeof w?.can_create_released_letter === "boolean" ? w.can_create_released_letter : false,
-        can_manage: typeof w?.can_manage === "boolean" ? w.can_manage : true,
-        registration_status:
-          (String(w?.registration_status || "").toUpperCase() === "PENDENTE"
-            ? "PENDENTE"
-            : String(w?.registration_status || "").toUpperCase() === "APROVADO"
-              ? "APROVADO"
-              : resolveRegistrationStatusFromTotvsAccess(w?.totvs_access || null)),
-        payment_status: String(w?.payment_status || "").toUpperCase() === "BLOQUEADO_PAGAMENTO" ? "BLOQUEADO_PAGAMENTO" : "ATIVO",
-        payment_block_reason: typeof w?.payment_block_reason === "string" ? w.payment_block_reason : null,
-        attendance_status: typeof w?.attendance_status === "string" ? w.attendance_status : null,
-        attendance_meeting_date: typeof w?.attendance_meeting_date === "string" ? w.attendance_meeting_date : null,
-        attendance_absences_180_days:
-          typeof w?.attendance_absences_180_days === "number" ? w.attendance_absences_180_days : 0,
-      })),
-      total: Number(data?.total || rows.length),
-      page: Number(data?.page || params.page || 1),
-      page_size: Number(data?.page_size || params.page_size || 20),
-      metrics: data?.metrics
-        ? {
-            total: Number((data.metrics as Record<string, unknown>)?.total || 0),
-            pastor: Number((data.metrics as Record<string, unknown>)?.pastor || 0),
-            presbitero: Number((data.metrics as Record<string, unknown>)?.presbitero || 0),
-            diacono: Number((data.metrics as Record<string, unknown>)?.diacono || 0),
-            obreiro: Number((data.metrics as Record<string, unknown>)?.obreiro || 0),
-            membro: Number((data.metrics as Record<string, unknown>)?.membro || 0),
-          }
-        : undefined,
-    };
+    try {
+      const data = await api.listMembers({
+        search: params.search || undefined,
+        minister_role: params.minister_role || undefined,
+        is_active: typeof params.is_active === "boolean" ? params.is_active : undefined,
+        roles: params.roles?.length ? params.roles : undefined,
+        church_totvs_id: params.church_totvs_id || undefined,
+        page: params.page || 1,
+        page_size: params.page_size || 20,
+      });
+
+      const rows = Array.isArray(data?.members) ? data.members : [];
+      if (rows.length > 0) {
+        const cacheChurchTotvs = String(params.church_totvs_id || getSession()?.totvs_id || "");
+        if (cacheChurchTotvs) {
+          await saveMembersCache(cacheChurchTotvs, rows as Record<string, unknown>[]);
+        }
+      }
+
+      return {
+        workers: rows.map((w: Record<string, unknown>) => mapMemberRow(w)),
+        total: Number(data?.total || rows.length),
+        page: Number(data?.page || params.page || 1),
+        page_size: Number(data?.page_size || params.page_size || 20),
+        metrics: data?.metrics
+          ? {
+              total: Number((data.metrics as Record<string, unknown>)?.total || 0),
+              pastor: Number((data.metrics as Record<string, unknown>)?.pastor || 0),
+              presbitero: Number((data.metrics as Record<string, unknown>)?.presbitero || 0),
+              diacono: Number((data.metrics as Record<string, unknown>)?.diacono || 0),
+              obreiro: Number((data.metrics as Record<string, unknown>)?.obreiro || 0),
+              membro: Number((data.metrics as Record<string, unknown>)?.membro || 0),
+            }
+          : undefined,
+      };
+    } catch {
+      const cacheChurchTotvs = String(params.church_totvs_id || getSession()?.totvs_id || "");
+      const cachedRows = await getMembersCache(cacheChurchTotvs || undefined);
+      let filtered = cachedRows as Record<string, unknown>[];
+
+      if (params.roles?.length) {
+        filtered = filtered.filter((w) => params.roles?.includes(String(w.role || "") as AppRole));
+      }
+      if (typeof params.is_active === "boolean") {
+        filtered = filtered.filter((w) => Boolean(w.is_active) === params.is_active);
+      }
+      if (params.minister_role?.trim()) {
+        filtered = filtered.filter((w) => String(w.minister_role || "") === params.minister_role);
+      }
+      if (params.search?.trim()) {
+        const q = params.search.trim().toLowerCase();
+        filtered = filtered.filter((w) =>
+          String(w.full_name || "").toLowerCase().includes(q) ||
+          String(w.cpf || "").includes(q) ||
+          String(w.phone || "").includes(q) ||
+          String(w.email || "").toLowerCase().includes(q),
+        );
+      }
+      filtered = filtered.sort((a, b) => String(a.full_name || "").localeCompare(String(b.full_name || "")));
+
+      const page = Number(params.page || 1);
+      const pageSize = Number(params.page_size || 20);
+      const start = (page - 1) * pageSize;
+      const end = start + pageSize;
+
+      return {
+        workers: filtered.slice(start, end).map((w) => mapMemberRow(w)),
+        total: filtered.length,
+        page,
+        page_size: pageSize,
+      };
+    }
   }
 
   return listWorkers({
@@ -1306,16 +1354,7 @@ export async function listChurchesInScope(page = 1, pageSize = 5000, rootTotvsId
     });
   }
 
-  const data = await api.listChurchesInScope({ page, page_size: pageSize, root_totvs_id: rootTotvsId });
-  const rows = Array.isArray(data?.churches)
-    ? data.churches
-    : Array.isArray(data?.items)
-      ? data.items
-      : Array.isArray(data)
-        ? data
-        : [];
-
-  return rows.map((item: Record<string, unknown>) => ({
+  const mapChurch = (item: Record<string, unknown>) => ({
     totvs_id: String(item?.totvs_id || ""),
     church_name: String(item?.church_name || item?.name || "-"),
     church_class: item?.church_class || item?.class || null,
@@ -1341,7 +1380,45 @@ export async function listChurchesInScope(page = 1, pageSize = 5000, rootTotvsId
           full_name: item.pastor?.full_name || item.pastor?.name || null,
         }
       : null,
-  }));
+  });
+
+  try {
+    const data = await api.listChurchesInScope({ page, page_size: pageSize, root_totvs_id: rootTotvsId });
+    const rows = Array.isArray(data?.churches)
+      ? data.churches
+      : Array.isArray(data?.items)
+        ? data.items
+        : Array.isArray(data)
+          ? data
+          : [];
+    if (rows.length > 0) {
+      await saveChurchesCache(rows as Record<string, unknown>[]);
+    }
+    return rows.map((item: Record<string, unknown>) => mapChurch(item));
+  } catch {
+    const cached = await getChurchesCache();
+    const cachedChurches = cached.map((item) => mapChurch(item as Record<string, unknown>));
+    const start = (Math.max(1, page) - 1) * pageSize;
+    const end = start + pageSize;
+    if (!rootTotvsId?.trim()) {
+      return cachedChurches.slice(start, end);
+    }
+    const children = new Map<string, string[]>();
+    for (const church of cachedChurches) {
+      const parent = String(church.parent_totvs_id || "");
+      if (!children.has(parent)) children.set(parent, []);
+      children.get(parent)!.push(String(church.totvs_id));
+    }
+    const scope = new Set<string>();
+    const queue = [rootTotvsId];
+    while (queue.length) {
+      const cur = queue.shift()!;
+      if (scope.has(cur)) continue;
+      scope.add(cur);
+      for (const child of children.get(cur) || []) queue.push(child);
+    }
+    return cachedChurches.filter((church) => scope.has(String(church.totvs_id))).slice(start, end);
+  }
 }
 
 // Tipo minimo para ancestral com info do pastor
@@ -1473,48 +1550,60 @@ export async function listChurchesInScopePaged(page = 1, pageSize = 20, rootTotv
     };
   }
 
-  const data = await api.listChurchesInScope({ page, page_size: pageSize, root_totvs_id: rootTotvsId });
-  const rows = Array.isArray(data?.churches)
-    ? data.churches
-    : Array.isArray(data?.items)
-      ? data.items
-      : Array.isArray(data)
-        ? data
-        : [];
-  const churches = rows.map((item: Record<string, unknown>) => ({
-    totvs_id: String(item?.totvs_id || ""),
-    church_name: String(item?.church_name || item?.name || "-"),
-    church_class: item?.church_class || item?.class || null,
-    parent_totvs_id: item?.parent_totvs_id || null,
-    image_url: item?.image_url || item?.photo_url || item?.cover_url || null,
-    stamp_church_url: item?.stamp_church_url || null,
-    contact_email: item?.contact_email || null,
-    contact_phone: item?.contact_phone || null,
-    cep: item?.cep || null,
-    address_street: item?.address_street || null,
-    address_number: item?.address_number || null,
-    address_complement: item?.address_complement || null,
-    address_neighborhood: item?.address_neighborhood || null,
-    address_city: item?.address_city || null,
-    address_state: item?.address_state || null,
-    address_country: item?.address_country || null,
-    is_active: typeof item?.is_active === "boolean" ? item.is_active : true,
-    workers_count: Number(item?.workers_count || 0),
-    pastor_user_id: item?.pastor_user_id || item?.pastor?.id || null,
-    pastor: item?.pastor
-      ? {
-          id: item.pastor?.id || null,
-          full_name: item.pastor?.full_name || item.pastor?.name || null,
-        }
-      : null,
-  })) as ChurchInScopeItem[];
+  try {
+    const data = await api.listChurchesInScope({ page, page_size: pageSize, root_totvs_id: rootTotvsId });
+    const rows = Array.isArray(data?.churches)
+      ? data.churches
+      : Array.isArray(data?.items)
+        ? data.items
+        : Array.isArray(data)
+          ? data
+          : [];
+    const churches = rows.map((item: Record<string, unknown>) => ({
+      totvs_id: String(item?.totvs_id || ""),
+      church_name: String(item?.church_name || item?.name || "-"),
+      church_class: item?.church_class || item?.class || null,
+      parent_totvs_id: item?.parent_totvs_id || null,
+      image_url: item?.image_url || item?.photo_url || item?.cover_url || null,
+      stamp_church_url: item?.stamp_church_url || null,
+      contact_email: item?.contact_email || null,
+      contact_phone: item?.contact_phone || null,
+      cep: item?.cep || null,
+      address_street: item?.address_street || null,
+      address_number: item?.address_number || null,
+      address_complement: item?.address_complement || null,
+      address_neighborhood: item?.address_neighborhood || null,
+      address_city: item?.address_city || null,
+      address_state: item?.address_state || null,
+      address_country: item?.address_country || null,
+      is_active: typeof item?.is_active === "boolean" ? item.is_active : true,
+      workers_count: Number(item?.workers_count || 0),
+      pastor_user_id: item?.pastor_user_id || item?.pastor?.id || null,
+      pastor: item?.pastor
+        ? {
+            id: item.pastor?.id || null,
+            full_name: item.pastor?.full_name || item.pastor?.name || null,
+          }
+        : null,
+    })) as ChurchInScopeItem[];
 
-  return {
-    churches,
-    total: Number(data?.total || churches.length),
-    page: Number(data?.page || page),
-    page_size: Number(data?.page_size || pageSize),
-  };
+    return {
+      churches,
+      total: Number(data?.total || churches.length),
+      page: Number(data?.page || page),
+      page_size: Number(data?.page_size || pageSize),
+    };
+  } catch {
+    const all = await listChurchesInScope(1, 5000, rootTotvsId);
+    const start = (page - 1) * pageSize;
+    const end = start + pageSize;
+    return {
+      churches: all.slice(start, end),
+      total: all.length,
+      page,
+      page_size: pageSize,
+    };
+  }
 }
 
 // ─── Painel unificado ─────────────────────────────────────────────────────────
