@@ -28,6 +28,7 @@ type MemberTab = "lista" | "ficha_membro" | "carteirinha" | "ficha_obreiro" | "p
 type MemberView = "lista" | "grid";
 type CarteirinhaTemplate = "padrao";
 type FichaTemplate = "padrao";
+const MAX_CARTEIRINHAS_POR_LOTE = 25;
 const FAILED_MEMBER_PHOTO_URLS = new Set<string>();
 
 type MemberDocForm = {
@@ -328,6 +329,14 @@ function normalizeMinisterRole(value: string | null | undefined) {
     .trim();
 }
 
+function normalizeSearchText(value: string | null | undefined) {
+  return String(value || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim();
+}
+
 function calcularIdadeBr(dataIso: string | null | undefined) {
   if (!dataIso) return "";
   const parts = String(dataIso).split("-");
@@ -520,8 +529,8 @@ function memberToForm(member: UserListItem, churchName: string, pastorSignature:
 function tabLabel(tab: MemberTab) {
   if (tab === "ficha_membro") return "Ficha do membro";
   if (tab === "carteirinha") return "Carteirinha";
-  if (tab === "impressao") return "ImpressÃ£o";
-  if (tab === "presenca") return "PresenÃ§a";
+  if (tab === "impressao") return "Impressão";
+  if (tab === "presenca") return "Presença";
   return "Ficha de obreiro";
 }
 
@@ -705,6 +714,7 @@ export default function PastorMembrosPage() {
   const [filterPrint, setFilterPrint] = useState<"all" | "pending">("pending");
   const [sendingBatch, setSendingBatch] = useState(false);
   const [printBatchUrl, setPrintBatchUrl] = useState("");
+  const [memberPickerSearch, setMemberPickerSearch] = useState("");
 
   // Comentario: busca carteirinhas prontas para impressao da igreja ativa
   const { data: readyCarteirinhas = [], isLoading: loadingReady, refetch: refetchReady } = useQuery({
@@ -829,9 +839,52 @@ export default function PastorMembrosPage() {
   );
 
   const rodapeAuto = useMemo(() => churchFooter || form.ficha_rodape || "", [churchFooter, form.ficha_rodape]);
+  const { data: docsMembersData } = useQuery({
+    queryKey: ["pastor-members-docs-all", filterTotvs, filterActive],
+    queryFn: async () => {
+      const requestedPageSize = 500;
+      let page = 1;
+      let total: number | null = null;
+      const all: UserListItem[] = [];
+
+      while (page <= 30) {
+        const chunk = await listMembers({
+          page,
+          page_size: requestedPageSize,
+          roles: ["pastor", "obreiro"],
+          church_totvs_id: filterTotvs === "all" ? undefined : filterTotvs,
+          is_active: filterActive,
+        });
+        const items = Array.isArray(chunk.workers) ? chunk.workers : [];
+        if (items.length === 0) break;
+        all.push(...items);
+        const chunkTotal = Number(chunk.total || 0);
+        if (chunkTotal > 0) total = chunkTotal;
+        const effectivePageSize = Number(chunk.page_size || requestedPageSize || items.length);
+        if ((total !== null && all.length >= total) || items.length < effectivePageSize) break;
+        page += 1;
+      }
+
+      return all;
+    },
+    enabled: tab === "ficha_membro" || tab === "carteirinha",
+    staleTime: 30_000,
+  });
+  const docsMembers = docsMembersData || workers;
+  const filteredDocsMembers = useMemo(() => {
+    const q = normalizeSearchText(memberPickerSearch);
+    const qDigits = onlyDigits(memberPickerSearch || "");
+    if (!q && !qDigits) return docsMembers;
+    if (q.length < 3 && qDigits.length < 3) return docsMembers;
+    return docsMembers.filter((member) => {
+      const name = normalizeSearchText(member.full_name || "");
+      const cpfDigits = onlyDigits(member.cpf || "");
+      return (q && name.includes(q)) || (qDigits && cpfDigits.includes(qDigits));
+    });
+  }, [docsMembers, memberPickerSearch]);
   const selectedMember = useMemo(
-    () => workers.find((member) => String(member.id) === selectedMemberId) || null,
-    [workers, selectedMemberId],
+    () => docsMembers.find((member) => String(member.id) === selectedMemberId) || null,
+    [docsMembers, selectedMemberId],
   );
 
   async function handleDeleteMember(member: UserListItem) {
@@ -846,8 +899,8 @@ export default function PastorMembrosPage() {
     }
   }
   const pastorDaIgreja = useMemo(
-    () => workers.find((member) => member.role === "pastor" && String(member.default_totvs_id || "") === activeTotvsId) || null,
-    [workers, activeTotvsId],
+    () => docsMembers.find((member) => member.role === "pastor" && String(member.default_totvs_id || "") === activeTotvsId) || null,
+    [docsMembers, activeTotvsId],
   );
   const churchName = String(session?.church_name || usuario?.church_name || "");
   const docsTabOpen = tab === "carteirinha" || tab === "ficha_membro";
@@ -888,8 +941,8 @@ export default function PastorMembrosPage() {
   }, [tab]);
 
   useEffect(() => {
-    if (!selectedMemberId && workers.length > 0) {
-      setSelectedMemberId(String(workers[0].id));
+    if (!selectedMemberId && docsMembers.length > 0) {
+      setSelectedMemberId(String(docsMembers[0].id));
       return;
     }
     if (!selectedMember) return;
@@ -897,7 +950,7 @@ export default function PastorMembrosPage() {
     setForm(memberToForm(selectedMember, churchName, pastorSignature, churchFooter));
     // Comentario: limpa o arquivo de foto pendente ao trocar de membro.
     setPendingFotoFile(null);
-  }, [selectedMemberId, selectedMember, workers, churchName, pastorDaIgreja, churchFooter]);
+  }, [selectedMemberId, selectedMember, docsMembers, churchName, pastorDaIgreja, churchFooter]);
 
   async function autofillCep(force = false) {
     const cepDigits = onlyDigits(form.cep_congregacao);
@@ -1012,9 +1065,13 @@ export default function PastorMembrosPage() {
   }
 
   // â”€â”€ ImpressÃ£o em lote: envia carteirinhas selecionadas ao webhook n8n â”€â”€â”€â”€â”€â”€
-    async function enviarLoteImpressao() {
+  async function enviarLoteImpressao() {
     if (selectedPrintIds.size === 0) {
       toast.error("Selecione pelo menos uma carteirinha para imprimir.");
+      return;
+    }
+    if (selectedPrintIds.size > MAX_CARTEIRINHAS_POR_LOTE) {
+      toast.error(`Selecione no máximo ${MAX_CARTEIRINHAS_POR_LOTE} carteirinhas por lote.`);
       return;
     }
 
@@ -1042,7 +1099,11 @@ export default function PastorMembrosPage() {
     setSelectedPrintIds((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
-      else next.add(id);
+      else if (next.size >= MAX_CARTEIRINHAS_POR_LOTE) {
+        toast.error(`Limite de ${MAX_CARTEIRINHAS_POR_LOTE} carteirinhas por envio.`);
+      } else {
+        next.add(id);
+      }
       return next;
     });
   }
@@ -1052,7 +1113,11 @@ export default function PastorMembrosPage() {
     if (selectedPrintIds.size === filteredCarteirinhas.length) {
       setSelectedPrintIds(new Set());
     } else {
-      setSelectedPrintIds(new Set(filteredCarteirinhas.map((c) => c.id)));
+      const ids = filteredCarteirinhas.slice(0, MAX_CARTEIRINHAS_POR_LOTE).map((c) => c.id);
+      if (filteredCarteirinhas.length > MAX_CARTEIRINHAS_POR_LOTE) {
+        toast.message(`Foram selecionadas as primeiras ${MAX_CARTEIRINHAS_POR_LOTE} carteirinhas.`);
+      }
+      setSelectedPrintIds(new Set(ids));
     }
   }
 
@@ -1291,9 +1356,9 @@ export default function PastorMembrosPage() {
             <Button className="rounded-none border-b-2 border-transparent px-2" variant="ghost" style={{ borderBottomColor: tab === "lista" ? "#2563EB" : "transparent", color: tab === "lista" ? "#2563EB" : "#6B7280" }} onClick={() => setTab("lista")}>Lista de membros</Button>
             <Button className="rounded-none border-b-2 border-transparent px-2" variant="ghost" style={{ borderBottomColor: tab === "ficha_membro" ? "#2563EB" : "transparent", color: tab === "ficha_membro" ? "#2563EB" : "#6B7280" }} onClick={() => setTab("ficha_membro")}>Ficha do membro</Button>
             <Button className="rounded-none border-b-2 border-transparent px-2" variant="ghost" style={{ borderBottomColor: tab === "carteirinha" ? "#2563EB" : "transparent", color: tab === "carteirinha" ? "#2563EB" : "#6B7280" }} onClick={() => setTab("carteirinha")}>Carteirinha</Button>
-            <Button className="rounded-none border-b-2 border-transparent px-2" variant="ghost" style={{ borderBottomColor: tab === "impressao" ? "#2563EB" : "transparent", color: tab === "impressao" ? "#2563EB" : "#6B7280" }} onClick={() => setTab("impressao")}>ImpressÃ£o</Button>
+            <Button className="rounded-none border-b-2 border-transparent px-2" variant="ghost" style={{ borderBottomColor: tab === "impressao" ? "#2563EB" : "transparent", color: tab === "impressao" ? "#2563EB" : "#6B7280" }} onClick={() => setTab("impressao")}>Impressão</Button>
             <Button variant="ghost" disabled className="text-slate-400">Ficha de obreiro (bloqueada)</Button>
-            <Button className="rounded-none border-b-2 border-transparent px-2" variant="ghost" style={{ borderBottomColor: tab === "presenca" ? "#2563EB" : "transparent", color: tab === "presenca" ? "#2563EB" : "#6B7280" }} onClick={() => setTab("presenca")}>PresenÃ§a</Button>
+            <Button className="rounded-none border-b-2 border-transparent px-2" variant="ghost" style={{ borderBottomColor: tab === "presenca" ? "#2563EB" : "transparent", color: tab === "presenca" ? "#2563EB" : "#6B7280" }} onClick={() => setTab("presenca")}>Presença</Button>
           </div>
 
           <div className="flex items-center gap-2">
@@ -1334,7 +1399,7 @@ export default function PastorMembrosPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Printer className="h-5 w-5 text-slate-500" />
-              ImpressÃ£o de carteirinhas em lote
+              Impressão de carteirinhas em lote
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -1346,7 +1411,7 @@ export default function PastorMembrosPage() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="pending">NÃ£o impressas</SelectItem>
+                    <SelectItem value="pending">Não impressas</SelectItem>
                     <SelectItem value="all">Todas (prontas)</SelectItem>
                   </SelectContent>
                 </Select>
@@ -1390,7 +1455,7 @@ export default function PastorMembrosPage() {
             ) : filteredCarteirinhas.length === 0 ? (
               <div className="rounded-xl border border-slate-200 bg-slate-50 p-6 text-center text-sm text-slate-500">
                 {filterPrint === "pending"
-                  ? "Todas as carteirinhas prontas jÃ¡ foram impressas."
+                  ? "Todas as carteirinhas prontas já foram impressas."
                   : "Nenhuma carteirinha pronta encontrada para esta igreja."}
               </div>
             ) : (
@@ -1405,7 +1470,7 @@ export default function PastorMembrosPage() {
                       <th className="px-3 py-2">CPF</th>
                       <th className="px-3 py-2">Cargo</th>
                       <th className="px-3 py-2">Status</th>
-                      <th className="px-3 py-2">AÃ§Ãµes</th>
+                      <th className="px-3 py-2">Ações</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -1589,10 +1654,15 @@ export default function PastorMembrosPage() {
               <div className="grid gap-3 md:grid-cols-2">
                 <div className="space-y-1">
                   <Label>Membro</Label>
+                  <Input
+                    placeholder="Buscar por nome ou CPF"
+                    value={memberPickerSearch}
+                    onChange={(e) => setMemberPickerSearch(e.target.value)}
+                  />
                   <Select value={selectedMemberId} onValueChange={setSelectedMemberId}>
                     <SelectTrigger><SelectValue placeholder="Selecione o membro" /></SelectTrigger>
                     <SelectContent>
-                      {workers.map((member) => (
+                      {filteredDocsMembers.map((member) => (
                         <SelectItem key={member.id} value={String(member.id)}>
                           {member.full_name} - {member.cpf || "sem cpf"}
                         </SelectItem>
@@ -1640,10 +1710,15 @@ export default function PastorMembrosPage() {
             <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
               <div className="space-y-1 xl:col-span-2">
                 <Label>Membro</Label>
+                <Input
+                  placeholder="Buscar por nome ou CPF"
+                  value={memberPickerSearch}
+                  onChange={(e) => setMemberPickerSearch(e.target.value)}
+                />
                 <Select value={selectedMemberId} onValueChange={setSelectedMemberId}>
                   <SelectTrigger><SelectValue placeholder="Selecione o membro" /></SelectTrigger>
                   <SelectContent>
-                    {workers.map((member) => (
+                    {filteredDocsMembers.map((member) => (
                       <SelectItem key={member.id} value={String(member.id)}>
                         {member.full_name} - {member.cpf || "sem cpf"}
                       </SelectItem>
