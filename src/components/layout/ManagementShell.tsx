@@ -183,7 +183,7 @@ export function ManagementShell({
 
           {/* Comentario: nav visível a partir de lg, gap compacto em lg e normal em xl */}
           <div className="hidden min-w-0 flex-1 px-2 lg:block xl:px-4">
-            <nav className="flex items-center justify-center gap-1 overflow-x-auto pb-1 xl:gap-2">
+            <nav className="flex flex-wrap items-center justify-center gap-1 xl:gap-2">
               {menu.map((item) => (
                 <MenuNavLink
                   key={item.to}
