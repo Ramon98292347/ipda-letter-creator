@@ -13,6 +13,11 @@ const handlers = new Map<string, SyncHandler>();
 let running = false;
 let timer: number | null = null;
 
+function isRetryableSyncError(error: unknown) {
+  const msg = String(error || "").toLowerCase();
+  return msg.includes("network_error") || msg.includes("request_timeout") || msg.includes("sem conexão") || msg.includes("failed to fetch");
+}
+
 function keyOf(entity: string, operation: string) {
   return `${entity}:${operation}`;
 }
@@ -39,6 +44,10 @@ async function processQueue() {
         await handler(item);
         await markOperationSynced(id);
       } catch (err) {
+        if (isRetryableSyncError(err)) {
+          // Mantem pendente para nova tentativa automatica no proximo ciclo.
+          continue;
+        }
         await markOperationError(id, String(err));
       }
     }
@@ -66,4 +75,3 @@ export function startOfflineSyncLoop() {
     }
   };
 }
-

@@ -2894,13 +2894,27 @@ export async function setUserPaymentStatus(payload: {
 
 export async function saveMinisterialAttendance(payload: SaveMinisterialAttendancePayload) {
   if (!isMockMode()) {
-    return await api.saveMinisterialAttendance({
+    const requestPayload = {
       user_id: payload.user_id,
       meeting_date: payload.meeting_date,
       church_totvs_id: payload.church_totvs_id,
       status: payload.status,
       justification_text: payload.justification_text ?? null,
-    });
+    };
+
+    try {
+      if (typeof navigator !== "undefined" && !navigator.onLine) {
+        await enqueueOfflineOperation("ministerial_attendance", "create", requestPayload, payload.church_totvs_id);
+        return { ok: true, queued: true };
+      }
+      return await api.saveMinisterialAttendance(requestPayload);
+    } catch (error) {
+      if (isRetryableOfflineError(error)) {
+        await enqueueOfflineOperation("ministerial_attendance", "create", requestPayload, payload.church_totvs_id);
+        return { ok: true, queued: true };
+      }
+      throw error;
+    }
   }
 
   return {
@@ -3274,7 +3288,19 @@ export async function generateMemberDocs(payload: {
   dados: Record<string, unknown>;
 }) {
   if (!isMockMode()) {
-    return await api.generateMemberDocs(payload);
+    try {
+      if (typeof navigator !== "undefined" && !navigator.onLine) {
+        await enqueueOfflineOperation("member_docs", "create", payload, payload.church_totvs_id || undefined);
+        return { ok: true, queued: true };
+      }
+      return await api.generateMemberDocs(payload);
+    } catch (error) {
+      if (isRetryableOfflineError(error)) {
+        await enqueueOfflineOperation("member_docs", "create", payload, payload.church_totvs_id || undefined);
+        return { ok: true, queued: true };
+      }
+      throw error;
+    }
   }
   return { ok: true };
 }
@@ -3388,7 +3414,7 @@ export async function createLetterByPastor(payload: LetterCreatePayload) {
   if (!payload.church_destination.trim()) throw new Error("destination-required");
 
   if (!isMockMode()) {
-    return await api.createLetter({
+    const requestPayload = {
       preacher_name: payload.preacher_name.trim(),
       minister_role: payload.minister_role.trim(),
       preach_date: payload.preach_date,
@@ -3401,7 +3427,21 @@ export async function createLetterByPastor(payload: LetterCreatePayload) {
       email: payload.email || null,
       pastor_name: payload.pastor_name || null,
       pastor_phone: payload.pastor_phone || null,
-    });
+    };
+
+    try {
+      if (typeof navigator !== "undefined" && !navigator.onLine) {
+        await enqueueOfflineOperation("letters", "create", requestPayload, payload.church_totvs_id || undefined);
+        return { ok: true, queued: true };
+      }
+      return await api.createLetter(requestPayload);
+    } catch (error) {
+      if (isRetryableOfflineError(error)) {
+        await enqueueOfflineOperation("letters", "create", requestPayload, payload.church_totvs_id || undefined);
+        return { ok: true, queued: true };
+      }
+      throw error;
+    }
   }
 
   const created = {

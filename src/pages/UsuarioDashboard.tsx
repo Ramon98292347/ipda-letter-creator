@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import { fetchAddressByCep, maskCep, onlyDigits } from "@/lib/cep";
 import {
+  createLetterByPastor,
   fetchAncestorChain,
   getPastorByTotvsPublic,
   getSignedPdfUrl,
@@ -30,7 +31,6 @@ import {
   type PastorLetter,
 } from "@/services/saasService";
 import { post } from "@/lib/api";
-import { api } from "@/lib/endpoints";
 import { Bell, BellOff, Building2, CalendarDays, Download, Eye, FileText, IdCard, Loader2, MoreHorizontal, Phone, RefreshCw, Search, Share2, Trash2, Unlock, UserCircle2 } from "lucide-react";
 import { ImageCaptureInput } from "@/components/shared/ImageCaptureInput";
 import { AvatarCapture } from "@/components/shared/AvatarCapture";
@@ -665,9 +665,9 @@ async function openPdf(letter: PastorLetter) {
 
     setCreatingLetter(true);
     try {
-      await api.createLetter({
+      const result = await createLetterByPastor({
+        church_totvs_id: String(session?.totvs_id || ""),
         church_destination: churchDestination,
-        destination_totvs_id: selectedDestination?.totvs_id || undefined,
         manual_destination: !selectedDestination && !!letterForm.igreja_destino_manual.trim(),
         preacher_name: String(profile?.full_name || usuario?.nome || ""),
         minister_role: ministerialRole,
@@ -680,7 +680,11 @@ async function openPdf(letter: PastorLetter) {
         phone: String(profile?.phone || usuario?.telefone || ""),
         email: String(profile?.email || "") || null,
       });
-      toast.success("Carta enviada com sucesso.");
+      if (Boolean((result as Record<string, unknown>)?.queued)) {
+        toast.success("Sem internet. Carta salva na fila e será enviada automaticamente.");
+      } else {
+        toast.success("Carta enviada com sucesso.");
+      }
       setOpenLetterDialog(false);
       await queryClient.invalidateQueries({ queryKey: ["worker-dashboard"] });
     } catch (err) {

@@ -311,7 +311,7 @@ export function PastorLetterDialog({ open, onOpenChange, letterTarget, onSuccess
 
     try {
       setSaving(true);
-      await createLetterByPastor({
+      const result = await createLetterByPastor({
         church_totvs_id: displayOriginTotvs,
         preacher_name: letterTarget.nome,
         preacher_user_id: letterTarget.userId || undefined,
@@ -325,7 +325,11 @@ export function PastorLetterDialog({ open, onOpenChange, letterTarget, onSuccess
         phone: (letterTarget.telefone || "").replace(/\D/g, ""),
         email: null,
       });
-      toast.success("Carta criada e enviada para geracao do PDF.");
+      if (Boolean((result as Record<string, unknown>)?.queued)) {
+        toast.success("Sem internet. Carta salva na fila e será enviada automaticamente.");
+      } else {
+        toast.success("Carta criada e enviada para geracao do PDF.");
+      }
       onSuccess?.();
       onOpenChange(false);
     } catch {
