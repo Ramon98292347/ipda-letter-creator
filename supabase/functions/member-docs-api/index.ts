@@ -11,6 +11,8 @@
  *   action: "finish" -> member-docs-finish
  *   action: "list-ready" -> lista carteirinhas prontas para impressao em lote
  *   action: "mark-printed" -> marca carteirinhas como impressas (atualiza printed_at)
+ *   action: "generate-print-batch" -> envia lote para n8n e cria registro de documento unico
+ *   action: "list-print-batches" -> lista documentos unicos gerados na aba impressao
  * Retorna: o mesmo payload da function legada correspondente.
  * Observacoes: verify_jwt deve ficar false no config.toml; a validacao de JWT
  *              ou x-docs-key continua sendo feita nas functions legadas.
@@ -277,6 +279,23 @@ async function handleGeneratePrintBatch(body: Record<string, unknown>, req: Requ
     source: "ipda-letter-creator",
   };
 
+  const batchInsertPayload = {
+    church_totvs_id: churchTotvsId,
+    created_by_user_id: user.id,
+    status: "PROCESSANDO",
+    total_items: carteirinhas.length,
+    requested_ids: ids,
+  };
+  const { data: batch, error: batchInsertError } = await sb
+    .from("member_carteirinha_print_batches")
+    .insert(batchInsertPayload)
+    .select("id")
+    .single();
+  if (batchInsertError) {
+    return json({ ok: false, error: "batch_insert_failed", details: batchInsertError.message }, 500);
+  }
+  const batchId = String(batch?.id || "");
+
   let responseData: unknown = null;
   try {
     const resp = await fetch(PRINT_BATCH_WEBHOOK_URL, {
@@ -292,19 +311,70 @@ async function handleGeneratePrintBatch(body: Record<string, unknown>, req: Requ
     }
 
     if (!resp.ok) {
+      await sb
+        .from("member_carteirinha_print_batches")
+        .update({
+          status: "ERRO",
+          error_message: `Webhook retornou ${resp.status}`,
+          webhook_response: responseData as Record<string, unknown>,
+          finished_at: new Date().toISOString(),
+        })
+        .eq("id", batchId);
       return json({ ok: false, error: "webhook_failed", status: resp.status, response: responseData }, 502);
     }
   } catch (err) {
+    await sb
+      .from("member_carteirinha_print_batches")
+      .update({
+        status: "ERRO",
+        error_message: String(err),
+        finished_at: new Date().toISOString(),
+      })
+      .eq("id", batchId);
     return json({ ok: false, error: "webhook_unreachable", details: String(err) }, 502);
   }
 
   const documentUrl = pickUrlFromPayload(responseData);
+  const nextStatus = documentUrl ? "PRONTO" : "PROCESSANDO";
+  await sb
+    .from("member_carteirinha_print_batches")
+    .update({
+      status: nextStatus,
+      final_url: documentUrl || null,
+      webhook_response: responseData as Record<string, unknown>,
+      error_message: null,
+      finished_at: documentUrl ? new Date().toISOString() : null,
+    })
+    .eq("id", batchId);
   return json({
     ok: true,
+    batch_id: batchId,
+    status: nextStatus,
     total: carteirinhas.length,
     document_url: documentUrl,
     response: responseData,
   });
+}
+
+async function handleListPrintBatches(body: Record<string, unknown>, req: Request) {
+  const user = await getUserFromJwt(req);
+  if (!user) return json({ ok: false, error: "unauthorized" }, 401);
+  if (!["admin", "pastor", "secretario"].includes(user.role)) {
+    return json({ ok: false, error: "forbidden" }, 403);
+  }
+
+  const churchTotvsId = String(body.church_totvs_id || "").trim();
+  if (!churchTotvsId) return json({ ok: false, error: "church_totvs_id_required" }, 400);
+
+  const sb = getAdminClient();
+  const { data, error } = await sb
+    .from("member_carteirinha_print_batches")
+    .select("id, status, total_items, final_url, error_message, created_at, updated_at, finished_at, created_by_user_id")
+    .eq("church_totvs_id", churchTotvsId)
+    .order("created_at", { ascending: false })
+    .limit(50);
+  if (error) return json({ ok: false, error: error.message }, 500);
+  return json({ ok: true, items: data || [] });
 }
 
 Deno.serve(async (req) => {
@@ -319,6 +389,7 @@ Deno.serve(async (req) => {
     if (action === "list-ready") return await handleListReady(body, req);
     if (action === "mark-printed") return await handleMarkPrinted(body, req);
     if (action === "generate-print-batch") return await handleGeneratePrintBatch(body, req);
+    if (action === "list-print-batches") return await handleListPrintBatches(body, req);
 
     const slug = ACTION_TO_SLUG[action];
     if (!slug) {
@@ -326,7 +397,7 @@ Deno.serve(async (req) => {
         {
           ok: false,
           error: "invalid_action",
-          message: 'Use uma action valida: "generate", "status", "finish", "list-ready", "mark-printed", "generate-print-batch".',
+          message: 'Use uma action valida: "generate", "status", "finish", "list-ready", "mark-printed", "generate-print-batch", "list-print-batches".',
         },
         400,
       );

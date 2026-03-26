@@ -16,7 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { listChurchesInScope, listMembers, type UserListItem, generateMemberDocs, getMemberDocsStatus, deleteUserPermanently, listReadyCarteirinhas, markCarteirinhasPrinted, generatePrintBatchCarteirinhas, type ReadyCarteirinhaItem } from "@/services/saasService";
+import { listChurchesInScope, listMembers, type UserListItem, generateMemberDocs, getMemberDocsStatus, deleteUserPermanently, listReadyCarteirinhas, markCarteirinhasPrinted, generatePrintBatchCarteirinhas, listPrintBatchCarteirinhas, type PrintBatchCarteirinhaItem, type ReadyCarteirinhaItem } from "@/services/saasService";
 import { useUser } from "@/context/UserContext";
 import { useDebounce } from "@/hooks/useDebounce";
 import { fetchAddressByCep, maskCep, onlyDigits } from "@/lib/cep";
@@ -30,6 +30,7 @@ type CarteirinhaTemplate = "padrao";
 type FichaTemplate = "padrao";
 const MAX_CARTEIRINHAS_POR_LOTE = 25;
 const FAILED_MEMBER_PHOTO_URLS = new Set<string>();
+type PrintSectionTab = "selecao" | "documentos";
 
 type MemberDocForm = {
   nome_completo: string;
@@ -714,6 +715,7 @@ export default function PastorMembrosPage() {
   const [filterPrint, setFilterPrint] = useState<"all" | "pending">("pending");
   const [sendingBatch, setSendingBatch] = useState(false);
   const [printBatchUrl, setPrintBatchUrl] = useState("");
+  const [printSectionTab, setPrintSectionTab] = useState<PrintSectionTab>("selecao");
   const [memberPickerSearch, setMemberPickerSearch] = useState("");
 
   // Comentario: busca carteirinhas prontas para impressao da igreja ativa
@@ -721,6 +723,12 @@ export default function PastorMembrosPage() {
     queryKey: ["ready-carteirinhas", activeTotvsId],
     queryFn: () => listReadyCarteirinhas(activeTotvsId),
     enabled: tab === "impressao" && !!activeTotvsId,
+  });
+  const { data: printBatchDocs = [], isLoading: loadingBatchDocs, refetch: refetchBatchDocs } = useQuery({
+    queryKey: ["print-batch-carteirinhas", activeTotvsId],
+    queryFn: () => listPrintBatchCarteirinhas(activeTotvsId),
+    enabled: tab === "impressao" && !!activeTotvsId,
+    refetchInterval: tab === "impressao" ? 5000 : false,
   });
 
   // Comentario: filtra carteirinhas baseado no filtro selecionado
@@ -737,9 +745,12 @@ export default function PastorMembrosPage() {
       .on("postgres_changes", { event: "*", schema: "public", table: "member_carteirinha_documents" }, () => {
         void refetchReady();
       })
+      .on("postgres_changes", { event: "*", schema: "public", table: "member_carteirinha_print_batches" }, () => {
+        void refetchBatchDocs();
+      })
       .subscribe();
     return () => { void supabaseRealtime.removeChannel(channel); };
-  }, [tab, refetchReady]);
+  }, [tab, refetchReady, refetchBatchDocs]);
 
   const { data, isLoading: loadingMembers, isFetching: fetchingMembers, refetch: refetchMembers } = useQuery({
     queryKey: ["pastor-members-page", membersPage, membersPageSize, filterTotvs, filterActive],
@@ -882,6 +893,14 @@ export default function PastorMembrosPage() {
       return (q && name.includes(q)) || (qDigits && cpfDigits.includes(qDigits));
     });
   }, [docsMembers, memberPickerSearch]);
+  useEffect(() => {
+    const q = normalizeSearchText(memberPickerSearch);
+    const qDigits = onlyDigits(memberPickerSearch || "");
+    if (q.length < 3 && qDigits.length < 3) return;
+    if (filteredDocsMembers.length === 1) {
+      setSelectedMemberId(String(filteredDocsMembers[0].id));
+    }
+  }, [memberPickerSearch, filteredDocsMembers]);
   const selectedMember = useMemo(
     () => docsMembers.find((member) => String(member.id) === selectedMemberId) || null,
     [docsMembers, selectedMemberId],
@@ -1086,6 +1105,8 @@ export default function PastorMembrosPage() {
       await markCarteirinhasPrinted(Array.from(selectedPrintIds));
       setSelectedPrintIds(new Set());
       await refetchReady();
+      await refetchBatchDocs();
+      setPrintSectionTab("documentos");
       toast.success(`${selecionadas.length} carteirinha(s) enviada(s). Documento único gerado.`);
     } catch {
       toast.error("Falha ao enviar para impressão.");
@@ -1403,136 +1424,203 @@ export default function PastorMembrosPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            {/* Comentario: filtro e acoes */}
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="flex items-center gap-2">
-                <Select value={filterPrint} onValueChange={(v) => { setFilterPrint(v as "all" | "pending"); setSelectedPrintIds(new Set()); }}>
-                  <SelectTrigger className="w-48">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="pending">Não impressas</SelectItem>
-                    <SelectItem value="all">Todas (prontas)</SelectItem>
-                  </SelectContent>
-                </Select>
-                <span className="text-sm text-slate-500">
-                  {filteredCarteirinhas.length} carteirinha(s)
-                </span>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" onClick={toggleSelectAll}>
-                  {selectedPrintIds.size === filteredCarteirinhas.length && filteredCarteirinhas.length > 0
-                    ? <><CheckSquare className="mr-1 h-4 w-4" /> Desmarcar todas</>
-                    : <><Square className="mr-1 h-4 w-4" /> Selecionar todas</>}
-                </Button>
-                <Button
-                  onClick={() => void enviarLoteImpressao()}
-                  disabled={sendingBatch || selectedPrintIds.size === 0}
-                  className="bg-blue-600 hover:bg-blue-700"
-                >
-                  {sendingBatch
-                    ? <><Loader2 className="mr-1 h-4 w-4 animate-spin" /> Enviando...</>
-                    : <><Printer className="mr-1 h-4 w-4" /> Gerar documento único {selectedPrintIds.size > 0 ? `(${selectedPrintIds.size})` : ""}</>}
-                </Button>
-                {printBatchUrl ? (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => window.open(printBatchUrl, "_blank", "noopener,noreferrer")}
-                  >
-                    Visualizar documento único
-                  </Button>
-                ) : null}
-              </div>
+            <div className="flex items-center gap-2">
+              <Button size="sm" variant={printSectionTab === "selecao" ? "default" : "outline"} onClick={() => setPrintSectionTab("selecao")}>
+                Seleção de carteirinhas
+              </Button>
+              <Button size="sm" variant={printSectionTab === "documentos" ? "default" : "outline"} onClick={() => setPrintSectionTab("documentos")}>
+                Documentos gerados
+              </Button>
             </div>
 
-            {/* Comentario: loading */}
-            {loadingReady ? (
-              <div className="flex justify-center py-8">
-                <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
-              </div>
-            ) : filteredCarteirinhas.length === 0 ? (
-              <div className="rounded-xl border border-slate-200 bg-slate-50 p-6 text-center text-sm text-slate-500">
-                {filterPrint === "pending"
-                  ? "Todas as carteirinhas prontas já foram impressas."
-                  : "Nenhuma carteirinha pronta encontrada para esta igreja."}
-              </div>
-            ) : (
-              /* Comentario: tabela de carteirinhas prontas */
-              <div className="overflow-x-auto rounded-xl border border-slate-200">
-                <table className="w-full text-sm">
-                  <thead className="bg-slate-50 text-left text-xs font-semibold text-slate-600">
-                    <tr>
-                      <th className="px-3 py-2 w-10"></th>
-                      <th className="px-3 py-2">Foto</th>
-                      <th className="px-3 py-2">Nome</th>
-                      <th className="px-3 py-2">CPF</th>
-                      <th className="px-3 py-2">Cargo</th>
-                      <th className="px-3 py-2">Status</th>
-                      <th className="px-3 py-2">Ações</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {filteredCarteirinhas.map((c) => (
-                      <tr
-                        key={c.id}
-                        className={`cursor-pointer hover:bg-slate-50 ${selectedPrintIds.has(c.id) ? "bg-blue-50" : ""}`}
-                        onClick={() => togglePrintSelection(c.id)}
+            {printSectionTab === "selecao" ? (
+              <>
+                {/* Comentario: filtro e acoes */}
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <Select value={filterPrint} onValueChange={(v) => { setFilterPrint(v as "all" | "pending"); setSelectedPrintIds(new Set()); }}>
+                      <SelectTrigger className="w-48">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="pending">Não impressas</SelectItem>
+                        <SelectItem value="all">Todas (prontas)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <span className="text-sm text-slate-500">
+                      {filteredCarteirinhas.length} carteirinha(s)
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <Button variant="outline" size="sm" onClick={toggleSelectAll}>
+                      {selectedPrintIds.size === filteredCarteirinhas.length && filteredCarteirinhas.length > 0
+                        ? <><CheckSquare className="mr-1 h-4 w-4" /> Desmarcar todas</>
+                        : <><Square className="mr-1 h-4 w-4" /> Selecionar todas</>}
+                    </Button>
+                    <Button
+                      onClick={() => void enviarLoteImpressao()}
+                      disabled={sendingBatch || selectedPrintIds.size === 0}
+                      className="bg-blue-600 hover:bg-blue-700"
+                    >
+                      {sendingBatch
+                        ? <><Loader2 className="mr-1 h-4 w-4 animate-spin" /> Enviando...</>
+                        : <><Printer className="mr-1 h-4 w-4" /> Gerar documento único {selectedPrintIds.size > 0 ? `(${selectedPrintIds.size})` : ""}</>}
+                    </Button>
+                    {printBatchUrl ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => window.open(printBatchUrl, "_blank", "noopener,noreferrer")}
                       >
-                        <td className="px-3 py-2 text-center">
-                          {selectedPrintIds.has(c.id)
-                            ? <CheckSquare className="h-4 w-4 text-blue-600" />
-                            : <Square className="h-4 w-4 text-slate-300" />}
-                        </td>
-                        <td className="px-3 py-2">
-                          {c.member_avatar_url ? (
-                            <img src={c.member_avatar_url} alt="" className="h-10 w-8 rounded border border-slate-200 object-cover" />
-                          ) : (
-                            <div className="flex h-10 w-8 items-center justify-center rounded bg-slate-100 text-xs text-slate-400">â€”</div>
-                          )}
-                        </td>
-                        <td className="px-3 py-2 font-medium text-slate-900">{c.member_name || "â€”"}</td>
-                        <td className="px-3 py-2 text-slate-600">{c.member_cpf || "â€”"}</td>
-                        <td className="px-3 py-2 text-slate-600">{c.member_minister_role || "â€”"}</td>
-                        <td className="px-3 py-2">
-                          {c.printed_at ? (
-                            <Badge variant="outline" className="border-emerald-200 bg-emerald-50 text-emerald-700">
-                              Impressa
-                            </Badge>
-                          ) : (
-                            <Badge variant="outline" className="border-amber-200 bg-amber-50 text-amber-700">
-                              Pendente
-                            </Badge>
-                          )}
-                        </td>
-                        <td className="px-3 py-2">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="h-7 text-xs"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (c.final_url) window.open(c.final_url, "_blank", "noopener,noreferrer");
-                            }}
-                            disabled={!c.final_url}
+                        Visualizar documento único
+                      </Button>
+                    ) : null}
+                  </div>
+                </div>
+
+                {loadingReady ? (
+                  <div className="flex justify-center py-8">
+                    <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
+                  </div>
+                ) : filteredCarteirinhas.length === 0 ? (
+                  <div className="rounded-xl border border-slate-200 bg-slate-50 p-6 text-center text-sm text-slate-500">
+                    {filterPrint === "pending"
+                      ? "Todas as carteirinhas prontas já foram impressas."
+                      : "Nenhuma carteirinha pronta encontrada para esta igreja."}
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto rounded-xl border border-slate-200">
+                    <table className="w-full text-sm">
+                      <thead className="bg-slate-50 text-left text-xs font-semibold text-slate-600">
+                        <tr>
+                          <th className="px-3 py-2 w-10"></th>
+                          <th className="px-3 py-2">Foto</th>
+                          <th className="px-3 py-2">Nome</th>
+                          <th className="px-3 py-2">CPF</th>
+                          <th className="px-3 py-2">Cargo</th>
+                          <th className="px-3 py-2">Status</th>
+                          <th className="px-3 py-2">Ações</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {filteredCarteirinhas.map((c) => (
+                          <tr
+                            key={c.id}
+                            className={`cursor-pointer hover:bg-slate-50 ${selectedPrintIds.has(c.id) ? "bg-blue-50" : ""}`}
+                            onClick={() => togglePrintSelection(c.id)}
                           >
-                            Ver
-                          </Button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                            <td className="px-3 py-2 text-center">
+                              {selectedPrintIds.has(c.id)
+                                ? <CheckSquare className="h-4 w-4 text-blue-600" />
+                                : <Square className="h-4 w-4 text-slate-300" />}
+                            </td>
+                            <td className="px-3 py-2">
+                              {c.member_avatar_url ? (
+                                <img src={c.member_avatar_url} alt="" className="h-10 w-8 rounded border border-slate-200 object-cover" />
+                              ) : (
+                                <div className="flex h-10 w-8 items-center justify-center rounded bg-slate-100 text-xs text-slate-400">â€”</div>
+                              )}
+                            </td>
+                            <td className="px-3 py-2 font-medium text-slate-900">{c.member_name || "â€”"}</td>
+                            <td className="px-3 py-2 text-slate-600">{c.member_cpf || "â€”"}</td>
+                            <td className="px-3 py-2 text-slate-600">{c.member_minister_role || "â€”"}</td>
+                            <td className="px-3 py-2">
+                              {c.printed_at ? (
+                                <Badge variant="outline" className="border-emerald-200 bg-emerald-50 text-emerald-700">
+                                  Impressa
+                                </Badge>
+                              ) : (
+                                <Badge variant="outline" className="border-amber-200 bg-amber-50 text-amber-700">
+                                  Pendente
+                                </Badge>
+                              )}
+                            </td>
+                            <td className="px-3 py-2">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-7 text-xs"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (c.final_url) window.open(c.final_url, "_blank", "noopener,noreferrer");
+                                }}
+                                disabled={!c.final_url}
+                              >
+                                Ver
+                              </Button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
+                <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+                  <b>Como funciona:</b> Selecione as carteirinhas e clique em "Gerar documento único".
+                  O sistema envia os dados ao n8n que gera um PDF com <b>4 carteirinhas por A4</b>.
+                  Depois use o botão "Visualizar documento único" para abrir e imprimir.
+                </div>
+              </>
+            ) : (
+              <div className="space-y-3">
+                {loadingBatchDocs ? (
+                  <div className="flex justify-center py-8">
+                    <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
+                  </div>
+                ) : printBatchDocs.length === 0 ? (
+                  <div className="rounded-xl border border-slate-200 bg-slate-50 p-6 text-center text-sm text-slate-500">
+                    Nenhum documento único gerado ainda.
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto rounded-xl border border-slate-200">
+                    <table className="w-full text-sm">
+                      <thead className="bg-slate-50 text-left text-xs font-semibold text-slate-600">
+                        <tr>
+                          <th className="px-3 py-2">Criado em</th>
+                          <th className="px-3 py-2">Quantidade</th>
+                          <th className="px-3 py-2">Status</th>
+                          <th className="px-3 py-2">Ações</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {printBatchDocs.map((batch: PrintBatchCarteirinhaItem) => (
+                          <tr key={batch.id}>
+                            <td className="px-3 py-2 text-slate-600">{formatDateBr(batch.created_at)}</td>
+                            <td className="px-3 py-2 text-slate-600">{Number(batch.total_items || 0)}</td>
+                            <td className="px-3 py-2">
+                              {String(batch.status).toUpperCase() === "PRONTO" ? (
+                                <Badge variant="outline" className="border-emerald-200 bg-emerald-50 text-emerald-700">Pronto</Badge>
+                              ) : String(batch.status).toUpperCase() === "ERRO" ? (
+                                <Badge variant="outline" className="border-rose-200 bg-rose-50 text-rose-700">Erro</Badge>
+                              ) : (
+                                <Badge variant="outline" className="border-amber-200 bg-amber-50 text-amber-700">Processando</Badge>
+                              )}
+                            </td>
+                            <td className="px-3 py-2">
+                              <div className="flex items-center gap-2">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  disabled={!batch.final_url}
+                                  onClick={() => batch.final_url && window.open(batch.final_url, "_blank", "noopener,noreferrer")}
+                                >
+                                  Visualizar
+                                </Button>
+                                {String(batch.status).toUpperCase() === "ERRO" && batch.error_message ? (
+                                  <span className="max-w-[320px] truncate text-xs text-rose-700">{batch.error_message}</span>
+                                ) : null}
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
             )}
-
-            {/* Comentario: info sobre o layout */}
-            <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
-              <b>Como funciona:</b> Selecione as carteirinhas e clique em "Gerar documento único".
-              O sistema envia os dados ao n8n que gera um PDF com <b>4 carteirinhas por A4</b>.
-              Depois use o botão "Visualizar documento único" para abrir e imprimir.
-            </div>
           </CardContent>
         </Card>
       ) : null}
@@ -1655,13 +1743,18 @@ export default function PastorMembrosPage() {
                 <div className="space-y-1">
                   <Label>Membro</Label>
                   <Input
-                    placeholder="Buscar por nome ou CPF"
+                    placeholder="Digite 3 caracteres para buscar por nome ou CPF"
                     value={memberPickerSearch}
                     onChange={(e) => setMemberPickerSearch(e.target.value)}
                   />
                   <Select value={selectedMemberId} onValueChange={setSelectedMemberId}>
                     <SelectTrigger><SelectValue placeholder="Selecione o membro" /></SelectTrigger>
                     <SelectContent>
+                      {filteredDocsMembers.length === 0 ? (
+                        <SelectItem value="__none__" disabled>
+                          Nenhum membro encontrado
+                        </SelectItem>
+                      ) : null}
                       {filteredDocsMembers.map((member) => (
                         <SelectItem key={member.id} value={String(member.id)}>
                           {member.full_name} - {member.cpf || "sem cpf"}
@@ -1711,13 +1804,18 @@ export default function PastorMembrosPage() {
               <div className="space-y-1 xl:col-span-2">
                 <Label>Membro</Label>
                 <Input
-                  placeholder="Buscar por nome ou CPF"
+                  placeholder="Digite 3 caracteres para buscar por nome ou CPF"
                   value={memberPickerSearch}
                   onChange={(e) => setMemberPickerSearch(e.target.value)}
                 />
                 <Select value={selectedMemberId} onValueChange={setSelectedMemberId}>
                   <SelectTrigger><SelectValue placeholder="Selecione o membro" /></SelectTrigger>
                   <SelectContent>
+                    {filteredDocsMembers.length === 0 ? (
+                      <SelectItem value="__none__" disabled>
+                        Nenhum membro encontrado
+                      </SelectItem>
+                    ) : null}
                     {filteredDocsMembers.map((member) => (
                       <SelectItem key={member.id} value={String(member.id)}>
                         {member.full_name} - {member.cpf || "sem cpf"}

@@ -3195,6 +3195,18 @@ export type ReadyCarteirinhaItem = {
   member_avatar_url: string;
 };
 
+export type PrintBatchCarteirinhaItem = {
+  id: string;
+  status: "PROCESSANDO" | "PRONTO" | "ERRO" | string;
+  total_items: number;
+  final_url: string | null;
+  error_message: string | null;
+  created_at: string;
+  updated_at: string;
+  finished_at: string | null;
+  created_by_user_id: string | null;
+};
+
 // Comentario: busca carteirinhas com status PRONTO prontas para impressao em lote
 export async function listReadyCarteirinhas(churchTotvsId: string): Promise<ReadyCarteirinhaItem[]> {
   if (!isMockMode()) {
@@ -3225,6 +3237,17 @@ export async function generatePrintBatchCarteirinhas(
     })) as { document_url?: string | null };
   }
   return { document_url: null };
+}
+
+export async function listPrintBatchCarteirinhas(churchTotvsId: string): Promise<PrintBatchCarteirinhaItem[]> {
+  if (!isMockMode()) {
+    const res = (await api.listPrintBatchCarteirinhas({ church_totvs_id: churchTotvsId })) as {
+      ok: boolean;
+      items: PrintBatchCarteirinhaItem[];
+    };
+    return res.items || [];
+  }
+  return [];
 }
 
 export async function createLetterByPastor(payload: LetterCreatePayload) {

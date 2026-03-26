@@ -176,4 +176,6 @@ export const api = {
   // Comentario: gera documento unico em lote para impressao de carteirinhas
   generatePrintBatchCarteirinhas: (body: { church_totvs_id: string; ids: string[] }) =>
     post("member-docs-api", { action: "generate-print-batch", ...body }),
+  listPrintBatchCarteirinhas: (body: { church_totvs_id: string }) =>
+    post("member-docs-api", { action: "list-print-batches", ...body }),
 };
