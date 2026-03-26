@@ -737,6 +737,10 @@ async function openPdf(letter: PastorLetter) {
         address_city: profileForm.address_city || undefined,
         address_state: profileForm.address_state || undefined,
       });
+      // Comentario: atualiza o avatar_url no contexto do usuario para refletir no header
+      if (avatarUrl) {
+        setUsuario({ ...usuario!, avatar_url: avatarUrl });
+      }
       toast.success("Perfil atualizado.");
       setOpenUpdateModal(false);
       setAvatarFile(null);
@@ -1289,6 +1293,12 @@ async function openPdf(letter: PastorLetter) {
             <div className="space-y-2">
               <div className="space-y-1">
                 <Label>Foto 3x4</Label>
+                {/* Comentario: mostra foto atual do perfil se existir */}
+                {profileForm.avatar_url && !avatarFile && (
+                  <div className="mb-2 flex justify-center">
+                    <img src={profileForm.avatar_url} alt="Foto atual" className="h-20 w-16 rounded-lg border object-cover shadow-sm" />
+                  </div>
+                )}
                 {/* AvatarCapture: inclui câmera/galeria, remoção de fundo por IA e preview 3x4 */}
                 <AvatarCapture
                   onFileReady={(file) => setAvatarFile(file)}

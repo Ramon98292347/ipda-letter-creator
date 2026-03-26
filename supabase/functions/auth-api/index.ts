@@ -336,7 +336,7 @@ async function handleLogin(req: Request, body: Record<string, unknown>) {
 
   const { data: user, error: userError } = await sb
     .from("users")
-    .select("id, cpf, full_name, role, password_hash, is_active, totvs_access, default_totvs_id, payment_status, discipline_status, discipline_block_reason")
+    .select("id, cpf, full_name, role, password_hash, is_active, totvs_access, default_totvs_id, payment_status, discipline_status, discipline_block_reason, avatar_url")
     .eq("cpf", cpf)
     .maybeSingle();
 
@@ -440,7 +440,7 @@ async function handleLogin(req: Request, body: Record<string, unknown>) {
       ok: true,
       mode: "select_church",
       cpf: user.cpf,
-      user: { id: user.id, full_name: user.full_name, cpf: user.cpf, role: user.role },
+      user: { id: user.id, full_name: user.full_name, cpf: user.cpf, role: user.role, avatar_url: user.avatar_url || null },
       churches: churchesForUI,
     }, 200);
   }
@@ -486,7 +486,7 @@ async function handleLogin(req: Request, body: Record<string, unknown>) {
     mode: "logged_in",
     token,
     rls_token,
-    user: { id: user.id, full_name: user.full_name, cpf: user.cpf, role: user.role },
+    user: { id: user.id, full_name: user.full_name, cpf: user.cpf, role: user.role, avatar_url: user.avatar_url || null },
     session: {
       totvs_id: activeTotvs,
       church_name: String(activeMeta?.church_name || ""),
@@ -550,7 +550,7 @@ async function handleSelectChurch(body: Record<string, unknown>) {
     mode: "logged_in",
     token,
     rls_token,
-    user: { id: user.id, full_name: user.full_name, cpf: user.cpf, role: user.role },
+    user: { id: user.id, full_name: user.full_name, cpf: user.cpf, role: user.role, avatar_url: user.avatar_url || null },
     session: {
       totvs_id,
       church_name: String((activeMeta as Record<string, unknown> | null)?.church_name || ""),
