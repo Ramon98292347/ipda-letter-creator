@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Download, Loader2, Megaphone, Settings2 } from "lucide-react";
+import { ArrowLeft, Download, Loader2, Megaphone, Settings2, UserCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { listMembers, upsertStamps } from "@/services/saasService";
 import { useUser } from "@/context/UserContext";
@@ -183,11 +183,27 @@ export default function ConfiguracoesPage() {
                 <Settings2 className="h-5 w-5 text-blue-600" /> Sistema
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-2 text-sm text-slate-700">
-              <p><b>Usuário:</b> {usuario?.nome || "-"}</p>
-              <p><b>Perfil:</b> {usuario?.role || "-"}</p>
+            <CardContent className="space-y-3 text-sm text-slate-700">
+              <div className="flex items-center gap-3">
+                {/* Comentario: avatar do usuario logado */}
+                {usuario?.avatar_url ? (
+                  <img src={usuario.avatar_url} alt="" className="h-12 w-12 rounded-full object-cover ring-2 ring-slate-200" />
+                ) : (
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-blue-100 text-lg font-bold text-blue-700">
+                    {(usuario?.nome || "U").charAt(0).toUpperCase()}
+                  </div>
+                )}
+                <div>
+                  <p className="font-semibold text-slate-900">{usuario?.nome || usuario?.full_name || "-"}</p>
+                  <p className="text-xs text-slate-500">{usuario?.role || "-"}</p>
+                </div>
+              </div>
               <p><b>Igreja ativa:</b> {isAdmin ? "Admin global (sem igreja fixa)" : (session?.church_name || "-")}</p>
               <p><b>TOTVS:</b> {isAdmin ? "-" : (session?.totvs_id || "-")}</p>
+              {/* Comentario: botao para editar o cadastro do usuario logado */}
+              <Button variant="outline" onClick={() => nav("/obreiro")} className="mt-2 w-full border-blue-300 text-blue-700 hover:bg-blue-50">
+                <UserCircle2 className="mr-2 h-4 w-4" /> Editar meu cadastro
+              </Button>
             </CardContent>
           </Card>
 
@@ -225,20 +241,29 @@ export default function ConfiguracoesPage() {
             <CardTitle>Assinatura e carimbos</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
+            {/* Comentario: aviso importante sobre formato das imagens */}
+            <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+              <b>Importante:</b> As imagens devem ser <b>PNG com fundo transparente</b> (sem fundo).
+              Tamanho recomendado: <b>largura entre 200px e 400px</b>.
+              Imagens com fundo branco ou colorido vão aparecer com o fundo na carta.
+            </div>
             <div className="grid gap-4 md:grid-cols-3">
               <div className="space-y-2">
                 <Label>Assinatura</Label>
-                <Input className="h-11 rounded-xl border-slate-300 bg-slate-50" type="file" accept="image/*" onChange={(e) => setSignatureFile(e.target.files?.[0] || null)} />
+                <p className="text-[11px] text-slate-500">PNG sem fundo, ~300x130px</p>
+                <Input className="h-11 rounded-xl border-slate-300 bg-slate-50" type="file" accept=".png,.webp" onChange={(e) => setSignatureFile(e.target.files?.[0] || null)} />
                 {stampUrls.signature_url ? <a href={stampUrls.signature_url} target="_blank" rel="noreferrer" className="text-xs text-blue-600 underline">Ver assinatura atual</a> : null}
               </div>
               <div className="space-y-2">
                 <Label>Carimbo pastor</Label>
-                <Input className="h-11 rounded-xl border-slate-300 bg-slate-50" type="file" accept="image/*" onChange={(e) => setStampPastorFile(e.target.files?.[0] || null)} />
+                <p className="text-[11px] text-slate-500">PNG sem fundo, ~300x300px</p>
+                <Input className="h-11 rounded-xl border-slate-300 bg-slate-50" type="file" accept=".png,.webp" onChange={(e) => setStampPastorFile(e.target.files?.[0] || null)} />
                 {stampUrls.stamp_pastor_url ? <a href={stampUrls.stamp_pastor_url} target="_blank" rel="noreferrer" className="text-xs text-blue-600 underline">Ver carimbo pastor</a> : null}
               </div>
               <div className="space-y-2">
                 <Label>Carimbo igreja</Label>
-                <Input className="h-11 rounded-xl border-slate-300 bg-slate-50" type="file" accept="image/*" onChange={(e) => setStampChurchFile(e.target.files?.[0] || null)} />
+                <p className="text-[11px] text-slate-500">PNG sem fundo, ~300x300px</p>
+                <Input className="h-11 rounded-xl border-slate-300 bg-slate-50" type="file" accept=".png,.webp" onChange={(e) => setStampChurchFile(e.target.files?.[0] || null)} />
                 {stampUrls.stamp_church_url ? <a href={stampUrls.stamp_church_url} target="_blank" rel="noreferrer" className="text-xs text-blue-600 underline">Ver carimbo igreja</a> : null}
               </div>
             </div>

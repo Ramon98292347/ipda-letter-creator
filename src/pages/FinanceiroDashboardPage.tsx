@@ -8,6 +8,10 @@ import {
 import { useNavigate } from "react-router-dom";
 import { listFechamentos, listContagens } from "@/services/financeiroService";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
+  AreaChart, Area,
+} from "recharts";
 
 // Comentario: nomes dos meses em portugues para exibir no filtro
 const MESES = [
@@ -88,6 +92,29 @@ export default function FinanceiroDashboardPage() {
   const [showFiltersMobile, setShowFiltersMobile] = useState(false);
 
   const loading = loadingFechamentos || loadingContagens;
+
+  // Comentario: dados mensais do ano selecionado para os graficos — entradas e saidas
+  const dadosMensais = useMemo(() => {
+    return MESES.map((nomeMes, i) => {
+      const mes = i + 1;
+      const prefix = `${anoFiltro}-${String(mes).padStart(2, "0")}`;
+      const entradas = contagens
+        .filter((c) => c.data_contagem?.startsWith(prefix))
+        .reduce((sum, c) => sum + Number(c.saldo_contado || 0), 0);
+      const fech = fechamentos.find((f) => f.ano === anoFiltro && f.mes === mes);
+      const saidas = Number(fech?.total_despesas || 0);
+      return { mes: nomeMes.slice(0, 3), entradas, saidas, saldo: entradas - saidas };
+    });
+  }, [anoFiltro, contagens, fechamentos]);
+
+  // Comentario: saldo acumulado ao longo do ano para o grafico de area
+  const dadosAcumulados = useMemo(() => {
+    let acumulado = 0;
+    return dadosMensais.map((d) => {
+      acumulado += d.saldo;
+      return { ...d, acumulado };
+    });
+  }, [dadosMensais]);
 
   return (
     <ManagementShell roleMode="financeiro">
@@ -277,6 +304,71 @@ export default function FinanceiroDashboardPage() {
               </table>
             </div>
           )}
+        </div>
+
+        {/* ── Gráficos Anuais ─────────────────────────────────────────── */}
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-base font-semibold text-gray-900">Movimentações de {anoFiltro}</h3>
+            <Select value={String(anoFiltro)} onValueChange={(v) => setFiltroMes(`${v}-${String(mesFiltro).padStart(2, "0")}`)}>
+              <SelectTrigger className="w-[100px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {Array.from({ length: 5 }, (_, i) => currentYear - i).map((ano) => (
+                  <SelectItem key={ano} value={String(ano)}>{ano}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="grid gap-4 lg:grid-cols-2">
+            {/* Comentario: grafico de barras — entradas vs saidas por mes */}
+            <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+              <h4 className="mb-3 text-sm font-semibold text-gray-700">Entradas vs Saídas</h4>
+              <ResponsiveContainer width="100%" height={280}>
+                <BarChart data={dadosMensais} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                  <XAxis dataKey="mes" tick={{ fontSize: 11 }} />
+                  <YAxis tick={{ fontSize: 11 }} tickFormatter={(v: number) => `${(v / 1000).toFixed(0)}k`} />
+                  <Tooltip
+                    formatter={(value: number) => [`R$ ${formatCurrency(value)}`, ""]}
+                    labelStyle={{ fontWeight: 600 }}
+                    contentStyle={{ borderRadius: 8, fontSize: 12 }}
+                  />
+                  <Legend wrapperStyle={{ fontSize: 12 }} />
+                  <Bar dataKey="entradas" name="Entradas" fill="#16a34a" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="saidas" name="Saídas" fill="#dc2626" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* Comentario: grafico de area — saldo acumulado ao longo do ano */}
+            <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+              <h4 className="mb-3 text-sm font-semibold text-gray-700">Saldo Acumulado</h4>
+              <ResponsiveContainer width="100%" height={280}>
+                <AreaChart data={dadosAcumulados} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                  <XAxis dataKey="mes" tick={{ fontSize: 11 }} />
+                  <YAxis tick={{ fontSize: 11 }} tickFormatter={(v: number) => `${(v / 1000).toFixed(0)}k`} />
+                  <Tooltip
+                    formatter={(value: number) => [`R$ ${formatCurrency(value)}`, ""]}
+                    labelStyle={{ fontWeight: 600 }}
+                    contentStyle={{ borderRadius: 8, fontSize: 12 }}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="acumulado"
+                    name="Saldo Acumulado"
+                    stroke="#1A237E"
+                    fill="#1A237E"
+                    fillOpacity={0.15}
+                    strokeWidth={2}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
         </div>
 
         {/* ── Ações Rápidas ─────────────────────────────────────────── */}
