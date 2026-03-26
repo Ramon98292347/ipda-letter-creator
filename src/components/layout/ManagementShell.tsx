@@ -171,28 +171,15 @@ export function ManagementShell({
   return (
     <div className="min-h-screen bg-[#F6F8FC]">
       <header className="border-b border-slate-200 bg-white">
+        {/* Comentario: primeira linha — logo, botoes de acao e menu mobile */}
         <div className="mx-auto flex h-14 w-full max-w-[1600px] items-center justify-between gap-2 px-3 xl:h-16 xl:gap-3 xl:px-4">
           {/* Comentario: logo — texto curto em lg, completo em xl+ */}
           <div className="flex shrink-0 items-center gap-2">
             <Church className="h-5 w-5 text-blue-600 xl:h-6 xl:w-6" />
-            <span className="hidden text-sm font-bold text-slate-900 sm:block lg:hidden xl:block xl:text-lg">
+            <span className="hidden text-sm font-bold text-slate-900 sm:block xl:text-lg">
               Sistema de Gestao Eclesiastica
             </span>
             <span className="block text-sm font-bold text-slate-900 sm:hidden">IPDA</span>
-          </div>
-
-          {/* Comentario: nav visível a partir de lg, gap compacto em lg e normal em xl */}
-          <div className="hidden min-w-0 flex-1 px-2 lg:block xl:px-4">
-            <nav className="flex flex-wrap items-center justify-center gap-1 xl:gap-2">
-              {menu.map((item) => (
-                <MenuNavLink
-                  key={item.to}
-                  item={item}
-                  loading={pendingRoute === item.to}
-                  onClick={() => setPendingRoute(item.to)}
-                />
-              ))}
-            </nav>
           </div>
 
           <div className="hidden shrink-0 items-center gap-1.5 lg:flex xl:gap-2">
@@ -298,6 +285,20 @@ export function ManagementShell({
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
+        </div>
+
+        {/* Comentario: segunda linha — menu de navegacao, visivel a partir de lg */}
+        <div className="hidden border-t border-slate-100 lg:block">
+          <nav className="mx-auto flex max-w-[1600px] flex-wrap items-center justify-center gap-1 px-3 py-1.5 xl:gap-2 xl:px-4">
+            {menu.map((item) => (
+              <MenuNavLink
+                key={item.to}
+                item={item}
+                loading={pendingRoute === item.to}
+                onClick={() => setPendingRoute(item.to)}
+              />
+            ))}
+          </nav>
         </div>
       </header>
 
