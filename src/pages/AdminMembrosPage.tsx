@@ -207,7 +207,7 @@ export default function AdminMembrosPage() {
                         className="w-full border-b px-3 py-2 text-left text-sm font-medium text-blue-700 hover:bg-blue-50"
                         onMouseDown={() => { setSelectedChurchTotvs(""); setSearchChurch(""); setShowChurchList(false); }}
                       >
-                        Todas as igrejas do escopo
+                        Todas as igrejas
                       </button>
                       {filteredChurches.map((church) => (
                         <button

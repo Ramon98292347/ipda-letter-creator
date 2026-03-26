@@ -130,7 +130,7 @@ export default function PastorIgrejasPage() {
   return (
     <ManagementShell roleMode="pastor">
       {showPageLoading ? (
-        <PageLoading title="Carregando igrejas" description="Buscando dados das igrejas do seu escopo..." />
+        <PageLoading title="Carregando igrejas" description="Buscando dados das igrejas..." />
       ) : (
         <div className="space-y-5 bg-[#F6F8FC] p-1">
         <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -171,7 +171,7 @@ export default function PastorIgrejasPage() {
         </section>
 
         <section className="grid gap-4 md:grid-cols-3 xl:grid-cols-6">
-          <KpiCard title="Total" value={totals.total} subtitle="igrejas no escopo" gradient={gradients.total} />
+          <KpiCard title="Total" value={totals.total} subtitle="total de igrejas" gradient={gradients.total} />
           <KpiCard title="Estadual" value={totals.estadual} subtitle="classe estadual" gradient={gradients.estadual} />
           <KpiCard title="Setorial" value={totals.setorial} subtitle="classe setorial" gradient={gradients.setorial} />
           <KpiCard title="Central" value={totals.central} subtitle="classe central" gradient={gradients.central} />

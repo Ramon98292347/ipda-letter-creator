@@ -130,7 +130,7 @@ export default function AdminIgrejasPage() {
   return (
     <ManagementShell roleMode="admin">
       {showPageLoading ? (
-        <PageLoading title="Carregando igrejas" description="Buscando dados das igrejas do seu escopo..." />
+        <PageLoading title="Carregando igrejas" description="Buscando dados das igrejas..." />
       ) : (
         <div className="space-y-5 bg-[#F6F8FC] p-1">
         <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -171,7 +171,7 @@ export default function AdminIgrejasPage() {
         </section>
 
         <section className="grid gap-4 md:grid-cols-3 xl:grid-cols-6">
-          <IgrejaStat title="Total" value={totals.total} subtitle="igrejas no escopo" gradient={gradients.total} />
+          <IgrejaStat title="Total" value={totals.total} subtitle="total de igrejas" gradient={gradients.total} />
           <IgrejaStat title="Estadual" value={totals.estadual} subtitle="classe estadual" gradient={gradients.estadual} />
           <IgrejaStat title="Setorial" value={totals.setorial} subtitle="classe setorial" gradient={gradients.setorial} />
           <IgrejaStat title="Central" value={totals.central} subtitle="classe central" gradient={gradients.central} />

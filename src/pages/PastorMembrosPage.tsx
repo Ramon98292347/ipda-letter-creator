@@ -1147,7 +1147,7 @@ export default function PastorMembrosPage() {
                     className="w-full px-3 py-2 text-left text-sm hover:bg-blue-50 font-medium text-blue-700 border-b"
                     onMouseDown={() => { setFilterTotvs("all"); setSearchChurch(""); setShowChurchList(false); setMembersPage(1); }}
                   >
-                    Todas as igrejas do escopo
+                    Todas as igrejas
                   </button>
                   {filteredChurchOptions.map((church) => (
                     <button
