@@ -989,7 +989,7 @@ async function openPdf(letter: PastorLetter) {
                     />
                   </div>
                   {/* Aviso quando "Outros" esta preenchido — origem subiu para a mae mais alta */}
-                  {manualFilled && displayOriginName && (
+                  {!!letterForm.igreja_destino_manual.trim() && displayOriginName && (
                     <p className="text-xs text-amber-700">
                       Destino fora do escopo. A carta sera emitida pela: {displayOriginName}.
                     </p>
