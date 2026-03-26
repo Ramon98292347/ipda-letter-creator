@@ -33,4 +33,13 @@ export const supabase = url && key
 
 // Cliente anonimo sem injecao de rls_token, usado em queries publicas
 // para nao interferir na sessao.
-export const supabaseAnon = url && key ? createClient(url, key) : undefined;
+export const supabaseAnon = url && key
+  ? createClient(url, key, {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+        detectSessionInUrl: false,
+        storageKey: "sb-ipda-anon",
+      },
+    })
+  : undefined;

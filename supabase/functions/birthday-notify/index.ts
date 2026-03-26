@@ -103,10 +103,62 @@ Deno.serve(async (req) => {
 
     let sent = 0;
     let failed = 0;
+    let notifications = 0;
     const today = new Date().toISOString().slice(0, 10);
 
     // Comentario: para cada igreja com aniversariante, dispara o webhook do n8n
     for (const [churchTotvsId, birthdays] of byChurch) {
+      const existing = await sb
+        .from("notifications")
+        .select("id")
+        .eq("church_totvs_id", churchTotvsId)
+        .eq("type", "birthday")
+        .gte("created_at", `${today}T00:00:00.000Z`)
+        .limit(1);
+
+      if (!existing.error && (existing.data || []).length === 0) {
+        const nomes = birthdays.map((b) => b.full_name).join(", ");
+        const title = birthdays.length === 1
+          ? `Aniversário: ${birthdays[0].full_name}`
+          : `${birthdays.length} aniversariantes hoje`;
+        const message = birthdays.length === 1
+          ? `${birthdays[0].full_name} faz aniversário hoje! Envie parabéns.`
+          : `Aniversariantes: ${nomes}`;
+
+        const { data: leaders } = await sb
+          .from("users")
+          .select("id")
+          .eq("default_totvs_id", churchTotvsId)
+          .in("role", ["pastor", "secretario"])
+          .eq("is_active", true);
+
+        const leaderIds = (leaders || []).map((l) => String((l as Record<string, unknown>).id || "")).filter(Boolean);
+        if (leaderIds.length > 0) {
+          await sb.from("notifications").insert(
+            leaderIds.map((leaderId) => ({
+              church_totvs_id: churchTotvsId,
+              user_id: leaderId,
+              type: "birthday",
+              title,
+              message,
+              is_read: false,
+              read_at: null,
+              data: {
+                date: today,
+                birthdays: birthdays.map((b) => ({
+                  id: b.id,
+                  full_name: b.full_name,
+                  phone: b.phone || null,
+                  email: b.email || null,
+                  birth_date: b.birth_date || null,
+                })),
+              },
+            })),
+          );
+          notifications += leaderIds.length;
+        }
+      }
+
       try {
         const resp = await fetch(N8N_WEBHOOK, {
           method: "POST",
@@ -137,6 +189,7 @@ Deno.serve(async (req) => {
       churches: byChurch.size,
       sent,
       failed,
+      notifications,
       date: today,
     });
 

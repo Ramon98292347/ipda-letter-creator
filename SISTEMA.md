@@ -619,3 +619,38 @@ que abre editor de recorte com zoom e proporção livre. Não usa face-api.js.
 
 ### Upload de mídia em divulgações
 - Input de arquivo aceita extensões explícitas (PNG, JPEG, JPG, WebP, GIF) para compatibilidade com Windows
+
+---
+
+## 20. Manutencao 2026-03-26
+
+Atualizacoes aplicadas nesta rodada:
+- Login: aniversariantes na Area de divulgacao agora usam vinculacao por `CPF -> default_totvs_id` (fallback publico), melhorando exibicao quando nao ha sessao ativa.
+- Cartas: emissao nao bloqueia mais por perfil incompleto; a API retorna apenas aviso (`warning`) com campos pendentes.
+- Ficha de membro: continua bloqueando emissao quando faltarem dados obrigatorios (batismo, foto, endereco).
+- Notificacoes de aniversario: `birthday-notify` grava notificacoes no banco (`type = birthday`) com payload em `data` para o sininho.
+- Estabilidade de cliente Supabase: ajustes no cliente anon/realtime para reduzir conflitos de sessao no navegador.
+
+Arquivos impactados nesta manutencao:
+- `src/pages/PhoneIdentify.tsx`
+- `src/pages/Index.tsx`
+- `src/services/saasService.ts`
+- `src/services/api.ts`
+- `src/lib/endpoints.ts`
+- `src/lib/error-map.ts`
+- `src/lib/supabase.ts`
+- `src/lib/supabaseRealtime.ts`
+- `src/components/layout/ManagementShell.tsx`
+- `src/pages/PastorMembrosPage.tsx`
+- `supabase/functions/birthdays-today/index.ts`
+- `supabase/functions/birthday-notify/index.ts`
+- `supabase/functions/letters-api/index.ts`
+- `supabase/functions/generate-member-docs/index.ts`
+- `src/App.tsx`
+
+Observacao de deploy:
+- Sempre fazer deploy das functions alteradas apos pull:
+  - `npx supabase functions deploy birthdays-today`
+  - `npx supabase functions deploy birthday-notify`
+  - `npx supabase functions deploy letters-api`
+  - `npx supabase functions deploy generate-member-docs`

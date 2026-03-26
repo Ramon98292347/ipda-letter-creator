@@ -1,8 +1,17 @@
-import { Toaster as Sonner } from "@/components/ui/sonner";
+﻿import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { PageLoading } from "@/components/shared/PageLoading";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from "react-router-dom";
+import {
+  createBrowserRouter,
+  createRoutesFromElements,
+  RouterProvider,
+  Route,
+  Navigate,
+  useLocation,
+  useNavigate,
+  Outlet,
+} from "react-router-dom";
 import { lazy, Suspense, useEffect } from "react";
 import NotFound from "./pages/NotFound";
 import PhoneIdentify from "./pages/PhoneIdentify";
@@ -32,299 +41,28 @@ const queryClient = new QueryClient({
 
 const pageFallback = <PageLoading title="Carregando" description="Aguarde..." />;
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Sonner />
-      <UserProvider>
-        <BrowserRouter>
-          <OnReloadRedirect />
-          <Routes>
-            <Route path="/" element={<PhoneIdentify />} />
-            <Route
-              path="/presenca-publica/:token"
-              element={
-                <Suspense fallback={pageFallback}>
-                  <PresencaPublicaPage />
-                </Suspense>
-              }
-            />
-            <Route
-              path="/select-church"
-              element={
-                <Suspense fallback={pageFallback}>
-                  <SelectChurchPage />
-                </Suspense>
-              }
-            />
-            <Route path="/cadastro" element={<CadastroRapido />} />
-            <Route
-              path="/reset-senha"
-              element={
-                <Suspense fallback={pageFallback}>
-                  <ResetSenhaPage />
-                </Suspense>
-              }
-            />
-            <Route
-              path="/usuario"
-              element={
-                <RequireAuth>
-                  <Suspense fallback={pageFallback}>
-                    <UsuarioDashboardPage />
-                  </Suspense>
-                </RequireAuth>
-              }
-            />
-            <Route
-              path="/usuario/documentos"
-              element={
-                <RequireAuth>
-                  <Suspense fallback={pageFallback}>
-                    <UsuarioDocumentosPage />
-                  </Suspense>
-                </RequireAuth>
-              }
-            />
-            <Route
-              path="/obreiro"
-              element={
-                <RequireAnyRole roles={["obreiro", "pastor", "admin", "secretario", "financeiro"]}>
-                  <Suspense fallback={pageFallback}>
-                    <UsuarioDashboardPage />
-                  </Suspense>
-                </RequireAnyRole>
-              }
-            />
-            <Route
-              path="/admin"
-              element={
-                <RequireRole role="admin">
-                  <Navigate to="/admin/dashboard" replace />
-                </RequireRole>
-              }
-            />
-            <Route
-              path="/pastor"
-              element={
-                <RequireAnyRole roles={["pastor", "secretario"]}>
-                  <Navigate to="/pastor/dashboard" replace />
-                </RequireAnyRole>
-              }
-            />
-            <Route
-              path="/pastor/dashboard"
-              element={
-                <RequireAnyRole roles={["pastor", "secretario"]}>
-                  <Suspense fallback={pageFallback}>
-                    <PastorDashboardPage />
-                  </Suspense>
-                </RequireAnyRole>
-              }
-            />
-            <Route
-              path="/pastor/igrejas"
-              element={
-                <RequireAnyRole roles={["pastor", "secretario"]}>
-                  <Suspense fallback={pageFallback}>
-                    <PastorIgrejasPage />
-                  </Suspense>
-                </RequireAnyRole>
-              }
-            />
-            <Route
-              path="/pastor/membros"
-              element={
-                <RequireAnyRole roles={["pastor", "secretario"]}>
-                  <Suspense fallback={pageFallback}>
-                    <PastorMembrosPage />
-                  </Suspense>
-                </RequireAnyRole>
-              }
-            />
-            <Route
-              path="/pastor/financeiro"
-              element={
-                <RequireAnyRole roles={["pastor", "secretario"]}>
-                  <Suspense fallback={pageFallback}>
-                    <PastorFinanceiroPage />
-                  </Suspense>
-                </RequireAnyRole>
-              }
-            />
-            <Route
-              path="/secretario"
-              element={
-                <RequireRole role="secretario">
-                  <Navigate to="/pastor/dashboard" replace />
-                </RequireRole>
-              }
-            />
-            <Route
-              path="/financeiro"
-              element={
-                <RequireRole role="financeiro">
-                  <Navigate to="/financeiro/dashboard" replace />
-                </RequireRole>
-              }
-            />
-            <Route
-              path="/financeiro/dashboard"
-              element={
-                <RequireRole role="financeiro">
-                  <FinanceProvider>
-                    <Suspense fallback={pageFallback}>
-                      <FinanceiroDashboardPage />
-                    </Suspense>
-                  </FinanceProvider>
-                </RequireRole>
-              }
-            />
-            <Route
-              path="/financeiro/contagem"
-              element={
-                <RequireRole role="financeiro">
-                  <FinanceProvider>
-                    <Suspense fallback={pageFallback}>
-                      <FinanceiroContagemPage />
-                    </Suspense>
-                  </FinanceProvider>
-                </RequireRole>
-              }
-            />
-            <Route
-              path="/financeiro/saidas"
-              element={
-                <RequireRole role="financeiro">
-                  <Suspense fallback={pageFallback}>
-                    <FinanceiroSaidasPage />
-                  </Suspense>
-                </RequireRole>
-              }
-            />
-            <Route
-              path="/financeiro/ficha"
-              element={
-                <RequireRole role="financeiro">
-                  <FinanceProvider>
-                    <Suspense fallback={pageFallback}>
-                      <FinanceiroFichaPage />
-                    </Suspense>
-                  </FinanceProvider>
-                </RequireRole>
-              }
-            />
-            <Route
-              path="/financeiro/relatorios"
-              element={
-                <RequireRole role="financeiro">
-                  <FinanceProvider>
-                    <Suspense fallback={pageFallback}>
-                      <FinanceiroRelatoriosPage />
-                    </Suspense>
-                  </FinanceProvider>
-                </RequireRole>
-              }
-            />
-            <Route
-              path="/financeiro/config"
-              element={
-                <RequireRole role="financeiro">
-                  <Suspense fallback={pageFallback}>
-                    <FinanceiroConfigPage />
-                  </Suspense>
-                </RequireRole>
-              }
-            />
-            <Route
-              path="/admin/dashboard"
-              element={
-                <RequireRole role="admin">
-                  <Suspense fallback={pageFallback}>
-                    <AdminDashboardPage />
-                  </Suspense>
-                </RequireRole>
-              }
-            />
-            <Route
-              path="/admin/igrejas"
-              element={
-                <RequireRole role="admin">
-                  <Suspense fallback={pageFallback}>
-                    <AdminIgrejasPage />
-                  </Suspense>
-                </RequireRole>
-              }
-            />
-            <Route
-              path="/admin/membros"
-              element={
-                <RequireRole role="admin">
-                  <Suspense fallback={pageFallback}>
-                    <AdminMembrosPage />
-                  </Suspense>
-                </RequireRole>
-              }
-            />
-            <Route
-              path="/admin/cartas"
-              element={
-                <RequireRole role="admin">
-                  <Suspense fallback={pageFallback}>
-                    <CartasDashboardPage />
-                  </Suspense>
-                </RequireRole>
-              }
-            />
-            <Route
-              path="/config"
-              element={
-                <RequireAnyRole roles={["admin", "pastor"]}>
-                  <Suspense fallback={pageFallback}>
-                    <ConfiguracoesPage />
-                  </Suspense>
-                </RequireAnyRole>
-              }
-            />
-            <Route
-              path="/divulgacao"
-              element={
-                <RequireAnyRole roles={["admin", "pastor"]}>
-                  <Suspense fallback={pageFallback}>
-                    <DivulgacaoPage />
-                  </Suspense>
-                </RequireAnyRole>
-              }
-            />
-            <Route
-              path="/carta"
-              element={
-                <RequireAuth>
-                  <Suspense fallback={pageFallback}>
-                    <CartasDashboardPage />
-                  </Suspense>
-                </RequireAuth>
-              }
-            />
-            <Route
-              path="/carta/formulario"
-              element={
-                <RequireAuth>
-                  <Suspense fallback={pageFallback}>
-                    <CartaPage />
-                  </Suspense>
-                </RequireAuth>
-              }
-            />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
-      </UserProvider>
-    </TooltipProvider>
-  </QueryClientProvider>
-);
-
-export default App;
+const CartaPage = lazy(() => import("./pages/Index"));
+const CartasDashboardPage = lazy(() => import("./pages/CartasDashboardPage"));
+const UsuarioDashboardPage = lazy(() => import("./pages/UsuarioDashboard"));
+const UsuarioDocumentosPage = lazy(() => import("./pages/UsuarioDocumentosPage"));
+const PastorDashboardPage = lazy(() => import("./pages/PastorDashboardPage"));
+const PastorIgrejasPage = lazy(() => import("./pages/PastorIgrejasPage"));
+const PastorMembrosPage = lazy(() => import("./pages/PastorMembrosPage"));
+const AdminDashboardPage = lazy(() => import("./pages/AdminDashboardPage"));
+const AdminIgrejasPage = lazy(() => import("./pages/AdminIgrejasPage"));
+const AdminMembrosPage = lazy(() => import("./pages/AdminMembrosPage"));
+const SelectChurchPage = lazy(() => import("./pages/SelectChurch"));
+const ResetSenhaPage = lazy(() => import("./pages/ResetSenhaPage"));
+const ConfiguracoesPage = lazy(() => import("./pages/Configuracoes"));
+const DivulgacaoPage = lazy(() => import("./pages/Divulgacao"));
+const PresencaPublicaPage = lazy(() => import("./pages/PresencaPublica"));
+const FinanceiroDashboardPage = lazy(() => import("./pages/FinanceiroDashboardPage"));
+const FinanceiroContagemPage = lazy(() => import("./pages/FinanceiroContagemPage"));
+const FinanceiroSaidasPage = lazy(() => import("./pages/FinanceiroSaidasPage"));
+const PastorFinanceiroPage = lazy(() => import("./pages/PastorFinanceiroPage"));
+const FinanceiroFichaPage = lazy(() => import("./pages/FinanceiroFichaPage"));
+const FinanceiroRelatoriosPage = lazy(() => import("./pages/FinanceiroRelatoriosPage"));
+const FinanceiroConfigPage = lazy(() => import("./pages/FinanceiroConfigPage"));
 
 function RequireAuth({ children }: { children: JSX.Element }) {
   const { usuario, token } = useUser();
@@ -381,25 +119,310 @@ function OnReloadRedirect() {
   return null;
 }
 
-const CartaPage = lazy(() => import("./pages/Index"));
-const CartasDashboardPage = lazy(() => import("./pages/CartasDashboardPage"));
-const UsuarioDashboardPage = lazy(() => import("./pages/UsuarioDashboard"));
-const UsuarioDocumentosPage = lazy(() => import("./pages/UsuarioDocumentosPage"));
-const PastorDashboardPage = lazy(() => import("./pages/PastorDashboardPage"));
-const PastorIgrejasPage = lazy(() => import("./pages/PastorIgrejasPage"));
-const PastorMembrosPage = lazy(() => import("./pages/PastorMembrosPage"));
-const AdminDashboardPage = lazy(() => import("./pages/AdminDashboardPage"));
-const AdminIgrejasPage = lazy(() => import("./pages/AdminIgrejasPage"));
-const AdminMembrosPage = lazy(() => import("./pages/AdminMembrosPage"));
-const SelectChurchPage = lazy(() => import("./pages/SelectChurch"));
-const ResetSenhaPage = lazy(() => import("./pages/ResetSenhaPage"));
-const ConfiguracoesPage = lazy(() => import("./pages/Configuracoes"));
-const DivulgacaoPage = lazy(() => import("./pages/Divulgacao"));
-const PresencaPublicaPage = lazy(() => import("./pages/PresencaPublica"));
-const FinanceiroDashboardPage = lazy(() => import("./pages/FinanceiroDashboardPage"));
-const FinanceiroContagemPage = lazy(() => import("./pages/FinanceiroContagemPage"));
-const FinanceiroSaidasPage = lazy(() => import("./pages/FinanceiroSaidasPage"));
-const PastorFinanceiroPage = lazy(() => import("./pages/PastorFinanceiroPage"));
-const FinanceiroFichaPage = lazy(() => import("./pages/FinanceiroFichaPage"));
-const FinanceiroRelatoriosPage = lazy(() => import("./pages/FinanceiroRelatoriosPage"));
-const FinanceiroConfigPage = lazy(() => import("./pages/FinanceiroConfigPage"));
+const RootLayout = () => (
+  <>
+    <OnReloadRedirect />
+    <Outlet />
+  </>
+);
+
+const router = createBrowserRouter(
+  createRoutesFromElements(
+    <Route element={<RootLayout />}>
+      <Route path="/" element={<PhoneIdentify />} />
+      <Route
+        path="/presenca-publica/:token"
+        element={
+          <Suspense fallback={pageFallback}>
+            <PresencaPublicaPage />
+          </Suspense>
+        }
+      />
+      <Route
+        path="/select-church"
+        element={
+          <Suspense fallback={pageFallback}>
+            <SelectChurchPage />
+          </Suspense>
+        }
+      />
+      <Route path="/cadastro" element={<CadastroRapido />} />
+      <Route
+        path="/reset-senha"
+        element={
+          <Suspense fallback={pageFallback}>
+            <ResetSenhaPage />
+          </Suspense>
+        }
+      />
+      <Route
+        path="/usuario"
+        element={
+          <RequireAuth>
+            <Suspense fallback={pageFallback}>
+              <UsuarioDashboardPage />
+            </Suspense>
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/usuario/documentos"
+        element={
+          <RequireAuth>
+            <Suspense fallback={pageFallback}>
+              <UsuarioDocumentosPage />
+            </Suspense>
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/obreiro"
+        element={
+          <RequireAnyRole roles={["obreiro", "pastor", "admin", "secretario", "financeiro"]}>
+            <Suspense fallback={pageFallback}>
+              <UsuarioDashboardPage />
+            </Suspense>
+          </RequireAnyRole>
+        }
+      />
+      <Route
+        path="/admin"
+        element={
+          <RequireRole role="admin">
+            <Navigate to="/admin/dashboard" replace />
+          </RequireRole>
+        }
+      />
+      <Route
+        path="/pastor"
+        element={
+          <RequireAnyRole roles={["pastor", "secretario"]}>
+            <Navigate to="/pastor/dashboard" replace />
+          </RequireAnyRole>
+        }
+      />
+      <Route
+        path="/pastor/dashboard"
+        element={
+          <RequireAnyRole roles={["pastor", "secretario"]}>
+            <Suspense fallback={pageFallback}>
+              <PastorDashboardPage />
+            </Suspense>
+          </RequireAnyRole>
+        }
+      />
+      <Route
+        path="/pastor/igrejas"
+        element={
+          <RequireAnyRole roles={["pastor", "secretario"]}>
+            <Suspense fallback={pageFallback}>
+              <PastorIgrejasPage />
+            </Suspense>
+          </RequireAnyRole>
+        }
+      />
+      <Route
+        path="/pastor/membros"
+        element={
+          <RequireAnyRole roles={["pastor", "secretario"]}>
+            <Suspense fallback={pageFallback}>
+              <PastorMembrosPage />
+            </Suspense>
+          </RequireAnyRole>
+        }
+      />
+      <Route
+        path="/pastor/financeiro"
+        element={
+          <RequireAnyRole roles={["pastor", "secretario"]}>
+            <Suspense fallback={pageFallback}>
+              <PastorFinanceiroPage />
+            </Suspense>
+          </RequireAnyRole>
+        }
+      />
+      <Route
+        path="/secretario"
+        element={
+          <RequireRole role="secretario">
+            <Navigate to="/pastor/dashboard" replace />
+          </RequireRole>
+        }
+      />
+      <Route
+        path="/financeiro"
+        element={
+          <RequireRole role="financeiro">
+            <Navigate to="/financeiro/dashboard" replace />
+          </RequireRole>
+        }
+      />
+      <Route
+        path="/financeiro/dashboard"
+        element={
+          <RequireRole role="financeiro">
+            <FinanceProvider>
+              <Suspense fallback={pageFallback}>
+                <FinanceiroDashboardPage />
+              </Suspense>
+            </FinanceProvider>
+          </RequireRole>
+        }
+      />
+      <Route
+        path="/financeiro/contagem"
+        element={
+          <RequireRole role="financeiro">
+            <FinanceProvider>
+              <Suspense fallback={pageFallback}>
+                <FinanceiroContagemPage />
+              </Suspense>
+            </FinanceProvider>
+          </RequireRole>
+        }
+      />
+      <Route
+        path="/financeiro/saidas"
+        element={
+          <RequireRole role="financeiro">
+            <Suspense fallback={pageFallback}>
+              <FinanceiroSaidasPage />
+            </Suspense>
+          </RequireRole>
+        }
+      />
+      <Route
+        path="/financeiro/ficha"
+        element={
+          <RequireRole role="financeiro">
+            <FinanceProvider>
+              <Suspense fallback={pageFallback}>
+                <FinanceiroFichaPage />
+              </Suspense>
+            </FinanceProvider>
+          </RequireRole>
+        }
+      />
+      <Route
+        path="/financeiro/relatorios"
+        element={
+          <RequireRole role="financeiro">
+            <Suspense fallback={pageFallback}>
+              <FinanceiroRelatoriosPage />
+            </Suspense>
+          </RequireRole>
+        }
+      />
+      <Route
+        path="/financeiro/config"
+        element={
+          <RequireRole role="financeiro">
+            <Suspense fallback={pageFallback}>
+              <FinanceiroConfigPage />
+            </Suspense>
+          </RequireRole>
+        }
+      />
+      <Route
+        path="/admin/dashboard"
+        element={
+          <RequireRole role="admin">
+            <Suspense fallback={pageFallback}>
+              <AdminDashboardPage />
+            </Suspense>
+          </RequireRole>
+        }
+      />
+      <Route
+        path="/admin/igrejas"
+        element={
+          <RequireRole role="admin">
+            <Suspense fallback={pageFallback}>
+              <AdminIgrejasPage />
+            </Suspense>
+          </RequireRole>
+        }
+      />
+      <Route
+        path="/admin/membros"
+        element={
+          <RequireRole role="admin">
+            <Suspense fallback={pageFallback}>
+              <AdminMembrosPage />
+            </Suspense>
+          </RequireRole>
+        }
+      />
+      <Route
+        path="/admin/cartas"
+        element={
+          <RequireRole role="admin">
+            <Suspense fallback={pageFallback}>
+              <CartasDashboardPage />
+            </Suspense>
+          </RequireRole>
+        }
+      />
+      <Route
+        path="/config"
+        element={
+          <RequireAnyRole roles={["admin", "pastor"]}>
+            <Suspense fallback={pageFallback}>
+              <ConfiguracoesPage />
+            </Suspense>
+          </RequireAnyRole>
+        }
+      />
+      <Route
+        path="/divulgacao"
+        element={
+          <RequireAnyRole roles={["admin", "pastor"]}>
+            <Suspense fallback={pageFallback}>
+              <DivulgacaoPage />
+            </Suspense>
+          </RequireAnyRole>
+        }
+      />
+      <Route
+        path="/carta"
+        element={
+          <RequireAuth>
+            <Suspense fallback={pageFallback}>
+              <CartasDashboardPage />
+            </Suspense>
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/carta/formulario"
+        element={
+          <RequireAuth>
+            <Suspense fallback={pageFallback}>
+              <CartaPage />
+            </Suspense>
+          </RequireAuth>
+        }
+      />
+      <Route path="*" element={<NotFound />} />
+    </Route>
+  ),
+  {
+    future: {
+      v7_startTransition: true,
+      v7_relativeSplatPath: true,
+    },
+  },
+);
+
+const App = () => (
+  <QueryClientProvider client={queryClient}>
+    <TooltipProvider>
+      <Sonner />
+      <UserProvider>
+        <RouterProvider router={router} />
+      </UserProvider>
+    </TooltipProvider>
+  </QueryClientProvider>
+);
+
+export default App;

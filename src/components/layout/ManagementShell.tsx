@@ -211,18 +211,6 @@ export function ManagementShell({
                 <span className="hidden xl:inline">Baixar app</span>
               </Button>
             ) : null}
-            {/* Comentario: botao para ativar notificacoes push se o navegador suporta e nao esta ativado */}
-            {pushSupported && !pushSubscribed ? (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => void subscribePush()}
-                className="hover:border-green-600 hover:bg-green-50 text-green-700 border-green-300"
-              >
-                <Bell className="mr-1 h-3.5 w-3.5" />
-                <span className="hidden xl:inline">Ativar alertas</span>
-              </Button>
-            ) : null}
             <Button
               variant="outline"
               size="icon"
@@ -230,6 +218,11 @@ export function ManagementShell({
               className="relative h-8 w-8 hover:border-blue-600 hover:bg-blue-50 xl:h-9 xl:w-9"
             >
               <Bell className="h-3.5 w-3.5 xl:h-4 xl:w-4" />
+              {unreadCount > 0 ? (
+                <span className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                  <span className="h-2 w-2 rounded-full bg-rose-500" />
+                </span>
+              ) : null}
               {unreadCount > 0 ? (
                 <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-[9px] font-semibold text-white xl:h-5 xl:w-5 xl:text-[10px]">
                   {unreadCount > 99 ? "99+" : unreadCount}
@@ -342,6 +335,16 @@ export function ManagementShell({
             <DialogTitle>Notificações</DialogTitle>
             <DialogDescription>Atualizações do seu escopo de igrejas.</DialogDescription>
           </DialogHeader>
+          {/* Comentario: banner para ativar alertas push, aparece só se navegador suporta e ainda não ativou */}
+          {pushSupported && !pushSubscribed ? (
+            <div className="mb-2 flex items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2">
+              <Bell className="h-4 w-4 shrink-0 text-amber-600" />
+              <span className="flex-1 text-sm text-amber-800">Ative os alertas para receber notificações em tempo real.</span>
+              <Button size="sm" onClick={() => void subscribePush()} className="bg-amber-600 hover:bg-amber-700 text-white">
+                Ativar alertas
+              </Button>
+            </div>
+          ) : null}
           <div className="mb-2 flex justify-end">
             <Button variant="outline" size="sm" onClick={onReadAllNotifications}>
               Limpar notificacoes

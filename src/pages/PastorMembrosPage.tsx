@@ -359,7 +359,7 @@ function MemberPhoto({ src, alt }: { src?: string | null; alt: string }) {
       <img
         src={resolved}
         alt={alt}
-        className="h-[220px] w-full object-cover object-top"
+        className="h-[180px] w-full bg-slate-50 object-contain sm:h-[220px] sm:object-cover sm:object-top"
         onError={() => {
           FAILED_MEMBER_PHOTO_URLS.add(resolved);
           setFailed(true);
@@ -368,7 +368,7 @@ function MemberPhoto({ src, alt }: { src?: string | null; alt: string }) {
     );
   }
   return (
-    <div className="flex h-[220px] w-full items-center justify-center">
+    <div className="flex h-[180px] w-full items-center justify-center bg-slate-50 sm:h-[220px]">
       <Users className="h-7 w-7 text-slate-400" />
     </div>
   );
@@ -1482,11 +1482,11 @@ export default function PastorMembrosPage() {
           <CardHeader>
             <CardTitle>Membros em grade</CardTitle>
           </CardHeader>
-          <CardContent className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          <CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {workers.map((member) => (
-              <Card key={member.id} className="border border-slate-200">
+              <Card key={member.id} className="min-w-0 border border-slate-200 overflow-hidden">
                 <CardContent className="space-y-3 p-4">
-                  <div className="mx-auto w-full max-w-[220px] overflow-hidden rounded-xl border border-slate-200 bg-white">
+                  <div className="mx-auto w-full max-w-full sm:max-w-[220px] overflow-hidden rounded-xl border border-slate-200 bg-white">
                     <MemberPhoto src={member.avatar_url || null} alt={`Foto de ${member.full_name}`} />
                   </div>
                   <div className="min-w-0 space-y-1">

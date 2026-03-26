@@ -11,5 +11,10 @@ export const supabaseRealtime = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   realtime: {
     params: { eventsPerSecond: 2 },
   },
-  auth: { persistSession: false, autoRefreshToken: false },
+  auth: {
+    persistSession: false,
+    autoRefreshToken: false,
+    detectSessionInUrl: false,
+    storageKey: "sb-ipda-realtime",
+  },
 });
