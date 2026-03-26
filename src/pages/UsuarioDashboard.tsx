@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useUser } from "@/context/UserContext";
 import { ManagementShell } from "@/components/layout/ManagementShell";
@@ -85,6 +85,7 @@ function isLetterReadyForView(letter: PastorLetter) {
 // Comentario: dashboard do obreiro padronizado com o mesmo layout SaaS do sistema.
 export default function UsuarioDashboard() {
   const nav = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
   const { usuario, session, setUsuario, setTelefone } = useUser();
   const { supported: pushSupported, subscribed: pushSubscribed, loading: pushLoading, subscribe: subscribePush, unsubscribe: unsubscribePush } = usePushNotifications(session?.id);
@@ -93,6 +94,16 @@ export default function UsuarioDashboard() {
   const [dateEnd, setDateEnd] = useState("");
   const [quickRange, setQuickRange] = useState<QuickRange>("7");
   const [openUpdateModal, setOpenUpdateModal] = useState(false);
+
+  // Comentario: abre o modal de editar cadastro automaticamente se ?editar=1 na URL
+  useEffect(() => {
+    if (searchParams.get("editar") === "1") {
+      setOpenUpdateModal(true);
+      searchParams.delete("editar");
+      setSearchParams(searchParams, { replace: true });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [openCadastroModal, setOpenCadastroModal] = useState(false);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");

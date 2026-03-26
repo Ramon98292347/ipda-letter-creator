@@ -5,12 +5,17 @@
  *            Visualização somente leitura dos dados financeiros da sua igreja.
  * Quem acessa: pastor e secretario
  */
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { ManagementShell } from "@/components/layout/ManagementShell";
 import { useUser } from "@/context/UserContext";
-import { getDashboard, listTransacoes, listContagens } from "@/services/financeiroService";
+import { getDashboard, listTransacoes, listContagens, listFechamentos } from "@/services/financeiroService";
 import { useQuery } from "@tanstack/react-query";
 import { TrendingUp, TrendingDown, Wallet, DollarSign, Loader2, AlertCircle, Calendar } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
+  AreaChart, Area,
+} from "recharts";
 
 // Comentario: formata um valor numérico como moeda brasileira
 function formatarMoeda(valor: string | number): string {
@@ -65,6 +70,39 @@ export default function PastorFinanceiroPage() {
     if (!contagens || contagens.length === 0) return 0;
     return contagens.reduce((soma, c) => soma + Number(c.saldo_contado || 0), 0);
   }, [contagens]);
+
+  // Comentario: busca fechamentos para os graficos anuais
+  const { data: fechamentos = [] } = useQuery({
+    queryKey: ["pastor-financeiro-fechamentos"],
+    queryFn: listFechamentos,
+    staleTime: 2 * 60 * 1000,
+  });
+
+  // Comentario: ano selecionado para os graficos
+  const [anoGrafico, setAnoGrafico] = useState(agora.getFullYear());
+
+  // Comentario: dados mensais do ano para os graficos
+  const dadosMensais = useMemo(() => {
+    return NOMES_MESES.map((nomeMes, i) => {
+      const mes = i + 1;
+      const prefix = `${anoGrafico}-${String(mes).padStart(2, "0")}`;
+      const entradas = (contagens || [])
+        .filter((c) => c.data_contagem?.startsWith(prefix))
+        .reduce((sum, c) => sum + Number(c.saldo_contado || 0), 0);
+      const fech = fechamentos.find((f) => f.ano === anoGrafico && f.mes === mes);
+      const saidas = Number(fech?.total_despesas || 0);
+      return { mes: nomeMes.slice(0, 3), entradas, saidas, saldo: entradas - saidas };
+    });
+  }, [anoGrafico, contagens, fechamentos]);
+
+  // Comentario: saldo acumulado ao longo do ano
+  const dadosAcumulados = useMemo(() => {
+    let acumulado = 0;
+    return dadosMensais.map((d) => {
+      acumulado += d.saldo;
+      return { ...d, acumulado };
+    });
+  }, [dadosMensais]);
 
   const isLoading = loadingDash || loadingTrans || loadingContagens;
 
@@ -226,6 +264,70 @@ export default function PastorFinanceiroPage() {
                 ))}
               </div>
             )}
+          </div>
+        </div>
+        {/* ── Gráficos Anuais ─────────────────────────────────────────── */}
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-base font-semibold text-slate-900">Movimentações de {anoGrafico}</h3>
+            <Select value={String(anoGrafico)} onValueChange={(v) => setAnoGrafico(Number(v))}>
+              <SelectTrigger className="w-[100px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {Array.from({ length: 5 }, (_, i) => agora.getFullYear() - i).map((ano) => (
+                  <SelectItem key={ano} value={String(ano)}>{ano}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="grid gap-4 lg:grid-cols-2">
+            {/* Comentario: grafico de barras — entradas vs saidas por mes */}
+            <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+              <h4 className="mb-3 text-sm font-semibold text-slate-700">Entradas vs Saídas</h4>
+              <ResponsiveContainer width="100%" height={280}>
+                <BarChart data={dadosMensais} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                  <XAxis dataKey="mes" tick={{ fontSize: 11 }} />
+                  <YAxis tick={{ fontSize: 11 }} tickFormatter={(v: number) => `${(v / 1000).toFixed(0)}k`} />
+                  <Tooltip
+                    formatter={(value: number) => [`${formatarMoeda(value)}`, ""]}
+                    labelStyle={{ fontWeight: 600 }}
+                    contentStyle={{ borderRadius: 8, fontSize: 12 }}
+                  />
+                  <Legend wrapperStyle={{ fontSize: 12 }} />
+                  <Bar dataKey="entradas" name="Entradas" fill="#16a34a" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="saidas" name="Saídas" fill="#dc2626" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* Comentario: grafico de area — saldo acumulado ao longo do ano */}
+            <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+              <h4 className="mb-3 text-sm font-semibold text-slate-700">Saldo Acumulado</h4>
+              <ResponsiveContainer width="100%" height={280}>
+                <AreaChart data={dadosAcumulados} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                  <XAxis dataKey="mes" tick={{ fontSize: 11 }} />
+                  <YAxis tick={{ fontSize: 11 }} tickFormatter={(v: number) => `${(v / 1000).toFixed(0)}k`} />
+                  <Tooltip
+                    formatter={(value: number) => [`${formatarMoeda(value)}`, ""]}
+                    labelStyle={{ fontWeight: 600 }}
+                    contentStyle={{ borderRadius: 8, fontSize: 12 }}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="acumulado"
+                    name="Saldo Acumulado"
+                    stroke="#1A237E"
+                    fill="#1A237E"
+                    fillOpacity={0.15}
+                    strokeWidth={2}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
           </div>
         </div>
       </div>

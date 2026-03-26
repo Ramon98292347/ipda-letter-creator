@@ -201,7 +201,7 @@ export default function ConfiguracoesPage() {
               <p><b>Igreja ativa:</b> {isAdmin ? "Admin global (sem igreja fixa)" : (session?.church_name || "-")}</p>
               <p><b>TOTVS:</b> {isAdmin ? "-" : (session?.totvs_id || "-")}</p>
               {/* Comentario: botao para editar o cadastro do usuario logado */}
-              <Button variant="outline" onClick={() => nav("/obreiro")} className="mt-2 w-full border-blue-300 text-blue-700 hover:bg-blue-50">
+              <Button variant="outline" onClick={() => nav("/obreiro?editar=1")} className="mt-2 w-full border-blue-300 text-blue-700 hover:bg-blue-50">
                 <UserCircle2 className="mr-2 h-4 w-4" /> Editar meu cadastro
               </Button>
             </CardContent>
