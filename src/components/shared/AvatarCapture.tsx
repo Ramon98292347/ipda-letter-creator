@@ -297,19 +297,17 @@ export function AvatarCapture({ onFileReady, disabled = false, currentUrl }: Ava
           new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.5 })
         );
         if (detections.length === 0) {
-          setProcessing(false);
-          setStatusMsg("Nenhum rosto detectado. Use uma foto 3x4 com o rosto visível.");
-          setProgress(0);
-          return;
+          // Comentario: nao bloqueia o upload por falha de deteccao.
+          // Em alguns celulares/compressao o modelo pode falhar mesmo com rosto valido.
+          setStatusMsg("Rosto nao detectado automaticamente. A imagem sera enviada mesmo assim.");
         }
-        // Comentario: verifica se o rosto é grande o suficiente (pelo menos 25% da largura da imagem)
-        const det = detections[0].box;
-        const rostoPercentual = det.width / img.naturalWidth;
-        if (rostoPercentual < 0.25) {
-          setProcessing(false);
-          setStatusMsg("Rosto muito pequeno. Aproxime mais ou use uma foto 3x4.");
-          setProgress(0);
-          return;
+        // Comentario: verifica tamanho do rosto para avisar, sem bloquear envio.
+        if (detections.length > 0) {
+          const det = detections[0].box;
+          const rostoPercentual = det.width / img.naturalWidth;
+          if (rostoPercentual < 0.25) {
+            setStatusMsg("Rosto pequeno detectado. A imagem sera enviada mesmo assim.");
+          }
         }
       } catch {
         // Comentario: se falhar a detecção, permite continuar

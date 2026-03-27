@@ -731,6 +731,7 @@ async function openPdf(letter: PastorLetter) {
       }
 
       await updateMyProfile({
+        full_name: String(profile?.full_name || usuario?.nome || "").trim() || undefined,
         phone: profileForm.phone || undefined,
         email: profileForm.email || undefined,
         birth_date: profileForm.birth_date || undefined,

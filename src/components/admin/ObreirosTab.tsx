@@ -98,6 +98,7 @@ type WorkerForm = {
   phone: string;
   email: string;
   birth_date: string;
+  baptism_date: string;
   ordination_date: string;
   avatar_url: string;
   cep: string;
@@ -118,6 +119,7 @@ const initialForm: WorkerForm = {
   phone: "",
   email: "",
   birth_date: "",
+  baptism_date: "",
   ordination_date: "",
   avatar_url: "",
   cep: "",
@@ -300,6 +302,7 @@ export function ObreirosTab({
       phone: worker.phone || "",
       email: worker.email || "",
       birth_date: worker.birth_date || "",
+      baptism_date: worker.baptism_date || "",
       ordination_date: worker.ordination_date || "",
       avatar_url: worker.avatar_url || "",
       cep: worker.cep || "",
@@ -439,6 +442,7 @@ export function ObreirosTab({
         phone: form.phone || undefined,
         email: form.email || undefined,
         birth_date: form.birth_date || undefined,
+        baptism_date: form.baptism_date || undefined,
         ordination_date: form.ordination_date || undefined,
         avatar_url: avatarUrlToSave,
         cep: form.cep || undefined,
@@ -933,7 +937,7 @@ export function ObreirosTab({
               </div>
             </div>
 
-            <div className="grid gap-3 md:grid-cols-4">
+            <div className="grid gap-3 md:grid-cols-5">
               <div className="space-y-1">
                 <Label>Cargo ministerial *</Label>
                 <Select value={form.minister_role || ""} onValueChange={(v) => setForm((p) => ({ ...p, minister_role: v }))}>
@@ -965,6 +969,10 @@ export function ObreirosTab({
               <div className="space-y-1">
                 <Label>Nascimento</Label>
                 <Input type="date" value={form.birth_date} onChange={(e) => setForm((p) => ({ ...p, birth_date: e.target.value }))} />
+              </div>
+              <div className="space-y-1">
+                <Label>Data de batismo</Label>
+                <Input type="date" value={form.baptism_date} onChange={(e) => setForm((p) => ({ ...p, baptism_date: e.target.value }))} />
               </div>
               <div className="space-y-1">
                 <Label>Ordenação</Label>

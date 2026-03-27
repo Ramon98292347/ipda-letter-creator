@@ -2693,6 +2693,7 @@ export async function upsertWorkerByPastor(payload: {
   phone?: string;
   email?: string;
   birth_date?: string;
+  baptism_date?: string;
   ordination_date?: string;
   avatar_url?: string;
   cep?: string;
@@ -2724,6 +2725,7 @@ export async function upsertWorkerByPastor(payload: {
     phone: payload.phone || null,
     email: payload.email || null,
     birth_date: payload.birth_date || null,
+    baptism_date: payload.baptism_date || null,
     ordination_date: payload.ordination_date || null,
     minister_role: ministerRole,
     profession: payload.profession || null,
@@ -3057,9 +3059,12 @@ export async function resetWorkerPassword(payload: { cpf?: string; user_id?: str
 }
 
 export async function updateMyProfile(payload: {
+  full_name?: string;
   phone?: string;
   email?: string;
   birth_date?: string;
+  baptism_date?: string;
+  ordination_date?: string;
   avatar_url?: string;
   cep?: string;
   address_street?: string;

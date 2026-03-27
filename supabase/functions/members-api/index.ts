@@ -494,8 +494,19 @@ async function handleSaveProfile(
 
   // Comentario: esta action permite ao usuário atualizar apenas o próprio
   // cadastro, sem abrir permissão geral de update por RLS.
+  const incomingFullName = String(body.full_name || "").trim();
+  let resolvedFullName = incomingFullName || null;
+  if (!resolvedFullName) {
+    const { data: currentUser } = await sb
+      .from("users")
+      .select("full_name")
+      .eq("id", session.user_id)
+      .maybeSingle();
+    resolvedFullName = String((currentUser as Record<string, unknown> | null)?.full_name || "").trim() || null;
+  }
+
   const profilePayload = {
-    full_name: String(body.full_name || "").trim() || null,
+    full_name: resolvedFullName,
     phone: String(body.phone || "").trim() || null,
     email: String(body.email || "").trim() || null,
     birth_date: String(body.birth_date || "").trim() || null,
