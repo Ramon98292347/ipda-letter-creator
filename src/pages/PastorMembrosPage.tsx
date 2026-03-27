@@ -770,6 +770,37 @@ export default function PastorMembrosPage() {
   const membersTotal = Number(data?.total || workers.length);
   const membersTotalPages = Math.max(1, Math.ceil(membersTotal / membersPageSize));
 
+  const { data: membersForCounters } = useQuery({
+    queryKey: ["pastor-members-counters-all", filterTotvs, filterActive],
+    queryFn: async () => {
+      const requestedPageSize = 500;
+      let page = 1;
+      let total: number | null = null;
+      const all: UserListItem[] = [];
+
+      while (page <= 30) {
+        const chunk = await listMembers({
+          page,
+          page_size: requestedPageSize,
+          roles: ["pastor", "obreiro"],
+          church_totvs_id: filterTotvs === "all" ? undefined : filterTotvs,
+          is_active: filterActive,
+        });
+        const items = Array.isArray(chunk.workers) ? chunk.workers : [];
+        if (items.length === 0) break;
+        all.push(...items);
+        const chunkTotal = Number(chunk.total || 0);
+        if (chunkTotal > 0) total = chunkTotal;
+        const effectivePageSize = Number(chunk.page_size || requestedPageSize || items.length);
+        if ((total !== null && all.length >= total) || items.length < effectivePageSize) break;
+        page += 1;
+      }
+
+      return all;
+    },
+    staleTime: 30_000,
+  });
+
   // Comentario: busca a contagem de membros inativos para exibir no card
   const { data: inativosData } = useQuery({
     queryKey: ["pastor-members-inativos-count", filterTotvs],
@@ -1014,6 +1045,16 @@ export default function PastorMembrosPage() {
   }, [form.cep_congregacao]);
 
   const counters = useMemo(() => {
+    if (Array.isArray(membersForCounters)) {
+      return {
+        total: membersForCounters.length,
+        pastor: membersForCounters.filter((w) => normalizeMinisterRole(w.minister_role) === "pastor").length,
+        presbitero: membersForCounters.filter((w) => normalizeMinisterRole(w.minister_role) === "presbitero").length,
+        diacono: membersForCounters.filter((w) => normalizeMinisterRole(w.minister_role) === "diacono").length,
+        obreiro: membersForCounters.filter((w) => normalizeMinisterRole(w.minister_role) === "cooperador").length,
+        batizados: membersForCounters.filter((w) => normalizeMinisterRole(w.minister_role) === "membro").length,
+      };
+    }
     if (data?.metrics) {
       return {
         total: Number(data.metrics.total || 0),
@@ -1032,7 +1073,7 @@ export default function PastorMembrosPage() {
       obreiro: workers.filter((w) => normalizeMinisterRole(w.minister_role) === "cooperador").length,
       batizados: workers.filter((w) => normalizeMinisterRole(w.minister_role) === "membro").length,
     };
-  }, [data?.metrics, workers]);
+  }, [membersForCounters, data?.metrics, workers]);
 
   useEffect(() => {
     if (membersPage >= membersTotalPages) return;
