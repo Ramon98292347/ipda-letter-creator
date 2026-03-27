@@ -1853,7 +1853,9 @@ export async function listAnnouncements(limit = 10): Promise<AnnouncementItem[]>
   }
 
   if (!isMockMode()) {
-    const data = await api.listAnnouncements({ limit });
+    const currentSession = getSession();
+    const churchTotvsId = String(currentSession?.totvs_id || "").trim() || undefined;
+    const data = await api.listAnnouncements({ limit, church_totvs_id: churchTotvsId });
     const rows = Array.isArray(data?.announcements)
       ? data.announcements
       : Array.isArray(data?.items)

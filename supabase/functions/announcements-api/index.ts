@@ -56,6 +56,7 @@ type Body = {
   action?: Action;
   limit?: number;
   cpf?: string;
+  church_totvs_id?: string;
   id?: string;
   title?: string;
   type?: AnnouncementType;
@@ -156,10 +157,14 @@ function isValidISODate(value: string) {
 async function actionList(sb: ReturnType<typeof createClient>, req: Request, body: Body) {
   const limit = Math.max(1, Math.min(10, Number(body.limit || 10)));
   const session = await verifySessionJWT(req);
+  const requestedChurchTotvs = String(body.church_totvs_id || "").trim();
 
   let activeTotvs = "";
   if (session) {
     activeTotvs = session.active_totvs_id;
+    if (requestedChurchTotvs && requestedChurchTotvs !== activeTotvs) {
+      return json({ ok: false, error: "forbidden_wrong_church" }, 403);
+    }
   } else {
     const cpfRaw = String(body.cpf || "").replace(/\D/g, "");
     if (cpfRaw.length !== 11) return json({ ok: false, error: "unauthorized" }, 401);
@@ -174,7 +179,10 @@ async function actionList(sb: ReturnType<typeof createClient>, req: Request, bod
       return json({ ok: true, active_totvs_id: "", root_totvs_id: "", announcements: [] });
     }
 
-    activeTotvs = String(userRow.default_totvs_id);
+    activeTotvs = requestedChurchTotvs || String(userRow.default_totvs_id);
+    if (activeTotvs !== String(userRow.default_totvs_id)) {
+      return json({ ok: false, error: "forbidden_wrong_church" }, 403);
+    }
   }
 
   const { data, error } = await sb

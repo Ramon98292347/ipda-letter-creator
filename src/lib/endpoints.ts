@@ -120,7 +120,7 @@ export const api = {
   markNotificationRead: (body: { id: string; church_totvs_id?: string }) => post("notifications-api", { action: "mark-read", ...body }),
   markAllNotificationsRead: (body: { church_totvs_id?: string } = {}) => post("notifications-api", { action: "mark-all-read", ...body }),
 
-  listAnnouncements: (body: JsonBody = { limit: 10 }) => post("announcements-api", { action: "list", ...body }),
+  listAnnouncements: (body: JsonBody = { limit: 10, church_totvs_id: undefined }) => post("announcements-api", { action: "list", ...body }),
   listAnnouncementsPublic: (body: JsonBody = {}) => post("announcements-api", { action: "list-public", ...body }, { skipAuth: true }),
   listAnnouncementsAdmin: (body: JsonBody = {}) => post("announcements-api", { action: "list-admin", ...body }),
   getPastorContact: (body: { totvs_id: string }) => post("auth-api", { action: "get-pastor-contact", ...body }),
