@@ -57,6 +57,7 @@ type Body = {
   limit?: number;
   cpf?: string;
   church_totvs_id?: string;
+  include_lineage?: boolean;
   id?: string;
   title?: string;
   type?: AnnouncementType;
@@ -158,6 +159,7 @@ async function actionList(sb: ReturnType<typeof createClient>, req: Request, bod
   const limit = Math.max(1, Math.min(10, Number(body.limit || 10)));
   const session = await verifySessionJWT(req);
   const requestedChurchTotvs = String(body.church_totvs_id || "").trim();
+  const includeLineage = Boolean(body.include_lineage);
 
   let activeTotvs = "";
   if (session) {
@@ -185,13 +187,67 @@ async function actionList(sb: ReturnType<typeof createClient>, req: Request, bod
     }
   }
 
-  const { data, error } = await sb
-    .from("announcements")
-    .select("id, church_totvs_id, title, type, body_text, media_url, link_url, position, starts_at, ends_at, is_active, created_at")
-    .eq("church_totvs_id", activeTotvs)
-    .eq("is_active", true);
+  const fetchAnnouncementsByTotvs = async (totvsList: string[]) => {
+    const { data, error } = await sb
+      .from("announcements")
+      .select("id, church_totvs_id, title, type, body_text, media_url, link_url, position, starts_at, ends_at, is_active, created_at")
+      .in("church_totvs_id", totvsList)
+      .eq("is_active", true);
+    if (error) return { error };
+    return { data: data || [] };
+  };
 
-  if (error) return json({ ok: false, error: "db_error_list_announcements", details: error.message }, 500);
+  let churchesToLoad = [activeTotvs];
+  if (includeLineage) {
+    const { data: allChurches, error: allChurchesErr } = await sb
+      .from("churches")
+      .select("totvs_id, parent_totvs_id");
+    if (allChurchesErr) return json({ ok: false, error: "db_error_churches", details: allChurchesErr.message }, 500);
+
+    const rows = (allChurches || []) as Array<{ totvs_id: string; parent_totvs_id: string | null }>;
+    const parentById = new Map<string, string | null>();
+    const childrenById = new Map<string, string[]>();
+    for (const row of rows) {
+      const id = String(row.totvs_id || "");
+      const parent = row.parent_totvs_id ? String(row.parent_totvs_id) : null;
+      if (!id) continue;
+      parentById.set(id, parent);
+      const parentKey = parent || "";
+      if (!childrenById.has(parentKey)) childrenById.set(parentKey, []);
+      childrenById.get(parentKey)!.push(id);
+    }
+
+    const related = new Set<string>([activeTotvs]);
+    // ancestrais (mae, avo, etc)
+    let current = activeTotvs;
+    const guardUp = new Set<string>();
+    while (current && !guardUp.has(current)) {
+      guardUp.add(current);
+      const parent = parentById.get(current) || null;
+      if (!parent) break;
+      related.add(parent);
+      current = parent;
+    }
+    // descendentes (filhas)
+    const queue = [activeTotvs];
+    const guardDown = new Set<string>();
+    while (queue.length) {
+      const cur = queue.shift()!;
+      if (guardDown.has(cur)) continue;
+      guardDown.add(cur);
+      const kids = childrenById.get(cur) || [];
+      for (const kid of kids) {
+        related.add(kid);
+        queue.push(kid);
+      }
+    }
+
+    churchesToLoad = Array.from(related);
+  }
+
+  const loaded = await fetchAnnouncementsByTotvs(churchesToLoad);
+  if (loaded.error) return json({ ok: false, error: "db_error_list_announcements", details: loaded.error.message }, 500);
+  const data = loaded.data as Record<string, unknown>[];
 
   const now = Date.now();
   const inWindow = (data || []).filter((item: Record<string, unknown>) => {
@@ -207,7 +263,13 @@ async function actionList(sb: ReturnType<typeof createClient>, req: Request, bod
     return new Date(String(b.created_at || 0)).getTime() - new Date(String(a.created_at || 0)).getTime();
   });
 
-  return json({ ok: true, active_totvs_id: activeTotvs, root_totvs_id: activeTotvs, announcements: sorted.slice(0, limit) });
+  return json({
+    ok: true,
+    active_totvs_id: activeTotvs,
+    root_totvs_id: activeTotvs,
+    include_lineage: includeLineage,
+    announcements: sorted.slice(0, limit),
+  });
 }
 
 async function actionUpsert(sb: ReturnType<typeof createClient>, req: Request, body: Body) {

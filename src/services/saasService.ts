@@ -2094,7 +2094,7 @@ export async function listAnnouncementsPublicByCpf(cpf: string, limit = 10): Pro
   if (cpfRaw.length !== 11) return [];
 
   try {
-    const raw = (await api.listAnnouncementsByCpf({ cpf: cpfRaw, limit })) as Record<string, unknown>;
+    const raw = (await api.listAnnouncementsByCpf({ cpf: cpfRaw, limit, include_lineage: true })) as Record<string, unknown>;
     const rows = Array.isArray(raw?.announcements)
       ? (raw.announcements as Record<string, unknown>[])
       : Array.isArray(raw)

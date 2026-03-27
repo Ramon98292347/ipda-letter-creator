@@ -125,7 +125,8 @@ export const api = {
   listAnnouncementsAdmin: (body: JsonBody = {}) => post("announcements-api", { action: "list-admin", ...body }),
   getPastorContact: (body: { totvs_id: string }) => post("auth-api", { action: "get-pastor-contact", ...body }),
   // Busca divulgacoes pelo CPF sem precisar de JWT (usado na tela de login)
-  listAnnouncementsByCpf: (body: { cpf: string; limit?: number }) => post("announcements-api", { action: "list", ...body }, { skipAuth: true }),
+  listAnnouncementsByCpf: (body: { cpf: string; limit?: number; include_lineage?: boolean }) =>
+    post("announcements-api", { action: "list", ...body }, { skipAuth: true }),
   // Atualiza avatar apos cadastro publico (usa user_id + cpf para verificacao)
   updateMemberAvatar: (body: { user_id: string; cpf: string; avatar_url: string }) =>
     post("members-api", { action: "update-avatar", ...body }, { skipAuth: true }),
