@@ -1,5 +1,6 @@
 
 import React, { useMemo, useState } from 'react';
+import { ManagementShell } from "@/components/layout/ManagementShell";
 import { Plus, Edit2, Trash2, ArrowDownLeft, Save, X, Tag } from 'lucide-react';
 import { useFinance } from '@/contexts/FinanceContext';
 import { getCurrentDateBrazil } from '@/lib/dateUtils';
@@ -167,6 +168,7 @@ const CadastroSaidas: React.FC = () => {
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
+    <ManagementShell roleMode="financeiro">
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
@@ -492,6 +494,7 @@ const CadastroSaidas: React.FC = () => {
         </div>
       )}
     </div>
+    </ManagementShell>
   );
 };
 

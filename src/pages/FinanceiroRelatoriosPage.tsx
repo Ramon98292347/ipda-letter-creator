@@ -1,5 +1,6 @@
 
 import React, { useMemo, useState, useEffect } from 'react';
+import { ManagementShell } from "@/components/layout/ManagementShell";
 import { BarChart3, Download, Calendar, Filter, FileText, TrendingUp, TrendingDown, Mail, Save, Printer, History } from 'lucide-react';
 import { useFinance } from '@/contexts/FinanceContext';
 import RelatorioFinanceiroMensal from '@/components/Relatorios/RelatorioFinanceiroMensal';
@@ -141,6 +142,7 @@ const Relatorios: React.FC = () => {
   };
 
   return (
+    <ManagementShell roleMode="financeiro">
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
@@ -592,6 +594,7 @@ const Relatorios: React.FC = () => {
         </div>
       )}
     </div>
+    </ManagementShell>
   );
 };
 

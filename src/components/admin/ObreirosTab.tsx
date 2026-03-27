@@ -1110,6 +1110,9 @@ export function ObreirosTab({
                       >
                         Status: {selectedWorker.is_active === false ? "Inativo" : "Ativo"}
                       </Badge>
+                      <Badge variant="outline" className="border-slate-200 bg-slate-50 text-slate-700">
+                        Igreja: {viewValue(selectedWorker.church_name || selectedWorker.default_totvs_id)}
+                      </Badge>
                     </div>
                   </div>
                 </div>

@@ -96,6 +96,7 @@ export type UserListItem = {
   id: string;
   full_name: string;
   role?: AppRole | null;
+  church_name?: string | null;
   cpf?: string | null;
   rg?: string | null;
   phone?: string | null;
@@ -939,6 +940,7 @@ export async function listMembers(params: MemberListParams): Promise<WorkerListR
         id: String(w?.id || ""),
         full_name: String(w?.full_name || ""),
         role: (w?.role || null) as AppRole | null,
+        church_name: w?.church_name || null,
         cpf: w?.cpf || null,
         rg: w?.rg || null,
         phone: w?.phone || null,
@@ -990,6 +992,7 @@ export async function listMembers(params: MemberListParams): Promise<WorkerListR
       id: String(w?.id || ""),
       full_name: String(w?.full_name || ""),
       role: (w?.role || null) as AppRole | null,
+      church_name: w?.church_name || null,
       cpf: w?.cpf || null,
       rg: w?.rg || null,
       phone: w?.phone || null,

@@ -1,5 +1,6 @@
 
 import React, { useMemo, useState } from 'react';
+import { ManagementShell } from "@/components/layout/ManagementShell";
 import { TrendingUp, TrendingDown, DollarSign, Calendar, ArrowUpRight, ArrowDownRight, Banknote, CreditCard, Smartphone } from 'lucide-react';
 import { useFinance } from '@/contexts/FinanceContext';
 import { useNavigate } from 'react-router-dom';
@@ -269,6 +270,7 @@ const Dashboard: React.FC = () => {
   };
 
   return (
+    <ManagementShell roleMode="financeiro">
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -630,6 +632,7 @@ const Dashboard: React.FC = () => {
         </div>
       </div>
     </div>
+    </ManagementShell>
   );
 };
 

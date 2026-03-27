@@ -62,6 +62,7 @@ type TotvsAccessItem = {
 type ChurchRow = {
   totvs_id: string;
   parent_totvs_id: string | null;
+  church_name?: string | null;
   class: string | null;
 };
 
@@ -852,7 +853,7 @@ async function handleListMembers(session: SessionClaims, body: ListMembersBody):
   const churchTotvsFilter = String(body.church_totvs_id || "").trim();
 
   const sb = createClient(Deno.env.get("SUPABASE_URL") || "", Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "");
-  const { data: churches, error: churchesErr } = await sb.from("churches").select("totvs_id,parent_totvs_id,class");
+  const { data: churches, error: churchesErr } = await sb.from("churches").select("totvs_id,parent_totvs_id,church_name,class");
   if (churchesErr) return json({ ok: false, error: "db_error_churches", details: churchesErr.message }, 500);
 
   const churchRows = (churches || []) as ChurchRow[];
@@ -902,6 +903,7 @@ async function handleListMembers(session: SessionClaims, body: ListMembersBody):
 
   const mapped = filtered.map((u: Record<string, unknown>) => {
     const defaultTotvs = String(u.default_totvs_id || "").trim();
+    const churchName = String(churchMap.get(defaultTotvs)?.church_name || "").trim();
     const targetClass = normalizeChurchClass(churchMap.get(defaultTotvs)?.class);
     const can_manage = canManageMember(
       session.role,
@@ -911,7 +913,7 @@ async function handleListMembers(session: SessionClaims, body: ListMembersBody):
       targetClass,
       scope,
     );
-    return { ...u, can_manage };
+    return { ...u, can_manage, church_name: churchName || null };
   });
 
   const attendanceByUser = new Map<string, { status: string; meeting_date: string | null; absences180: number }>();

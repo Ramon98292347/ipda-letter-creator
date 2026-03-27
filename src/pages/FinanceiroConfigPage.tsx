@@ -1,5 +1,6 @@
 
 import React, { useEffect, useState } from 'react';
+import { ManagementShell } from "@/components/layout/ManagementShell";
 import { Settings, User, Bell, Shield, Palette, Database, Mail } from 'lucide-react';
 import { useUser } from '@/context/UserContext';
 import { toast } from '@/components/ui/use-toast';
@@ -408,6 +409,7 @@ const Configuracoes: React.FC = () => {
   };
 
   return (
+    <ManagementShell roleMode="financeiro">
     <div className="space-y-6">
       {/* Header */}
       <div>
@@ -448,6 +450,7 @@ const Configuracoes: React.FC = () => {
         </div>
       </div>
     </div>
+    </ManagementShell>
   );
 };
 

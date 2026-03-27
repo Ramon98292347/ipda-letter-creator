@@ -287,9 +287,11 @@ const router = createBrowserRouter(
         path="/financeiro/saidas"
         element={
           <RequireRole role="financeiro">
-            <Suspense fallback={pageFallback}>
-              <FinanceiroSaidasPage />
-            </Suspense>
+            <FinanceProvider>
+              <Suspense fallback={pageFallback}>
+                <FinanceiroSaidasPage />
+              </Suspense>
+            </FinanceProvider>
           </RequireRole>
         }
       />
@@ -309,9 +311,11 @@ const router = createBrowserRouter(
         path="/financeiro/relatorios"
         element={
           <RequireRole role="financeiro">
-            <Suspense fallback={pageFallback}>
-              <FinanceiroRelatoriosPage />
-            </Suspense>
+            <FinanceProvider>
+              <Suspense fallback={pageFallback}>
+                <FinanceiroRelatoriosPage />
+              </Suspense>
+            </FinanceProvider>
           </RequireRole>
         }
       />
@@ -319,9 +323,11 @@ const router = createBrowserRouter(
         path="/financeiro/config"
         element={
           <RequireRole role="financeiro">
-            <Suspense fallback={pageFallback}>
-              <FinanceiroConfigPage />
-            </Suspense>
+            <FinanceProvider>
+              <Suspense fallback={pageFallback}>
+                <FinanceiroConfigPage />
+              </Suspense>
+            </FinanceProvider>
           </RequireRole>
         }
       />
