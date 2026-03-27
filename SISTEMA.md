@@ -666,3 +666,19 @@ Decisao registrada para evitar regressao futura:
 
 Arquivo de referencia:
 - `src/pages/PhoneIdentify.tsx`
+
+---
+
+## 22. Otimizacao de Carregamento (Sem alterar regras) - 2026-03-26
+
+Melhorias aplicadas somente em performance, sem mudar regra de negocio:
+- Tela `PastorMembrosPage`:
+  - Removido polling continuo da lista principal de membros e igrejas de rodape.
+  - Unificado o carregamento "completo" de membros em uma unica query reutilizada:
+    - contadores do dashboard local;
+    - seletores da aba Ficha/Carteirinha.
+  - Ajustado prefetch da proxima pagina para usar a mesma chave/filtros da lista principal.
+  - Ao deletar usuario, atualiza lista paginada e dataset completo.
+
+Arquivo de referencia:
+- `src/pages/PastorMembrosPage.tsx`

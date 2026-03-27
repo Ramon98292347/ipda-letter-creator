@@ -769,17 +769,16 @@ export default function PastorMembrosPage() {
         roles: ["pastor", "obreiro", "secretario", "financeiro"],
         church_totvs_id: membersChurchTotvsFilter,
         is_active: filterActive,
-      }),
+    }),
     staleTime: 30_000,
-    refetchInterval: 10000,
   });
 
   const workers = data?.workers || [];
   const membersTotal = Number(data?.total || workers.length);
   const membersTotalPages = Math.max(1, Math.ceil(membersTotal / membersPageSize));
 
-  const { data: membersForCounters } = useQuery({
-    queryKey: ["pastor-members-counters-all", filterTotvs, filterActive, churchClass, activeTotvsId],
+  const { data: allMembersData = [], refetch: refetchAllMembers } = useQuery({
+    queryKey: ["pastor-members-all", filterTotvs, filterActive, churchClass, activeTotvsId],
     queryFn: async () => {
       const requestedPageSize = 500;
       let page = 1;
@@ -806,7 +805,8 @@ export default function PastorMembrosPage() {
 
       return all;
     },
-    staleTime: 30_000,
+    enabled: Boolean(activeTotvsId),
+    staleTime: 60_000,
   });
 
   // Comentario: busca a contagem de membros inativos para exibir no card
@@ -828,7 +828,6 @@ export default function PastorMembrosPage() {
     queryKey: ["pastor-members-churches-footer", activeTotvsId],
     queryFn: () => listChurchesInScope(1, 400),
     enabled: Boolean(activeTotvsId),
-    refetchInterval: 10000,
   });
 
   const showPageLoading =
@@ -889,38 +888,7 @@ export default function PastorMembrosPage() {
   );
 
   const rodapeAuto = useMemo(() => churchFooter || form.ficha_rodape || "", [churchFooter, form.ficha_rodape]);
-  const { data: docsMembersData } = useQuery({
-    queryKey: ["pastor-members-docs-all", filterTotvs, filterActive, churchClass, activeTotvsId],
-    queryFn: async () => {
-      const requestedPageSize = 500;
-      let page = 1;
-      let total: number | null = null;
-      const all: UserListItem[] = [];
-
-      while (page <= 30) {
-        const chunk = await listMembers({
-          page,
-          page_size: requestedPageSize,
-          roles: ["pastor", "obreiro", "secretario", "financeiro"],
-          church_totvs_id: membersChurchTotvsFilter,
-          is_active: filterActive,
-        });
-        const items = Array.isArray(chunk.workers) ? chunk.workers : [];
-        if (items.length === 0) break;
-        all.push(...items);
-        const chunkTotal = Number(chunk.total || 0);
-        if (chunkTotal > 0) total = chunkTotal;
-        const effectivePageSize = Number(chunk.page_size || requestedPageSize || items.length);
-        if ((total !== null && all.length >= total) || items.length < effectivePageSize) break;
-        page += 1;
-      }
-
-      return all;
-    },
-    enabled: tab === "ficha_membro" || tab === "carteirinha",
-    staleTime: 30_000,
-  });
-  const docsMembers = docsMembersData || workers;
+  const docsMembers = allMembersData || workers;
   const filteredDocsMembers = useMemo(() => {
     const q = normalizeSearchText(memberPickerSearch);
     const qDigits = onlyDigits(memberPickerSearch || "");
@@ -962,6 +930,7 @@ export default function PastorMembrosPage() {
       await deleteUserPermanently(String(member.id));
       toast.success("Usuario deletado.");
       await refetchMembers();
+      await refetchAllMembers();
     } catch (err) {
       toast.error(String((err as Error)?.message || "Falha ao deletar usuario."));
     }
@@ -1053,15 +1022,15 @@ export default function PastorMembrosPage() {
   }, [form.cep_congregacao]);
 
   const uniqueMembersForCounters = useMemo(() => {
-    if (!Array.isArray(membersForCounters)) return [];
+    if (!Array.isArray(allMembersData)) return [];
     const byId = new Map<string, UserListItem>();
-    for (const member of membersForCounters) {
+    for (const member of allMembersData) {
       const key = String(member.id || "");
       if (!key) continue;
       byId.set(key, member);
     }
     return Array.from(byId.values());
-  }, [membersForCounters]);
+  }, [allMembersData]);
 
   const counters = useMemo(() => {
     if (membersTotal <= membersPageSize) {
@@ -1109,18 +1078,18 @@ export default function PastorMembrosPage() {
     if (membersPage >= membersTotalPages) return;
     const nextPage = membersPage + 1;
     void queryClient.prefetchQuery({
-      queryKey: ["pastor-members-page", nextPage, membersPageSize, filterTotvs, filterActive],
+      queryKey: ["pastor-members-page", nextPage, membersPageSize, filterTotvs, filterActive, churchClass, activeTotvsId],
       queryFn: () =>
         listMembers({
           page: nextPage,
           page_size: membersPageSize,
-          roles: ["pastor", "obreiro"],
-          church_totvs_id: filterTotvs === "all" ? undefined : filterTotvs,
+          roles: ["pastor", "obreiro", "secretario", "financeiro"],
+          church_totvs_id: membersChurchTotvsFilter,
           is_active: filterActive,
         }),
       staleTime: 30_000,
     });
-  }, [membersPage, membersPageSize, membersTotalPages, filterTotvs, queryClient]);
+  }, [membersPage, membersPageSize, membersTotalPages, filterTotvs, filterActive, churchClass, activeTotvsId, membersChurchTotvsFilter, queryClient]);
 
   // Comentario: faz upload da foto para o bucket "avatars" e salva a URL no formulario.
   async function uploadFoto(file: File) {
