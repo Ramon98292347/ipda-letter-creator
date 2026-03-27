@@ -787,8 +787,8 @@ export function ObreirosTab({
           <Button onClick={openNew}><PlusCircle className="mr-2 h-4 w-4" /> Novo Obreiro</Button>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex flex-wrap items-center gap-3">
-            {!hideInternalSearch ? (
+          {!hideInternalSearch ? (
+            <div className="flex flex-wrap items-center gap-3">
               <div className="flex min-w-[240px] flex-1 items-center gap-2 rounded-xl border border-slate-200 px-3">
                 <Search className="h-4 w-4 text-slate-400" />
                 <input
@@ -802,24 +802,24 @@ export function ObreirosTab({
                   }}
                 />
               </div>
-            ) : null}
-            <Select value={ministerRole} onValueChange={(v) => { setMinisterRole(v); setPage(1); }}>
-              <SelectTrigger className="min-w-[160px]"><SelectValue placeholder="Cargo" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Cargos</SelectItem>
-                {roleOptions.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
-              </SelectContent>
-            </Select>
-            <Select value={activeFilter} onValueChange={(v) => { setActiveFilter(v as "all" | "active" | "inactive"); setPage(1); }}>
-              <SelectTrigger className="min-w-[140px]"><SelectValue placeholder="Ativo" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Status</SelectItem>
-                <SelectItem value="active">Ativos</SelectItem>
-                <SelectItem value="inactive">Inativos</SelectItem>
-              </SelectContent>
-            </Select>
-            <Button className="shrink-0" variant="outline" onClick={resetFilters}>Limpar</Button>
-          </div>
+              <Select value={ministerRole} onValueChange={(v) => { setMinisterRole(v); setPage(1); }}>
+                <SelectTrigger className="min-w-[160px]"><SelectValue placeholder="Cargo" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Cargos</SelectItem>
+                  {roleOptions.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <Select value={activeFilter} onValueChange={(v) => { setActiveFilter(v as "all" | "active" | "inactive"); setPage(1); }}>
+                <SelectTrigger className="min-w-[140px]"><SelectValue placeholder="Ativo" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Status</SelectItem>
+                  <SelectItem value="active">Ativos</SelectItem>
+                  <SelectItem value="inactive">Inativos</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button className="shrink-0" variant="outline" onClick={resetFilters}>Limpar</Button>
+            </div>
+          ) : null}
 
           {/* Comentario: overflow-x-auto no wrapper externo = scroll horizontal em mobile/tablet */}
           <div className="hidden overflow-x-auto rounded-xl border border-slate-200 md:block">

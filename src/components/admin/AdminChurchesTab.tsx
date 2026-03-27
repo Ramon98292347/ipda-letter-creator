@@ -555,14 +555,14 @@ export function AdminChurchesTab({
         <CardHeader className="space-y-4">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <CardTitle>Igrejas cadastradas</CardTitle>
-            <div className="flex items-center gap-2">
-              <Button variant={view === "lista" ? "default" : "outline"} size="sm" onClick={() => setView("lista")}>
+            <div className="grid w-full grid-cols-3 gap-2 lg:flex lg:w-auto lg:items-center">
+              <Button className="w-full lg:w-auto" variant={view === "lista" ? "default" : "outline"} size="sm" onClick={() => setView("lista")}>
                 <List className="mr-2 h-4 w-4" /> Lista
               </Button>
-              <Button variant={view === "grid" ? "default" : "outline"} size="sm" onClick={() => setView("grid")}>
+              <Button className="w-full lg:w-auto" variant={view === "grid" ? "default" : "outline"} size="sm" onClick={() => setView("grid")}>
                 <LayoutGrid className="mr-2 h-4 w-4" /> Grid
               </Button>
-              <Button onClick={openNewChurchModal}>Nova Igreja</Button>
+              <Button className="w-full lg:w-auto" onClick={openNewChurchModal}>Nova Igreja</Button>
             </div>
           </div>
 
