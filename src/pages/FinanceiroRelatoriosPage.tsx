@@ -394,7 +394,31 @@ const Relatorios: React.FC = () => {
             Nenhuma ficha registrada este mês. As fichas são criadas automaticamente ao salvar contagens na tela Contagem do Dia.
           </p>
         ) : (
-          <div className="overflow-x-auto">
+          <>
+          <div className="space-y-3 p-4 md:hidden">
+            {fichasDiarias.map((f) => {
+              const saldoFinal = Number(f.saldo_final) || 0;
+              return (
+                <div key={`mobile-ficha-${f.id}`} className="rounded-lg border border-gray-200 bg-white p-3">
+                  <p className="text-sm font-semibold text-gray-900">
+                    {new Date(f.data_ficha + 'T00:00:00').toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' })}
+                  </p>
+                  <div className="mt-2 space-y-1 text-sm">
+                    <p className="text-gray-600">Saldo inicial: <span className="font-medium">R$ {Number(f.saldo_inicial).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span></p>
+                    <p className="text-green-600">Entradas: <span className="font-semibold">R$ {Number(f.total_entradas).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span></p>
+                    <p className="text-red-600">Saídas: <span className="font-semibold">R$ {Number(f.total_saidas).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span></p>
+                    <p className={`${saldoFinal >= 0 ? 'text-blue-600' : 'text-orange-600'}`}>Saldo final: <span className="font-bold">R$ {saldoFinal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span></p>
+                  </div>
+                  <span className={`mt-2 inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                    f.status === 'fechada' ? 'bg-gray-100 text-gray-700' : 'bg-green-100 text-green-700'
+                  }`}>
+                    {f.status}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+          <div className="hidden overflow-x-auto md:block">
             <table className="w-full">
               <thead className="bg-gray-50">
                 <tr>
@@ -456,6 +480,7 @@ const Relatorios: React.FC = () => {
               </tfoot>
             </table>
           </div>
+          </>
         )}
       </div>
 
@@ -476,7 +501,29 @@ const Relatorios: React.FC = () => {
             Nenhum fechamento salvo ainda. Ao clicar em &quot;Salvar&quot; no Relatório Financeiro Mensal, o fechamento aparecerá aqui.
           </p>
         ) : (
-          <div className="overflow-x-auto">
+          <>
+          <div className="space-y-3 p-4 md:hidden">
+            {fechamentos.map((f) => {
+              const meses = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+              const saldoFinal = Number(f.saldo_final_mes) || 0;
+              return (
+                <div key={`mobile-fechamento-${f.id}`} className="rounded-lg border border-gray-200 bg-white p-3">
+                  <p className="text-sm font-semibold text-gray-900">{meses[f.mes - 1]} / {f.ano}</p>
+                  <div className="mt-2 space-y-1 text-sm">
+                    <p className="text-green-600">Entradas: <span className="font-semibold">R$ {Number(f.total_receitas).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span></p>
+                    <p className="text-red-600">Saídas: <span className="font-semibold">R$ {Number(f.total_despesas).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span></p>
+                    <p className={`${saldoFinal >= 0 ? 'text-blue-600' : 'text-orange-600'}`}>Saldo final: <span className="font-bold">R$ {saldoFinal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span></p>
+                    <p className="text-gray-600">Responsável: {f.responsavel_atual || '—'}</p>
+                    <p className="text-gray-500">Fechado em: {f.fechado_em ? new Date(f.fechado_em).toLocaleDateString('pt-BR') : '—'}</p>
+                  </div>
+                  <span className="mt-2 inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
+                    {f.status}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+          <div className="hidden overflow-x-auto md:block">
             <table className="w-full">
               <thead className="bg-gray-50">
                 <tr>
@@ -525,6 +572,7 @@ const Relatorios: React.FC = () => {
               </tbody>
             </table>
           </div>
+          </>
         )}
       </div>
 
@@ -535,7 +583,29 @@ const Relatorios: React.FC = () => {
             <h2 className="text-lg font-semibold text-gray-900">Relatório Detalhado</h2>
           </div>
           
-          <div className="overflow-x-auto">
+          <div className="space-y-3 p-4 md:hidden">
+            {filteredTransactions.map((transaction) => (
+              <div key={`mobile-detail-${transaction.id}`} className="rounded-lg border border-gray-200 bg-white p-3">
+                <p className="text-sm font-semibold text-gray-900">{transaction.description}</p>
+                <div className="mt-1 space-y-1 text-xs text-gray-600">
+                  <p>Data: {new Date(transaction.date).toLocaleDateString('pt-BR')}</p>
+                  <p>Categoria: {transaction.category}</p>
+                  <p>
+                    Tipo:{" "}
+                    <span className={`inline-flex px-2 py-0.5 text-xs font-semibold rounded-full ${
+                      transaction.type === 'entrada' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                    }`}>
+                      {transaction.type === 'entrada' ? 'Entrada' : 'Saída'}
+                    </span>
+                  </p>
+                </div>
+                <p className={`mt-2 text-sm font-semibold ${transaction.type === 'entrada' ? 'text-green-600' : 'text-red-600'}`}>
+                  R$ {transaction.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </p>
+              </div>
+            ))}
+          </div>
+          <div className="hidden overflow-x-auto md:block">
             <table className="w-full">
               <thead className="bg-gray-50">
                 <tr>

@@ -179,6 +179,9 @@ export function ObreirosTab({
   forceSingleChurchFilter = false,
   filterMinisterRole,
   initialActiveFilter,
+  externalSearch,
+  onExternalSearchChange,
+  hideInternalSearch = false,
 }: {
   activeTotvsId: string;
   churchTotvsFilter?: string;
@@ -187,6 +190,9 @@ export function ObreirosTab({
   filterMinisterRole?: string;
   // Comentario: permite que a pagina pai force o filtro de ativo/inativo (ex: card de inativos)
   initialActiveFilter?: "all" | "active" | "inactive";
+  externalSearch?: string;
+  onExternalSearchChange?: (value: string) => void;
+  hideInternalSearch?: boolean;
 }) {
   const { session, usuario } = useUser();
   const roleLower = String(usuario?.role || session?.role || "").toLowerCase();
@@ -196,8 +202,9 @@ export function ObreirosTab({
   const isAdminUser = roleLower === "admin";
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
+  const searchValue = typeof externalSearch === "string" ? externalSearch : search;
   // Comentario: debounce de 400ms evita disparar chamadas a API a cada tecla pressionada no campo de busca.
-  const debouncedSearch = useDebounce(search, 400);
+  const debouncedSearch = useDebounce(searchValue, 400);
   // Comentario: se filterMinisterRole vier de fora (pagina pai), usa ele como valor inicial do filtro de cargo.
   const [ministerRole, setMinisterRole] = useState(filterMinisterRole ?? "all");
 
@@ -713,7 +720,8 @@ export function ObreirosTab({
   }
 
   function resetFilters() {
-    setSearch("");
+    if (onExternalSearchChange) onExternalSearchChange("");
+    else setSearch("");
     setMinisterRole("all");
     setActiveFilter("all");
     setPage(1);
@@ -780,18 +788,21 @@ export function ObreirosTab({
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex flex-wrap items-center gap-3">
-            <div className="flex min-w-[240px] flex-1 items-center gap-2 rounded-xl border border-slate-200 px-3">
-              <Search className="h-4 w-4 text-slate-400" />
-              <input
-                className="w-full bg-transparent py-2 text-sm outline-none"
-                placeholder="Buscar nome/cpf..."
-                value={search}
-                onChange={(e) => {
-                  setSearch(e.target.value);
-                  setPage(1);
-                }}
-              />
-            </div>
+            {!hideInternalSearch ? (
+              <div className="flex min-w-[240px] flex-1 items-center gap-2 rounded-xl border border-slate-200 px-3">
+                <Search className="h-4 w-4 text-slate-400" />
+                <input
+                  className="w-full bg-transparent py-2 text-sm outline-none"
+                  placeholder="Buscar nome/cpf..."
+                  value={searchValue}
+                  onChange={(e) => {
+                    if (onExternalSearchChange) onExternalSearchChange(e.target.value);
+                    else setSearch(e.target.value);
+                    setPage(1);
+                  }}
+                />
+              </div>
+            ) : null}
             <Select value={ministerRole} onValueChange={(v) => { setMinisterRole(v); setPage(1); }}>
               <SelectTrigger className="min-w-[160px]"><SelectValue placeholder="Cargo" /></SelectTrigger>
               <SelectContent>

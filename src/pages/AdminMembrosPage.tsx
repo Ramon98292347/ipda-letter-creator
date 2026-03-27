@@ -62,6 +62,7 @@ export default function AdminMembrosPage() {
 
   // Comentario: filterCargo controla o Select de cargo (pastor, presbitero, etc).
   const [filterCargo, setFilterCargo] = useState("all");
+  const [memberSearch, setMemberSearch] = useState("");
 
   // Comentario: showChurchList controla se o dropdown de opcoes de igrejas esta visivel.
   const [showChurchList, setShowChurchList] = useState(false);
@@ -233,7 +234,13 @@ export default function AdminMembrosPage() {
               title="Filtros de membros"
               description="Escolha a igreja e o cargo que deseja visualizar."
             >
-              <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                <Input
+                  value={memberSearch}
+                  onChange={(e) => setMemberSearch(e.target.value)}
+                  placeholder="Buscar nome/cpf..."
+                />
+
                 <div className="relative">
                   <Input
                     value={searchChurch}
@@ -293,7 +300,7 @@ export default function AdminMembrosPage() {
           </div>
         </section>
 
-        <section className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-7">
+        <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-7">
           <MiniCard title="Total de membros" value={counters.total} subtitle="cadastros na igreja" gradient={memberTone.total} />
           <MiniCard title="Pastor" value={counters.pastor} subtitle="cargo pastor" gradient={memberTone.pastor} />
           <MiniCard title="Presbítero" value={counters.presbitero} subtitle="cargo presbítero" gradient={memberTone.presbitero} />
@@ -344,6 +351,9 @@ export default function AdminMembrosPage() {
             forceSingleChurchFilter
             filterMinisterRole={filterCargo !== "all" ? filterCargo : undefined}
             initialActiveFilter={filterActive === false ? "inactive" : "all"}
+            externalSearch={memberSearch}
+            onExternalSearchChange={setMemberSearch}
+            hideInternalSearch
           />
         ) : null}
 

@@ -1279,11 +1279,7 @@ async function openPdf(letter: PastorLetter) {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={openUpdateModal} onOpenChange={(open) => {
-        setOpenUpdateModal(open);
-        // Comentario: se o usuario não é obreiro e fechou o modal, volta para a pagina anterior (ex: Configurações)
-        if (!open && usuario?.role !== "obreiro") nav(-1);
-      }}>
+      <Dialog open={openUpdateModal} onOpenChange={setOpenUpdateModal}>
         <DialogContent className="max-h-[90vh] max-w-4xl overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Atualizar cadastro</DialogTitle>

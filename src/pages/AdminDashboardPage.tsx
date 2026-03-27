@@ -104,7 +104,7 @@ export default function AdminDashboardPage() {
           <h3 className="text-xl font-bold text-slate-900 sm:text-2xl">Membros</h3>
           <p className="mt-1 text-sm text-slate-600">Indicadores por cargo ministerial.</p>
           {/* Comentario: 2 col no celular | 3 no md/lg | 6 no xl+ */}
-          <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6">
             <StatCard title="Total de membros" value={memberCounters.total} subtitle="cadastros ativos" gradient="from-blue-600 to-blue-500" icon="users" />
             <StatCard title="Pastor" value={memberCounters.pastores} subtitle="cargo pastor" gradient="from-blue-700 to-blue-600" icon="users" />
             <StatCard title="Presbítero" value={memberCounters.presbiteros} subtitle="cargo presbítero" gradient="from-purple-600 to-purple-500" icon="users" />
@@ -119,7 +119,7 @@ export default function AdminDashboardPage() {
           <h3 className="text-xl font-bold text-slate-900 sm:text-2xl">Igrejas</h3>
           <p className="mt-1 text-sm text-slate-600">Indicadores por classificação.</p>
           {/* Comentario: 2 col no celular | 3 no tablet | 6 no desktop */}
-          <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
+          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6">
             <StatCard title="Total" value={churchCounters.total} subtitle="igrejas cadastradas" gradient="from-purple-600 to-purple-500" />
             <StatCard title="Estadual" value={churchCounters.estadual} subtitle="classificação estadual" gradient="from-blue-600 to-blue-500" />
             <StatCard title="Setorial" value={churchCounters.setorial} subtitle="classificação setorial" gradient="from-amber-500 to-amber-400" />

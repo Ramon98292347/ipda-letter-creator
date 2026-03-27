@@ -689,6 +689,7 @@ export default function PastorMembrosPage() {
   const [membersPage, setMembersPage] = useState(1);
   const [membersPageSize, setMembersPageSize] = useState(50);
   const [filterTotvs, setFilterTotvs] = useState("all");
+  const [memberSearch, setMemberSearch] = useState("");
   // Comentario: filtro de membros ativos/inativos — undefined = todos ativos, false = so inativos
   const [filterActive, setFilterActive] = useState<boolean | undefined>(undefined);
   // Comentario: searchChurch e o texto digitado no combobox de busca de igreja.
@@ -1327,7 +1328,7 @@ export default function PastorMembrosPage() {
         <p className="mt-1 text-base text-slate-600">Gestão de membros com visualização, filtros e documentos.</p>
       </div>
 
-      <section className="mb-5 grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-7">
+      <section className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-7">
         <MiniCard title="Total de membros" value={counters.total} subtitle="membros encontrados" gradient={memberTone.total} />
         <MiniCard title="Pastor" value={counters.pastor} subtitle="pastores" gradient={memberTone.pastor} />
         <MiniCard title="Presbítero" value={counters.presbitero} subtitle="presbíteros" gradient={memberTone.presbitero} />
@@ -1358,7 +1359,16 @@ export default function PastorMembrosPage() {
         className="mb-4 rounded-2xl"
       >
           {/* Comentario: combobox de busca de igreja + filtro de cargo lado a lado */}
-          <div className="grid gap-3 sm:grid-cols-2 max-w-2xl">
+          <div className="grid max-w-4xl gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <Input
+              value={memberSearch}
+              onChange={(e) => {
+                setMemberSearch(e.target.value);
+                setMembersPage(1);
+              }}
+              placeholder="Buscar nome/cpf..."
+            />
+
             {/* Combobox manual para busca de igreja por nome ou TOTVS */}
             <div className="relative">
               <Input
@@ -1454,6 +1464,9 @@ export default function PastorMembrosPage() {
           forceSingleChurchFilter={filterTotvs !== "all"}
           filterMinisterRole={filterCargo !== "all" ? filterCargo : undefined}
           initialActiveFilter={filterActive === false ? "inactive" : "all"}
+          externalSearch={memberSearch}
+          onExternalSearchChange={setMemberSearch}
+          hideInternalSearch
         />
       ) : null}
 
@@ -1540,7 +1553,54 @@ export default function PastorMembrosPage() {
                       : "Nenhuma carteirinha pronta encontrada para esta igreja."}
                   </div>
                 ) : (
-                  <div className="overflow-x-auto rounded-xl border border-slate-200">
+                  <>
+                  <div className="space-y-3 md:hidden">
+                    {filteredCarteirinhas.map((c) => (
+                      <div
+                        key={c.id}
+                        className={`rounded-xl border p-3 ${selectedPrintIds.has(c.id) ? "border-blue-300 bg-blue-50" : "border-slate-200 bg-white"}`}
+                        onClick={() => togglePrintSelection(c.id)}
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className="pt-0.5">
+                            {selectedPrintIds.has(c.id)
+                              ? <CheckSquare className="h-4 w-4 text-blue-600" />
+                              : <Square className="h-4 w-4 text-slate-300" />}
+                          </div>
+                          {c.member_avatar_url ? (
+                            <img src={c.member_avatar_url} alt="" className="h-12 w-10 rounded border border-slate-200 object-cover" />
+                          ) : (
+                            <div className="flex h-12 w-10 items-center justify-center rounded bg-slate-100 text-xs text-slate-400">—</div>
+                          )}
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-semibold text-slate-900">{c.member_name || "—"}</p>
+                            <p className="text-xs text-slate-600">CPF: {c.member_cpf || "—"}</p>
+                            <p className="text-xs text-slate-600">Cargo: {c.member_minister_role || "—"}</p>
+                            <div className="mt-2">
+                              {c.printed_at ? (
+                                <Badge variant="outline" className="border-emerald-200 bg-emerald-50 text-emerald-700">Impressa</Badge>
+                              ) : (
+                                <Badge variant="outline" className="border-amber-200 bg-amber-50 text-amber-700">Pendente</Badge>
+                              )}
+                            </div>
+                          </div>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 text-xs"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (c.final_url) window.open(c.final_url, "_blank", "noopener,noreferrer");
+                            }}
+                            disabled={!c.final_url}
+                          >
+                            Ver
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="hidden overflow-x-auto rounded-xl border border-slate-200 md:block">
                     <table className="w-full text-sm">
                       <thead className="bg-slate-50 text-left text-xs font-semibold text-slate-600">
                         <tr>
@@ -1605,6 +1665,7 @@ export default function PastorMembrosPage() {
                       </tbody>
                     </table>
                   </div>
+                  </>
                 )}
 
                 <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
@@ -1624,7 +1685,40 @@ export default function PastorMembrosPage() {
                     Nenhum documento único gerado ainda.
                   </div>
                 ) : (
-                  <div className="overflow-x-auto rounded-xl border border-slate-200">
+                  <>
+                  <div className="space-y-3 md:hidden">
+                    {printBatchDocs.map((batch: PrintBatchCarteirinhaItem) => (
+                      <div key={batch.id} className="rounded-xl border border-slate-200 bg-white p-3">
+                        <div className="space-y-1 text-sm">
+                          <p><span className="font-medium text-slate-700">Criado em:</span> {formatDateBr(batch.created_at)}</p>
+                          <p><span className="font-medium text-slate-700">Quantidade:</span> {Number(batch.total_items || 0)}</p>
+                          <div className="pt-1">
+                            {String(batch.status).toUpperCase() === "PRONTO" ? (
+                              <Badge variant="outline" className="border-emerald-200 bg-emerald-50 text-emerald-700">Pronto</Badge>
+                            ) : String(batch.status).toUpperCase() === "ERRO" ? (
+                              <Badge variant="outline" className="border-rose-200 bg-rose-50 text-rose-700">Erro</Badge>
+                            ) : (
+                              <Badge variant="outline" className="border-amber-200 bg-amber-50 text-amber-700">Processando</Badge>
+                            )}
+                          </div>
+                        </div>
+                        <div className="mt-3 flex items-center gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={!batch.final_url}
+                            onClick={() => batch.final_url && window.open(batch.final_url, "_blank", "noopener,noreferrer")}
+                          >
+                            Visualizar
+                          </Button>
+                          {String(batch.status).toUpperCase() === "ERRO" && batch.error_message ? (
+                            <span className="text-xs text-rose-700">{batch.error_message}</span>
+                          ) : null}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="hidden overflow-x-auto rounded-xl border border-slate-200 md:block">
                     <table className="w-full text-sm">
                       <thead className="bg-slate-50 text-left text-xs font-semibold text-slate-600">
                         <tr>
@@ -1668,6 +1762,7 @@ export default function PastorMembrosPage() {
                       </tbody>
                     </table>
                   </div>
+                  </>
                 )}
               </div>
             )}

@@ -1,6 +1,6 @@
 import { useEffect, useState, type ComponentType, type ReactNode } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
-import { BarChart2, Building2, Bell, Calculator, Church, ClipboardList, DollarSign, Download, FileText, Loader2, LogOut, Megaphone, Menu, Settings, TrendingDown, Users } from "lucide-react";
+import { BarChart2, Building2, Bell, Calculator, Church, ClipboardList, DollarSign, Download, FileText, Loader2, LogOut, Megaphone, MoreHorizontal, Settings, TrendingDown, Users } from "lucide-react";
 import { useUser } from "@/context/UserContext";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -111,7 +111,6 @@ export function ManagementShell({
     roleMode === "secretario" ? secretarioMenu :
     roleMode === "financeiro" ? financeiroMenu :
     obreiroMenu;
-  const [mobileOpen, setMobileOpen] = useState(false);
   const [openNotifications, setOpenNotifications] = useState(false);
   const [openInstallPrompt, setOpenInstallPrompt] = useState(false);
   const [pendingRoute, setPendingRoute] = useState<string | null>(null);
@@ -120,6 +119,8 @@ export function ManagementShell({
   const { supported: pushSupported, subscribed: pushSubscribed, subscribe: subscribePush } = usePushNotifications(usuario?.id);
   const queryClient = useQueryClient();
   const { isOnline } = useOfflineStatus();
+  const primaryMobileMenu = menu.slice(0, 4);
+  const secondaryMobileMenu = menu.slice(4);
 
   // Comentario: tenta ativar push automaticamente ao carregar se o navegador suporta e usuario ainda nao assinou
   useEffect(() => {
@@ -255,72 +256,19 @@ export function ManagementShell({
           </div>
 
           <div className="lg:hidden">
-            <DropdownMenu open={mobileOpen} onOpenChange={setMobileOpen}>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="icon" className="h-10 w-10">
-                  <Menu className="h-5 w-5" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-64">
-                {menu.map((item) => {
-                  const Icon = item.icon;
-                  return (
-                    <DropdownMenuItem
-                      key={item.to}
-                      onClick={() => {
-                        setMobileOpen(false);
-                        navigateWithLoading(item.to);
-                      }}
-                      className="flex min-h-10 items-center gap-2"
-                    >
-                      {pendingRoute === item.to ? (
-                        <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
-                      ) : (
-                        <Icon className="h-4 w-4 text-slate-500" />
-                      )}
-                      <span>{pendingRoute === item.to ? `${item.label}...` : item.label}</span>
-                    </DropdownMenuItem>
-                  );
-                })}
-                <DropdownMenuItem
-                  onClick={() => {
-                    setMobileOpen(false);
-                    setOpenNotifications(true);
-                  }}
-                  className="flex min-h-10 items-center gap-2"
-                >
-                  <Bell className="h-4 w-4 text-slate-500" />
-                  <span>Notificações</span>
-                  {unreadCount > 0 ? (
-                    <span className="ml-auto rounded-full bg-rose-500 px-2 py-0.5 text-[10px] font-semibold text-white">
-                      {unreadCount > 99 ? "99+" : unreadCount}
-                    </span>
-                  ) : null}
-                </DropdownMenuItem>
-                {canInstall ? (
-                  <DropdownMenuItem
-                    onClick={() => {
-                      setMobileOpen(false);
-                      void onInstallApp();
-                    }}
-                    className="flex min-h-10 items-center gap-2"
-                  >
-                    <Download className="h-4 w-4 text-slate-500" />
-                    <span>Baixar app</span>
-                  </DropdownMenuItem>
-                ) : null}
-                <DropdownMenuItem
-                  className="mt-1 flex min-h-10 items-center gap-2 text-rose-600"
-                  onClick={() => {
-                    setMobileOpen(false);
-                    onLogout();
-                  }}
-                >
-                  <LogOut className="h-4 w-4" />
-                  <span>Sair</span>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => setOpenNotifications(true)}
+              className="relative h-10 w-10"
+            >
+              <Bell className="h-5 w-5" />
+              {unreadCount > 0 ? (
+                <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-semibold text-white">
+                  {unreadCount > 99 ? "99+" : unreadCount}
+                </span>
+              ) : null}
+            </Button>
           </div>
         </div>
 
@@ -335,8 +283,77 @@ export function ManagementShell({
       ) : null}
 
       {/* Comentario: padding menor em telas médias, normal em xl+ */}
-      <main className={`mx-auto w-full max-w-[1600px] px-3 py-4 transition-opacity xl:px-4 xl:py-5 ${pendingRoute ? "opacity-80" : "opacity-100"}`}>{children}</main>
+      <main className={`mx-auto w-full max-w-[1600px] px-3 py-4 pb-24 transition-opacity xl:px-4 xl:py-5 xl:pb-5 ${pendingRoute ? "opacity-80" : "opacity-100"}`}>{children}</main>
 
+
+      <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white/95 backdrop-blur lg:hidden">
+        <div className="mx-auto flex h-16 w-full max-w-[1600px] items-center justify-around px-2">
+          {primaryMobileMenu.map((item) => {
+            const Icon = item.icon;
+            const loading = pendingRoute === item.to;
+            return (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                onClick={() => setPendingRoute(item.to)}
+                className={({ isActive }) =>
+                  `flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-lg px-1 py-1 text-[11px] transition-colors ${
+                    isActive ? "text-blue-700" : "text-slate-500"
+                  }`
+                }
+              >
+                {loading ? (
+                  <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
+                ) : (
+                  <Icon className="h-4 w-4" />
+                )}
+                <span className="truncate">{item.label}</span>
+              </NavLink>
+            );
+          })}
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                className="flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-lg px-1 py-1 text-[11px] text-slate-500 transition-colors"
+              >
+                <MoreHorizontal className="h-4 w-4" />
+                <span>Mais</span>
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="mb-2 w-56">
+              {secondaryMobileMenu.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <DropdownMenuItem
+                    key={item.to}
+                    onClick={() => navigateWithLoading(item.to)}
+                    className="flex min-h-10 items-center gap-2"
+                  >
+                    {pendingRoute === item.to ? (
+                      <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
+                    ) : (
+                      <Icon className="h-4 w-4 text-slate-500" />
+                    )}
+                    <span>{pendingRoute === item.to ? `${item.label}...` : item.label}</span>
+                  </DropdownMenuItem>
+                );
+              })}
+              {canInstall ? (
+                <DropdownMenuItem onClick={() => void onInstallApp()} className="flex min-h-10 items-center gap-2">
+                  <Download className="h-4 w-4 text-slate-500" />
+                  <span>Baixar app</span>
+                </DropdownMenuItem>
+              ) : null}
+              <DropdownMenuItem className="flex min-h-10 items-center gap-2 text-rose-600" onClick={onLogout}>
+                <LogOut className="h-4 w-4" />
+                <span>Sair</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </nav>
       <Dialog open={openNotifications} onOpenChange={setOpenNotifications}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>

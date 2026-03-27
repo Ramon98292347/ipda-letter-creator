@@ -107,7 +107,7 @@ export default function PastorDashboardPage() {
             <h3 className="text-xl font-bold text-slate-900">Membros</h3>
             <p className="text-sm text-slate-500">Indicadores por cargo ministerial. Clique para filtrar.</p>
           </div>
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6">
             <KpiCard title="Total de membros" value={counters.totalMembers} subtitle="cadastros ativos" icon={Users} gradient="from-blue-600 to-blue-500" onClick={() => navigate("/pastor/membros?status=ativo")} />
             <KpiCard title="Pastor" value={counters.pastors} subtitle="cargo pastor" icon={UserRound} gradient="from-blue-700 to-blue-600" onClick={() => navigate("/pastor/membros?cargo=pastor")} />
             <KpiCard title="Presbítero" value={counters.presbiteros} subtitle="cargo presbítero" icon={UserRound} gradient="from-purple-600 to-purple-500" onClick={() => navigate("/pastor/membros?cargo=presbitero")} />
@@ -125,7 +125,7 @@ export default function PastorDashboardPage() {
               <p className="text-sm text-slate-500">Distribuicao por classificacao.</p>
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6">
             <KpiCard title="Total" value={totalIgrejasEscopo} subtitle="total de igrejas" icon={Church} gradient="from-purple-600 to-purple-500" onClick={() => navigate("/pastor/igrejas")} />
             <KpiCard title="Estadual" value={counters.byClass.estadual} subtitle="classe estadual" icon={Church} gradient="from-blue-600 to-blue-500" onClick={() => navigate("/pastor/igrejas?class=estadual")} />
             <KpiCard title="Setorial" value={counters.byClass.setorial} subtitle="classe setorial" icon={Church} gradient="from-amber-500 to-amber-400" onClick={() => navigate("/pastor/igrejas?class=setorial")} />

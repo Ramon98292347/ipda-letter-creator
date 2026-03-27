@@ -272,7 +272,40 @@ const CadastroSaidas: React.FC = () => {
         <div className="p-6 border-b border-gray-200">
           <h2 className="text-lg font-semibold text-gray-900">Histórico de Saídas</h2>
         </div>
-        <div className="overflow-x-auto">
+        <div className="space-y-3 p-4 md:hidden">
+          {saidas.length > 0 ? (
+            saidas.map((transaction) => (
+              <div key={`mobile-${transaction.id}`} className="rounded-lg border border-gray-200 bg-white p-3">
+                <div className="space-y-1">
+                  <p className="text-sm font-semibold text-gray-900">{transaction.description}</p>
+                  <p className="text-xs text-gray-500">
+                    {(() => {
+                      const [year, month, day] = transaction.date.split('-');
+                      return new Date(parseInt(year), parseInt(month) - 1, parseInt(day))
+                        .toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+                    })()}
+                  </p>
+                  <p className="text-sm font-semibold text-red-600">
+                    R$ {transaction.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </p>
+                </div>
+                <div className="mt-3 flex items-center gap-3">
+                  <button onClick={() => handleEdit(transaction)} className="inline-flex items-center gap-1 text-sm text-[#1A237E] hover:text-[#0D47A1] transition-colors">
+                    <Edit2 className="w-4 h-4" /> Editar
+                  </button>
+                  <button onClick={() => handleDelete(transaction.id)} className="inline-flex items-center gap-1 text-sm text-red-600 hover:text-red-700 transition-colors">
+                    <Trash2 className="w-4 h-4" /> Excluir
+                  </button>
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-5 text-center text-sm text-gray-500">
+              Nenhuma saída cadastrada
+            </div>
+          )}
+        </div>
+        <div className="hidden overflow-x-auto md:block">
           <table className="w-full">
             <thead className="bg-gray-50">
               <tr>

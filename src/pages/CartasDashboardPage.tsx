@@ -314,12 +314,12 @@ export default function CartasDashboardPage() {
       </section>
 
       {/* Comentario: 1 col no celular, 3 no tablet/desktop — "Total de membros" removido */}
-      <section className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+      <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3">
         <KpiCard label="Total de cartas" value={totalCartas} icon={FileText} gradient={gradients.total} />
         <KpiCard label="Cartas hoje" value={cartasHoje} icon={CalendarDays} gradient={gradients.hoje} />
         <KpiCard label="Últimos 7 dias" value={ultimos7Dias} icon={LineChart} gradient={gradients.seteDias} />
       </section>
-      <section className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
+      <section className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3">
         <KpiCard label="Cartas liberadas" value={statusStats.liberadas} icon={FileText} gradient={gradients.liberadas} />
         <KpiCard label="Cartas bloqueadas" value={statusStats.bloqueadas} icon={FileText} gradient={gradients.bloqueadas} />
         <KpiCard label="Aguardando liberação" value={statusStats.aguardando} icon={FileText} gradient={gradients.aguardando} />
