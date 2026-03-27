@@ -1,4 +1,4 @@
-﻿import { useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -23,6 +23,7 @@ import {
   listBirthdaysTodayPublicByTotvs,
   loginWithCpfPassword,
 } from "@/services/saasService";
+import type { AnnouncementItem, BirthdayItem } from "@/services/saasService";
 import { getFriendlyError } from "@/lib/error-map";
 
 function isBlockedPaymentError(err: unknown) {
@@ -102,6 +103,29 @@ export default function PhoneIdentify() {
   const cachedTotvs = typeof window !== "undefined" ? localStorage.getItem("ipda_last_totvs") || "" : "";
   const isCachedAdmin = String(cachedUser?.role || "").toLowerCase() === "admin";
   const cpfLookup = cpf.replace(/\D/g, "").length === 11 ? cpf.replace(/\D/g, "") : cachedCpf;
+  const announcementCacheKey = `ipda_login_announcements_${cpfLookup || announcementTotvs || announcementScope.join(",") || "default"}`;
+  const birthdayCacheKey = `ipda_login_birthdays_${cpfLookup || birthdayTotvsScope.join(",") || announcementTotvs || "default"}`;
+
+  function readCache<T>(key: string): T[] {
+    if (typeof window === "undefined") return [];
+    try {
+      const raw = localStorage.getItem(key);
+      if (!raw) return [];
+      const parsed = JSON.parse(raw) as { items?: T[] };
+      return Array.isArray(parsed?.items) ? parsed.items : [];
+    } catch {
+      return [];
+    }
+  }
+
+  function writeCache<T>(key: string, items: T[]) {
+    if (typeof window === "undefined") return;
+    try {
+      localStorage.setItem(key, JSON.stringify({ updated_at: new Date().toISOString(), items }));
+    } catch {
+      // silencioso: cache local nao pode quebrar a tela de login
+    }
+  }
   const cachedScope = Array.isArray(cachedSession?.scope_totvs_ids) ? cachedSession.scope_totvs_ids.filter(Boolean).map(String) : [];
   const announcementScope = isCachedAdmin ? cachedScope : [];
   // Comentario: divulgacao da tela de login deve respeitar a igreja do proprio usuario.
@@ -122,7 +146,9 @@ export default function PhoneIdentify() {
       return listAnnouncementsPublicByTotvs(announcementTotvs, 10);
     },
     enabled: cpfLookup.length === 11 || Boolean(announcementTotvs) || announcementScope.length > 0,
-    refetchInterval: 10000,
+    initialData: () => readCache<AnnouncementItem>(announcementCacheKey),
+    staleTime: 30_000,
+    refetchInterval: 60_000,
   });
 
   const { data: birthdays = [] } = useQuery({
@@ -136,8 +162,18 @@ export default function PhoneIdentify() {
           ? listBirthdaysTodayPublicByScope(birthdayTotvsScope, 20)
           : listBirthdaysTodayPublicByTotvs(birthdayTotvsScope[0] || announcementTotvs, 10),
     enabled: cpfLookup.length === 11 || birthdayTotvsScope.length > 0 || announcementScope.length > 0,
-    refetchInterval: 10000,
+    initialData: () => readCache<BirthdayItem>(birthdayCacheKey),
+    staleTime: 30_000,
+    refetchInterval: 60_000,
   });
+
+  useEffect(() => {
+    if (announcements.length > 0) writeCache<AnnouncementItem>(announcementCacheKey, announcements);
+  }, [announcementCacheKey, announcements]);
+
+  useEffect(() => {
+    if (birthdays.length > 0) writeCache<BirthdayItem>(birthdayCacheKey, birthdays);
+  }, [birthdayCacheKey, birthdays]);
 
   async function handleLogin() {
     const cpfRaw = cpf.replace(/\D/g, "");
@@ -430,3 +466,4 @@ export default function PhoneIdentify() {
     </div>
   );
 }
+
