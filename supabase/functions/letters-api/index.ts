@@ -163,6 +163,22 @@ function collectAncestors(startTotvs: string, churches: ChurchNode[]): Set<strin
   return out;
 }
 
+function findTopAncestorTotvs(startTotvs: string, churches: ChurchNode[]): string {
+  const byId = mapById(churches);
+  let cur: string | null = startTotvs;
+  const seen = new Set<string>();
+  let last = startTotvs;
+
+  while (cur && !seen.has(cur)) {
+    seen.add(cur);
+    last = cur;
+    const row = byId.get(cur);
+    if (!row) break;
+    cur = row.parent_totvs_id ? String(row.parent_totvs_id) : null;
+  }
+
+  return last;
+}
 function findFirstAncestorByClass(startTotvs: string, churches: ChurchNode[], targetClass: ChurchClass): ChurchNode | null {
   const byId = mapById(churches);
   let cur = byId.get(startTotvs)?.parent_totvs_id || null;
@@ -508,10 +524,21 @@ async function handleCreate(session: SessionClaims, body: Record<string, unknown
       }, 403);
     }
 
+    // Se o destino for manual, a origem sempre sobe para o topo da hierarquia (avó).
+    if (manual_destination) {
+      const topTotvs = findTopAncestorTotvs(church_totvs_id, churches);
+      if (topTotvs && topTotvs !== church_totvs_id) {
+        church_totvs_id = topTotvs;
+        const topChurch = byId.get(topTotvs) || null;
+        const topName = String(topChurch?.church_name || "").trim();
+        if (topName) church_origin = `${topTotvs} - ${topName}`;
+      }
+    }
+
     // Destino permitido = escopo (filhas) + ancestrais (mãe, avó, bisavó...)
-    const scope = computeScope(church_totvs_id, churches);
-    const ancestors = collectAncestors(church_totvs_id, churches);
-    const allowedDestinations = new Set<string>([...scope, ...ancestors]);
+    let scope = computeScope(church_totvs_id, churches);
+    let ancestors = collectAncestors(church_totvs_id, churches);
+    let allowedDestinations = new Set<string>([...scope, ...ancestors]);
 
     const destinationTotvsExplicit = String(body.destination_totvs_id || "").trim();
     const destinationTotvs = destinationTotvsExplicit || parseTotvsFromText(church_destination);
@@ -527,12 +554,18 @@ async function handleCreate(session: SessionClaims, body: Record<string, unknown
       }
     }
 
-    if (destinationTotvs && !allowedDestinations.has(destinationTotvs) && session.role === "obreiro" && !manual_destination) {
-      return json({
-        ok: false,
-        error: "destination_out_of_scope_use_parent",
-        detail: "Voce nao pode tirar carta para uma classe acima de voce. Procure o pastor da igreja mae.",
-      }, 403);
+    if (destinationTotvs && !allowedDestinations.has(destinationTotvs) && !manual_destination) {
+      // Regra: se a igreja destino está acima, sobe a origem para a mãe/avó (topo da hierarquia).
+      const topTotvs = findTopAncestorTotvs(church_totvs_id, churches);
+      if (topTotvs && topTotvs !== church_totvs_id) {
+        church_totvs_id = topTotvs;
+        const topChurch = byId.get(topTotvs) || null;
+        const topName = String(topChurch?.church_name || "").trim();
+        if (topName) church_origin = `${topTotvs} - ${topName}`;
+        scope = computeScope(church_totvs_id, churches);
+        ancestors = collectAncestors(church_totvs_id, churches);
+        allowedDestinations = new Set<string>([...scope, ...ancestors]);
+      }
     }
 
     // Resolve assinante pela regra fixa de classe
