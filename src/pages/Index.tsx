@@ -297,6 +297,13 @@ const Index = () => {
   // Para campo Outros: qualquer texto digitado la → origem vai para a mae mais alta
   const shouldUseParentOriginForOthers = Boolean(destinoOutros.trim() && parentChurch);
 
+  const effectiveOrigin = useMemo(() => {
+    if (shouldUseParentOrigin || shouldUseParentOriginForOthers) {
+      return parentChurch || igrejaOrigem;
+    }
+    return igrejaOrigem;
+  }, [shouldUseParentOrigin, shouldUseParentOriginForOthers, parentChurch, igrejaOrigem]);
+
   const preachersMap = useMemo(() => {
     const map = new Map<string, UserListItem>();
     preachersInScope.forEach((item) => map.set(String(item.id || ""), item));
@@ -661,15 +668,17 @@ const Index = () => {
                     setIgrejaOrigem(c);
                     setValue("origemId", c.id, { shouldValidate: true });
                   }}
-                  value={igrejaOrigem ? (igrejaOrigem.codigoTotvs ? `${igrejaOrigem.codigoTotvs} - ${igrejaOrigem.nome}` : igrejaOrigem.nome) : (usuario?.igreja_nome ?? "")}
+                  value={effectiveOrigin ? (effectiveOrigin.codigoTotvs ? `${effectiveOrigin.codigoTotvs} - ${effectiveOrigin.nome}` : effectiveOrigin.nome) : (usuario?.igreja_nome ?? "")}
                   disabled={disableByPhone}
                   onDisabledClickMessage="Digite seu telefone"
                   inputId="church-origem"
                 />
                 {/* Aviso quando a origem foi ajustada automaticamente para a mae */}
-                {(shouldUseParentOrigin || shouldUseParentOriginForOthers) && parentChurch && (
+                {(shouldUseParentOrigin || shouldUseParentOriginForOthers) && (
                   <p className="text-xs text-amber-700">
-                    Destino fora do seu escopo. A origem foi ajustada para a mãe: {parentChurch.codigoTotvs} - {parentChurch.nome}.
+                    {parentChurch
+                      ? `Destino fora do seu escopo. A origem foi ajustada para a mãe/avó: ${parentChurch.codigoTotvs} - ${parentChurch.nome}.`
+                      : "Destino fora do seu escopo. A origem será ajustada para a mãe/avó no envio."}
                   </p>
                 )}
                 {errors.origemId && <p className="text-xs text-destructive">Selecione a igreja de origem</p>}
@@ -902,7 +911,7 @@ const Index = () => {
           <div className="h-fit xl:sticky xl:top-6">
             <LetterPreview
               pregadorNome={watch("pregadorNome")}
-              igrejaOrigem={igrejaOrigem}
+              igrejaOrigem={effectiveOrigin}
               igrejaDestino={igrejaDestino || (destinoOutros.trim() ? { id: 0, codigoTotvs: "", nome: destinoOutros.trim(), cidade: "", uf: "", carimboIgreja: "", carimboPastor: "" } : undefined)}
               dataPregacao={watch("dataPregacao")}
               dataEmissao={watch("dataEmissao")}
