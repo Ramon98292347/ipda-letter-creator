@@ -465,7 +465,7 @@ async function handleCreate(session: SessionClaims, body: Record<string, unknown
 
 
     const preach_date_str = String(body.preach_date || "").trim();
-    const church_origin = String(body.church_origin || "").trim();
+    let church_origin = String(body.church_origin || "").trim();
     let church_destination = String(body.church_destination || "").trim();
     const manual_destination = Boolean(body.manual_destination);
 
