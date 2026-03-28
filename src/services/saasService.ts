@@ -2364,6 +2364,8 @@ export async function publicRegisterMember(payload: {
   profession?: string | null;
   baptism_date?: string | null;
   ordination_date?: string | null;
+  rg?: string | null;
+  marital_status?: string | null;
   phone?: string | null;
   email?: string | null;
   avatar_url?: string | null;
@@ -2381,6 +2383,8 @@ export async function publicRegisterMember(payload: {
   if (!isValidCpf(cpf)) throw new Error("cpf-invalid");
   if (!payload.full_name.trim()) throw new Error("name-required");
   if (!payload.minister_role.trim()) throw new Error("minister-role-required");
+  if (!String(payload.rg || "").trim()) throw new Error("rg-required");
+  if (!String(payload.marital_status || "").trim()) throw new Error("marital-status-required");
   if (!payload.totvs_id.trim()) throw new Error("totvs-required");
   if (String(payload.password || "").length < 6) throw new Error("password-too-short");
 
@@ -2392,6 +2396,8 @@ export async function publicRegisterMember(payload: {
     profession: payload.profession || null,
     baptism_date: payload.baptism_date || null,
     ordination_date: payload.ordination_date || null,
+    rg: String(payload.rg || "").trim() || null,
+    marital_status: String(payload.marital_status || "").trim() || null,
     phone: payload.phone || null,
     email: payload.email || null,
     avatar_url: payload.avatar_url || null,

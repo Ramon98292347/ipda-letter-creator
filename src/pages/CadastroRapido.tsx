@@ -56,6 +56,8 @@ export default function CadastroRapido() {
   const [loading, setLoading] = useState(false);
   const [nome, setNome] = useState("");
   const [cpf, setCpf] = useState("");
+  const [rg, setRg] = useState("");
+  const [maritalStatus, setMaritalStatus] = useState("");
   const [telefone, setTelefone] = useState("");
   const [email, setEmail] = useState("");
   const [totvs, setTotvs] = useState("");
@@ -202,6 +204,14 @@ export default function CadastroRapido() {
       toast.error("Informe o nome completo.");
       return;
     }
+    if (!rg.trim()) {
+      toast.error("Informe o RG.");
+      return;
+    }
+    if (!maritalStatus.trim()) {
+      toast.error("Informe o estado civil.");
+      return;
+    }
     if (!totvs.trim()) {
       toast.error("Informe o TOTVS da igreja.");
       return;
@@ -285,6 +295,8 @@ export default function CadastroRapido() {
         birth_date: birthDate,
         baptism_date: baptismDate,
         ordination_date: ordinationDate || null,
+        rg,
+        marital_status: maritalStatus,
         phone: telefone,
         email,
         avatar_url: avatarUrl,
@@ -345,6 +357,11 @@ export default function CadastroRapido() {
               </div>
 
               <div className="space-y-2">
+                <Label>RG *</Label>
+                <Input value={rg} onChange={(e) => setRg(e.target.value)} placeholder="00.000.000-0" />
+              </div>
+
+              <div className="space-y-2">
                 <Label>Telefone *</Label>
                 <Input
                   value={telefone}
@@ -378,6 +395,22 @@ export default function CadastroRapido() {
               <div className="space-y-2">
                 <Label>Data de nascimento *</Label>
                 <Input type="date" value={birthDate} onChange={(e) => setBirthDate(e.target.value)} />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Estado civil *</Label>
+                <select
+                  value={maritalStatus}
+                  onChange={(e) => setMaritalStatus(e.target.value)}
+                  className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm"
+                >
+                  <option value="">Selecione</option>
+                  <option value="Solteiro(a)">Solteiro(a)</option>
+                  <option value="Casado(a)">Casado(a)</option>
+                  <option value="Divorciado(a)">Divorciado(a)</option>
+                  <option value="Viuvo(a)">Viuvo(a)</option>
+                  <option value="Separado(a)">Separado(a)</option>
+                </select>
               </div>
 
               <div className="space-y-2">

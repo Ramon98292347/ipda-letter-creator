@@ -15,6 +15,8 @@ export const api = {
     profession?: string | null;
     baptism_date?: string | null;
     ordination_date?: string | null;
+    rg?: string | null;
+    marital_status?: string | null;
     phone?: string | null;
     email?: string | null;
     avatar_url?: string | null;
