@@ -742,6 +742,8 @@ async function handlePublicRegister(body: Record<string, unknown>) {
   const profession = String(body.profession || "").trim() || null;
   const baptismDate = String(body.baptism_date || "").trim() || null;
   const ordinationDate = String(body.ordination_date || "").trim() || null;
+  const rg = String(body.rg || "").trim() || null;
+  const maritalStatus = String(body.marital_status || "").trim() || null;
   const password = String(body.password || "");
   const totvsId = String(body.totvs_id || "").trim();
   const phone = normalizePhone(String(body.phone || ""));
@@ -762,6 +764,8 @@ async function handlePublicRegister(body: Record<string, unknown>) {
   if (!baptismDate) return json({ ok: false, error: "missing_baptism_date" }, 400);
   if (ministerRoleRaw !== "membro" && !ordinationDate) return json({ ok: false, error: "missing_ordination_date" }, 400);
   if (!profession) return json({ ok: false, error: "missing_profession" }, 400);
+  if (!rg) return json({ ok: false, error: "missing_rg" }, 400);
+  if (!maritalStatus) return json({ ok: false, error: "missing_marital_status" }, 400);
   if (!phone) return json({ ok: false, error: "missing_phone" }, 400);
   if (!email) return json({ ok: false, error: "missing_email" }, 400);
   if (!avatarUrl) return json({ ok: false, error: "missing_avatar_url" }, 400);
@@ -822,6 +826,8 @@ async function handlePublicRegister(body: Record<string, unknown>) {
       profession,
       baptism_date: baptismDate,
       ordination_date: ordinationDate,
+      rg,
+      marital_status: maritalStatus,
       phone,
       email,
       avatar_url: avatarUrl,
