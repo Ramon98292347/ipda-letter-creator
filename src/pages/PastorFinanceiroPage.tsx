@@ -126,8 +126,8 @@ export default function PastorFinanceiroPage() {
         )}
 
         {/* Cards de resumo */}
-        {/* Comentario: 2 colunas no celular, 4 no desktop */}
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        {/* Comentario: 1 coluna no celular, 2 no tablet (md), 4 no desktop */}
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4">
           <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
             <div className="flex items-center gap-3">
               <div className="rounded-lg bg-green-100 p-2">

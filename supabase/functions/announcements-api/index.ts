@@ -278,15 +278,40 @@ async function actionUpsert(sb: ReturnType<typeof createClient>, req: Request, b
   if (session.role === "obreiro") return json({ ok: false, error: "forbidden" }, 403);
 
   const id = String(body.id || "").trim();
-  const title = String(body.title || "").trim();
-  const type = String(body.type || "").trim() as AnnouncementType;
-  const body_text = body.body_text ?? null;
-  const media_url = body.media_url ?? null;
-  const link_url = body.link_url ?? null;
-  const position = Number.isFinite(body.position) ? Number(body.position) : 1;
+  const incomingTitle = String(body.title || "").trim();
+  const incomingType = String(body.type || "").trim() as AnnouncementType;
+  const incomingBodyText = body.body_text ?? null;
+  const incomingMediaUrl = body.media_url ?? null;
+  const incomingLinkUrl = body.link_url ?? null;
+  const incomingPosition = Number.isFinite(body.position) ? Number(body.position) : null;
   const is_active = typeof body.is_active === "boolean" ? body.is_active : true;
-  const starts_at = body.starts_at ? String(body.starts_at).trim() : null;
-  const ends_at = body.ends_at ? String(body.ends_at).trim() : null;
+  const incomingStartsAt = body.starts_at ? String(body.starts_at).trim() : null;
+  const incomingEndsAt = body.ends_at ? String(body.ends_at).trim() : null;
+
+  let existing: Record<string, unknown> | null = null;
+  if (id) {
+    const { data: existingRow, error: findError } = await sb
+      .from("announcements")
+      .select("id, church_totvs_id, title, type, body_text, media_url, link_url, position, starts_at, ends_at")
+      .eq("id", id)
+      .maybeSingle();
+
+    if (findError) return json({ ok: false, error: "db_error_find", details: findError.message }, 500);
+    if (!existingRow) return json({ ok: false, error: "not_found" }, 404);
+    if (String(existingRow.church_totvs_id) !== String(session.active_totvs_id)) {
+      return json({ ok: false, error: "forbidden_wrong_church" }, 403);
+    }
+    existing = existingRow as Record<string, unknown>;
+  }
+
+  const title = (incomingTitle || String(existing?.title || "")).trim();
+  const type = (incomingType || String(existing?.type || "")).trim() as AnnouncementType;
+  const body_text = incomingBodyText ?? (existing?.body_text ?? null);
+  const media_url = incomingMediaUrl ?? (existing?.media_url ?? null);
+  const link_url = incomingLinkUrl ?? (existing?.link_url ?? null);
+  const position = incomingPosition ?? Number(existing?.position ?? 1);
+  const starts_at = incomingStartsAt ?? (existing?.starts_at ? String(existing.starts_at) : null);
+  const ends_at = incomingEndsAt ?? (existing?.ends_at ? String(existing.ends_at) : null);
 
   if (!title) return json({ ok: false, error: "missing_title" }, 400);
 
@@ -326,18 +351,6 @@ async function actionUpsert(sb: ReturnType<typeof createClient>, req: Request, b
   };
 
   if (id) {
-    const { data: existing, error: findError } = await sb
-      .from("announcements")
-      .select("id, church_totvs_id")
-      .eq("id", id)
-      .maybeSingle();
-
-    if (findError) return json({ ok: false, error: "db_error_find", details: findError.message }, 500);
-    if (!existing) return json({ ok: false, error: "not_found" }, 404);
-    if (String(existing.church_totvs_id) !== String(session.active_totvs_id)) {
-      return json({ ok: false, error: "forbidden_wrong_church" }, 403);
-    }
-
     const { data: updated, error: updateError } = await sb
       .from("announcements")
       .update(payload)

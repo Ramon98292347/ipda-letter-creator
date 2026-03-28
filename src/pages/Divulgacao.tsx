@@ -820,6 +820,13 @@ export default function DivulgacaoPage() {
                   <div className="flex gap-2">
                     <Input value={vitrineUrl} readOnly />
                     <Button variant="outline" onClick={() => copyLink(vitrineUrl)} disabled={!vitrineUrl}><Copy className="mr-1 h-4 w-4" />Copiar</Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => vitrineUrl && window.open(vitrineUrl, "_blank", "noopener,noreferrer")}
+                      disabled={!vitrineUrl}
+                    >
+                      Abrir
+                    </Button>
                   </div>
                 </div>
 
@@ -935,7 +942,7 @@ export default function DivulgacaoPage() {
       </Dialog>
 
       <Dialog open={openInformativoModal} onOpenChange={setOpenInformativoModal}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
           <DialogHeader><DialogTitle>{editingInformativoId ? "Editar Informativo" : "Novo Informativo"}</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <div className="space-y-1"><Label>Título *</Label><Input value={informativoForm.title} onChange={(e) => setInformativoForm((p) => ({ ...p, title: e.target.value }))} /></div>

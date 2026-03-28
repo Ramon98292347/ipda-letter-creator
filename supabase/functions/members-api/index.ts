@@ -935,15 +935,32 @@ async function handleListMembers(session: SessionClaims, body: ListMembersBody):
     cutoff.setDate(cutoff.getDate() - 180);
     const cutoffDate = cutoff.toISOString().slice(0, 10);
 
-    const { data: attendanceRows, error: attendanceErr } = await sb
-      .from("ministerial_meeting_attendance")
-      .select("user_id,status,meeting_date,updated_at")
-      .in("user_id", memberIds)
-      .gte("meeting_date", cutoffDate)
-      .order("meeting_date", { ascending: false })
-      .order("updated_at", { ascending: false });
+    const batchSize = 500;
+    const batches: string[][] = [];
+    for (let i = 0; i < memberIds.length; i += batchSize) {
+      batches.push(memberIds.slice(i, i + batchSize));
+    }
 
-    if (attendanceErr) return json({ ok: false, error: "db_error_attendance", details: attendanceErr.message }, 500);
+    let attendanceRows: Record<string, unknown>[] = [];
+    for (const batch of batches) {
+      const { data: rows, error: attendanceErr } = await sb
+        .from("ministerial_meeting_attendance")
+        .select("user_id,status,meeting_date,updated_at")
+        .in("user_id", batch)
+        .gte("meeting_date", cutoffDate)
+        .order("meeting_date", { ascending: false })
+        .order("updated_at", { ascending: false });
+
+      if (attendanceErr) {
+        // Comentario: falha na busca de presenca nao pode derrubar a lista de membros.
+        attendanceRows = [];
+        break;
+      }
+
+      if (rows && Array.isArray(rows)) {
+        attendanceRows = attendanceRows.concat(rows as Record<string, unknown>[]);
+      }
+    }
 
     for (const rawRow of attendanceRows || []) {
       const row = rawRow as Record<string, unknown>;
@@ -958,7 +975,7 @@ async function handleListMembers(session: SessionClaims, body: ListMembersBody):
           meeting_date: meetingDate,
           absences180: status === "FALTA" ? 1 : 0,
         });
-          continue;
+        continue;
       }
       current.absences180 += status === "FALTA" ? 1 : 0;
     }
