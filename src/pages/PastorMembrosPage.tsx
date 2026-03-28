@@ -1438,8 +1438,8 @@ export default function PastorMembrosPage() {
             <Button className="rounded-none border-b-2 border-transparent px-2" variant="ghost" style={{ borderBottomColor: tab === "ficha_membro" ? "#2563EB" : "transparent", color: tab === "ficha_membro" ? "#2563EB" : "#6B7280" }} onClick={() => setTab("ficha_membro")}>Ficha do membro</Button>
             <Button className="rounded-none border-b-2 border-transparent px-2" variant="ghost" style={{ borderBottomColor: tab === "carteirinha" ? "#2563EB" : "transparent", color: tab === "carteirinha" ? "#2563EB" : "#6B7280" }} onClick={() => setTab("carteirinha")}>Carteirinha</Button>
             <Button className="rounded-none border-b-2 border-transparent px-2" variant="ghost" style={{ borderBottomColor: tab === "impressao" ? "#2563EB" : "transparent", color: tab === "impressao" ? "#2563EB" : "#6B7280" }} onClick={() => setTab("impressao")}>Impressão</Button>
-            <Button variant="ghost" disabled className="text-slate-400">Ficha de obreiro (bloqueada)</Button>
             <Button className="rounded-none border-b-2 border-transparent px-2" variant="ghost" style={{ borderBottomColor: tab === "presenca" ? "#2563EB" : "transparent", color: tab === "presenca" ? "#2563EB" : "#6B7280" }} onClick={() => setTab("presenca")}>Presença</Button>
+            <Button variant="ghost" disabled className="text-slate-400">Ficha de obreiro (bloqueada)</Button>
           </div>
 
           <div className="flex items-center gap-2">
@@ -2014,6 +2014,7 @@ export default function PastorMembrosPage() {
                   else setForm((prev) => ({ ...prev, foto_3x4_url: "" }));
                 }}
                 disabled={uploadingFoto || savingDraft || sending}
+                currentUrl={!pendingFotoFile && form.foto_3x4_url ? form.foto_3x4_url : undefined}
               />
               {uploadingFoto ? (
                 <p className="flex items-center gap-1 text-xs text-slate-500">

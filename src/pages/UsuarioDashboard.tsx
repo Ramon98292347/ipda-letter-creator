@@ -112,6 +112,7 @@ export default function UsuarioDashboard() {
   const [cepLookupLoading, setCepLookupLoading] = useState(false);
   const [lastCepLookup, setLastCepLookup] = useState("");
   const [profileForm, setProfileForm] = useState({
+    full_name: "",
     phone: "",
     email: "",
     birth_date: "",
@@ -214,6 +215,7 @@ export default function UsuarioDashboard() {
 
   useEffect(() => {
     setProfileForm({
+      full_name: String(profile?.full_name || usuario?.nome || ""),
       phone: profile?.phone || "",
       email: profile?.email || "",
       birth_date: String(profile?.birth_date || ""),
@@ -731,7 +733,7 @@ async function openPdf(letter: PastorLetter) {
       }
 
       await updateMyProfile({
-        full_name: String(profile?.full_name || usuario?.nome || "").trim() || undefined,
+        full_name: profileForm.full_name.trim() || undefined,
         phone: profileForm.phone || undefined,
         email: profileForm.email || undefined,
         birth_date: profileForm.birth_date || undefined,
@@ -1289,7 +1291,10 @@ async function openPdf(letter: PastorLetter) {
             <div className="grid gap-2 md:grid-cols-2">
               <div className="space-y-1">
                 <Label>Nome</Label>
-                <Input value={profile?.full_name || ""} disabled />
+                <Input
+                  value={profileForm.full_name}
+                  onChange={(e) => setProfileForm((p) => ({ ...p, full_name: e.target.value }))}
+                />
               </div>
               <div className="space-y-1">
                 <Label>CPF</Label>

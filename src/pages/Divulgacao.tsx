@@ -1,342 +1,950 @@
-﻿import { FormEvent, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
-import { Skeleton } from "@/components/ui/skeleton";
-import { toast } from "sonner";
+import { ChangeEvent, useMemo, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  deleteAnnouncement,
-  listAnnouncements,
-  upsertAnnouncement,
-  type AnnouncementItem,
-} from "@/services/saasService";
-import { ArrowLeft, Loader2, Megaphone, Trash2 } from "lucide-react";
-import { getFriendlyError } from "@/lib/error-map";
-import { addAuditLog } from "@/lib/audit";
+  Boxes,
+  ClipboardList,
+  Clock,
+  Copy,
+  DollarSign,
+  Edit,
+  Eye,
+  Megaphone,
+  Plus,
+  Search,
+  Shirt,
+  ToggleLeft,
+  ToggleRight,
+  Trash2,
+  Truck,
+  XCircle,
+} from "lucide-react";
+import { toast } from "sonner";
+import { ManagementShell } from "@/components/layout/ManagementShell";
+import { useUser } from "@/context/UserContext";
+import { post } from "@/lib/api";
 import { supabase } from "@/lib/supabase";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
 
-type FormState = {
-  id?: string;
-  title: string;
-  type: "text" | "image" | "video";
-  body_text: string;
-  media_url: string;
-  link_url: string;
-  position: string;
-  starts_at: string;
-  ends_at: string;
-  is_active: boolean;
+type DashboardOrder = {
+  id: string;
+  order_number?: string | null;
+  full_name?: string | null;
+  phone?: string | null;
+  church_name?: string | null;
+  payment_method?: string | null;
+  total_amount?: number | null;
+  status?: string | null;
+  created_at?: string | null;
+  notes?: string | null;
+  estadual_totvs_id?: string | null;
+  payment_installments?: number | null;
+  items?: Array<{
+    product_name?: string | null;
+    size?: string | null;
+    quantity?: number | null;
+    total_price?: number | null;
+  }>;
 };
 
-const initialForm: FormState = {
-  title: "",
-  type: "text",
-  body_text: "",
-  media_url: "",
-  link_url: "",
-  position: "1",
-  starts_at: "",
-  ends_at: "",
-  is_active: true,
+type ProductRow = {
+  id: string;
+  name?: string | null;
+  description?: string | null;
+  image_url?: string | null;
+  price?: number | null;
+  is_active?: boolean | null;
 };
+
+type ProductSizeRow = {
+  id: string;
+  product_id: string;
+  size?: string | null;
+  stock?: number | null;
+  is_active?: boolean | null;
+};
+
+type EventRow = {
+  id: string;
+  title?: string | null;
+  description?: string | null;
+  start_date?: string | null;
+  end_date?: string | null;
+  sort_order?: number | null;
+  is_active?: boolean | null;
+};
+
+type AnnouncementRow = {
+  id: string;
+  title?: string | null;
+  body_text?: string | null;
+  type?: string | null;
+  position?: number | null;
+  is_active?: boolean | null;
+};
+
+type ChurchRow = {
+  totvs_id: string;
+  church_name?: string | null;
+};
+
+const STATUS_LABEL: Record<string, string> = {
+  NOVO: "Novo",
+  AGUARDANDO_PAGAMENTO: "Aguardando pagamento",
+  PAGO: "Pago",
+  EM_SEPARACAO: "Em separação",
+  ENTREGUE: "Entregue",
+  CANCELADO: "Cancelado",
+};
+
+const SIZE_OPTIONS = ["PP", "P", "M", "G", "GG", "XG"];
+
+const TAB_ITEMS = [
+  { value: "dashboard", label: "Painel" },
+  { value: "eventos", label: "Eventos" },
+  { value: "informativos", label: "Informativos" },
+  { value: "camisetas", label: "Camisetas" },
+  { value: "tamanhos", label: "Tamanhos" },
+  { value: "pedidos", label: "Pedidos" },
+  { value: "links", label: "Publicação" },
+] as const;
+
+const STATUS_BADGE: Record<string, string> = {
+  NOVO: "bg-sky-100 text-sky-800",
+  AGUARDANDO_PAGAMENTO: "bg-amber-100 text-amber-800",
+  PAGO: "bg-emerald-100 text-emerald-700",
+  EM_SEPARACAO: "bg-orange-100 text-orange-700",
+  ENTREGUE: "bg-green-100 text-green-700",
+  CANCELADO: "bg-rose-100 text-rose-700",
+};
+
+function formatMoney(value: number | null | undefined) {
+  return Number(value || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+}
+
+function formatDate(value: string | null | undefined) {
+  if (!value) return "-";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return String(value).slice(0, 10);
+  return d.toLocaleDateString("pt-BR");
+}
+
+function badgeByStatus(status?: string | null) {
+  const key = String(status || "");
+  return STATUS_BADGE[key] || "bg-slate-100 text-slate-600";
+}
 
 export default function DivulgacaoPage() {
-  const nav = useNavigate();
+  const { usuario, session } = useUser();
   const queryClient = useQueryClient();
+  const roleMode = usuario?.role === "admin" ? "admin" : "pastor";
 
-  const [form, setForm] = useState<FormState>(initialForm);
-  const [mediaSource, setMediaSource] = useState<"url" | "file">("url");
-  const [pendingMediaFile, setPendingMediaFile] = useState<File | null>(null);
-  const [saving, setSaving] = useState(false);
+  const [tab, setTab] = useState("dashboard");
+  const [churchForLink, setChurchForLink] = useState(session?.totvs_id || "");
+  const [orderSearch, setOrderSearch] = useState("");
+  const [orderStatusFilter, setOrderStatusFilter] = useState("all");
+  const [orderDetail, setOrderDetail] = useState<DashboardOrder | null>(null);
+  const [orderNewStatus, setOrderNewStatus] = useState("NOVO");
 
-  function toDateInputValue(value?: string | null) {
-    if (!value) return "";
-    return String(value).slice(0, 10);
-  }
+  const [openProdutoModal, setOpenProdutoModal] = useState(false);
+  const [openTamanhoModal, setOpenTamanhoModal] = useState(false);
+  const [openEventoModal, setOpenEventoModal] = useState(false);
+  const [openInformativoModal, setOpenInformativoModal] = useState(false);
+  const [editingProdutoId, setEditingProdutoId] = useState<string | null>(null);
+  const [editingTamanhoId, setEditingTamanhoId] = useState<string | null>(null);
+  const [editingEventoId, setEditingEventoId] = useState<string | null>(null);
+  const [editingInformativoId, setEditingInformativoId] = useState<string | null>(null);
+  const [uploadingProduto, setUploadingProduto] = useState(false);
+  const [uploadingEvento, setUploadingEvento] = useState(false);
 
-  function toStartAt(value: string) {
-    return value ? `${value}T00:00:00` : null;
-  }
+  const [produtoForm, setProdutoForm] = useState({ name: "", description: "", image_url: "", price: "" });
+  const [tamanhoForm, setTamanhoForm] = useState({ product_id: "", size: "", stock: "0" });
+  const [eventoForm, setEventoForm] = useState({ title: "", description: "", banner_url: "", start_date: "", end_date: "", sort_order: "0" });
+  const [informativoForm, setInformativoForm] = useState({ title: "", body_text: "", position: "1" });
 
-  function toEndAt(value: string) {
-    return value ? `${value}T23:59:59` : null;
-  }
-
-  const { data: announcements = [], isLoading } = useQuery({
-    queryKey: ["announcements-config"],
-    queryFn: () => listAnnouncements(10),
-    refetchInterval: 10000,
+  const { data: orders = [] } = useQuery<DashboardOrder[]>({
+    queryKey: ["div-orders", session?.totvs_id],
+    enabled: !!session?.totvs_id,
+    queryFn: async () => (await post<any>("list-orders", { limit: 300 })).orders || [],
   });
 
-  const ordered = useMemo(() => [...announcements].sort((a, b) => (a.position || 999) - (b.position || 999)), [announcements]);
+  const { data: products = [] } = useQuery<ProductRow[]>({
+    queryKey: ["div-products", session?.totvs_id],
+    enabled: !!session?.totvs_id,
+    queryFn: async () => (await post<any>("list-products", {})).products || [],
+  });
 
-  async function refresh() {
-    await queryClient.invalidateQueries({ queryKey: ["announcements-config"] });
-    await queryClient.invalidateQueries({ queryKey: ["announcements-login"] });
-  }
+  const { data: sizes = [] } = useQuery<ProductSizeRow[]>({
+    queryKey: ["div-sizes", session?.totvs_id],
+    enabled: !!session?.totvs_id,
+    queryFn: async () => (await post<any>("list-product-sizes", {})).product_sizes || [],
+  });
 
-  function edit(item: AnnouncementItem) {
-    setForm({
-      id: item.id,
-      title: item.title || "",
-      type: item.type,
-      body_text: item.body_text || "",
-      media_url: item.media_url || "",
-      link_url: item.link_url || "",
-      position: String(item.position || 1),
-      starts_at: toDateInputValue(item.starts_at),
-      ends_at: toDateInputValue(item.ends_at),
-      is_active: item.is_active !== false,
+  const { data: events = [] } = useQuery<EventRow[]>({
+    queryKey: ["div-events", session?.totvs_id],
+    enabled: !!session?.totvs_id,
+    queryFn: async () => (await post<any>("announcements-api", { action: "list-events" })).events || [],
+  });
+
+  const { data: announcements = [] } = useQuery<AnnouncementRow[]>({
+    queryKey: ["div-ann", session?.totvs_id],
+    enabled: !!session?.totvs_id,
+    queryFn: async () => (await post<any>("announcements-api", { action: "list-admin" })).announcements || [],
+  });
+
+  const { data: churches = [] } = useQuery<ChurchRow[]>({
+    queryKey: ["div-churches", session?.totvs_id],
+    enabled: !!session?.totvs_id,
+    queryFn: async () => (await post<any>("churches-api", { action: "list-in-scope", page: 1, page_size: 300 })).churches || [],
+  });
+
+  const updateStatus = useMutation({
+    mutationFn: async ({ order_id, status }: { order_id: string; status: string }) =>
+      post("update-order-status", { order_id, status }),
+    onSuccess: async () => {
+      toast.success("Status atualizado.");
+      await queryClient.invalidateQueries({ queryKey: ["div-orders"] });
+    },
+    onError: () => toast.error("Não foi possível atualizar o status."),
+  });
+
+  const createProduto = useMutation({
+    mutationFn: async () =>
+      post("upsert-product", {
+        id: editingProdutoId || undefined,
+        name: produtoForm.name.trim(),
+        description: produtoForm.description.trim() || null,
+        event_id: null,
+        event_title: null,
+        image_url: produtoForm.image_url.trim() || null,
+        price: Number(produtoForm.price || 0),
+        is_active: true,
+      }),
+    onSuccess: async () => {
+      toast.success(editingProdutoId ? "Camiseta atualizada." : "Camiseta cadastrada.");
+      setOpenProdutoModal(false);
+      setEditingProdutoId(null);
+      setProdutoForm({ name: "", description: "", image_url: "", price: "" });
+      await queryClient.invalidateQueries({ queryKey: ["div-products"] });
+    },
+    onError: () => toast.error("Falha ao cadastrar camiseta."),
+  });
+
+  const createTamanho = useMutation({
+    mutationFn: async () =>
+      post("upsert-product-size", {
+        id: editingTamanhoId || undefined,
+        product_id: tamanhoForm.product_id,
+        size: tamanhoForm.size,
+        stock: Number(tamanhoForm.stock || 0),
+        is_active: true,
+      }),
+    onSuccess: async () => {
+      toast.success(editingTamanhoId ? "Tamanho atualizado." : "Tamanho cadastrado.");
+      setOpenTamanhoModal(false);
+      setEditingTamanhoId(null);
+      setTamanhoForm({ product_id: "", size: "", stock: "0" });
+      await queryClient.invalidateQueries({ queryKey: ["div-sizes"] });
+    },
+    onError: () => toast.error("Falha ao cadastrar tamanho."),
+  });
+
+  const createEvento = useMutation({
+    mutationFn: async () =>
+      post("announcements-api", {
+        action: "upsert-event",
+        id: editingEventoId || undefined,
+        title: eventoForm.title.trim(),
+        description: eventoForm.description.trim() || null,
+        banner_url: eventoForm.banner_url.trim() || null,
+        start_date: eventoForm.start_date || null,
+        end_date: eventoForm.end_date || null,
+        sort_order: Number(eventoForm.sort_order || 0),
+        is_active: true,
+      }),
+    onSuccess: async () => {
+      toast.success(editingEventoId ? "Evento atualizado." : "Evento cadastrado.");
+      setOpenEventoModal(false);
+      setEditingEventoId(null);
+      setEventoForm({ title: "", description: "", banner_url: "", start_date: "", end_date: "", sort_order: "0" });
+      await queryClient.invalidateQueries({ queryKey: ["div-events"] });
+    },
+    onError: () => toast.error("Falha ao cadastrar evento."),
+  });
+
+  const createInformativo = useMutation({
+    mutationFn: async () =>
+      post("announcements-api", {
+        action: "upsert",
+        id: editingInformativoId || undefined,
+        title: informativoForm.title.trim(),
+        type: "text",
+        body_text: informativoForm.body_text.trim(),
+        position: Number(informativoForm.position || 1),
+        is_active: true,
+      }),
+    onSuccess: async () => {
+      toast.success(editingInformativoId ? "Informativo atualizado." : "Informativo cadastrado.");
+      setOpenInformativoModal(false);
+      setEditingInformativoId(null);
+      setInformativoForm({ title: "", body_text: "", position: "1" });
+      await queryClient.invalidateQueries({ queryKey: ["div-ann"] });
+    },
+    onError: () => toast.error("Falha ao cadastrar informativo."),
+  });
+
+  const deleteEvento = useMutation({
+    mutationFn: async (id: string) => post("announcements-api", { action: "delete-event", id }),
+    onSuccess: async () => {
+      toast.success("Evento excluído.");
+      await queryClient.invalidateQueries({ queryKey: ["div-events"] });
+    },
+    onError: () => toast.error("Falha ao excluir evento."),
+  });
+
+  const deleteInformativo = useMutation({
+    mutationFn: async (id: string) => post("announcements-api", { action: "delete", id }),
+    onSuccess: async () => {
+      toast.success("Informativo excluído.");
+      await queryClient.invalidateQueries({ queryKey: ["div-ann"] });
+    },
+    onError: () => toast.error("Falha ao excluir informativo."),
+  });
+
+  const filteredOrders = useMemo(() => {
+    const q = orderSearch.trim().toLowerCase();
+    return orders.filter((o) => {
+      const matchesStatus = orderStatusFilter === "all" || o.status === orderStatusFilter;
+      const matchesSearch =
+        !q ||
+        String(o.order_number || "").toLowerCase().includes(q) ||
+        String(o.full_name || "").toLowerCase().includes(q) ||
+        String(o.church_name || "").toLowerCase().includes(q);
+      return matchesStatus && matchesSearch;
     });
-    setMediaSource("url");
-    setPendingMediaFile(null);
-  }
+  }, [orders, orderSearch, orderStatusFilter]);
 
-  function onFileSelected(file: File | null) {
-    if (!file) return;
-    if (form.type === "image" && !file.type.startsWith("image/")) {
-      toast.error("Selecione um arquivo de imagem.");
-      return;
-    }
-    if (form.type === "video" && !file.type.startsWith("video/")) {
-      toast.error("Selecione um arquivo de vídeo.");
-      return;
-    }
-    if (file.size > 20 * 1024 * 1024) {
-      toast.error("Arquivo muito grande (máx. 20MB).");
-      return;
-    }
-    setPendingMediaFile(file);
-    setForm((p) => ({ ...p, media_url: "" }));
-    toast.success("Arquivo pronto. Clique em Salvar para enviar.");
-  }
+  const stats = useMemo(() => {
+    const total = orders.length;
+    const novos = orders.filter((o) => o.status === "NOVO").length;
+    const aguardando = orders.filter((o) => o.status === "AGUARDANDO_PAGAMENTO").length;
+    const pagos = orders.filter((o) => o.status === "PAGO").length;
+    const entregues = orders.filter((o) => o.status === "ENTREGUE").length;
+    const cancelados = orders.filter((o) => o.status === "CANCELADO").length;
+    const totalStock = sizes.reduce((acc, s) => acc + Number(s.stock || 0), 0);
+    const produtosAtivos = products.filter((p) => p.is_active !== false).length;
+    return { total, novos, aguardando, pagos, entregues, cancelados, totalStock, produtosAtivos };
+  }, [orders, sizes, products]);
 
-  async function uploadAnnouncementMedia(file: File, type: "image" | "video") {
-    if (!supabase) throw new Error("supabase-not-configured");
+  const uploadToAvatars = async (file: File, folder: "produtos" | "eventos") => {
+    const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
+    const baseName = file.name.replace(/\.[^.]+$/, "").replace(/[^a-zA-Z0-9]+/g, "-").toLowerCase();
+    const path = `camisas/${session?.totvs_id || "global"}/${folder}/${Date.now()}-${baseName || "arquivo"}.${ext}`;
 
-    const ext = (file.name.split(".").pop() || "bin").toLowerCase();
-    const folder = type === "video" ? "video" : "image";
-    const path = `${folder}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-
-    const { error } = await supabase.storage.from("announcements").upload(path, file, {
-      upsert: false,
-      contentType: file.type || undefined,
+    const { error } = await supabase.storage.from("avatars").upload(path, file, {
+      upsert: true,
       cacheControl: "3600",
+      contentType: file.type || undefined,
     });
+    if (error) throw error;
+    const { data } = supabase.storage.from("avatars").getPublicUrl(path);
+    return data.publicUrl;
+  };
 
-    if (error) throw new Error(error.message || "storage_upload_failed");
-
-    const { data } = supabase.storage.from("announcements").getPublicUrl(path);
-    return data.publicUrl || null;
-  }
-
-  async function submit(e: FormEvent) {
-    e.preventDefault();
-
-    if (!form.title.trim()) return toast.error("Informe o título.");
-    if (form.type === "text" && !form.body_text.trim()) return toast.error("Para tipo texto, preencha o campo de texto.");
-    if ((form.type === "image" || form.type === "video") && !form.media_url.trim() && !(mediaSource === "file" && pendingMediaFile)) {
-      return toast.error("Para imagem/vídeo, informe a mídia.");
-    }
-    if (form.starts_at && form.ends_at && form.ends_at < form.starts_at) return toast.error("Data fim deve ser maior ou igual à data início.");
-
-    setSaving(true);
+  const onSelectProdutoFile = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
     try {
-      let mediaUrlToSave = form.media_url.trim() || null;
-      if (mediaSource === "file" && pendingMediaFile) {
-        mediaUrlToSave = await uploadAnnouncementMedia(pendingMediaFile, form.type === "video" ? "video" : "image");
-      }
-
-      await upsertAnnouncement({
-        id: form.id || undefined,
-        title: form.title.trim(),
-        type: form.type,
-        body_text: form.body_text.trim() || null,
-        media_url: mediaUrlToSave,
-        link_url: form.link_url.trim() || null,
-        position: Number(form.position || "1"),
-        starts_at: toStartAt(form.starts_at),
-        ends_at: toEndAt(form.ends_at),
-        is_active: form.is_active,
-      });
-
-      toast.success(form.id ? "Divulgação atualizada." : "Divulgação criada.");
-      addAuditLog("announcement_saved", { announcement_id: form.id || null, type: form.type });
-      setForm(initialForm);
-      setMediaSource("url");
-      setPendingMediaFile(null);
-      await refresh();
-    } catch (err: unknown) {
-      toast.error(getFriendlyError(err, "announcements"));
+      setUploadingProduto(true);
+      const url = await uploadToAvatars(file, "produtos");
+      setProdutoForm((prev) => ({ ...prev, image_url: url }));
+      toast.success("Imagem enviada com sucesso.");
+    } catch {
+      toast.error("Não foi possível enviar a imagem.");
     } finally {
-      setSaving(false);
+      setUploadingProduto(false);
+      e.target.value = "";
+    }
+  };
+
+  const onSelectEventoFile = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      setUploadingEvento(true);
+      const url = await uploadToAvatars(file, "eventos");
+      setEventoForm((prev) => ({ ...prev, banner_url: url }));
+      toast.success("Banner enviado com sucesso.");
+    } catch {
+      toast.error("Não foi possível enviar o banner.");
+    } finally {
+      setUploadingEvento(false);
+      e.target.value = "";
+    }
+  };
+
+  const linkBase = typeof window !== "undefined" ? window.location.origin : "";
+  const activeTotvs = churchForLink || session?.totvs_id || "";
+  const vitrineUrl = activeTotvs ? `${linkBase}/camisas/${activeTotvs}` : "";
+
+  async function copyLink(value: string) {
+    try {
+      await navigator.clipboard.writeText(value);
+      toast.success("Link copiado.");
+    } catch {
+      toast.error("Não foi possível copiar o link.");
     }
   }
 
-  async function remove(id: string) {
-    if (!window.confirm("Excluir esta divulgação?")) return;
-    try {
-      await deleteAnnouncement(id);
-      toast.success("Divulgação excluída.");
-      addAuditLog("announcement_deleted", { announcement_id: id });
-      await refresh();
-    } catch (err: unknown) {
-      toast.error(getFriendlyError(err, "announcements"));
-    }
-  }
+  const openOrderDetail = (order: DashboardOrder) => {
+    setOrderDetail(order);
+    setOrderNewStatus(order.status || "NOVO");
+  };
+
+  const saveOrderStatus = (status: string) => {
+    if (!orderDetail) return;
+    updateStatus.mutate(
+      { order_id: orderDetail.id, status },
+      {
+        onSuccess: () => {
+          setOrderDetail(null);
+        },
+      },
+    );
+  };
 
   return (
-    <div className="min-h-screen bg-[#f6f8fc] p-4 md:p-6">
-      <div className="mx-auto max-w-6xl space-y-4">
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:p-6">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <h1 className="text-2xl font-bold text-slate-900">Divulgação</h1>
-              <p className="text-sm text-slate-600">Gerencie os avisos exibidos no login e no painel.</p>
-            </div>
-            <Button variant="outline" onClick={() => nav(-1)}>
-              <ArrowLeft className="mr-2 h-4 w-4" /> Voltar
-            </Button>
+    <ManagementShell roleMode={roleMode as "admin" | "pastor"}>
+      <div className="space-y-4">
+        <Card className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-2xl text-slate-900">
+              <Megaphone className="h-6 w-6 text-blue-600" />
+              Divulgação e Camisetas
+            </CardTitle>
+            <p className="text-sm text-slate-600">Painel com o mesmo visual do sistema original de camisetas.</p>
+          </CardHeader>
+        </Card>
+
+        <Tabs value={tab} onValueChange={setTab}>
+          <div className="md:hidden">
+            <Select value={tab} onValueChange={setTab}>
+              <SelectTrigger>
+                <SelectValue placeholder="Selecione a aba" />
+              </SelectTrigger>
+              <SelectContent>
+                {TAB_ITEMS.map((item) => (
+                  <SelectItem key={item.value} value={item.value}>
+                    {item.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
-        </div>
 
-        <div className="grid gap-4 lg:grid-cols-2">
-          <Card className="rounded-2xl border border-slate-200 bg-white shadow-sm">
-            <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2 text-base">
-                <Megaphone className="h-5 w-5 text-blue-600" /> {form.id ? "Editar divulgação" : "Nova divulgação"}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <form className="space-y-3" onSubmit={submit}>
-                <div className="space-y-1">
-                  <Label>Título</Label>
-                  <Input className="h-11 rounded-xl border-slate-300 bg-slate-50" value={form.title} onChange={(e) => setForm((p) => ({ ...p, title: e.target.value }))} />
-                </div>
+          <TabsList className="hidden h-auto w-full flex-wrap justify-start gap-2 rounded-xl border border-slate-200 bg-white p-2 md:flex">
+            {TAB_ITEMS.map((item) => (
+              <TabsTrigger
+                key={item.value}
+                value={item.value}
+                className="data-[state=active]:bg-[#232b7a] data-[state=active]:text-white"
+              >
+                {item.label}
+              </TabsTrigger>
+            ))}
+          </TabsList>
 
+          <TabsContent value="dashboard" className="space-y-4">
+            <h2 className="text-2xl font-bold text-slate-900">Painel</h2>
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-7">
+              {[
+                { label: "Total de Pedidos", value: stats.total, icon: ClipboardList, iconClass: "bg-indigo-100 text-indigo-700", footer: "Total de pedidos" },
+                { label: "Novos", value: stats.novos, icon: Clock, iconClass: "bg-sky-100 text-sky-700", footer: "Novos" },
+                { label: "Aguardando Pgto", value: stats.aguardando, icon: DollarSign, iconClass: "bg-amber-100 text-amber-700", footer: "Aguardando pgto" },
+                { label: "Pagos", value: stats.pagos, icon: DollarSign, iconClass: "bg-emerald-100 text-emerald-700", footer: "Pagos" },
+                { label: "Entregues", value: stats.entregues, icon: Truck, iconClass: "bg-green-100 text-green-700", footer: "Entregues" },
+                { label: "Cancelados", value: stats.cancelados, icon: XCircle, iconClass: "bg-rose-100 text-rose-700", footer: "Cancelados" },
+                { label: "Estoque", value: stats.totalStock, icon: Boxes, iconClass: "bg-orange-100 text-orange-700", footer: `Estoque (${stats.produtosAtivos} produtos)` },
+              ].map((card) => (
+                <Card key={card.label} className="rounded-xl border border-slate-200 bg-white">
+                  <CardContent className="p-4">
+                    <div className={`mb-3 inline-flex h-10 w-10 items-center justify-center rounded-xl ${card.iconClass}`}>
+                      <card.icon className="h-5 w-5" />
+                    </div>
+                    <p className="text-4xl font-bold leading-none text-slate-900">{card.value}</p>
+                    <p className="mt-2 text-sm text-slate-600">{card.footer}</p>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+
+            <Card className="rounded-xl border border-slate-200 bg-white">
+              <CardHeader className="border-b border-slate-200 pb-4">
+                <CardTitle className="text-xl text-slate-900">Pedidos Recentes</CardTitle>
+              </CardHeader>
+              <CardContent className="overflow-x-auto p-0">
+                <table className="w-full min-w-[760px] text-sm">
+                  <thead>
+                    <tr className="border-b bg-slate-50 text-left text-slate-600">
+                      <th className="px-4 py-3">Pedido</th>
+                      <th className="px-4 py-3">Nome</th>
+                      <th className="px-4 py-3">Igreja</th>
+                      <th className="px-4 py-3">Total</th>
+                      <th className="px-4 py-3">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {orders.slice(0, 10).map((order) => (
+                      <tr key={order.id} className="border-b last:border-0">
+                        <td className="px-4 py-3 font-semibold text-slate-900">{order.order_number || "-"}</td>
+                        <td className="px-4 py-3 text-slate-800">{order.full_name || "-"}</td>
+                        <td className="px-4 py-3 text-slate-600">{order.church_name || "-"}</td>
+                        <td className="px-4 py-3 font-semibold text-slate-900">{formatMoney(order.total_amount)}</td>
+                        <td className="px-4 py-3">
+                          <span className={`rounded-full px-3 py-1 text-xs font-semibold ${badgeByStatus(order.status)}`}>
+                            {STATUS_LABEL[String(order.status || "")] || order.status || "-"}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="pedidos" className="space-y-3">
+            <h2 className="text-2xl font-bold text-slate-900">Gestão de Pedidos</h2>
+            <div className="grid gap-3 md:grid-cols-[1fr_260px]">
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <Input
+                  className="pl-9"
+                  placeholder="Buscar por nome ou nº do pedido..."
+                  value={orderSearch}
+                  onChange={(e) => setOrderSearch(e.target.value)}
+                />
+              </div>
+              <Select value={orderStatusFilter} onValueChange={setOrderStatusFilter}>
+                <SelectTrigger><SelectValue placeholder="Todos os status" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os status</SelectItem>
+                  {Object.entries(STATUS_LABEL).map(([k, v]) => (
+                    <SelectItem key={k} value={k}>{v}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <Card className="rounded-xl border">
+              <CardContent className="overflow-x-auto p-0">
+                <table className="w-full min-w-[1050px] text-sm">
+                  <thead>
+                    <tr className="border-b bg-slate-50 text-left text-slate-600">
+                      <th className="px-4 py-3">Pedido</th>
+                      <th className="px-4 py-3">Data</th>
+                      <th className="px-4 py-3">Nome</th>
+                      <th className="px-4 py-3">Telefone</th>
+                      <th className="px-4 py-3">Igreja</th>
+                      <th className="px-4 py-3">Pagamento</th>
+                      <th className="px-4 py-3">Total</th>
+                      <th className="px-4 py-3">Status</th>
+                      <th className="px-4 py-3">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredOrders.map((order) => (
+                      <tr key={order.id} className="border-b last:border-0">
+                        <td className="px-4 py-3 font-semibold">{order.order_number || "-"}</td>
+                        <td className="px-4 py-3">{formatDate(order.created_at)}</td>
+                        <td className="px-4 py-3">{order.full_name || "-"}</td>
+                        <td className="px-4 py-3">{order.phone || "-"}</td>
+                        <td className="px-4 py-3">{order.church_name || "-"}</td>
+                        <td className="px-4 py-3">{order.payment_method || "-"}</td>
+                        <td className="px-4 py-3 font-semibold">{formatMoney(order.total_amount)}</td>
+                        <td className="px-4 py-3">
+                          <span className={`rounded-full px-3 py-1 text-xs font-semibold ${badgeByStatus(order.status)}`}>
+                            {STATUS_LABEL[String(order.status || "")] || order.status || "-"}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <button className="text-blue-700 hover:opacity-80" onClick={() => openOrderDetail(order)}>
+                            <Eye className="h-4 w-4" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="camisetas" className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-xl font-bold text-slate-900">Gestão de Camisetas</h3>
+              <Button
+                className="bg-[#232b7a] text-white hover:bg-[#1b2367]"
+                onClick={() => {
+                  setEditingProdutoId(null);
+                  setProdutoForm({ name: "", description: "", image_url: "", price: "" });
+                  setOpenProdutoModal(true);
+                }}
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Nova camiseta
+              </Button>
+            </div>
+            <Card><CardContent className="overflow-x-auto p-0">
+              <table className="w-full min-w-[760px] text-sm">
+                <thead><tr className="border-b bg-slate-50 text-left text-slate-600"><th className="px-4 py-3">Produto</th><th className="px-4 py-3">Preço</th><th className="px-4 py-3">Status</th><th className="px-4 py-3">Ações</th></tr></thead>
+                <tbody>
+                  {products.map((product) => (
+                    <tr key={product.id} className="border-b last:border-0">
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-3">
+                          <div className="h-10 w-10 overflow-hidden rounded-md bg-slate-100">
+                            {product.image_url ? <img src={product.image_url} alt={product.name || "Produto"} className="h-full w-full object-cover" /> : null}
+                          </div>
+                          <div>
+                            <p className="font-semibold">{product.name || "Sem nome"}</p>
+                            <p className="text-xs text-slate-500">{product.description || "Sem descrição"}</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 font-semibold">{formatMoney(product.price)}</td>
+                      <td className="px-4 py-3"><span className={`rounded-full px-3 py-1 text-xs font-semibold ${product.is_active ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>{product.is_active ? "Ativo" : "Inativo"}</span></td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-3">
+                          <button className="text-blue-700" onClick={() => { setEditingProdutoId(product.id); setProdutoForm({ name: product.name || "", description: product.description || "", image_url: product.image_url || "", price: String(product.price || "") }); setOpenProdutoModal(true); }}><Edit className="h-4 w-4" /></button>
+                          <button className="text-slate-500" onClick={() => post("upsert-product", { id: product.id, is_active: !product.is_active }).then(() => queryClient.invalidateQueries({ queryKey: ["div-products"] }))}>{product.is_active ? <ToggleRight className="h-4 w-4" /> : <ToggleLeft className="h-4 w-4" />}</button>
+                          <button className="text-rose-600" onClick={() => post("upsert-product", { id: product.id, is_active: false }).then(() => { toast.success("Camiseta inativada."); queryClient.invalidateQueries({ queryKey: ["div-products"] }); })}><Trash2 className="h-4 w-4" /></button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </CardContent></Card>
+          </TabsContent>
+
+          <TabsContent value="tamanhos" className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-xl font-bold text-slate-900">Gestão de Tamanhos</h3>
+              <Button
+                className="bg-[#232b7a] text-white hover:bg-[#1b2367]"
+                onClick={() => {
+                  setEditingTamanhoId(null);
+                  setTamanhoForm({ product_id: "", size: "", stock: "0" });
+                  setOpenTamanhoModal(true);
+                }}
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Novo tamanho
+              </Button>
+            </div>
+            <Card><CardContent className="overflow-x-auto p-0">
+              <table className="w-full min-w-[760px] text-sm">
+                <thead><tr className="border-b bg-slate-50 text-left text-slate-600"><th className="px-4 py-3">Produto</th><th className="px-4 py-3">Tamanho</th><th className="px-4 py-3">Estoque</th><th className="px-4 py-3">Status</th><th className="px-4 py-3">Ações</th></tr></thead>
+                <tbody>
+                  {sizes.map((size) => {
+                    const productName = products.find((p) => p.id === size.product_id)?.name || "-";
+                    return (
+                      <tr key={size.id} className="border-b last:border-0">
+                        <td className="px-4 py-3">{productName}</td>
+                        <td className="px-4 py-3 font-semibold">{size.size || "-"}</td>
+                        <td className="px-4 py-3">{size.stock || 0}</td>
+                        <td className="px-4 py-3"><span className={`rounded-full px-3 py-1 text-xs font-semibold ${size.is_active ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>{size.is_active ? "Ativo" : "Inativo"}</span></td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-3">
+                            <button className="text-blue-700" onClick={() => { setEditingTamanhoId(size.id); setTamanhoForm({ product_id: size.product_id, size: size.size || "", stock: String(size.stock || 0) }); setOpenTamanhoModal(true); }}><Edit className="h-4 w-4" /></button>
+                            <button className="text-slate-500" onClick={() => post("upsert-product-size", { id: size.id, is_active: !size.is_active }).then(() => queryClient.invalidateQueries({ queryKey: ["div-sizes"] }))}>{size.is_active ? <ToggleRight className="h-4 w-4" /> : <ToggleLeft className="h-4 w-4" />}</button>
+                            <button className="text-rose-600" onClick={() => post("upsert-product-size", { id: size.id, is_active: false }).then(() => { toast.success("Tamanho inativado."); queryClient.invalidateQueries({ queryKey: ["div-sizes"] }); })}><Trash2 className="h-4 w-4" /></button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </CardContent></Card>
+          </TabsContent>
+
+          <TabsContent value="eventos" className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-xl font-bold text-slate-900">Gestão de Eventos</h3>
+              <Button
+                className="bg-[#232b7a] text-white hover:bg-[#1b2367]"
+                onClick={() => {
+                  setEditingEventoId(null);
+                  setEventoForm({ title: "", description: "", banner_url: "", start_date: "", end_date: "", sort_order: "0" });
+                  setOpenEventoModal(true);
+                }}
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Novo evento
+              </Button>
+            </div>
+            <Card><CardContent className="overflow-x-auto p-0">
+              <table className="w-full min-w-[760px] text-sm">
+                <thead><tr className="border-b bg-slate-50 text-left text-slate-600"><th className="px-4 py-3">Nome</th><th className="px-4 py-3">Período</th><th className="px-4 py-3">Ordem</th><th className="px-4 py-3">Status</th><th className="px-4 py-3">Ações</th></tr></thead>
+                <tbody>
+                  {events.map((event) => (
+                    <tr key={event.id} className="border-b last:border-0">
+                      <td className="px-4 py-3"><p className="font-semibold">{event.title || "Sem título"}</p><p className="text-xs text-slate-500">{event.description || "Sem descrição"}</p></td>
+                      <td className="px-4 py-3">{formatDate(event.start_date)} - {formatDate(event.end_date)}</td>
+                      <td className="px-4 py-3">{event.sort_order || 0}</td>
+                      <td className="px-4 py-3"><span className={`rounded-full px-3 py-1 text-xs font-semibold ${event.is_active ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>{event.is_active ? "Ativo" : "Inativo"}</span></td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-3">
+                          <button className="text-blue-700" onClick={() => { setEditingEventoId(event.id); setEventoForm({ title: event.title || "", description: event.description || "", banner_url: event.banner_url || "", start_date: event.start_date || "", end_date: event.end_date || "", sort_order: String(event.sort_order || 0) }); setOpenEventoModal(true); }}><Edit className="h-4 w-4" /></button>
+                          <button className="text-slate-500" onClick={() => post("announcements-api", { action: "upsert-event", id: event.id, is_active: !event.is_active }).then(() => queryClient.invalidateQueries({ queryKey: ["div-events"] }))}>{event.is_active ? <ToggleRight className="h-4 w-4" /> : <ToggleLeft className="h-4 w-4" />}</button>
+                          <button className="text-rose-600" onClick={() => deleteEvento.mutate(event.id)}><Trash2 className="h-4 w-4" /></button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </CardContent></Card>
+          </TabsContent>
+
+          <TabsContent value="informativos" className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-xl font-bold text-slate-900">Gestão de Informativos</h3>
+              <Button
+                className="bg-[#232b7a] text-white hover:bg-[#1b2367]"
+                onClick={() => {
+                  setEditingInformativoId(null);
+                  setInformativoForm({ title: "", body_text: "", position: "1" });
+                  setOpenInformativoModal(true);
+                }}
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Novo informativo
+              </Button>
+            </div>
+            <Card><CardContent className="overflow-x-auto p-0">
+              <table className="w-full min-w-[760px] text-sm">
+                <thead><tr className="border-b bg-slate-50 text-left text-slate-600"><th className="px-4 py-3">Título</th><th className="px-4 py-3">Conteúdo</th><th className="px-4 py-3">Status</th><th className="px-4 py-3">Ações</th></tr></thead>
+                <tbody>
+                  {announcements.map((ann) => (
+                    <tr key={ann.id} className="border-b last:border-0">
+                      <td className="px-4 py-3 font-semibold">{ann.title || "Sem título"}</td>
+                      <td className="px-4 py-3">{ann.body_text || "-"}</td>
+                      <td className="px-4 py-3"><span className={`rounded-full px-3 py-1 text-xs font-semibold ${ann.is_active ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>{ann.is_active ? "Ativo" : "Inativo"}</span></td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-3">
+                          <button className="text-blue-700" onClick={() => { setEditingInformativoId(ann.id); setInformativoForm({ title: ann.title || "", body_text: ann.body_text || "", position: String(ann.position || 1) }); setOpenInformativoModal(true); }}><Edit className="h-4 w-4" /></button>
+                          <button className="text-slate-500" onClick={() => post("announcements-api", { action: "upsert", id: ann.id, is_active: !ann.is_active }).then(() => queryClient.invalidateQueries({ queryKey: ["div-ann"] }))}>{ann.is_active ? <ToggleRight className="h-4 w-4" /> : <ToggleLeft className="h-4 w-4" />}</button>
+                          <button className="text-rose-600" onClick={() => deleteInformativo.mutate(ann.id)}><Trash2 className="h-4 w-4" /></button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </CardContent></Card>
+          </TabsContent>
+
+          <TabsContent value="links" className="space-y-3">
+            <h3 className="text-xl font-bold text-slate-900">Publicação dos links</h3>
+            <Card>
+              <CardContent className="space-y-4 p-4">
                 <div className="space-y-1">
-                  <Label>Tipo</Label>
-                  <Select value={form.type} onValueChange={(v) => setForm((p) => ({ ...p, type: v as "text" | "image" | "video" }))}>
-                    <SelectTrigger className="h-11 rounded-xl border-slate-300 bg-slate-50"><SelectValue /></SelectTrigger>
+                  <Label>Igreja do link público</Label>
+                  <Select value={activeTotvs} onValueChange={setChurchForLink}>
+                    <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="text">Texto</SelectItem>
-                      <SelectItem value="image">Imagem</SelectItem>
-                      <SelectItem value="video">Vídeo</SelectItem>
+                      {churches.map((church) => (
+                        <SelectItem key={church.totvs_id} value={church.totvs_id}>
+                          {church.totvs_id} - {church.church_name || "Sem nome"}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
 
-                <div className="space-y-1">
-                  <Label>Texto</Label>
-                  <Input className="h-11 rounded-xl border-slate-300 bg-slate-50" value={form.body_text} onChange={(e) => setForm((p) => ({ ...p, body_text: e.target.value }))} />
-                </div>
-
-                <div className="space-y-1">
-                  <Label>Mídia (URL ou arquivo)</Label>
-                  <div className="mb-2 flex gap-2">
-                    <Button type="button" variant={mediaSource === "url" ? "default" : "outline"} size="sm" className={mediaSource === "url" ? "bg-blue-600 hover:bg-blue-700" : ""} onClick={() => { setMediaSource("url"); setPendingMediaFile(null); }}>
-                      URL
-                    </Button>
-                    <Button type="button" variant={mediaSource === "file" ? "default" : "outline"} size="sm" className={mediaSource === "file" ? "bg-blue-600 hover:bg-blue-700" : ""} onClick={() => setMediaSource("file")}>Importar</Button>
-                  </div>
-
-                  {mediaSource === "url" ? (
-                    <Input className="h-11 rounded-xl border-slate-300 bg-slate-50" value={form.media_url ?? ""} onChange={(e) => setForm((p) => ({ ...p, media_url: e.target.value }))} placeholder="https://..." />
-                  ) : (
-                    <div className="space-y-1">
-                      <input
-                        type="file"
-                        accept={form.type === "video" ? "video/mp4,video/*" : "image/png,image/jpeg,image/jpg,image/webp,image/gif,image/*"}
-                        className="flex h-11 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-slate-100 file:px-3 file:py-1 file:text-sm file:font-medium"
-                        onChange={(e) => onFileSelected(e.target.files?.[0] || null)}
-                      />
-                      <p className="text-xs text-slate-500">{pendingMediaFile ? `Arquivo selecionado: ${pendingMediaFile.name}` : "Nenhum arquivo selecionado."}</p>
-                    </div>
-                  )}
-                </div>
-
-                <div className="space-y-1">
-                  <Label>Link URL</Label>
-                  <Input className="h-11 rounded-xl border-slate-300 bg-slate-50" value={form.link_url} onChange={(e) => setForm((p) => ({ ...p, link_url: e.target.value }))} />
-                </div>
-
-                <div className="grid gap-3 md:grid-cols-3">
-                  <div className="space-y-1">
-                    <Label>Posição</Label>
-                    <Input className="h-11 rounded-xl border-slate-300 bg-slate-50" type="number" value={form.position} onChange={(e) => setForm((p) => ({ ...p, position: e.target.value }))} />
-                  </div>
-                  <div className="space-y-1">
-                    <Label>Início</Label>
-                    <Input className="h-11 rounded-xl border-slate-300 bg-slate-50" type="date" value={form.starts_at} onChange={(e) => setForm((p) => ({ ...p, starts_at: e.target.value }))} />
-                  </div>
-                  <div className="space-y-1">
-                    <Label>Fim</Label>
-                    <Input className="h-11 rounded-xl border-slate-300 bg-slate-50" type="date" value={form.ends_at} onChange={(e) => setForm((p) => ({ ...p, ends_at: e.target.value }))} />
+                <div>
+                  <p className="mb-1 text-xs text-slate-500">Vitrine pública</p>
+                  <div className="flex gap-2">
+                    <Input value={vitrineUrl} readOnly />
+                    <Button variant="outline" onClick={() => copyLink(vitrineUrl)} disabled={!vitrineUrl}><Copy className="mr-1 h-4 w-4" />Copiar</Button>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <Switch checked={form.is_active} onCheckedChange={(v) => setForm((p) => ({ ...p, is_active: Boolean(v) }))} />
-                  <span className="text-sm text-slate-700">Ativo</span>
-                </div>
+                <p className="text-xs text-slate-500">A página pública carrega diretamente pelo TOTVS da URL.</p>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
+      </div>
 
-                <div className="flex flex-wrap gap-2">
-                  <Button type="submit" disabled={saving} className="bg-blue-600 hover:bg-blue-700">
-                    {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                    {saving ? "Salvando..." : "Salvar"}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => {
-                      setForm(initialForm);
-                      setMediaSource("url");
-                      setPendingMediaFile(null);
-                    }}
-                  >
-                    Limpar
-                  </Button>
-                </div>
-              </form>
-            </CardContent>
-          </Card>
+      <Dialog open={openProdutoModal} onOpenChange={setOpenProdutoModal}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader><DialogTitle>{editingProdutoId ? "Editar Camiseta" : "Nova Camiseta"}</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1"><Label>Nome *</Label><Input value={produtoForm.name} onChange={(e) => setProdutoForm((p) => ({ ...p, name: e.target.value }))} /></div>
+            <div className="space-y-1"><Label>Descrição</Label><Textarea value={produtoForm.description} onChange={(e) => setProdutoForm((p) => ({ ...p, description: e.target.value }))} /></div>
+            <div className="space-y-2">
+              <Label>URL da imagem</Label>
+              <Input value={produtoForm.image_url} onChange={(e) => setProdutoForm((p) => ({ ...p, image_url: e.target.value }))} />
+              <div className="rounded-lg border border-dashed border-slate-300 p-4 text-center">
+                <Label htmlFor="produto-file" className="inline-flex h-10 cursor-pointer items-center rounded-md border border-slate-300 px-4 text-sm hover:bg-slate-50">
+                  Adicionar arquivo
+                </Label>
+                <input id="produto-file" type="file" accept="image/*" className="hidden" onChange={onSelectProdutoFile} />
+                <span className="mt-2 block text-xs text-slate-500">{uploadingProduto ? "Enviando..." : "JPG, PNG ou WEBP"}</span>
+              </div>
+            </div>
+            <div className="space-y-1"><Label>Preço *</Label><Input type="number" value={produtoForm.price} onChange={(e) => setProdutoForm((p) => ({ ...p, price: e.target.value }))} /></div>
+            <Button className="w-full bg-[#232b7a] text-white hover:bg-[#1b2367]" onClick={() => createProduto.mutate()} disabled={createProduto.isPending || !produtoForm.name.trim()}>
+              {createProduto.isPending ? "Salvando..." : editingProdutoId ? "Salvar alterações" : "Criar Camiseta"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
-          <Card className="rounded-2xl border border-slate-200 bg-white shadow-sm">
-            <CardHeader>
-              <CardTitle>Divulgações cadastradas</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              {isLoading ? (
-                <div className="space-y-2">
-                  <Skeleton className="h-14 rounded-lg" />
-                  <Skeleton className="h-14 rounded-lg" />
-                  <Skeleton className="h-14 rounded-lg" />
+      <Dialog open={openTamanhoModal} onOpenChange={setOpenTamanhoModal}>
+        <DialogContent className="max-w-xl">
+          <DialogHeader><DialogTitle>{editingTamanhoId ? "Editar Tamanho" : "Novo Tamanho"}</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1"><Label>Produto *</Label>
+              <Select value={tamanhoForm.product_id} onValueChange={(v) => setTamanhoForm((p) => ({ ...p, product_id: v }))}>
+                <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                <SelectContent>{products.map((p) => <SelectItem key={p.id} value={p.id}>{p.name || "Sem nome"}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1"><Label>Tamanho *</Label>
+                <Select value={tamanhoForm.size} onValueChange={(v) => setTamanhoForm((p) => ({ ...p, size: v }))}>
+                  <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                  <SelectContent>{SIZE_OPTIONS.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1"><Label>Estoque</Label><Input type="number" value={tamanhoForm.stock} onChange={(e) => setTamanhoForm((p) => ({ ...p, stock: e.target.value }))} /></div>
+            </div>
+            <Button className="w-full bg-[#232b7a] text-white hover:bg-[#1b2367]" onClick={() => createTamanho.mutate()} disabled={createTamanho.isPending || !tamanhoForm.product_id || !tamanhoForm.size}>
+              {createTamanho.isPending ? "Salvando..." : editingTamanhoId ? "Salvar alterações" : "Criar Tamanho"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={openEventoModal} onOpenChange={setOpenEventoModal}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader><DialogTitle>{editingEventoId ? "Editar Evento" : "Novo Evento"}</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1"><Label>Título *</Label><Input value={eventoForm.title} onChange={(e) => setEventoForm((p) => ({ ...p, title: e.target.value }))} /></div>
+            <div className="space-y-1"><Label>Descrição</Label><Textarea value={eventoForm.description} onChange={(e) => setEventoForm((p) => ({ ...p, description: e.target.value }))} /></div>
+            <div className="space-y-2">
+              <Label>URL do banner</Label>
+              <Input value={eventoForm.banner_url} onChange={(e) => setEventoForm((p) => ({ ...p, banner_url: e.target.value }))} />
+              <div className="rounded-lg border border-dashed border-slate-300 p-4 text-center">
+                <Label htmlFor="evento-file" className="inline-flex h-10 cursor-pointer items-center rounded-md border border-slate-300 px-4 text-sm hover:bg-slate-50">
+                  Adicionar arquivo
+                </Label>
+                <input id="evento-file" type="file" accept="image/*" className="hidden" onChange={onSelectEventoFile} />
+                <span className="mt-2 block text-xs text-slate-500">{uploadingEvento ? "Enviando..." : "JPG, PNG ou WEBP"}</span>
+              </div>
+            </div>
+            <div className="max-w-xs space-y-1"><Label>Ordem</Label><Input type="number" value={eventoForm.sort_order} onChange={(e) => setEventoForm((p) => ({ ...p, sort_order: e.target.value }))} /></div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1"><Label>Início</Label><Input type="date" value={eventoForm.start_date} onChange={(e) => setEventoForm((p) => ({ ...p, start_date: e.target.value }))} /></div>
+              <div className="space-y-1"><Label>Fim</Label><Input type="date" value={eventoForm.end_date} onChange={(e) => setEventoForm((p) => ({ ...p, end_date: e.target.value }))} /></div>
+            </div>
+            <Button className="w-full bg-[#232b7a] text-white hover:bg-[#1b2367]" onClick={() => createEvento.mutate()} disabled={createEvento.isPending || !eventoForm.title.trim()}>
+              {createEvento.isPending ? "Salvando..." : editingEventoId ? "Salvar alterações" : "Criar Evento"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={openInformativoModal} onOpenChange={setOpenInformativoModal}>
+        <DialogContent className="max-w-xl">
+          <DialogHeader><DialogTitle>{editingInformativoId ? "Editar Informativo" : "Novo Informativo"}</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1"><Label>Título *</Label><Input value={informativoForm.title} onChange={(e) => setInformativoForm((p) => ({ ...p, title: e.target.value }))} /></div>
+            <div className="space-y-1"><Label>Conteúdo *</Label><Textarea value={informativoForm.body_text} onChange={(e) => setInformativoForm((p) => ({ ...p, body_text: e.target.value }))} /></div>
+            <div className="space-y-1"><Label>Posição</Label><Input type="number" value={informativoForm.position} onChange={(e) => setInformativoForm((p) => ({ ...p, position: e.target.value }))} /></div>
+            <Button className="w-full bg-[#232b7a] text-white hover:bg-[#1b2367]" onClick={() => createInformativo.mutate()} disabled={createInformativo.isPending || !informativoForm.title.trim()}>
+              {createInformativo.isPending ? "Salvando..." : editingInformativoId ? "Salvar alterações" : "Criar Informativo"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!orderDetail} onOpenChange={(open) => !open && setOrderDetail(null)}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+          <DialogHeader><DialogTitle>Pedido {orderDetail?.order_number || ""}</DialogTitle></DialogHeader>
+          {orderDetail ? (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div><span className="text-slate-500">Nome</span><p className="font-semibold text-slate-900">{orderDetail.full_name || "-"}</p></div>
+                <div><span className="text-slate-500">Telefone</span><p className="font-semibold text-slate-900">{orderDetail.phone || "-"}</p></div>
+                <div><span className="text-slate-500">Igreja</span><p className="font-semibold text-slate-900">{orderDetail.church_name || "-"}</p></div>
+                <div><span className="text-slate-500">Estadual</span><p className="font-semibold text-slate-900">{orderDetail.estadual_totvs_id || session?.totvs_id || "-"}</p></div>
+                <div><span className="text-slate-500">Data</span><p className="font-semibold text-slate-900">{orderDetail.created_at ? new Date(orderDetail.created_at).toLocaleString("pt-BR") : "-"}</p></div>
+                <div><span className="text-slate-500">Status Atual</span><div className="mt-1"><span className={`rounded-full px-3 py-1 text-xs font-semibold ${badgeByStatus(orderDetail.status)}`}>{STATUS_LABEL[String(orderDetail.status || "")] || orderDetail.status || "-"}</span></div></div>
+              </div>
+
+              {orderDetail.items?.length ? (
+                <div className="border-t pt-3">
+                  <h3 className="mb-2 text-sm font-bold text-slate-900">Itens</h3>
+                  <div className="space-y-2">
+                    {orderDetail.items.map((item, idx) => (
+                      <div key={idx} className="flex items-center justify-between rounded-md bg-slate-100 p-2 text-sm">
+                        <div className="flex items-center gap-2 text-slate-800">
+                          <Shirt className="h-4 w-4 text-slate-500" />
+                          <span>{item.product_name || "Produto"} ({item.size || "-"}) x{item.quantity || 0}</span>
+                        </div>
+                        <span className="font-semibold text-slate-900">{formatMoney(item.total_price)}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               ) : null}
 
-              {ordered.map((item) => (
-                <div key={item.id} className="flex flex-wrap items-start justify-between gap-2 rounded-xl border border-slate-200 p-3">
-                  <div>
-                    <p className="font-semibold text-slate-900">{item.position || "-"} - {item.title}</p>
-                    <p className="text-xs text-slate-500">{item.type}</p>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button size="sm" variant="outline" onClick={() => edit(item)}>Editar</Button>
-                    <Button size="sm" variant="destructive" onClick={() => remove(item.id)}><Trash2 className="h-4 w-4" /></Button>
-                  </div>
+              <div className="border-t pt-3">
+                <div className="mb-2 flex items-center justify-between">
+                  <span className="text-lg font-bold text-slate-900">Total</span>
+                  <span className="text-3xl font-bold text-red-600">{formatMoney(orderDetail.total_amount)}</span>
                 </div>
-              ))}
+                {orderDetail.notes ? <p className="text-sm text-slate-700">Observação: {orderDetail.notes}</p> : null}
+              </div>
 
-              {!isLoading && !ordered.length ? <p className="text-sm text-slate-500">Sem divulgações cadastradas.</p> : null}
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-    </div>
+              <div className="border-t pt-3">
+                <h3 className="mb-2 text-sm font-bold text-slate-900">Alterar Status</h3>
+                <div className="flex gap-2">
+                  <Select value={orderNewStatus} onValueChange={setOrderNewStatus}>
+                    <SelectTrigger className="flex-1"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(STATUS_LABEL).map(([value, label]) => (
+                        <SelectItem key={value} value={value}>{label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button className="bg-[#232b7a] text-white hover:bg-[#1b2367]" onClick={() => saveOrderStatus(orderNewStatus)}>Salvar</Button>
+                </div>
+                <div className="mt-3 grid grid-cols-2 gap-2 md:grid-cols-3">
+                  {Object.entries(STATUS_LABEL).map(([value, label]) => (
+                    <Button key={value} variant="outline" onClick={() => saveOrderStatus(value)} className="justify-center">{label}</Button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          ) : null}
+        </DialogContent>
+      </Dialog>
+    </ManagementShell>
   );
 }
+
+
+

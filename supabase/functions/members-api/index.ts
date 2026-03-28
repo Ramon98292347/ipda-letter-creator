@@ -506,8 +506,7 @@ async function handleSaveProfile(
     resolvedFullName = String((currentUser as Record<string, unknown> | null)?.full_name || "").trim() || null;
   }
 
-  const profilePayload = {
-    full_name: resolvedFullName,
+  const profilePayload: Record<string, string | null> = {
     phone: String(body.phone || "").trim() || null,
     email: String(body.email || "").trim() || null,
     birth_date: String(body.birth_date || "").trim() || null,
@@ -524,7 +523,7 @@ async function handleSaveProfile(
     address_state: String(body.address_state || "").trim().toUpperCase() || null,
   };
 
-  if (!profilePayload.full_name) return json({ ok: false, error: "missing_full_name" }, 400);
+  if (resolvedFullName) profilePayload.full_name = resolvedFullName;
   if (!profilePayload.phone) return json({ ok: false, error: "missing_phone" }, 400);
 
   const { data, error } = await sb

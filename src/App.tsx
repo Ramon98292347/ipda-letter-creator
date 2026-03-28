@@ -65,6 +65,8 @@ const PastorFinanceiroPage = lazy(() => import("./pages/PastorFinanceiroPage"));
 const FinanceiroFichaPage = lazy(() => import("./pages/FinanceiroFichaPage"));
 const FinanceiroRelatoriosPage = lazy(() => import("./pages/FinanceiroRelatoriosPage"));
 const FinanceiroConfigPage = lazy(() => import("./pages/FinanceiroConfigPage"));
+const CamisasPublicPage = lazy(() => import("./pages/CamisasPublicPage"));
+const CamisasPedidoPage = lazy(() => import("./pages/CamisasPedidoPage"));
 
 function RequireAuth({ children }: { children: JSX.Element }) {
   const { usuario, token } = useUser();
@@ -109,8 +111,9 @@ function OnReloadRedirect() {
       const type = (last && (last as unknown as { type?: string }).type) ?? undefined;
       const publicPaths = new Set(["/", "/cadastro", "/reset-senha"]);
       const isPublicPath = publicPaths.has(loc.pathname) || loc.pathname.startsWith("/presenca-publica/");
+      const isCamisasPublicPath = loc.pathname.startsWith("/camisas/");
       const isSelectChurchValid = loc.pathname === "/select-church" && !!pendingCpf && availableChurches.length > 0;
-      if (type === "reload" && !isPublicPath && (!usuario || !token) && !isSelectChurchValid) {
+      if (type === "reload" && !isPublicPath && !isCamisasPublicPath && (!usuario || !token) && !isSelectChurchValid) {
         nav("/", { replace: true });
       }
     } catch {
@@ -149,6 +152,22 @@ const router = createBrowserRouter(
         }
       />
       <Route path="/cadastro" element={<CadastroRapido />} />
+      <Route
+        path="/camisas/:churchTotvsId"
+        element={
+          <Suspense fallback={pageFallback}>
+            <CamisasPublicPage />
+          </Suspense>
+        }
+      />
+      <Route
+        path="/camisas/:churchTotvsId/pedido"
+        element={
+          <Suspense fallback={pageFallback}>
+            <CamisasPedidoPage />
+          </Suspense>
+        }
+      />
       <Route
         path="/reset-senha"
         element={
