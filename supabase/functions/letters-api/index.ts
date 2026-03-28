@@ -363,6 +363,70 @@ function buildIncompleteProfileDetail(missingFields: string[]): string {
   return `Complete os seus dados para continuar emitindo cartas. Campos pendentes: ${fields}.`;
 }
 
+async function enrichLettersWithPreacherChurch(
+  sb: ReturnType<typeof createClient>,
+  letters: Record<string, unknown>[],
+) {
+  const preacherIds = Array.from(
+    new Set(
+      letters
+        .map((letter) => String(letter.preacher_user_id || "").trim())
+        .filter(Boolean),
+    ),
+  );
+
+  if (preacherIds.length === 0) return letters;
+
+  const { data: users, error: usersErr } = await sb
+    .from("users")
+    .select("id, default_totvs_id")
+    .in("id", preacherIds);
+
+  if (usersErr || !users) return letters;
+
+  const userChurchMap = new Map(
+    (users || []).map((row: Record<string, unknown>) => [
+      String(row.id || ""),
+      String(row.default_totvs_id || "").trim(),
+    ]),
+  );
+
+  const churchIds = Array.from(
+    new Set(
+      (users || [])
+        .map((row: Record<string, unknown>) => String(row.default_totvs_id || "").trim())
+        .filter(Boolean),
+    ),
+  );
+
+  if (churchIds.length === 0) return letters;
+
+  const { data: churches, error: churchesErr } = await sb
+    .from("churches")
+    .select("totvs_id, church_name")
+    .in("totvs_id", churchIds);
+
+  if (churchesErr || !churches) return letters;
+
+  const churchNameById = new Map(
+    (churches || []).map((row: Record<string, unknown>) => [
+      String(row.totvs_id || ""),
+      String(row.church_name || "").trim(),
+    ]),
+  );
+
+  return letters.map((letter) => {
+    const preacherId = String(letter.preacher_user_id || "").trim();
+    const totvsId = preacherId ? userChurchMap.get(preacherId) || "" : "";
+    const churchName = totvsId ? churchNameById.get(totvsId) || "" : "";
+    return {
+      ...letter,
+      preacher_church_totvs_id: totvsId || null,
+      preacher_church_name: churchName || null,
+    };
+  });
+}
+
 // ---------------------------------------------------------------------------
 // HANDLER: create  (logica original de create-letter/index.ts)
 // ---------------------------------------------------------------------------
@@ -919,11 +983,12 @@ async function handleList(session: SessionClaims, body: Record<string, unknown>)
         String(b.created_at || "").localeCompare(String(a.created_at || "")),
       );
       const paged = allRows.slice(from, to + 1);
+      const enrichedPaged = await enrichLettersWithPreacherChurch(sb, paged as Record<string, unknown>[]);
 
       return json(
         {
           ok: true,
-          letters: paged,
+          letters: enrichedPaged,
           total: allRows.length,
           page,
           page_size,
@@ -933,10 +998,12 @@ async function handleList(session: SessionClaims, body: Record<string, unknown>)
       );
     }
 
+    const enriched = await enrichLettersWithPreacherChurch(sb, (data || []) as Record<string, unknown>[]);
+
     return json(
       {
         ok: true,
-        letters: data || [],
+        letters: enriched || [],
         total: count || 0,
         page,
         page_size,

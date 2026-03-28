@@ -505,18 +505,21 @@ export function CartasTab({
 
       <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
         <div className="hidden overflow-x-auto xl:block">
-          <div className="min-w-[1150px]">
-            <div className="grid grid-cols-[110px_1fr_130px_1fr_1fr_130px_140px_200px] border-b border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-600">
-              <span>Data</span><span>Nome</span><span>Dia da pregação</span><span>Igreja origem</span><span>Igreja destino</span><span>Status</span><span>PDF</span><span>Ações</span>
+          <div className="min-w-[1280px]">
+            <div className="grid grid-cols-[110px_1fr_180px_130px_1fr_1fr_130px_140px_200px] border-b border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-600">
+              <span>Data</span><span>Nome</span><span>Pertence a</span><span>Dia da pregação</span><span>Igreja origem</span><span>Igreja destino</span><span>Status</span><span>PDF</span><span>Ações</span>
             </div>
             {visibleLetters.map((carta) => {
               const blocked = carta.status === "BLOQUEADO";
               const tone = blocked ? "bg-rose-50" : "bg-emerald-50/50";
               const pulse = blocked && flashing.includes(carta.id) ? "animate-pulse" : "";
               return (
-                <div key={carta.id} className={`grid grid-cols-[110px_1fr_130px_1fr_1fr_130px_140px_200px] items-center gap-2 border-b border-slate-200 px-4 py-3 text-sm ${tone} ${pulse}`}>
+                <div key={carta.id} className={`grid grid-cols-[110px_1fr_180px_130px_1fr_1fr_130px_140px_200px] items-center gap-2 border-b border-slate-200 px-4 py-3 text-sm ${tone} ${pulse}`}>
                   <span>{formatDate(carta.created_at)}</span>
                   <span className="truncate font-semibold">{carta.preacher_name}</span>
+                  <span className="truncate">
+                    {carta.preacher_church_name ? `Pertence a ${carta.preacher_church_name}` : "-"}
+                  </span>
                   <span>{formatDate(carta.preach_date)}</span>
                   <span className="truncate">{carta.church_origin || "-"}</span>
                   <span className="truncate">{carta.church_destination || "-"}</span>
@@ -545,6 +548,10 @@ export function CartasTab({
                   <span className="break-words">{formatDate(carta.created_at)}</span>
                   <span className="font-semibold text-slate-500">Nome</span>
                   <span className="break-words">{carta.preacher_name}</span>
+                  <span className="font-semibold text-slate-500">Pertence a</span>
+                  <span className="break-words">
+                    {carta.preacher_church_name ? `Pertence a ${carta.preacher_church_name}` : "-"}
+                  </span>
                   <span className="font-semibold text-slate-500">Dia da pregação</span>
                   <span className="break-words">{formatDate(carta.preach_date)}</span>
                   <span className="font-semibold text-slate-500">Igreja origem</span>

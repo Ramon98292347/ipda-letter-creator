@@ -82,6 +82,8 @@ export type PastorLetter = {
   phone?: string | null;
   block_reason?: string | null;
   preacher_user_id?: string | null;
+  preacher_church_totvs_id?: string | null;
+  preacher_church_name?: string | null;
 };
 
 export type PastorMetrics = {
@@ -669,6 +671,8 @@ function mapLetterLike(raw: Record<string, unknown> | null | undefined): PastorL
     phone: raw?.phone ? String(raw.phone) : null,
     block_reason: raw?.block_reason || null,
     preacher_user_id: raw?.preacher_user_id || null,
+    preacher_church_totvs_id: raw?.preacher_church_totvs_id ? String(raw.preacher_church_totvs_id) : null,
+    preacher_church_name: raw?.preacher_church_name ? String(raw.preacher_church_name) : null,
   };
 }
 
