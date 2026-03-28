@@ -367,7 +367,7 @@ export default function CadastroRapido() {
                   className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm"
                 >
                   <option value="membro">Membro</option>
-                  <option value="obreiro">Obreiro/Cooperador</option>
+                  <option value="cooperador">Cooperador</option>
                   <option value="diacono">Diácono</option>
                   <option value="presbitero">Presbítero</option>
                   <option value="pastor">Pastor</option>
@@ -496,7 +496,7 @@ export default function CadastroRapido() {
 
               {/* Campo B: Selecionar a igreja especifica com autocomplete via edge function */}
               <div className="space-y-2 md:col-span-2">
-                <Label>TOTVS da igreja (obrigatório) *</Label>
+                <Label>TOTVS da IPDA que você é membro *</Label>
                 <div className="relative">
                   {searchingIgreja ? (
                     <Loader2 className="pointer-events-none absolute left-3 top-1/2 z-10 h-4 w-4 -translate-y-1/2 animate-spin text-slate-400" />
