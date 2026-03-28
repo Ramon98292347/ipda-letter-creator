@@ -119,6 +119,7 @@ export default function CamisasPedidoPage() {
   const [autoSelectionSync, setAutoSelectionSync] = useState(false);
   const [autoSyncItemKey, setAutoSyncItemKey] = useState("");
   const quantityRef = useRef(1);
+  const lastChurchSearchRef = useRef<string>("");
 
   const { data: churchCatalogRes, isLoading: loadingScopeCatalog } = useQuery({
     queryKey: ["camisas-pedido-church-catalog"],
@@ -359,24 +360,19 @@ export default function CamisasPedidoPage() {
   };
 
   useEffect(() => {
-    const isValid = Boolean(churchId && availableChurches.find((c) => c.totvs_id === churchId));
-    setChurchValidated(isValid);
-  }, [churchId, availableChurches]);
-
-  useEffect(() => {
-    if (!selectedChurch) return;
-    setChurchSearch(`${selectedChurch.totvs_id} - ${selectedChurch.church_name}`);
-  }, [selectedChurch]);
-
-  useEffect(() => {
     let cancelled = false;
 
     const lookupByTotvs = async () => {
-    if (churchSearchDigits.length < 2) {
-      setAvailableChurches([]);
-      setChurchValidated(false);
-      return;
-    }
+      if (churchSearchDigits.length < 2) {
+        lastChurchSearchRef.current = "";
+        if (availableChurches.length) setAvailableChurches([]);
+        if (churchValidated) setChurchValidated(false);
+        if (churchId) setChurchId("");
+        return;
+      }
+
+      if (lastChurchSearchRef.current === churchSearchDigits) return;
+      lastChurchSearchRef.current = churchSearchDigits;
 
       setLoadingScopedChurches(true);
       try {
@@ -390,6 +386,7 @@ export default function CamisasPedidoPage() {
         if (list.length === 0) {
           setAvailableChurches([]);
           setChurchValidated(false);
+          setChurchId("");
           return;
         }
 
@@ -412,6 +409,7 @@ export default function CamisasPedidoPage() {
         if (!cancelled) {
           setAvailableChurches([]);
           setChurchValidated(false);
+          setChurchId("");
         }
       } finally {
         if (!cancelled) setLoadingScopedChurches(false);
@@ -423,7 +421,7 @@ export default function CamisasPedidoPage() {
     return () => {
       cancelled = true;
     };
-  }, [estadualId, churchSearchDigits, scopeIds]);
+  }, [churchSearchDigits]);
 
   useEffect(() => {
     if (!preselectedProduct) return;
