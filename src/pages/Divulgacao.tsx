@@ -73,10 +73,12 @@ type ProductSizeRow = {
 type EventRow = {
   id: string;
   title?: string | null;
-  description?: string | null;
-  start_date?: string | null;
-  end_date?: string | null;
-  sort_order?: number | null;
+  body_text?: string | null;
+  media_url?: string | null;
+  starts_at?: string | null;
+  ends_at?: string | null;
+  position?: number | null;
+  link_url?: string | null;
   is_active?: boolean | null;
 };
 
@@ -84,6 +86,10 @@ type AnnouncementRow = {
   id: string;
   title?: string | null;
   body_text?: string | null;
+  media_url?: string | null;
+  link_url?: string | null;
+  starts_at?: string | null;
+  ends_at?: string | null;
   type?: string | null;
   position?: number | null;
   is_active?: boolean | null;
@@ -107,13 +113,14 @@ const SIZE_OPTIONS = ["PP", "P", "M", "G", "GG", "XG"];
 
 const TAB_ITEMS = [
   { value: "dashboard", label: "Painel" },
-  { value: "eventos", label: "Eventos" },
   { value: "informativos", label: "Informativos" },
   { value: "camisetas", label: "Camisetas" },
   { value: "tamanhos", label: "Tamanhos" },
   { value: "pedidos", label: "Pedidos" },
   { value: "links", label: "Publicação" },
 ] as const;
+
+const EVENT_MARKER = "event://internal";
 
 const STATUS_BADGE: Record<string, string> = {
   NOVO: "bg-sky-100 text-sky-800",
@@ -162,11 +169,19 @@ export default function DivulgacaoPage() {
   const [editingInformativoId, setEditingInformativoId] = useState<string | null>(null);
   const [uploadingProduto, setUploadingProduto] = useState(false);
   const [uploadingEvento, setUploadingEvento] = useState(false);
+  const [uploadingInformativo, setUploadingInformativo] = useState(false);
 
   const [produtoForm, setProdutoForm] = useState({ name: "", description: "", image_url: "", price: "" });
   const [tamanhoForm, setTamanhoForm] = useState({ product_id: "", size: "", stock: "0" });
   const [eventoForm, setEventoForm] = useState({ title: "", description: "", banner_url: "", start_date: "", end_date: "", sort_order: "0" });
-  const [informativoForm, setInformativoForm] = useState({ title: "", body_text: "", position: "1" });
+  const [informativoForm, setInformativoForm] = useState({
+    title: "",
+    body_text: "",
+    media_url: "",
+    position: "1",
+    start_date: "",
+    end_date: "",
+  });
 
   const { data: orders = [] } = useQuery<DashboardOrder[]>({
     queryKey: ["div-orders", session?.totvs_id],
@@ -186,17 +201,21 @@ export default function DivulgacaoPage() {
     queryFn: async () => (await post<any>("list-product-sizes", {})).product_sizes || [],
   });
 
-  const { data: events = [] } = useQuery<EventRow[]>({
-    queryKey: ["div-events", session?.totvs_id],
-    enabled: !!session?.totvs_id,
-    queryFn: async () => (await post<any>("announcements-api", { action: "list-events" })).events || [],
-  });
-
   const { data: announcements = [] } = useQuery<AnnouncementRow[]>({
     queryKey: ["div-ann", session?.totvs_id],
     enabled: !!session?.totvs_id,
     queryFn: async () => (await post<any>("announcements-api", { action: "list-admin" })).announcements || [],
   });
+
+  const events = useMemo<EventRow[]>(
+    () => announcements.filter((item) => String(item.link_url || "") === EVENT_MARKER),
+    [announcements],
+  );
+
+  const infoItems = useMemo<AnnouncementRow[]>(
+    () => announcements.filter((item) => String(item.link_url || "") !== EVENT_MARKER),
+    [announcements],
+  );
 
   const { data: churches = [] } = useQuery<ChurchRow[]>({
     queryKey: ["div-churches", session?.totvs_id],
@@ -258,14 +277,16 @@ export default function DivulgacaoPage() {
   const createEvento = useMutation({
     mutationFn: async () =>
       post("announcements-api", {
-        action: "upsert-event",
+        action: "upsert",
         id: editingEventoId || undefined,
         title: eventoForm.title.trim(),
-        description: eventoForm.description.trim() || null,
-        banner_url: eventoForm.banner_url.trim() || null,
-        start_date: eventoForm.start_date || null,
-        end_date: eventoForm.end_date || null,
-        sort_order: Number(eventoForm.sort_order || 0),
+        type: eventoForm.banner_url.trim() ? "image" : "text",
+        body_text: eventoForm.description.trim() || null,
+        media_url: eventoForm.banner_url.trim() || null,
+        starts_at: eventoForm.start_date ? `${eventoForm.start_date}T00:00:00Z` : null,
+        ends_at: eventoForm.end_date ? `${eventoForm.end_date}T23:59:59Z` : null,
+        position: Number(eventoForm.sort_order || 0),
+        link_url: EVENT_MARKER,
         is_active: true,
       }),
     onSuccess: async () => {
@@ -273,7 +294,7 @@ export default function DivulgacaoPage() {
       setOpenEventoModal(false);
       setEditingEventoId(null);
       setEventoForm({ title: "", description: "", banner_url: "", start_date: "", end_date: "", sort_order: "0" });
-      await queryClient.invalidateQueries({ queryKey: ["div-events"] });
+      await queryClient.invalidateQueries({ queryKey: ["div-ann"] });
     },
     onError: () => toast.error("Falha ao cadastrar evento."),
   });
@@ -284,26 +305,30 @@ export default function DivulgacaoPage() {
         action: "upsert",
         id: editingInformativoId || undefined,
         title: informativoForm.title.trim(),
-        type: "text",
-        body_text: informativoForm.body_text.trim(),
+        type: informativoForm.media_url.trim() ? "image" : "text",
+        body_text: informativoForm.body_text.trim() || null,
+        media_url: informativoForm.media_url.trim() || null,
+        starts_at: informativoForm.start_date ? `${informativoForm.start_date}T00:00:00Z` : null,
+        ends_at: informativoForm.end_date ? `${informativoForm.end_date}T23:59:59Z` : null,
         position: Number(informativoForm.position || 1),
+        link_url: null,
         is_active: true,
       }),
     onSuccess: async () => {
       toast.success(editingInformativoId ? "Informativo atualizado." : "Informativo cadastrado.");
       setOpenInformativoModal(false);
       setEditingInformativoId(null);
-      setInformativoForm({ title: "", body_text: "", position: "1" });
+      setInformativoForm({ title: "", body_text: "", media_url: "", position: "1", start_date: "", end_date: "" });
       await queryClient.invalidateQueries({ queryKey: ["div-ann"] });
     },
     onError: () => toast.error("Falha ao cadastrar informativo."),
   });
 
   const deleteEvento = useMutation({
-    mutationFn: async (id: string) => post("announcements-api", { action: "delete-event", id }),
+    mutationFn: async (id: string) => post("announcements-api", { action: "delete", id }),
     onSuccess: async () => {
       toast.success("Evento excluído.");
-      await queryClient.invalidateQueries({ queryKey: ["div-events"] });
+      await queryClient.invalidateQueries({ queryKey: ["div-ann"] });
     },
     onError: () => toast.error("Falha ao excluir evento."),
   });
@@ -385,6 +410,22 @@ export default function DivulgacaoPage() {
       toast.error("Não foi possível enviar o banner.");
     } finally {
       setUploadingEvento(false);
+      e.target.value = "";
+    }
+  };
+
+  const onSelectInformativoFile = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      setUploadingInformativo(true);
+      const url = await uploadToAvatars(file, "eventos");
+      setInformativoForm((prev) => ({ ...prev, media_url: url }));
+      toast.success("Imagem enviada com sucesso.");
+    } catch {
+      toast.error("Não foi possível enviar a imagem.");
+    } finally {
+      setUploadingInformativo(false);
       e.target.value = "";
     }
   };
@@ -697,14 +738,17 @@ export default function DivulgacaoPage() {
                 <tbody>
                   {events.map((event) => (
                     <tr key={event.id} className="border-b last:border-0">
-                      <td className="px-4 py-3"><p className="font-semibold">{event.title || "Sem título"}</p><p className="text-xs text-slate-500">{event.description || "Sem descrição"}</p></td>
-                      <td className="px-4 py-3">{formatDate(event.start_date)} - {formatDate(event.end_date)}</td>
-                      <td className="px-4 py-3">{event.sort_order || 0}</td>
+                      <td className="px-4 py-3">
+                        <p className="font-semibold">{event.title || "Sem título"}</p>
+                        <p className="text-xs text-slate-500">{event.body_text || "Sem descrição"}</p>
+                      </td>
+                      <td className="px-4 py-3">{formatDate(event.starts_at)} - {formatDate(event.ends_at)}</td>
+                      <td className="px-4 py-3">{event.position || 0}</td>
                       <td className="px-4 py-3"><span className={`rounded-full px-3 py-1 text-xs font-semibold ${event.is_active ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>{event.is_active ? "Ativo" : "Inativo"}</span></td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-3">
-                          <button className="text-blue-700" onClick={() => { setEditingEventoId(event.id); setEventoForm({ title: event.title || "", description: event.description || "", banner_url: event.banner_url || "", start_date: event.start_date || "", end_date: event.end_date || "", sort_order: String(event.sort_order || 0) }); setOpenEventoModal(true); }}><Edit className="h-4 w-4" /></button>
-                          <button className="text-slate-500" onClick={() => post("announcements-api", { action: "upsert-event", id: event.id, is_active: !event.is_active }).then(() => queryClient.invalidateQueries({ queryKey: ["div-events"] }))}>{event.is_active ? <ToggleRight className="h-4 w-4" /> : <ToggleLeft className="h-4 w-4" />}</button>
+                          <button className="text-blue-700" onClick={() => { setEditingEventoId(event.id); setEventoForm({ title: event.title || "", description: event.body_text || "", banner_url: event.media_url || "", start_date: String(event.starts_at || "").slice(0, 10), end_date: String(event.ends_at || "").slice(0, 10), sort_order: String(event.position || 0) }); setOpenEventoModal(true); }}><Edit className="h-4 w-4" /></button>
+                          <button className="text-slate-500" onClick={() => post("announcements-api", { action: "upsert", id: event.id, is_active: !event.is_active }).then(() => queryClient.invalidateQueries({ queryKey: ["div-ann"] }))}>{event.is_active ? <ToggleRight className="h-4 w-4" /> : <ToggleLeft className="h-4 w-4" />}</button>
                           <button className="text-rose-600" onClick={() => deleteEvento.mutate(event.id)}><Trash2 className="h-4 w-4" /></button>
                         </div>
                       </td>
@@ -722,7 +766,7 @@ export default function DivulgacaoPage() {
                 className="bg-[#232b7a] text-white hover:bg-[#1b2367]"
                 onClick={() => {
                   setEditingInformativoId(null);
-                  setInformativoForm({ title: "", body_text: "", position: "1" });
+                  setInformativoForm({ title: "", body_text: "", media_url: "", position: "1", start_date: "", end_date: "" });
                   setOpenInformativoModal(true);
                 }}
               >
@@ -734,14 +778,14 @@ export default function DivulgacaoPage() {
               <table className="w-full min-w-[760px] text-sm">
                 <thead><tr className="border-b bg-slate-50 text-left text-slate-600"><th className="px-4 py-3">Título</th><th className="px-4 py-3">Conteúdo</th><th className="px-4 py-3">Status</th><th className="px-4 py-3">Ações</th></tr></thead>
                 <tbody>
-                  {announcements.map((ann) => (
+                  {infoItems.map((ann) => (
                     <tr key={ann.id} className="border-b last:border-0">
                       <td className="px-4 py-3 font-semibold">{ann.title || "Sem título"}</td>
                       <td className="px-4 py-3">{ann.body_text || "-"}</td>
                       <td className="px-4 py-3"><span className={`rounded-full px-3 py-1 text-xs font-semibold ${ann.is_active ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>{ann.is_active ? "Ativo" : "Inativo"}</span></td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-3">
-                          <button className="text-blue-700" onClick={() => { setEditingInformativoId(ann.id); setInformativoForm({ title: ann.title || "", body_text: ann.body_text || "", position: String(ann.position || 1) }); setOpenInformativoModal(true); }}><Edit className="h-4 w-4" /></button>
+                          <button className="text-blue-700" onClick={() => { setEditingInformativoId(ann.id); setInformativoForm({ title: ann.title || "", body_text: ann.body_text || "", media_url: ann.media_url || "", position: String(ann.position || 1), start_date: String(ann.starts_at || "").slice(0, 10), end_date: String(ann.ends_at || "").slice(0, 10) }); setOpenInformativoModal(true); }}><Edit className="h-4 w-4" /></button>
                           <button className="text-slate-500" onClick={() => post("announcements-api", { action: "upsert", id: ann.id, is_active: !ann.is_active }).then(() => queryClient.invalidateQueries({ queryKey: ["div-ann"] }))}>{ann.is_active ? <ToggleRight className="h-4 w-4" /> : <ToggleLeft className="h-4 w-4" />}</button>
                           <button className="text-rose-600" onClick={() => deleteInformativo.mutate(ann.id)}><Trash2 className="h-4 w-4" /></button>
                         </div>
@@ -795,6 +839,18 @@ export default function DivulgacaoPage() {
             <div className="space-y-2">
               <Label>URL da imagem</Label>
               <Input value={produtoForm.image_url} onChange={(e) => setProdutoForm((p) => ({ ...p, image_url: e.target.value }))} />
+              {produtoForm.image_url ? (
+                <div className="relative overflow-hidden rounded-lg border">
+                  <img src={produtoForm.image_url} alt="Pré-visualização da camiseta" className="max-h-56 w-full object-cover" />
+                  <button
+                    type="button"
+                    className="absolute right-2 top-2 rounded-full bg-white/90 px-2 py-1 text-xs text-rose-600"
+                    onClick={() => setProdutoForm((p) => ({ ...p, image_url: "" }))}
+                  >
+                    Remover
+                  </button>
+                </div>
+              ) : null}
               <div className="rounded-lg border border-dashed border-slate-300 p-4 text-center">
                 <Label htmlFor="produto-file" className="inline-flex h-10 cursor-pointer items-center rounded-md border border-slate-300 px-4 text-sm hover:bg-slate-50">
                   Adicionar arquivo
@@ -846,6 +902,18 @@ export default function DivulgacaoPage() {
             <div className="space-y-2">
               <Label>URL do banner</Label>
               <Input value={eventoForm.banner_url} onChange={(e) => setEventoForm((p) => ({ ...p, banner_url: e.target.value }))} />
+              {eventoForm.banner_url ? (
+                <div className="relative overflow-hidden rounded-lg border">
+                  <img src={eventoForm.banner_url} alt="Pré-visualização do evento" className="max-h-72 w-full object-cover" />
+                  <button
+                    type="button"
+                    className="absolute right-2 top-2 rounded-full bg-white/90 px-2 py-1 text-xs text-rose-600"
+                    onClick={() => setEventoForm((p) => ({ ...p, banner_url: "" }))}
+                  >
+                    Remover
+                  </button>
+                </div>
+              ) : null}
               <div className="rounded-lg border border-dashed border-slate-300 p-4 text-center">
                 <Label htmlFor="evento-file" className="inline-flex h-10 cursor-pointer items-center rounded-md border border-slate-300 px-4 text-sm hover:bg-slate-50">
                   Adicionar arquivo
@@ -867,12 +935,39 @@ export default function DivulgacaoPage() {
       </Dialog>
 
       <Dialog open={openInformativoModal} onOpenChange={setOpenInformativoModal}>
-        <DialogContent className="max-w-xl">
+        <DialogContent className="max-w-2xl">
           <DialogHeader><DialogTitle>{editingInformativoId ? "Editar Informativo" : "Novo Informativo"}</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <div className="space-y-1"><Label>Título *</Label><Input value={informativoForm.title} onChange={(e) => setInformativoForm((p) => ({ ...p, title: e.target.value }))} /></div>
-            <div className="space-y-1"><Label>Conteúdo *</Label><Textarea value={informativoForm.body_text} onChange={(e) => setInformativoForm((p) => ({ ...p, body_text: e.target.value }))} /></div>
+            <div className="space-y-1"><Label>Descrição</Label><Textarea value={informativoForm.body_text} onChange={(e) => setInformativoForm((p) => ({ ...p, body_text: e.target.value }))} /></div>
+            <div className="space-y-2">
+              <Label>Imagem / Banner</Label>
+              <Input value={informativoForm.media_url} onChange={(e) => setInformativoForm((p) => ({ ...p, media_url: e.target.value }))} />
+              {informativoForm.media_url ? (
+                <div className="relative overflow-hidden rounded-lg border">
+                  <img src={informativoForm.media_url} alt="Pré-visualização do informativo" className="max-h-72 w-full object-cover" />
+                  <button
+                    type="button"
+                    className="absolute right-2 top-2 rounded-full bg-white/90 px-2 py-1 text-xs text-rose-600"
+                    onClick={() => setInformativoForm((p) => ({ ...p, media_url: "" }))}
+                  >
+                    Remover
+                  </button>
+                </div>
+              ) : null}
+              <div className="rounded-lg border border-dashed border-slate-300 p-4 text-center">
+                <Label htmlFor="informativo-file" className="inline-flex h-10 cursor-pointer items-center rounded-md border border-slate-300 px-4 text-sm hover:bg-slate-50">
+                  Adicionar arquivo
+                </Label>
+                <input id="informativo-file" type="file" accept="image/*" className="hidden" onChange={onSelectInformativoFile} />
+                <span className="mt-2 block text-xs text-slate-500">{uploadingInformativo ? "Enviando..." : "JPG, PNG ou WEBP"}</span>
+              </div>
+            </div>
             <div className="space-y-1"><Label>Posição</Label><Input type="number" value={informativoForm.position} onChange={(e) => setInformativoForm((p) => ({ ...p, position: e.target.value }))} /></div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1"><Label>Início</Label><Input type="date" value={informativoForm.start_date} onChange={(e) => setInformativoForm((p) => ({ ...p, start_date: e.target.value }))} /></div>
+              <div className="space-y-1"><Label>Fim</Label><Input type="date" value={informativoForm.end_date} onChange={(e) => setInformativoForm((p) => ({ ...p, end_date: e.target.value }))} /></div>
+            </div>
             <Button className="w-full bg-[#232b7a] text-white hover:bg-[#1b2367]" onClick={() => createInformativo.mutate()} disabled={createInformativo.isPending || !informativoForm.title.trim()}>
               {createInformativo.isPending ? "Salvando..." : editingInformativoId ? "Salvar alterações" : "Criar Informativo"}
             </Button>

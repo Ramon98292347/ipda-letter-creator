@@ -1,7 +1,7 @@
-﻿import { Link, useParams } from "react-router-dom";
-import { useMemo } from "react";
+import { Link, useParams } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowRight, Megaphone, Shirt } from "lucide-react";
+import { ArrowLeft, ArrowRight, Megaphone, Shirt } from "lucide-react";
 import { post } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -26,14 +26,28 @@ type AnnouncementRow = {
   body_text?: string | null;
   media_url?: string | null;
   type?: string | null;
+  position?: number | null;
+  starts_at?: string | null;
+  ends_at?: string | null;
 };
 
 function formatMoney(value: number | null | undefined) {
   return Number(value || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
+function inDateWindow(item: AnnouncementRow) {
+  const now = Date.now();
+  const startsOk = !item.starts_at || new Date(String(item.starts_at)).getTime() <= now;
+  const endsOk = !item.ends_at || new Date(String(item.ends_at)).getTime() >= now;
+  return startsOk && endsOk;
+}
+
 export default function CamisasPublicPage() {
   const { churchTotvsId = "" } = useParams();
+  const [slide, setSlide] = useState(0);
+  const [itemsPerPage, setItemsPerPage] = useState(() =>
+    typeof window !== "undefined" && window.innerWidth < 768 ? 1 : 2,
+  );
 
   const { data: churchRes, isLoading: loadingChurch } = useQuery({
     queryKey: ["camisas-public-church", churchTotvsId],
@@ -41,7 +55,7 @@ export default function CamisasPublicPage() {
     queryFn: () =>
       post<{ ok: boolean; churches: ChurchRow[] }>(
         "list-churches-public",
-        { include_all: true, query: churchTotvsId, limit: 20 },
+        { include_all: true, query: churchTotvsId, limit: 30 },
         { skipAuth: true },
       ),
   });
@@ -68,13 +82,46 @@ export default function CamisasPublicPage() {
     queryFn: () =>
       post<{ ok: boolean; announcements: AnnouncementRow[] }>(
         "announcements-api",
-        { action: "list-public", church_totvs_id: churchTotvsId, limit: 10 },
+        { action: "list-public", church_totvs_id: churchTotvsId, limit: 100 },
         { skipAuth: true },
       ),
   });
 
   const products = productsRes?.products || [];
-  const announcements = announcementsRes?.announcements || [];
+  const carouselItems = useMemo(
+    () =>
+      (announcementsRes?.announcements || [])
+        .filter(inDateWindow)
+        .sort((a, b) => Number(a.position || 999) - Number(b.position || 999)),
+    [announcementsRes?.announcements],
+  );
+
+  useEffect(() => {
+    const onResize = () => {
+      setItemsPerPage(window.innerWidth < 768 ? 1 : 2);
+    };
+    onResize();
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+
+  const totalPages = Math.max(1, Math.ceil(carouselItems.length / Math.max(itemsPerPage, 1)));
+  const visibleItems = useMemo(() => {
+    const start = slide * itemsPerPage;
+    return carouselItems.slice(start, start + itemsPerPage);
+  }, [carouselItems, slide, itemsPerPage]);
+
+  useEffect(() => {
+    if (totalPages <= 1) return;
+    const timer = setInterval(() => {
+      setSlide((prev) => (prev + 1) % totalPages);
+    }, 6000);
+    return () => clearInterval(timer);
+  }, [totalPages]);
+
+  useEffect(() => {
+    if (slide >= totalPages) setSlide(0);
+  }, [slide, totalPages]);
 
   if (loadingChurch || loadingProducts) {
     return <PageLoading title="Carregando vitrine" description="Buscando produtos da igreja..." />;
@@ -107,7 +154,6 @@ export default function CamisasPublicPage() {
             <a href="#inicio" className="rounded-xl bg-[#232b7a] px-4 py-2 font-semibold text-white">Início</a>
             <a href="#camisetas" className="font-medium hover:text-[#232b7a]">Camisetas</a>
             <Link to={`/camisas/${churchTotvsId}/pedido`} className="font-medium hover:text-[#232b7a]">Pedir</Link>
-            <a href="/divulgacao" className="font-medium text-slate-500 hover:text-[#232b7a]">Admin</a>
           </nav>
         </div>
       </header>
@@ -123,33 +169,83 @@ export default function CamisasPublicPage() {
             <a href="#camisetas">
               <Shirt className="mr-2 h-5 w-5" />
               Ver camisetas
-              <ArrowRight className="ml-2 h-5 w-5" />
             </a>
           </Button>
         </div>
       </section>
 
       <main className="mx-auto max-w-6xl space-y-6 px-4 py-8 md:px-6">
-        {announcements.length > 0 ? (
-          <section className="space-y-3 rounded-2xl border border-[#e5d38b] bg-[#fff8df] p-4">
-            {announcements.slice(0, 3).map((announcement) => (
-              <div key={announcement.id} className="rounded-xl border border-[#f1e3b5] bg-[#fff5d1] p-4">
-                <div className="mb-2 flex items-center gap-2 text-[#d98900]">
-                  <Megaphone className="h-4 w-4" />
-                  <p className="font-semibold text-slate-900">{announcement.title || "Informativo"}</p>
-                </div>
-                <p className="text-slate-700">{announcement.body_text || "Aviso da igreja."}</p>
-                {announcement.media_url ? (
-                  <img
-                    src={announcement.media_url}
-                    alt={announcement.title || "Informativo"}
-                    className="mt-3 max-h-[320px] w-full rounded-xl object-contain"
-                  />
-                ) : null}
-              </div>
-            ))}
-          </section>
-        ) : null}
+        <section className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4">
+          <div className="flex items-center justify-between">
+            <h2 className="flex items-center gap-2 text-2xl font-bold text-slate-900">
+              <Megaphone className="h-5 w-5 text-amber-600" />
+              Informações e Eventos
+            </h2>
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                onClick={() => setSlide((prev) => (prev - 1 + totalPages) % totalPages)}
+                disabled={totalPages <= 1}
+              >
+                <ArrowLeft className="h-4 w-4" />
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                onClick={() => setSlide((prev) => (prev + 1) % totalPages)}
+                disabled={totalPages <= 1}
+              >
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+
+          {visibleItems.length ? (
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              {visibleItems.map((item) => (
+                <Card key={item.id} className="overflow-hidden rounded-2xl border border-slate-200">
+                  <CardContent className="p-0">
+                    <div className="relative bg-slate-900">
+                      {item.media_url ? (
+                        <img
+                          src={item.media_url}
+                          alt={item.title || "Aviso"}
+                          className="h-auto w-full object-contain"
+                        />
+                      ) : (
+                        <div className="h-[320px] w-full bg-gradient-to-br from-[#1f2a78] to-[#7a214f]" />
+                      )}
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/15 to-transparent" />
+                      <div className="absolute left-3 right-3 top-3 rounded-xl bg-black/50 p-3 text-white md:left-4 md:right-4 md:top-4">
+                        <p className="text-xl font-bold">{item.title || "Comunicado da igreja"}</p>
+                        {item.body_text ? <p className="mt-1 text-sm text-white/90">{item.body_text}</p> : null}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-6 text-slate-600">Sem avisos no momento.</div>
+          )}
+
+          {totalPages > 1 ? (
+            <div className="flex items-center justify-center gap-2">
+              {Array.from({ length: totalPages }).map((_, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => setSlide(idx)}
+                  className={`h-2.5 w-2.5 rounded-full ${idx === slide ? "bg-slate-900" : "bg-slate-300"}`}
+                  aria-label={`Slide ${idx + 1}`}
+                />
+              ))}
+            </div>
+          ) : null}
+        </section>
 
         <section id="camisetas" className="space-y-4">
           <div className="flex items-center justify-between">
@@ -176,7 +272,7 @@ export default function CamisasPublicPage() {
                   <p className="text-2xl font-bold text-slate-900">{product.name || "Sem nome"}</p>
                   <p className="text-slate-600">{product.description || "Produto oficial da igreja."}</p>
                   <Button asChild className="w-full rounded-xl bg-[#232b7a] text-lg hover:bg-[#1b2367]">
-                    <Link to={`/camisas/${churchTotvsId}/pedido?product=${product.id}`}>Fazer pedido</Link>
+                    <Link to={`/camisas/${churchTotvsId}/pedido?produto=${product.id}&auto=1`}>Fazer pedido</Link>
                   </Button>
                 </CardContent>
               </Card>
