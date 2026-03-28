@@ -375,17 +375,27 @@ async function enrichLettersWithPreacherChurch(
     ),
   );
 
-  if (preacherIds.length === 0) return letters;
+  const fallbackChurchIds = Array.from(
+    new Set(
+      letters
+        .map((letter) => String(letter.church_totvs_id || "").trim())
+        .filter(Boolean),
+    ),
+  );
 
-  const { data: users, error: usersErr } = await sb
-    .from("users")
-    .select("id, default_totvs_id")
-    .in("id", preacherIds);
+  if (preacherIds.length === 0 && fallbackChurchIds.length === 0) return letters;
 
-  if (usersErr || !users) return letters;
+  let users: Array<Record<string, unknown>> = [];
+  if (preacherIds.length > 0) {
+    const { data, error: usersErr } = await sb
+      .from("users")
+      .select("id, default_totvs_id")
+      .in("id", preacherIds);
+    if (!usersErr && data) users = data as Array<Record<string, unknown>>;
+  }
 
   const userChurchMap = new Map(
-    (users || []).map((row: Record<string, unknown>) => [
+    users.map((row: Record<string, unknown>) => [
       String(row.id || ""),
       String(row.default_totvs_id || "").trim(),
     ]),
@@ -393,9 +403,12 @@ async function enrichLettersWithPreacherChurch(
 
   const churchIds = Array.from(
     new Set(
-      (users || [])
-        .map((row: Record<string, unknown>) => String(row.default_totvs_id || "").trim())
-        .filter(Boolean),
+      [
+        ...users
+          .map((row: Record<string, unknown>) => String(row.default_totvs_id || "").trim())
+          .filter(Boolean),
+        ...fallbackChurchIds,
+      ],
     ),
   );
 
@@ -417,7 +430,9 @@ async function enrichLettersWithPreacherChurch(
 
   return letters.map((letter) => {
     const preacherId = String(letter.preacher_user_id || "").trim();
-    const totvsId = preacherId ? userChurchMap.get(preacherId) || "" : "";
+    const totvsId = preacherId
+      ? userChurchMap.get(preacherId) || ""
+      : String(letter.church_totvs_id || "").trim();
     const churchName = totvsId ? churchNameById.get(totvsId) || "" : "";
     return {
       ...letter,
