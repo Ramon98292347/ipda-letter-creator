@@ -513,6 +513,17 @@ async function handleCreate(session: SessionClaims, body: Record<string, unknown
       return json({ ok: false, error: "origin_church_not_found" }, 404);
     }
 
+    // Regra: se o destino for manual, a origem sempre sobe para o topo da hierarquia (avó).
+    if (manual_destination) {
+      const topTotvs = findTopAncestorTotvs(church_totvs_id, churches);
+      if (topTotvs && topTotvs !== church_totvs_id) {
+        church_totvs_id = topTotvs;
+        const topChurch = byId.get(topTotvs) || null;
+        const topName = String(topChurch?.church_name || "").trim();
+        if (topName) church_origin = `${topTotvs} - ${topName}`;
+      }
+    }
+
     const allowedOrigins = resolveAllowedOriginTotvs(session, activeChurch, churches);
     if (!allowedOrigins.has(church_totvs_id)) {
       // Removido: campo allowed_origins que expunha a hierarquia de igrejas do usuario.
@@ -522,17 +533,6 @@ async function handleCreate(session: SessionClaims, body: Record<string, unknown
         error: "origin_out_of_allowed",
         detail: "Origem invalida para sua hierarquia. Use sua igreja ou a igreja mae permitida.",
       }, 403);
-    }
-
-    // Se o destino for manual, a origem sempre sobe para o topo da hierarquia (avó).
-    if (manual_destination) {
-      const topTotvs = findTopAncestorTotvs(church_totvs_id, churches);
-      if (topTotvs && topTotvs !== church_totvs_id) {
-        church_totvs_id = topTotvs;
-        const topChurch = byId.get(topTotvs) || null;
-        const topName = String(topChurch?.church_name || "").trim();
-        if (topName) church_origin = `${topTotvs} - ${topName}`;
-      }
     }
 
     // Destino permitido = escopo (filhas) + ancestrais (mãe, avó, bisavó...)
