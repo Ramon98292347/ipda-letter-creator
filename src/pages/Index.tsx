@@ -167,6 +167,20 @@ const Index = () => {
   });
   const parentScopeChurches = useMemo(() => rawParentChurches.map(apiToChurch), [rawParentChurches]);
 
+  // Fallback publico para a igreja mae (especialmente para obreiro)
+  const { data: parentChurchPublic } = useQuery({
+    queryKey: ["churches-letter-form-parent-public", parentTotvsId],
+    queryFn: async () => {
+      if (!parentTotvsId) return null;
+      const results = await searchChurchesPublic(parentTotvsId, 1);
+      const found = results.find((c) => String(c.totvs_id || "") === parentTotvsId) || results[0];
+      return found ? apiToChurch(found, 0) : null;
+    },
+    enabled: Boolean(parentTotvsId) && parentScopeChurches.length === 0,
+    staleTime: 60_000,
+    refetchInterval: 10000,
+  });
+
   // Mapa totvs_id -> pastor_user_id montado a partir dos dados brutos ja carregados
   const pastorUserIdByTotvs = useMemo(() => {
     const map: Record<string, string> = {};
@@ -204,8 +218,13 @@ const Index = () => {
 
   // Igreja mae do usuario logado
   const parentChurch = useMemo(
-    () => (parentTotvsId ? destinationSourceChurches.find((c) => c.codigoTotvs === parentTotvsId) || null : null),
-    [destinationSourceChurches, parentTotvsId],
+    () =>
+      parentTotvsId
+        ? destinationSourceChurches.find((c) => c.codigoTotvs === parentTotvsId) ||
+          parentChurchPublic ||
+          null
+        : null,
+    [destinationSourceChurches, parentTotvsId, parentChurchPublic],
   );
   const { data: preachersInScope = [] } = useQuery({
     queryKey: ["letter-preachers-in-scope", session?.totvs_id, role],
