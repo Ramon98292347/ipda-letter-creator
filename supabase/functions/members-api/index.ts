@@ -903,12 +903,19 @@ async function handleListMembers(session: SessionClaims, body: ListMembersBody):
   const { data: users, error: usersErr } = await q;
   if (usersErr) return json({ ok: false, error: "db_error_users", details: usersErr.message }, 500);
 
+  // Quando um filtro de igreja especifico e informado, computa o sub-escopo
+  // (a igreja selecionada + todas as filhas) para incluir membros de igrejas subordinadas.
+  // Ex: setorial 9567 deve mostrar membros de todas as locais abaixo dela.
+  const churchFilterScope = churchTotvsFilter
+    ? computeScope(churchTotvsFilter, churchRows)
+    : null;
+
   const normalizedRoleFilter = body.minister_role ? normalizeMinisterRole(body.minister_role) : null;
   const filtered = (users || []).filter((u: Record<string, unknown>) => {
     const defaultTotvs = String(u.default_totvs_id || "").trim();
     if (!defaultTotvs) return false;
     if (!scope.has(defaultTotvs)) return false;
-    if (churchTotvsFilter && defaultTotvs !== churchTotvsFilter) return false;
+    if (churchFilterScope && !churchFilterScope.has(defaultTotvs)) return false;
     if (normalizedRoleFilter && normalizeMinisterRole(u.minister_role) !== normalizedRoleFilter) return false;
     return true;
   });
