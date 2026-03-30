@@ -58,6 +58,7 @@ export default function PastorDashboardPage() {
         page_size: 5000,
         roles: ["pastor", "obreiro", "secretario", "financeiro"],
         church_totvs_id: activeTotvsId || undefined,
+        exact_church: true,
       }),
     enabled: Boolean(activeTotvsId),
     refetchInterval: 10000,
