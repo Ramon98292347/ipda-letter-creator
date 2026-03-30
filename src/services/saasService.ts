@@ -181,6 +181,7 @@ export type MemberListParams = {
   is_active?: boolean;
   roles?: Array<"pastor" | "obreiro" | "secretario" | "financeiro">;
   church_totvs_id?: string;
+  exact_church?: boolean;
   page?: number;
   page_size?: number;
 };
@@ -1043,6 +1044,7 @@ export async function listMembers(params: MemberListParams): Promise<WorkerListR
         is_active: typeof params.is_active === "boolean" ? params.is_active : undefined,
         roles: params.roles?.length ? params.roles : undefined,
         church_totvs_id: params.church_totvs_id || undefined,
+        exact_church: params.exact_church || undefined,
         page: params.page || 1,
         page_size: params.page_size || 20,
       });
@@ -1631,7 +1633,7 @@ export async function getPastorPanelData(
 ): Promise<{ churches: ChurchInScopeItem[]; workers: UserListItem[] }> {
   const [churches, membersResult] = await Promise.all([
     listChurchesInScope(1, 1000, activeTotvsId || undefined),
-    listMembers({ page: 1, page_size: 200, roles: ["pastor", "obreiro"] }),
+    listMembers({ page: 1, page_size: 200, roles: ["pastor", "obreiro"], church_totvs_id: activeTotvsId || undefined, exact_church: true }),
   ]);
   return { churches, workers: membersResult.workers };
 }

@@ -72,6 +72,7 @@ type ListMembersBody = {
   is_active?: boolean;
   roles?: Array<"pastor" | "obreiro" | "secretario" | "financeiro">;
   church_totvs_id?: string;
+  exact_church?: boolean;
   page?: number;
   page_size?: number;
 };
@@ -903,11 +904,11 @@ async function handleListMembers(session: SessionClaims, body: ListMembersBody):
   const { data: users, error: usersErr } = await q;
   if (usersErr) return json({ ok: false, error: "db_error_users", details: usersErr.message }, 500);
 
-  // Quando um filtro de igreja especifico e informado, computa o sub-escopo
-  // (a igreja selecionada + todas as filhas) para incluir membros de igrejas subordinadas.
-  // Ex: setorial 9567 deve mostrar membros de todas as locais abaixo dela.
+  // exact_church=true: filtra apenas membros da igreja exata (usado no dashboard do pastor)
+  // exact_church=false/omitido: computa sub-escopo (igreja + filhas) para pagina de membros
+  const exactChurch = Boolean(body.exact_church);
   const churchFilterScope = churchTotvsFilter
-    ? computeScope(churchTotvsFilter, churchRows)
+    ? (exactChurch ? new Set([churchTotvsFilter]) : computeScope(churchTotvsFilter, churchRows))
     : null;
 
   const normalizedRoleFilter = body.minister_role ? normalizeMinisterRole(body.minister_role) : null;

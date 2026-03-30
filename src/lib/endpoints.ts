@@ -72,6 +72,7 @@ export const api = {
     is_active?: boolean;
     roles?: Array<"pastor" | "obreiro" | "secretario" | "financeiro">;
     church_totvs_id?: string;
+    exact_church?: boolean;
     page?: number;
     page_size?: number;
   }) => post("members-api", { action: "list-members", ...body }),
