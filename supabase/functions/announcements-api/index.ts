@@ -85,7 +85,6 @@ function json(obj: unknown, status = 200) {
 
 const FORWARDED_ACTIONS: Record<string, string> = {
   "list-public": "list-announcements-public",
-  "list-admin": "list-announcements-admin",
   "list-events": "list-events",
   "upsert-event": "upsert-event",
   "delete-event": "delete-event",
@@ -156,10 +155,16 @@ function isValidISODate(value: string) {
 }
 
 async function actionList(sb: ReturnType<typeof createClient>, req: Request, body: Body) {
+  const action = String(body.action || "").trim();
   const limit = Math.max(1, Math.min(10, Number(body.limit || 10)));
   const session = await verifySessionJWT(req);
   const requestedChurchTotvs = String(body.church_totvs_id || "").trim();
   const includeLineage = Boolean(body.include_lineage);
+
+  // list-admin requer JWT
+  if (action === "list-admin" && !session) {
+    return json({ ok: false, error: "unauthorized" }, 401);
+  }
 
   let activeTotvs = "";
   if (session) {
@@ -403,7 +408,7 @@ Deno.serve(async (req) => {
 
     const forwardedSlug = FORWARDED_ACTIONS[action];
     if (forwardedSlug) return await forwardToLegacy(req, body, forwardedSlug);
-    if (action === "list") return await actionList(sb, req, body);
+    if (action === "list" || action === "list-admin") return await actionList(sb, req, body);
     if (action === "upsert") return await actionUpsert(sb, req, body);
     if (action === "delete") return await actionDelete(sb, req, body);
 

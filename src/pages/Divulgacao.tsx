@@ -204,7 +204,7 @@ export default function DivulgacaoPage() {
   const { data: announcements = [] } = useQuery<AnnouncementRow[]>({
     queryKey: ["div-ann", session?.totvs_id],
     enabled: !!session?.totvs_id,
-    queryFn: async () => (await post<any>("announcements-api", { action: "list-admin" })).announcements || [],
+    queryFn: async () => (await post<any>("announcements-api", { action: "list-admin", church_totvs_id: session?.totvs_id })).announcements || [],
   });
 
   const events = useMemo<EventRow[]>(
@@ -279,6 +279,7 @@ export default function DivulgacaoPage() {
       post("announcements-api", {
         action: "upsert",
         id: editingEventoId || undefined,
+        church_totvs_id: session?.totvs_id,
         title: eventoForm.title.trim(),
         type: eventoForm.banner_url.trim() ? "image" : "text",
         body_text: eventoForm.description.trim() || null,
@@ -304,6 +305,7 @@ export default function DivulgacaoPage() {
       post("announcements-api", {
         action: "upsert",
         id: editingInformativoId || undefined,
+        church_totvs_id: session?.totvs_id,
         title: informativoForm.title.trim(),
         type: informativoForm.media_url.trim() ? "image" : "text",
         body_text: informativoForm.body_text.trim() || null,
@@ -748,7 +750,7 @@ export default function DivulgacaoPage() {
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-3">
                           <button className="text-blue-700" onClick={() => { setEditingEventoId(event.id); setEventoForm({ title: event.title || "", description: event.body_text || "", banner_url: event.media_url || "", start_date: String(event.starts_at || "").slice(0, 10), end_date: String(event.ends_at || "").slice(0, 10), sort_order: String(event.position || 0) }); setOpenEventoModal(true); }}><Edit className="h-4 w-4" /></button>
-                          <button className="text-slate-500" onClick={() => post("announcements-api", { action: "upsert", id: event.id, is_active: !event.is_active }).then(() => queryClient.invalidateQueries({ queryKey: ["div-ann"] }))}>{event.is_active ? <ToggleRight className="h-4 w-4" /> : <ToggleLeft className="h-4 w-4" />}</button>
+                          <button className="text-slate-500" onClick={() => post("announcements-api", { action: "upsert", id: event.id, church_totvs_id: session?.totvs_id, is_active: !event.is_active }).then(() => queryClient.invalidateQueries({ queryKey: ["div-ann"] }))}>{event.is_active ? <ToggleRight className="h-4 w-4" /> : <ToggleLeft className="h-4 w-4" />}</button>
                           <button className="text-rose-600" onClick={() => deleteEvento.mutate(event.id)}><Trash2 className="h-4 w-4" /></button>
                         </div>
                       </td>
@@ -786,7 +788,7 @@ export default function DivulgacaoPage() {
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-3">
                           <button className="text-blue-700" onClick={() => { setEditingInformativoId(ann.id); setInformativoForm({ title: ann.title || "", body_text: ann.body_text || "", media_url: ann.media_url || "", position: String(ann.position || 1), start_date: String(ann.starts_at || "").slice(0, 10), end_date: String(ann.ends_at || "").slice(0, 10) }); setOpenInformativoModal(true); }}><Edit className="h-4 w-4" /></button>
-                          <button className="text-slate-500" onClick={() => post("announcements-api", { action: "upsert", id: ann.id, is_active: !ann.is_active }).then(() => queryClient.invalidateQueries({ queryKey: ["div-ann"] }))}>{ann.is_active ? <ToggleRight className="h-4 w-4" /> : <ToggleLeft className="h-4 w-4" />}</button>
+                          <button className="text-slate-500" onClick={() => post("announcements-api", { action: "upsert", id: ann.id, church_totvs_id: session?.totvs_id, is_active: !ann.is_active }).then(() => queryClient.invalidateQueries({ queryKey: ["div-ann"] }))}>{ann.is_active ? <ToggleRight className="h-4 w-4" /> : <ToggleLeft className="h-4 w-4" />}</button>
                           <button className="text-rose-600" onClick={() => deleteInformativo.mutate(ann.id)}><Trash2 className="h-4 w-4" /></button>
                         </div>
                       </td>
