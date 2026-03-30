@@ -26,6 +26,7 @@ import {
   updateMyProfile,
   upsertStamps,
   workerDashboard,
+  getMemberDocsStatus,
   type AncestorChainItem,
   type ChurchInScopeItem,
   type PastorLetter,
@@ -200,6 +201,27 @@ export default function UsuarioDashboard() {
     enabled: Boolean(activeTotvs),
     refetchInterval: 10000,
   });
+
+  // Verifica se o usuario tem ficha de membro gerada (necessaria para QR code nas cartas)
+  const { data: docsStatus } = useQuery({
+    queryKey: ["member-docs-status", userId],
+    queryFn: () => getMemberDocsStatus({ member_id: userId }),
+    enabled: Boolean(userId),
+    staleTime: 60_000,
+  });
+
+  const [fichaAlertShown, setFichaAlertShown] = useState(false);
+  useEffect(() => {
+    if (fichaAlertShown || !docsStatus || !userId) return;
+    const fichaUrl = String(docsStatus?.ficha?.final_url || "").trim();
+    if (!fichaUrl) {
+      setFichaAlertShown(true);
+      toast.warning(
+        "Faça a sua ficha de membro para continuar emitindo cartas. Sem a ficha, suas cartas poderão ser bloqueadas.",
+        { duration: 8000 },
+      );
+    }
+  }, [docsStatus, userId, fichaAlertShown]);
 
   const letters = useMemo(
     () => (data?.letters || []).sort((a, b) => (a.created_at < b.created_at ? 1 : -1)),
