@@ -1,4 +1,4 @@
-﻿import { Toaster as Sonner } from "@/components/ui/sonner";
+import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { PageLoading } from "@/components/shared/PageLoading";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -67,6 +67,7 @@ const FinanceiroRelatoriosPage = lazy(() => import("./pages/FinanceiroRelatorios
 const FinanceiroConfigPage = lazy(() => import("./pages/FinanceiroConfigPage"));
 const CamisasPublicPage = lazy(() => import("./pages/CamisasPublicPage"));
 const CamisasPedidoPage = lazy(() => import("./pages/CamisasPedidoPage"));
+const ValidarCartaPage = lazy(() => import("./pages/ValidarCartaPage"));
 
 function RequireAuth({ children }: { children: JSX.Element }) {
   const { usuario, token } = useUser();
@@ -109,7 +110,7 @@ function OnReloadRedirect() {
       const entries = performance.getEntriesByType("navigation") as PerformanceEntry[];
       const last = entries && entries.length ? entries[entries.length - 1] : undefined;
       const type = (last && (last as unknown as { type?: string }).type) ?? undefined;
-      const publicPaths = new Set(["/", "/cadastro", "/reset-senha"]);
+      const publicPaths = new Set(["/", "/cadastro", "/reset-senha", "/validar-carta"]);
       const isPublicPath = publicPaths.has(loc.pathname) || loc.pathname.startsWith("/presenca-publica/");
       const isCamisasPublicPath = loc.pathname.startsWith("/camisas/");
       const isSelectChurchValid = loc.pathname === "/select-church" && !!pendingCpf && availableChurches.length > 0;
@@ -428,6 +429,14 @@ const router = createBrowserRouter(
               <CartaPage />
             </Suspense>
           </RequireAuth>
+        }
+      />
+      <Route
+        path="/validar-carta"
+        element={
+          <Suspense fallback={pageFallback}>
+            <ValidarCartaPage />
+          </Suspense>
         }
       />
       <Route path="*" element={<NotFound />} />

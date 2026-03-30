@@ -1,0 +1,8 @@
+547:     // Comentario: destino fora da sub-arvore da mae — sobe pela ancestorChain
+548:     // ate achar o primeiro ancestral com pastor cuja sub-arvore inclua o destino
+549:     for (const ancestor of ancestorChain) {
+550:       if (ancestor.pastor?.full_name && isInSubtree(destId, String(ancestor.totvs_id || ""))) {
+551:         return { name: ancestor.church_name, totvs: ancestor.totvs_id };
+552:       }
+553:     }
+554:     // Comentario: fallback — mae mais alta com pastor

@@ -1374,6 +1374,10 @@ async function handleSetStatus(session: SessionClaims, body: Record<string, unkn
            finalStatusCarta = "LIBERADA_PARA_MEMBRO";
         }
 
+        // URL pública de verificação da carta (para QR Code impresso na carta)
+        const appBaseUrl = String(Deno.env.get("APP_BASE_URL") || "https://ipda-letter-creator.vercel.app").replace(/\/$/, "");
+        const verifyUrl = `${appBaseUrl}/validar-carta?id=${String(letter.id || "")}`;
+
         // Monta o payload completo que será enviado ao N8N para gerar o PDF
         const n8nPayload = {
           letter_id: letter.id,
@@ -1410,6 +1414,8 @@ async function handleSetStatus(session: SessionClaims, body: Record<string, unkn
           pastor_local_email: resolvedPastorLocalEmail || "",
           client_id: churchTotvs,
           obreiro_id: preacherUserId,
+          // URL de verificação pública — usar para gerar QR Code na carta impressa
+          verify_url: verifyUrl,
         };
 
         // Envia o payload para o N8N gerar e enviar o PDF
