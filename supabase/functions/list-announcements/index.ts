@@ -111,8 +111,29 @@ Deno.serve(async (req) => {
     const { data: allChurches, error: aErr } = await sb.from("churches").select("totvs_id, parent_totvs_id");
     if (aErr) return json({ ok: false, error: "db_error_churches", details: aErr.message }, 500);
 
-    const rootTotvs = computeRootTotvs(activeTotvs, (allChurches || []) as ChurchRow[]);
-    const totvsList = rootTotvs === activeTotvs ? [activeTotvs] : [activeTotvs, rootTotvs];
+    const allChurchesList = (allChurches || []) as ChurchRow[];
+    const parentById = new Map<string, string | null>();
+    for (const c of allChurchesList) {
+      parentById.set(String(c.totvs_id), c.parent_totvs_id ? String(c.parent_totvs_id) : null);
+    }
+
+    // Constrói lista de ancestrais (sobe até mãe e avó, máximo 2 níveis)
+    // Regra: cada membro vê anúncios da própria igreja + mãe + avó.
+    // NÃO sobe a hierarquia inteira para evitar vazamento entre níveis
+    // (ex.: estadual não vê anúncios da central).
+    const MAX_ANCESTOR_LEVELS = 2;
+    const totvsList: string[] = [activeTotvs];
+    let current = activeTotvs;
+    let levelsUp = 0;
+    const guardUp = new Set<string>();
+    while (current && !guardUp.has(current) && levelsUp < MAX_ANCESTOR_LEVELS) {
+      guardUp.add(current);
+      const parent = parentById.get(current) ?? null;
+      if (!parent) break;
+      totvsList.push(parent);
+      current = parent;
+      levelsUp++;
+    }
 
     const { data, error } = await sb
       .from("announcements")

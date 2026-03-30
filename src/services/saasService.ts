@@ -1432,11 +1432,13 @@ export async function listChurchesInScope(page = 1, pageSize = 5000, rootTotvsId
   }
 }
 
-// Tipo minimo para ancestral com info do pastor
+// Comentario: tipo minimo para ancestral com info do pastor.
+// Inclui church_class para verificar se origem e destino sao irmas (mesma mae).
 export type AncestorChainItem = {
   totvs_id: string;
   church_name: string;
   parent_totvs_id?: string | null;
+  church_class?: string | null;
   pastor?: { full_name?: string | null; phone?: string | null } | null;
 };
 
@@ -1452,6 +1454,9 @@ export async function fetchAncestorChain(rootTotvsId: string): Promise<AncestorC
     totvs_id: String(item.totvs_id || ""),
     church_name: String(item.church_name || ""),
     parent_totvs_id: item.parent_totvs_id ? String(item.parent_totvs_id) : null,
+    // Comentario: mapeia o campo "class" do banco para church_class no frontend.
+    // Usado para identificar o nivel hierarquico (Estadual, Setorial, Central, etc.).
+    church_class: item.class ? String(item.class) : null,
     pastor: item.pastor
       ? {
           full_name: (item.pastor as any)?.full_name || null,
@@ -2467,9 +2472,9 @@ export async function denyRelease(requestId: string) {
   if (letter) letter.status = "AUTORIZADO";
 }
 
-export async function setLetterStatus(letterId: string, status: string, _blockReason?: string | null) {
+export async function setLetterStatus(letterId: string, status: string, options?: Record<string, string>) {
   if (!isMockMode()) {
-    await api.setLetterStatus({ letter_id: letterId, status });
+    await api.setLetterStatus({ letter_id: letterId, status, ...options });
     return;
   }
   const idx = MOCK_LETTERS.findIndex((l) => l.id === letterId);
@@ -2478,6 +2483,39 @@ export async function setLetterStatus(letterId: string, status: string, _blockRe
 
 export async function softDeleteLetter(letterId: string) {
   return setLetterStatus(letterId, "EXCLUIDA");
+}
+
+/**
+ * Busca o pastor responsavel pela congregacao local (por totvs_id).
+ * Retorna { full_name, phone, email } ou null se nao encontrado.
+ */
+export async function getPastorByChurch(totvsId: string): Promise<{ full_name: string; phone: string | null; email: string | null } | null> {
+  if (!totvsId?.trim()) return null;
+  if (isMockMode()) return null;
+
+  // 1. Verifica na tabela churches se esta congregacao/igreja tem um pastor_user_id vinculado nela
+  const { data: churchInfo } = await supabase
+    .from("churches")
+    .select("pastor_user_id")
+    .eq("totvs_id", totvsId.trim())
+    .maybeSingle();
+
+  if (!churchInfo || !churchInfo.pastor_user_id) return null;
+
+  // 2. Busca na tabela de users os dados EXATOS desse pastor para enviar para N8n
+  const { data: pastorInfo } = await supabase
+    .from("users")
+    .select("full_name, phone, email")
+    .eq("id", churchInfo.pastor_user_id)
+    .maybeSingle();
+
+  if (!pastorInfo) return null;
+
+  return {
+    full_name: String((pastorInfo as Record<string, unknown>).full_name || ""),
+    phone: (pastorInfo as Record<string, unknown>).phone ? String((pastorInfo as Record<string, unknown>).phone) : null,
+    email: (pastorInfo as Record<string, unknown>).email ? String((pastorInfo as Record<string, unknown>).email) : null,
+  };
 }
 
 export async function getSignedPdfUrl(value: string) {

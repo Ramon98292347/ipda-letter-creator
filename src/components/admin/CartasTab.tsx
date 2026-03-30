@@ -6,8 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
-import { setLetterStatus, setWorkerDirectRelease, softDeleteLetter, type PastorLetter } from "@/services/saasService";
-import { ArrowUpRight, FileText, MoreHorizontal, RotateCcw, Search, Share2, Trash2, Lock, Unlock, CheckCheck, Send, Zap } from "lucide-react";
+import { setLetterStatus, setWorkerDirectRelease, softDeleteLetter, getPastorByChurch, type PastorLetter } from "@/services/saasService";
+import { ArrowUpRight, Church, FileText, MoreHorizontal, RotateCcw, Search, Share2, Trash2, Lock, Unlock, CheckCheck, Send, Zap } from "lucide-react";
 import { PastorLetterDialog, type LetterTarget } from "@/components/admin/PastorLetterDialog";
 
 // Comentario: URL do webhook n8n lida da variavel de ambiente para nao expor o endpoint no codigo-fonte.
@@ -20,6 +20,12 @@ import { addAuditLog } from "@/lib/audit";
 type QuickPeriod = "today" | "7" | "30" | "custom";
 
 const STATUS_OPTIONS = ["AUTORIZADO", "BLOQUEADO", "AGUARDANDO_LIBERACAO", "LIBERADA"] as const;
+
+function extractTotvs(text?: string | null) {
+  if (!text) return "";
+  const match = text.match(/^([\w\d]+)\s+-/);
+  return match ? match[1] : "";
+}
 
 function formatDate(value?: string | null) {
   if (!value) return "-";
@@ -277,17 +283,16 @@ export function CartasTab({
     }
   }
 
-  async function releaseLetter(letter: PastorLetter) {
+  async function handleReleaseToMember(letter: PastorLetter) {
     if (letter.status === "LIBERADA") {
       toast.message("Esta carta já está liberada.");
       return;
     }
     try {
       setUpdatingReleaseId(letter.id);
-      await setLetterStatus(letter.id, "LIBERADA");
-      // Chama o mesmo webhook do sistema de cartas para gerar PDF e processar a carta
-      await callWebhook(letter, "send_letter");
-      toast.success("Carta liberada com sucesso.");
+      await setLetterStatus(letter.id, "LIBERADA", { statusCarta: "LIBERADA_PARA_MEMBRO" });
+      // O backend Edge Function irá disparar o Webhook pro N8N com a mesma estrutura do banco
+      toast.success("Carta liberada para o membro.");
       await refresh();
     } catch (err: unknown) {
       toast.error(getFriendlyError(err, "letters"));
@@ -295,6 +300,44 @@ export function CartasTab({
       setUpdatingReleaseId(null);
     }
   }
+
+  async function handleReleaseToLocalPastor(letter: PastorLetter) {
+    if (letter.status === "LIBERADA") {
+      toast.message("Esta carta já está liberada.");
+      return;
+    }
+    try {
+      setUpdatingReleaseId(letter.id);
+      
+      // Busca inteligentemente o Totvs com prioridade na string de Origem caso o Obreiro falte registro ID
+      const extractedTotvs = extractTotvs(letter.church_origin);
+      const totvsId = String(letter.preacher_church_totvs_id || extractedTotvs || letter.church_totvs_id || "").trim();
+      
+      const pastor = totvsId ? await getPastorByChurch(totvsId) : null;
+      
+      if (pastor) {
+        // Envia as propriedades para o body da edge function que centraliza o webhook
+        await setLetterStatus(letter.id, "LIBERADA", {
+          statusCarta: "LIBERADA_PARA_PASTOR",
+          pastorLocalPhone: pastor.phone || "",
+          pastorLocalName: pastor.full_name,
+        });
+        toast.success(`Carta liberada e enviada para o Pastor: ${pastor.full_name}`);
+      } else {
+        // Mesmo sem encontrar o pastor no frontend, a Edge Function tenta resolver
+        // automaticamente via service_role (busca default_totvs_id do obreiro → pastor da igreja)
+        await setLetterStatus(letter.id, "LIBERADA", { statusCarta: "SEM_PASTOR" });
+        toast.success("Carta liberada e encaminhada ao pastor local.");
+      }
+      await refresh();
+    } catch (err: unknown) {
+      toast.error(getFriendlyError(err, "letters"));
+    } finally {
+      setUpdatingReleaseId(null);
+    }
+  }
+
+
 
   async function marcarEnvio(letter: PastorLetter) {
     if (letter.status === "ENVIADA") {
@@ -377,11 +420,18 @@ export function CartasTab({
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
           <DropdownMenuItem
-            onClick={() => releaseLetter(letter)}
+            onClick={() => handleReleaseToMember(letter)}
             disabled={letter.status === "LIBERADA" || isBlocked || updatingReleaseId === letter.id}
           >
             <Send className="mr-2 h-4 w-4 text-emerald-600" />
-            Liberar carta
+            Liberar p/ Membro
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            onClick={() => handleReleaseToLocalPastor(letter)}
+            disabled={letter.status === "LIBERADA" || isBlocked || updatingReleaseId === letter.id}
+          >
+            <CheckCheck className="mr-2 h-4 w-4 text-emerald-600" />
+            Liberar p/ Pastor Local
           </DropdownMenuItem>
           <DropdownMenuItem
             onClick={() => marcarEnvio(letter)}
@@ -513,11 +563,15 @@ export function CartasTab({
               const blocked = carta.status === "BLOQUEADO";
               const tone = blocked ? "bg-rose-50" : "bg-emerald-50/50";
               const pulse = blocked && flashing.includes(carta.id) ? "animate-pulse" : "";
+              
+              const inferredTotvs = carta.preacher_church_totvs_id || extractTotvs(carta.church_origin);
+              const igrejaDisplay = inferredTotvs ? `${inferredTotvs} - ${carta.preacher_church_name || carta.church_origin || ""}`.replace(` - ${inferredTotvs}`, "") : (carta.preacher_church_name || carta.church_origin || "-");
+              
               return (
                 <div key={carta.id} className={`grid grid-cols-[110px_1fr_180px_130px_1fr_1fr_130px_140px_200px] items-center gap-2 border-b border-slate-200 px-4 py-3 text-sm ${tone} ${pulse}`}>
                   <span>{formatDate(carta.created_at)}</span>
                   <span className="truncate font-semibold">{carta.preacher_name}</span>
-                  <span className="truncate">{carta.preacher_church_name || "-"}</span>
+                  <span className="truncate">{igrejaDisplay}</span>
                   <span>{formatDate(carta.preach_date)}</span>
                   <span className="truncate">{carta.church_origin || "-"}</span>
                   <span className="truncate">{carta.church_destination || "-"}</span>
@@ -539,6 +593,10 @@ export function CartasTab({
             const blocked = carta.status === "BLOQUEADO";
             const tone = blocked ? "border-rose-200 bg-rose-50" : "border-emerald-200 bg-emerald-50/60";
             const pulse = blocked && flashing.includes(carta.id) ? "animate-pulse" : "";
+            
+            const inferredTotvs = carta.preacher_church_totvs_id || extractTotvs(carta.church_origin);
+            const igrejaDisplay = inferredTotvs ? `${inferredTotvs} - ${carta.preacher_church_name || carta.church_origin || ""}`.replace(` - ${inferredTotvs}`, "") : (carta.preacher_church_name || carta.church_origin || "-");
+            
             return (
               <div key={`card-${carta.id}`} className={`rounded-2xl border p-4 ${tone} ${pulse}`}>
                 <div className="grid grid-cols-2 gap-2 text-sm">
@@ -547,7 +605,7 @@ export function CartasTab({
                   <span className="font-semibold text-slate-500">Nome</span>
                   <span className="break-words">{carta.preacher_name}</span>
                   <span className="font-semibold text-slate-500">Igreja</span>
-                  <span className="break-words">{carta.preacher_church_name || "-"}</span>
+                  <span className="break-words">{igrejaDisplay}</span>
                   <span className="font-semibold text-slate-500">Dia da pregação</span>
                   <span className="break-words">{formatDate(carta.preach_date)}</span>
                   <span className="font-semibold text-slate-500">Igreja origem</span>

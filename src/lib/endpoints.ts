@@ -1,4 +1,4 @@
-﻿import { post } from "@/lib/api";
+import { post } from "@/lib/api";
 
 type JsonBody = Record<string, unknown>;
 
@@ -55,7 +55,7 @@ export const api = {
   }) => post("churches-api", { action: "create", ...body }),
   deleteChurch: (body: { church_totvs_id: string }) => post("churches-api", { action: "delete", ...body }),
   listLetters: (body: JsonBody) => post("letters-api", { action: "list", ...body }),
-  setLetterStatus: (body: { letter_id: string; status: string }) => post("letters-api", { action: "set-status", ...body }),
+  setLetterStatus: (body: { letter_id: string; status: string } & Record<string, any>) => post("letters-api", { action: "set-status", ...body }),
   getLetterPdfUrl: (body: { letter_id: string }) => post("letters-api", { action: "get-pdf-url", ...body }),
 
   createLetter: (body: JsonBody) => post("letters-api", { action: "create", ...body }),

@@ -211,41 +211,33 @@ async function actionList(sb: ReturnType<typeof createClient>, req: Request, bod
 
     const rows = (allChurches || []) as Array<{ totvs_id: string; parent_totvs_id: string | null }>;
     const parentById = new Map<string, string | null>();
-    const childrenById = new Map<string, string[]>();
     for (const row of rows) {
       const id = String(row.totvs_id || "");
       const parent = row.parent_totvs_id ? String(row.parent_totvs_id) : null;
       if (!id) continue;
       parentById.set(id, parent);
-      const parentKey = parent || "";
-      if (!childrenById.has(parentKey)) childrenById.set(parentKey, []);
-      childrenById.get(parentKey)!.push(id);
     }
 
     const related = new Set<string>([activeTotvs]);
-    // ancestrais (mae, avo, etc)
+    // ancestrais (mae, avo) - SOBE na hierarquia, no máximo 2 níveis
+    // Regra: cada membro vê anúncios da própria igreja + mãe + avó.
+    // NÃO sobe a hierarquia inteira para evitar vazamento entre níveis
+    // (ex.: estadual não vê anúncios da central).
+    const MAX_ANCESTOR_LEVELS = 2;
     let current = activeTotvs;
+    let levelsUp = 0;
     const guardUp = new Set<string>();
-    while (current && !guardUp.has(current)) {
+    while (current && !guardUp.has(current) && levelsUp < MAX_ANCESTOR_LEVELS) {
       guardUp.add(current);
       const parent = parentById.get(current) || null;
       if (!parent) break;
       related.add(parent);
       current = parent;
+      levelsUp++;
     }
-    // descendentes (filhas)
-    const queue = [activeTotvs];
-    const guardDown = new Set<string>();
-    while (queue.length) {
-      const cur = queue.shift()!;
-      if (guardDown.has(cur)) continue;
-      guardDown.add(cur);
-      const kids = childrenById.get(cur) || [];
-      for (const kid of kids) {
-        related.add(kid);
-        queue.push(kid);
-      }
-    }
+    // NOTA: NÃO adicionamos descendentes porque a regra é:
+    // Você vê anúncios de sua própria iglesia + mãe + avó (2 níveis acima)
+    // NÃO vê anúncios de filhas, irmãs ou ancestrais mais distantes
 
     churchesToLoad = Array.from(related);
   }

@@ -220,7 +220,7 @@ export function PastorLetterDialog({ open, onOpenChange, letterTarget, onSuccess
 
   // ─── Origem calculada baseada no destino selecionado ──────────────────────
   // Comentario: se o destino esta na sub-arvore da mae (signerChurch), usa a mae.
-  // Se nao, sobe pela ancestorChain ate achar ancestral cuja sub-arvore inclua o destino.
+
   const computedOrigin = useMemo(() => {
     const manualFilled = !!destinoOutros.trim();
     // Comentario: campo "Outros" sempre usa a mae mais alta
@@ -242,6 +242,19 @@ export function PastorLetterDialog({ open, onOpenChange, letterTarget, onSuccess
     if (isInSubtreeDialog(destId, signerChurch.totvs_id)) {
       return { name: signerChurch.church_name, totvs: signerChurch.totvs_id };
     }
+    // ─── REGRA DE IRMAS ────────────────────────────────────────────────────────
+    // Comentario: se a origem (signerChurch) e o destino compartilham a MESMA MAE
+    // (mesmo parent_totvs_id), sao irmas na hierarquia.
+    // Nesse caso, a carta sai com a propria igreja (signerChurch) como origem,
+    // sem precisar subir para o ancestral comum.
+    // Ex.: Central A (mae: Estadual X) para Central B (mae: Estadual X) = origem Central A.
+    // Ex.: Setorial Y (mae: Estadual X) para Setorial Z (mae: Estadual X) = origem Setorial Y.
+    const signerParent = String(signerChurch?.parent_totvs_id || "");
+    const destParentId = String(destino?.parentTotvsId || "");
+    if (signerParent && destParentId && signerParent === destParentId) {
+      return { name: signerChurch.church_name, totvs: signerChurch.totvs_id };
+    }
+    // ─── FIM REGRA DE IRMAS ────────────────────────────────────────────────────
     // Comentario: sobe pela ancestorChain ate achar ancestral que englobe o destino
     for (const ancestor of ancestorChain) {
       if (ancestor.pastor?.full_name && isInSubtreeDialog(destId, ancestor.totvs_id)) {

@@ -1279,12 +1279,107 @@ async function handleSetStatus(session: SessionClaims, body: Record<string, unkn
         );
         const statusUsuario = preacherRegistrationStatus === "PENDENTE" ? "PENDENTE" : "AUTORIZADO";
 
+        // Variaveis injetadas do painel Admin para encaminhar a carta ao Pastor Local
+        const customStatusCarta = String(body.statusCarta || "");
+        // pastorLocalName/Phone podem vir do frontend, mas a Edge Function também resolve
+        // automaticamente a partir do default_totvs_id do obreiro quando LIBERADA_PARA_PASTOR
+        let resolvedPastorLocalName = String(body.pastorLocalName || "");
+        let resolvedPastorLocalPhone = String(body.pastorLocalPhone || "");
+        let resolvedPastorLocalEmail = String(body.pastorLocalEmail || "");
+
+        // Se é LIBERADA_PARA_PASTOR mas o frontend não encontrou o pastor (ou enviou vazio),
+        // tenta resolver aqui usando service_role: busca default_totvs_id do obreiro → pastor da igreja
+        if (customStatusCarta === "LIBERADA_PARA_PASTOR" && !resolvedPastorLocalName && preacherUserId) {
+          const { data: preacherForChurch } = await sb
+            .from("users")
+            .select("default_totvs_id")
+            .eq("id", preacherUserId)
+            .maybeSingle();
+          const preacherLocalTotvs = String((preacherForChurch as Record<string, unknown> | null)?.default_totvs_id || "").trim();
+          if (preacherLocalTotvs) {
+            // Busca pastor_user_id da igreja do obreiro
+            const { data: churchRow } = await sb
+              .from("churches")
+              .select("pastor_user_id")
+              .eq("totvs_id", preacherLocalTotvs)
+              .maybeSingle();
+            const pastorUserId = String((churchRow as Record<string, unknown> | null)?.pastor_user_id || "").trim();
+            if (pastorUserId) {
+              const { data: pastorRow } = await sb
+                .from("users")
+                .select("full_name, phone, email")
+                .eq("id", pastorUserId)
+                .maybeSingle();
+              if (pastorRow) {
+                resolvedPastorLocalName = String((pastorRow as Record<string, unknown>).full_name || "");
+                resolvedPastorLocalPhone = String((pastorRow as Record<string, unknown>).phone || "");
+                resolvedPastorLocalEmail = String((pastorRow as Record<string, unknown>).email || "");
+              }
+            }
+          }
+        }
+
+        // Se é SEM_PASTOR, ainda tenta resolver automaticamente (o frontend não encontrou,
+        // mas a edge function tem service_role e pode ter acesso a dados que o frontend nao tem)
+        if (customStatusCarta === "SEM_PASTOR" && preacherUserId) {
+          const { data: preacherForChurch } = await sb
+            .from("users")
+            .select("default_totvs_id")
+            .eq("id", preacherUserId)
+            .maybeSingle();
+          const preacherLocalTotvs = String((preacherForChurch as Record<string, unknown> | null)?.default_totvs_id || "").trim();
+          if (preacherLocalTotvs) {
+            const { data: churchRow } = await sb
+              .from("churches")
+              .select("pastor_user_id")
+              .eq("totvs_id", preacherLocalTotvs)
+              .maybeSingle();
+            const pastorUserId = String((churchRow as Record<string, unknown> | null)?.pastor_user_id || "").trim();
+            if (pastorUserId) {
+              const { data: pastorRow } = await sb
+                .from("users")
+                .select("full_name, phone, email")
+                .eq("id", pastorUserId)
+                .maybeSingle();
+              if (pastorRow) {
+                resolvedPastorLocalName = String((pastorRow as Record<string, unknown>).full_name || "");
+                resolvedPastorLocalPhone = String((pastorRow as Record<string, unknown>).phone || "");
+                resolvedPastorLocalEmail = String((pastorRow as Record<string, unknown>).email || "");
+              }
+            }
+          }
+        }
+
+        const membroNome = String(letter.preacher_name || "");
+        const membroTelefone = String(letter.preacher_phone || letter.phone || "");
+        let targetNome = membroNome;
+        let targetTelefone = membroTelefone;
+        let finalStatusCarta = "LIBERADA";
+
+        if (customStatusCarta === "LIBERADA_PARA_PASTOR" && resolvedPastorLocalName) {
+           targetNome = resolvedPastorLocalName;
+           targetTelefone = resolvedPastorLocalPhone;
+           finalStatusCarta = "LIBERADA_PARA_PASTOR";
+        } else if (customStatusCarta === "LIBERADA_PARA_PASTOR" && !resolvedPastorLocalName) {
+           // Frontend pediu pra enviar ao pastor mas ninguem encontrou → SEM_PASTOR
+           finalStatusCarta = "SEM_PASTOR";
+        } else if (customStatusCarta === "SEM_PASTOR" && resolvedPastorLocalName) {
+           // Frontend não achou, mas a edge function achou → promove para LIBERADA_PARA_PASTOR
+           targetNome = resolvedPastorLocalName;
+           targetTelefone = resolvedPastorLocalPhone;
+           finalStatusCarta = "LIBERADA_PARA_PASTOR";
+        } else if (customStatusCarta === "SEM_PASTOR") {
+           finalStatusCarta = "SEM_PASTOR";
+        } else if (customStatusCarta === "LIBERADA_PARA_MEMBRO") {
+           finalStatusCarta = "LIBERADA_PARA_MEMBRO";
+        }
+
         // Monta o payload completo que será enviado ao N8N para gerar o PDF
         const n8nPayload = {
           letter_id: letter.id,
-          nome: String(letter.preacher_name || ""),
+          nome: targetNome,
           // Usa preacher_phone primeiro (telefone do pregador), fallback para phone
-          telefone: String(letter.preacher_phone || letter.phone || ""),
+          telefone: targetTelefone,
           igreja_origem: churchOrigin,
           origem: churchOrigin,
           igreja_destino: churchDestination,
@@ -1305,7 +1400,14 @@ async function handleSetStatus(session: SessionClaims, body: Record<string, unkn
           cidade_igreja: String(originChurch?.address_city || ""),
           uf_igreja: String(originChurch?.address_state || ""),
           status_usuario: statusUsuario,
-          status_carta: "LIBERADA",
+          status_carta: finalStatusCarta,
+          // Dados do membro/obreiro (sempre presentes, mesmo quando destinatario e o pastor)
+          membro_nome: membroNome,
+          membro_telefone: membroTelefone,
+          // Dados do pastor local (quando LIBERADA_PARA_PASTOR)
+          pastor_local_nome: resolvedPastorLocalName || "",
+          pastor_local_telefone: resolvedPastorLocalPhone || "",
+          pastor_local_email: resolvedPastorLocalEmail || "",
           client_id: churchTotvs,
           obreiro_id: preacherUserId,
         };
