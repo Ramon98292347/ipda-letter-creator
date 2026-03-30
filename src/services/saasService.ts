@@ -2383,6 +2383,7 @@ export async function publicRegisterMember(payload: {
   address_state?: string | null;
   password: string;
   totvs_id: string;
+  lgpd_consent_at?: string | null;
 }) {
   const cpf = normalizeCpf(payload.cpf);
   if (!isValidCpf(cpf)) throw new Error("cpf-invalid");
@@ -2415,6 +2416,7 @@ export async function publicRegisterMember(payload: {
     address_state: payload.address_state || null,
     password: payload.password,
     totvs_id: payload.totvs_id.trim(),
+    lgpd_consent_at: payload.lgpd_consent_at || null,
   });
 }
 

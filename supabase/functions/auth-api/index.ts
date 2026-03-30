@@ -756,7 +756,9 @@ async function handlePublicRegister(body: Record<string, unknown>) {
   const addressNeighborhood = String(body.address_neighborhood || "").trim() || null;
   const addressCity = String(body.address_city || "").trim() || null;
   const addressState = String(body.address_state || "").trim().toUpperCase().slice(0, 2) || null;
+  const lgpdConsentAt = String(body.lgpd_consent_at || "").trim() || null;
 
+  if (!lgpdConsentAt) return json({ ok: false, error: "lgpd_consent_required", detail: "Voce precisa concordar com a Politica de Privacidade." }, 400);
   if (!isValidCpf(cpf)) return json({ ok: false, error: "invalid_cpf" }, 400);
   if (!fullName) return json({ ok: false, error: "missing_full_name" }, 400);
   if (!ministerRole) return json({ ok: false, error: "missing_minister_role" }, 400);
@@ -841,6 +843,7 @@ async function handlePublicRegister(body: Record<string, unknown>) {
       password_hash: passwordHash,
       default_totvs_id: totvsId,
       totvs_access: totvsAccess,
+      lgpd_consent_at: lgpdConsentAt,
       // Comentario: cadastro rapido nasce inativo — so ativa apos o pastor liberar
       is_active: false,
     })

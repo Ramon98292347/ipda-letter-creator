@@ -29,6 +29,7 @@ export const api = {
     address_state?: string | null;
     password: string;
     totvs_id: string;
+    lgpd_consent_at?: string | null;
   }) => post("auth-api", { action: "public-register", ...body }, { skipAuth: true }),
   getMyRegistrationStatus: () => post("auth-api", { action: "get-registration-status" }),
 

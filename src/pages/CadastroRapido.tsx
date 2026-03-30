@@ -67,6 +67,7 @@ export default function CadastroRapido() {
   const [baptismDate, setBaptismDate] = useState("");
   const [ordinationDate, setOrdinationDate] = useState("");
   const [senha, setSenha] = useState("");
+  const [lgpdConsent, setLgpdConsent] = useState(false);
   const [confirmarSenha, setConfirmarSenha] = useState("");
   const [showSenha, setShowSenha] = useState(false);
   const [showConfirmarSenha, setShowConfirmarSenha] = useState(false);
@@ -278,6 +279,10 @@ export default function CadastroRapido() {
       toast.error("A foto 3x4 é obrigatória. Tire uma foto ou envie da galeria.");
       return;
     }
+    if (!lgpdConsent) {
+      toast.error("Você precisa concordar com a Política de Privacidade para continuar.");
+      return;
+    }
 
     setLoading(true);
     try {
@@ -309,6 +314,7 @@ export default function CadastroRapido() {
         address_state: addressState,
         password: senha,
         totvs_id: totvs,
+        lgpd_consent_at: new Date().toISOString(),
       });
       toast.success("Cadastro enviado. Aguarde liberação da secretaria/pastor.");
       nav("/");
@@ -634,7 +640,20 @@ export default function CadastroRapido() {
               </div>
             </div>
 
-            <Button className="w-full" onClick={submit} disabled={loading}>
+            <div className="flex items-start gap-2">
+              <input
+                type="checkbox"
+                id="lgpd-consent"
+                checked={lgpdConsent}
+                onChange={(e) => setLgpdConsent(e.target.checked)}
+                className="mt-1 h-4 w-4 rounded border-slate-300 accent-blue-600"
+              />
+              <label htmlFor="lgpd-consent" className="text-xs text-slate-600 leading-snug">
+                Li e concordo com a <strong>Política de Privacidade</strong> e autorizo o tratamento dos meus dados pessoais conforme a LGPD (Lei 13.709/2018).
+              </label>
+            </div>
+
+            <Button className="w-full" onClick={submit} disabled={loading || !lgpdConsent}>
               {loading ? "Enviando..." : "Enviar cadastro"}
             </Button>
           </CardContent>
