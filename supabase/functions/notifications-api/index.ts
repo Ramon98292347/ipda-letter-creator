@@ -13,6 +13,7 @@
  */
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import webpush from "https://esm.sh/web-push@3.6.7";
 import { corsHeaders, json } from "../_shared/cors.ts";
 import { verifySessionJWT } from "../_shared/jwt.ts";
 
@@ -178,106 +179,6 @@ async function actionSubscribePush(
   return json({ ok: true });
 }
 
-function base64UrlToUint8Array(base64: string): Uint8Array {
-  const padding = "=".repeat((4 - (base64.length % 4)) % 4);
-  const b64 = (base64 + padding).replace(/-/g, "+").replace(/_/g, "/");
-  const raw = atob(b64);
-  return Uint8Array.from([...raw].map((char) => char.charCodeAt(0)));
-}
-
-async function buildVapidAuthHeader(endpoint: string, vapidPublic: string, vapidPrivate: string, subject: string): Promise<string> {
-  const url = new URL(endpoint);
-  const audience = `${url.protocol}//${url.host}`;
-  const exp = Math.floor(Date.now() / 1000) + 12 * 3600;
-
-  const header = btoa(JSON.stringify({ typ: "JWT", alg: "ES256" })).replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
-  const payload = btoa(JSON.stringify({ aud: audience, exp, sub: subject })).replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
-  const unsigned = `${header}.${payload}`;
-
-  const privateKeyBytes = base64UrlToUint8Array(vapidPrivate);
-  const key = await crypto.subtle.importKey(
-    "pkcs8",
-    privateKeyBytes,
-    { name: "ECDSA", namedCurve: "P-256" },
-    false,
-    ["sign"],
-  );
-
-  const signatureBuffer = await crypto.subtle.sign(
-    { name: "ECDSA", hash: "SHA-256" },
-    key,
-    new TextEncoder().encode(unsigned),
-  );
-
-  const signature = btoa(String.fromCharCode(...new Uint8Array(signatureBuffer)))
-    .replace(/=/g, "")
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_");
-
-  return `vapid t=${unsigned}.${signature},k=${vapidPublic}`;
-}
-
-function concat(...arrays: Uint8Array[]): Uint8Array {
-  const total = arrays.reduce((acc, arr) => acc + arr.length, 0);
-  const result = new Uint8Array(total);
-  let offset = 0;
-  for (const arr of arrays) {
-    result.set(arr, offset);
-    offset += arr.length;
-  }
-  return result;
-}
-
-function buildInfo(type: string, context: Uint8Array): Uint8Array {
-  const encoder = new TextEncoder();
-  return concat(encoder.encode(`Content-Encoding: ${type}\0`), context);
-}
-
-async function hkdf(ikm: Uint8Array, salt: Uint8Array, info: Uint8Array, length: number): Promise<Uint8Array> {
-  const key = await crypto.subtle.importKey("raw", salt, { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
-  const prk = new Uint8Array(await crypto.subtle.sign("HMAC", key, ikm));
-  const prkKey = await crypto.subtle.importKey("raw", prk, { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
-  const infoWithCounter = concat(info, new Uint8Array([1]));
-  const result = new Uint8Array(await crypto.subtle.sign("HMAC", prkKey, infoWithCounter));
-  return result.slice(0, length);
-}
-
-async function encryptPayload(payloadStr: string, p256dh: string, auth: string): Promise<{ ciphertext: Uint8Array; salt: Uint8Array; serverPublicKey: Uint8Array }> {
-  const encoder = new TextEncoder();
-  const receiverPublicKey = base64UrlToUint8Array(p256dh);
-  const receiverAuth = base64UrlToUint8Array(auth);
-
-  const serverKeyPair = await crypto.subtle.generateKey(
-    { name: "ECDH", namedCurve: "P-256" },
-    true,
-    ["deriveBits"],
-  );
-
-  const serverPublicKeyRaw = new Uint8Array(await crypto.subtle.exportKey("raw", serverKeyPair.publicKey));
-  const receiverKey = await crypto.subtle.importKey(
-    "raw",
-    receiverPublicKey,
-    { name: "ECDH", namedCurve: "P-256" },
-    false,
-    [],
-  );
-
-  const sharedSecret = new Uint8Array(
-    await crypto.subtle.deriveBits({ name: "ECDH", public: receiverKey }, serverKeyPair.privateKey, 256),
-  );
-
-  const salt = crypto.getRandomValues(new Uint8Array(16));
-  const ikm = await hkdf(sharedSecret, receiverAuth, concat(encoder.encode("WebPush: info\0"), receiverPublicKey, serverPublicKeyRaw), 32);
-  const cek = await hkdf(ikm, salt, buildInfo("aesgcm128", new Uint8Array(0)), 16);
-  const nonce = await hkdf(ikm, salt, buildInfo("nonce", new Uint8Array(0)), 12);
-
-  const cekKey = await crypto.subtle.importKey("raw", cek, { name: "AES-GCM" }, false, ["encrypt"]);
-  const paddedPayload = concat(new Uint8Array(2), encoder.encode(payloadStr));
-  const ciphertext = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-GCM", iv: nonce }, cekKey, paddedPayload));
-
-  return { ciphertext, salt, serverPublicKey: serverPublicKeyRaw };
-}
-
 async function sendPush(
   sub: { endpoint: string; p256dh: string; auth: string },
   payload: string,
@@ -286,27 +187,22 @@ async function sendPush(
   vapidSubject: string,
 ): Promise<boolean> {
   try {
-    const { ciphertext, salt, serverPublicKey } = await encryptPayload(payload, sub.p256dh, sub.auth);
-    const vapidAuth = await buildVapidAuthHeader(sub.endpoint, vapidPublic, vapidPrivate, vapidSubject);
-    const body = concat(salt, new Uint8Array([0, 0, 16, 0]), new Uint8Array([serverPublicKey.length]), serverPublicKey, ciphertext);
-
-    const res = await fetch(sub.endpoint, {
-      method: "POST",
-      headers: {
-        "Authorization": vapidAuth,
-        "Content-Type": "application/octet-stream",
-        "Content-Encoding": "aesgcm",
-        "Encryption": `salt=${btoa(String.fromCharCode(...salt)).replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_")}`,
-        "Crypto-Key": `dh=${btoa(String.fromCharCode(...serverPublicKey)).replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_")}`,
-        "TTL": "86400",
-      },
-      body,
-    });
-
-    if (res.status === 410 || res.status === 404) return false;
-    return res.ok;
-  } catch {
-    return false;
+    webpush.setVapidDetails(vapidSubject, vapidPublic, vapidPrivate);
+    await webpush.sendNotification({
+      endpoint: sub.endpoint,
+      keys: { p256dh: sub.p256dh, auth: sub.auth },
+    }, payload);
+    return true;
+  } catch (err: unknown) {
+    const errorObj = err as Record<string, unknown>;
+    // Se o serviço push retornar 404/410 a inscrição não é mais válida
+    if (errorObj && (errorObj.statusCode === 404 || errorObj.statusCode === 410)) {
+       return false;
+    }
+    // Erros de timeout ou criptografia ("failed to encrypt") NÃO devem excluir o endpoint!
+    // Retornamos true para considerar como enviada e evitar o bloqueio acidental do celular.
+    console.error("[web-push] Send error, but preserving subscription:", err);
+    return true;
   }
 }
 
@@ -477,21 +373,44 @@ async function actionBirthday(sb: ReturnType<typeof createClient>, req: Request)
       notifications++;
     }
 
-    // Comentario: envia push notification para os pastores/secretarios
-    if (leaderIds.length > 0) {
+    // Comentario: insere notificação de Feliz Aniversário para os PRÓPRIOS aniversariantes
+    for (const b of birthdays) {
+      await sb.from("notifications").insert({
+        church_totvs_id: churchTotvsId,
+        user_id: b.id,
+        type: "birthday",
+        title: "Feliz Aniversário! 🎉",
+        message: "O SGE IPDA e a secretaria desejam a você muitas bênçãos pelo seu dia!",
+        read_at: null,
+      });
+      notifications++;
+    }
+
+    // Lista abrangente de todos que receberão Push (líderes + aniversariantes)
+    const pushRecipients = [...leaderIds, ...birthdays.map(b => b.id)];
+
+    // Comentario: envia push notification para os pastores/secretarios e também aniversariantes
+    if (pushRecipients.length > 0) {
       const vapidPublic = String(Deno.env.get("VAPID_PUBLIC_KEY") || "").trim();
       const vapidPrivate = String(Deno.env.get("VAPID_PRIVATE_KEY") || "").trim();
       const vapidSubject = String(Deno.env.get("VAPID_SUBJECT") || "mailto:admin@ipda.org.br").trim();
       if (vapidPublic && vapidPrivate) {
         const { data: subs } = await sb
           .from("push_subscriptions")
-          .select("endpoint,p256dh,auth")
-          .in("user_id", leaderIds);
+          .select("endpoint,p256dh,auth,user_id")
+          .in("user_id", pushRecipients);
 
-        const payload = JSON.stringify({ title, body: message, url: "/pastor/membros" });
         for (const raw of (subs || [])) {
-          const sub = raw as { endpoint: string; p256dh: string; auth: string };
+          const sub = raw as { endpoint: string; p256dh: string; auth: string; user_id: string };
           if (sub.endpoint && sub.p256dh && sub.auth) {
+            // Se for envio pro pastor/secretario, abre aba "membros"
+            // Se for envio pro proprio aniversariante, abre aba inicial ou avisos
+            const isSelf = birthdays.some(b => b.id === sub.user_id);
+            const personalTitle = isSelf ? "Feliz Aniversário! 🎉" : title;
+            const personalBody = isSelf ? "O SGE IPDA te deseja muitas bênçãos. Parabéns!" : message;
+            const personalUrl = isSelf ? "/" : "/pastor/membros";
+            
+            const payload = JSON.stringify({ title: personalTitle, body: personalBody, url: personalUrl });
             await sendPush(sub, payload, vapidPublic, vapidPrivate, vapidSubject);
           }
         }

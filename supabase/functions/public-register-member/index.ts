@@ -1,4 +1,4 @@
-﻿/**
+/**
  * public-register-member
  * ======================
  * O que faz: Permite que um novo membro faça seu próprio pré-cadastro no sistema sem precisar
@@ -186,6 +186,66 @@ Deno.serve(async (req) => {
       .single();
 
     if (insertError) return json({ ok: false, error: "insert_user_failed", details: insertError.message }, 500);
+
+    // [NOVO] Notifica o pastor e o próprio membro sobre o novo cadastro
+    try {
+      // 1. Descobrir os pastores/secretários da respectiva igreja
+      const { data: leaders } = await sb
+        .from("users")
+        .select("id")
+        .eq("default_totvs_id", totvsId)
+        .in("role", ["pastor", "secretario"])
+        .eq("is_active", true);
+
+      const leaderIds = (leaders || []).map(l => String((l as Record<string, unknown>).id || "")).filter(Boolean);
+
+      // 2. Criar notificação no DB para o próprio membro (para quando ele entrar a primeira vez)
+      await sb.from("notifications").insert({
+        user_id: inserted.id,
+        church_totvs_id: totvsId,
+        type: "new_member",
+        title: "Cadastro em Análise",
+        message: "Seu cadastro foi realizado com sucesso e está aguardando liberação da secretaria ou do pastor.",
+        read_at: null,
+      });
+
+      // 3. Criar notificação no DB para os líderes da igreja
+      const notifyPromises = leaderIds.map(leaderId => 
+        sb.from("notifications").insert({
+          user_id: leaderId,
+          church_totvs_id: totvsId,
+          type: "new_member",
+          title: "Novo Cadastro Aguardando Liberação",
+          message: `O usuário ${fullName} solicitou acesso ao sistema. Vá à aba de Membros Pendentes para analisar.`,
+          read_at: null,
+        })
+      );
+      await Promise.all(notifyPromises);
+
+      // 4. Disparar Push Notification imediato para o celular dos pastores chamando a notifications-api
+      if (leaderIds.length > 0) {
+        const internalKey = String(Deno.env.get("INTERNAL_KEY") || "");
+        const supabaseUrl = String(Deno.env.get("SUPABASE_URL") || "");
+        if (internalKey && supabaseUrl) {
+          await fetch(`${supabaseUrl}/functions/v1/notifications-api`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "x-internal-key": internalKey,
+            },
+            body: JSON.stringify({
+              action: "notify",
+              title: "SGE IPDA - Novo Cadastro",
+              body: `O usuário ${fullName} solicitou acesso. Libere o acesso no sistema agora!`,
+              url: "/pastor/membros?filter=pendentes",
+              user_ids: leaderIds,
+            }),
+          }).catch(err => console.error("Falha ao disparar webpush na registration:", err));
+        }
+      }
+    } catch (notifyErr) {
+      console.error("Falha silenciosa criar notificações de novo usuario:", notifyErr);
+    }
 
     return json({
       ok: true,
