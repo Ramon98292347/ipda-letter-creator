@@ -3,8 +3,8 @@ import { toast } from "sonner";
 
 export function PwaUpdater() {
   useEffect(() => {
-    // Apenas em prod e com suporte a SW
-    if (import.meta.env.PROD && "serviceWorker" in navigator) {
+    // Apenas com suporte a SW
+    if ("serviceWorker" in navigator) {
       navigator.serviceWorker.ready.then((reg) => {
         reg.addEventListener("updatefound", () => {
           const newWorker = reg.installing;

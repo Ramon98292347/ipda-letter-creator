@@ -46,7 +46,14 @@ export function usePushNotifications(userId?: string) {
     try {
       const perm = await Notification.requestPermission();
       setPermission(perm);
-      if (perm !== "granted") return;
+      if (perm !== "granted") {
+        if (typeof window !== "undefined" && (window as any).toast) {
+          (window as any).toast.error("Notificações bloqueadas! Libere no cadeado ao lado do site (barra de endereços).");
+        } else {
+          alert("Notificações bloqueadas! Libere no cadeado ao lado do site (barra de endereços).");
+        }
+        return;
+      }
 
       const reg = await navigator.serviceWorker.ready;
       let sub = await reg.pushManager.getSubscription();

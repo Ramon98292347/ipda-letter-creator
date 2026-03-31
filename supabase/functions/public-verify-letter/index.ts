@@ -83,6 +83,30 @@ Deno.serve(async (req) => {
     }, 200);
   }
 
+  // Verifica se a carta está Vencida
+  let isExpired = false;
+  const preachDateStr = String(letter.preach_date || "");
+  if (preachDateStr) {
+    const now = new Date();
+    // Ajuste de fuso horário para UTC-3 (Horário de Brasília)
+    const brTime = new Date(now.getTime() - 3 * 60 * 60 * 1000);
+    const todayStr = brTime.toISOString().split("T")[0]; // "YYYY-MM-DD"
+    const preachDay = preachDateStr.split("T")[0]; // "YYYY-MM-DD"
+
+    if (preachDay < todayStr) {
+      isExpired = true;
+    }
+  }
+
+  if (isExpired) {
+    return json({
+      success: true,
+      valid: false,
+      status: "VENCIDA",
+      message: "Esta carta não é válida, pois a data autorizada para pregação já passou.",
+    }, 200);
+  }
+
   // Carta ainda não foi liberada
   const isValid = status === "LIBERADA" || status === "AUTORIZADO";
 

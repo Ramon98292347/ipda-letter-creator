@@ -55,7 +55,8 @@ async function verifySessionJWT(req: Request): Promise<SessionClaims | null> {
     const key = new TextEncoder().encode(secret);
     const { payload } = await jwtVerify(token, key);
     return {
-      user_id: String(payload.user_id || ""),
+      // Comentario: o campo do user_id no JWT customizado e "sub"
+      user_id: String(payload.sub || ""),
       role: String(payload.role || "") as Role,
       active_totvs_id: String(payload.active_totvs_id || ""),
     };
@@ -383,7 +384,8 @@ async function handleCreateMovement(session: SessionClaims, body: Record<string,
     unit_price,
     church_origin_totvs: type === "SAIDA" || type === "PERDA" ? church_totvs : null,
     church_destination_totvs: type === "ENTRADA" ? church_totvs : null,
-    responsible_user_id: session.user_id,
+    // Comentario: responsible_user_id pode ser null se o user_id nao for UUID valido
+    responsible_user_id: session.user_id || null,
     responsible_name: responsibleName,
     notes,
   }).select().single();
