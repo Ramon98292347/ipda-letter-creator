@@ -5,7 +5,13 @@ self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => cache.addAll(OFFLINE_URLS))
   );
-  self.skipWaiting();
+  // Removido: self.skipWaiting() automático. Agora a interface decide quando atualizar!
+});
+
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
 });
 
 self.addEventListener('activate', (event) => {
@@ -53,8 +59,8 @@ self.addEventListener('push', (event) => {
   const title = data.title || 'SGE IPDA';
   const options = {
     body: data.body || '',
-    icon: '/system-icon.svg',
-    badge: '/system-icon.svg',
+    icon: '/app-icon.png',
+    badge: '/app-icon.png',
     data: { url: data.url || '/' },
     vibrate: [200, 100, 200],
     requireInteraction: false,

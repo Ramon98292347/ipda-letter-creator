@@ -474,6 +474,9 @@ const router = createBrowserRouter(
   },
 );
 
+import { PwaUpdater } from "@/components/shared/PwaUpdater";
+import { PwaOnboarding } from "@/components/shared/PwaOnboarding";
+
 function AppBootstrap() {
   useEffect(() => {
     registerDefaultOfflineHandlers();
@@ -481,7 +484,13 @@ function AppBootstrap() {
     return () => stop();
   }, []);
 
-  return <RouterProvider router={router} />;
+  return (
+    <>
+      <RouterProvider router={router} />
+      <PwaUpdater />
+      <PwaOnboarding />
+    </>
+  );
 }
 
 const App = () => (
