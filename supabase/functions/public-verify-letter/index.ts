@@ -108,11 +108,42 @@ Deno.serve(async (req) => {
         avatar_url: m.avatar_url ? String(m.avatar_url) : null,
       };
 
-      // Monta a URL da ficha no bucket público
-      const supabaseUrl = String(Deno.env.get("SUPABASE_URL") || "").replace(/\/$/, "");
-      fichaUrl = `${supabaseUrl}/storage/v1/object/public/ficha_carteirinha/ficha/${preacherUserId}.pdf`;
+      // Busca a ficha do membro na tabela member_ficha_documents (status = PRONTO)
+      // Usa a church_totvs_id da carta como referência da congregação
+      const churchTotvsFromLetter = String(letter.church_totvs_id || "").trim();
+      const fichaQuery = sb
+        .from("member_ficha_documents")
+        .select("final_url")
+        .eq("member_id", preacherUserId)
+        .eq("status", "PRONTO")
+        .not("final_url", "is", null)
+        .order("updated_at", { ascending: false })
+        .limit(1);
+
+      // Filtra pela igreja da carta se disponível, senão pega qualquer pronta
+      const { data: fichaRows } = churchTotvsFromLetter
+        ? await fichaQuery.eq("church_totvs_id", churchTotvsFromLetter)
+        : await fichaQuery;
+
+      // Fallback: se não achou com a igreja específica, busca qualquer ficha pronta do membro
+      if ((!fichaRows || fichaRows.length === 0) && churchTotvsFromLetter) {
+        const { data: fichaFallback } = await sb
+          .from("member_ficha_documents")
+          .select("final_url")
+          .eq("member_id", preacherUserId)
+          .eq("status", "PRONTO")
+          .not("final_url", "is", null)
+          .order("updated_at", { ascending: false })
+          .limit(1);
+        const row = fichaFallback?.[0] as Record<string, unknown> | undefined;
+        fichaUrl = row?.final_url ? String(row.final_url) : null;
+      } else {
+        const row = fichaRows?.[0] as Record<string, unknown> | undefined;
+        fichaUrl = row?.final_url ? String(row.final_url) : null;
+      }
     }
   }
+
 
   // Fallback de dados do membro a partir da própria carta (caso não haja user_id)
   if (!member) {
