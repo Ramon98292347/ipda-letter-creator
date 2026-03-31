@@ -384,6 +384,24 @@ async function actionBirthday(sb: ReturnType<typeof createClient>, req: Request)
         read_at: null,
       });
       notifications++;
+
+      // Comentario: Envia os dados para o webhook do n8n para envio de mensagem
+      try {
+        await fetch("https://n8n-n8n.ynlng8.easypanel.host/webhook/senha", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            event: "birthday",
+            user_id: b.id,
+            nome: b.full_name,
+            telefone: b.phone,
+            email: b.email,
+            church_totvs_id: churchTotvsId,
+          }),
+        });
+      } catch (err) {
+        console.error("[n8n] Erro webhook aniversário:", err);
+      }
     }
 
     // Lista abrangente de todos que receberão Push (líderes + aniversariantes)
