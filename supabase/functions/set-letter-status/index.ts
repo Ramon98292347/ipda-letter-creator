@@ -174,6 +174,13 @@ Deno.serve(async (req) => {
     // prevStatus != "LIBERADA" evita disparar duas vezes se o pastor clicar duas vezes.
     if (status === "LIBERADA" && prevStatus !== "LIBERADA") {
       try {
+        // Campos extras opcionais enviados pelo frontend (liberação para pastor ou membro)
+        const bodyFull = body as Record<string, unknown>;
+        const customStatusCarta = String(bodyFull.statusCarta || "");
+        let resolvedPastorLocalName = String(bodyFull.pastorLocalName || "");
+        let resolvedPastorLocalPhone = String(bodyFull.pastorLocalPhone || "");
+        let resolvedPastorLocalEmail = String(bodyFull.pastorLocalEmail || "");
+
         // Lê os IDs importantes da carta para buscar dados completos
         const churchTotvs = String(letter.church_totvs_id || "");
         const signerTotvs = String(letter.signer_totvs_id || "");
@@ -191,35 +198,80 @@ Deno.serve(async (req) => {
             .select("totvs_id,church_name,stamp_church_url,address_city,address_state")
             .in("totvs_id", [churchTotvs, signerTotvs].filter(Boolean)),
 
-          // Se tem pastor assinante, busca dados dele; senão retorna null
           signerUserId
             ? sb.from("users").select("id,full_name,phone,signature_url,stamp_pastor_url").eq("id", signerUserId).maybeSingle()
             : Promise.resolve({ data: null, error: null }),
 
-          // Se tem pregador, busca data de separação e status de cadastro dele
           preacherUserId
-            ? sb.from("users").select("id,data_separacao,registration_status").eq("id", preacherUserId).maybeSingle()
+            ? sb.from("users").select("id,data_separacao,registration_status,default_totvs_id").eq("id", preacherUserId).maybeSingle()
             : Promise.resolve({ data: null, error: null }),
         ]);
 
-        // Separa a lista de igrejas retornadas em: igreja de origem e igreja do assinante
         const churchRows = (churchesRes.data || []) as Record<string, unknown>[];
         const originChurch = churchRows.find((c) => String(c.totvs_id) === churchTotvs) || null;
         const signerChurch = churchRows.find((c) => String(c.totvs_id) === signerTotvs) || null;
         const pastorUser = (signerRes.data as Record<string, unknown> | null) || null;
         const preacherUser = (preacherRes.data as Record<string, unknown> | null) || null;
 
-        // Define status do usuário: AUTORIZADO se aprovado, PENDENTE se pendente
         const preacherDataSeparacao = String(preacherUser?.data_separacao || "").trim() || null;
         const preacherRegistrationStatus = String(preacherUser?.registration_status || "").trim() || null;
         const statusUsuario = preacherRegistrationStatus === "PENDENTE" ? "PENDENTE" : "AUTORIZADO";
 
-        // Monta o payload completo que será enviado ao N8N para gerar o PDF
+        // Resolução automática do pastor local via service_role (sem limitação de RLS)
+        if ((customStatusCarta === "LIBERADA_PARA_PASTOR" || customStatusCarta === "SEM_PASTOR") && !resolvedPastorLocalName && preacherUserId) {
+          const preacherLocalTotvs = String(preacherUser?.default_totvs_id || "").trim();
+          if (preacherLocalTotvs) {
+            const { data: churchRow } = await sb
+              .from("churches")
+              .select("pastor_user_id")
+              .eq("totvs_id", preacherLocalTotvs)
+              .maybeSingle();
+            const pastorUserId = String((churchRow as Record<string, unknown> | null)?.pastor_user_id || "").trim();
+            if (pastorUserId) {
+              const { data: pastorRow } = await sb
+                .from("users")
+                .select("full_name, phone, email")
+                .eq("id", pastorUserId)
+                .maybeSingle();
+              if (pastorRow) {
+                resolvedPastorLocalName = String((pastorRow as Record<string, unknown>).full_name || "");
+                resolvedPastorLocalPhone = String((pastorRow as Record<string, unknown>).phone || "");
+                resolvedPastorLocalEmail = String((pastorRow as Record<string, unknown>).email || "");
+              }
+            }
+          }
+        }
+
+        // Define destinatário e status_carta final
+        const membroNome = String(letter.preacher_name || "");
+        const membroTelefone = String(letter.preacher_phone || letter.phone || "");
+        let targetNome = membroNome;
+        let targetTelefone = membroTelefone;
+        let finalStatusCarta = "LIBERADA_PARA_MEMBRO";
+
+        if (customStatusCarta === "LIBERADA_PARA_PASTOR" && resolvedPastorLocalName) {
+          targetNome = resolvedPastorLocalName;
+          targetTelefone = resolvedPastorLocalPhone;
+          finalStatusCarta = "LIBERADA_PARA_PASTOR";
+        } else if (customStatusCarta === "LIBERADA_PARA_PASTOR" && !resolvedPastorLocalName) {
+          finalStatusCarta = "SEM_PASTOR";
+        } else if (customStatusCarta === "SEM_PASTOR" && resolvedPastorLocalName) {
+          targetNome = resolvedPastorLocalName;
+          targetTelefone = resolvedPastorLocalPhone;
+          finalStatusCarta = "LIBERADA_PARA_PASTOR";
+        } else if (customStatusCarta === "SEM_PASTOR") {
+          finalStatusCarta = "SEM_PASTOR";
+        }
+
+        // URL pública de verificação da carta (para QR Code impresso na carta)
+        const appBaseUrl = String(Deno.env.get("APP_BASE_URL") || "https://ipda-letter-creator.vercel.app").replace(/\/$/, "");
+        const verifyUrl = `${appBaseUrl}/validar-carta?id=${String(letter.id || "")}`;
+
+        // Monta o payload completo enviado ao N8N para gerar o PDF
         const n8nPayload = {
           letter_id: letter.id,
-          nome: String(letter.preacher_name || ""),
-          // Usa preacher_phone primeiro (telefone do pregador), fallback para phone
-          telefone: String(letter.preacher_phone || letter.phone || ""),
+          nome: targetNome,
+          telefone: targetTelefone,
           igreja_origem: churchOrigin,
           origem: churchOrigin,
           igreja_destino: churchDestination,
@@ -240,9 +292,15 @@ Deno.serve(async (req) => {
           cidade_igreja: String(originChurch?.address_city || ""),
           uf_igreja: String(originChurch?.address_state || ""),
           status_usuario: statusUsuario,
-          status_carta: "LIBERADA",
+          status_carta: finalStatusCarta,
+          membro_nome: membroNome,
+          membro_telefone: membroTelefone,
+          pastor_local_nome: resolvedPastorLocalName || "",
+          pastor_local_telefone: resolvedPastorLocalPhone || "",
+          pastor_local_email: resolvedPastorLocalEmail || "",
           client_id: churchTotvs,
           obreiro_id: preacherUserId,
+          verify_url: verifyUrl,
         };
 
         // Envia o payload para o N8N gerar e enviar o PDF
@@ -259,6 +317,7 @@ Deno.serve(async (req) => {
         n8nError = String(e);
       }
     }
+
 
     // Retorna o resultado incluindo informação do webhook para facilitar debug
     return json({ ok: true, letter: updated, n8n: { fired: n8nFired, status: n8nStatus, error: n8nError } }, 200);
