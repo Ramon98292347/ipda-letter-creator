@@ -68,6 +68,8 @@ const FinanceiroConfigPage = lazy(() => import("./pages/FinanceiroConfigPage"));
 const CamisasPublicPage = lazy(() => import("./pages/CamisasPublicPage"));
 const CamisasPedidoPage = lazy(() => import("./pages/CamisasPedidoPage"));
 const ValidarCartaPage = lazy(() => import("./pages/ValidarCartaPage"));
+// Comentario: pagina do modulo Deposito (controle de estoque)
+const DepositoPage = lazy(() => import("./pages/DepositoPage"));
 
 function RequireAuth({ children }: { children: JSX.Element }) {
   const { usuario, token } = useUser();
@@ -263,6 +265,17 @@ const router = createBrowserRouter(
           </RequireAnyRole>
         }
       />
+      {/* Comentario: rota Deposito para pastor e secretario */}
+      <Route
+        path="/pastor/deposito"
+        element={
+          <RequireAnyRole roles={["pastor", "secretario"]}>
+            <Suspense fallback={pageFallback}>
+              <DepositoPage />
+            </Suspense>
+          </RequireAnyRole>
+        }
+      />
       <Route
         path="/secretario"
         element={
@@ -367,6 +380,17 @@ const router = createBrowserRouter(
           <RequireRole role="admin">
             <Suspense fallback={pageFallback}>
               <AdminIgrejasPage />
+            </Suspense>
+          </RequireRole>
+        }
+      />
+      {/* Comentario: rota Deposito para admin */}
+      <Route
+        path="/admin/deposito"
+        element={
+          <RequireRole role="admin">
+            <Suspense fallback={pageFallback}>
+              <DepositoPage />
             </Suspense>
           </RequireRole>
         }

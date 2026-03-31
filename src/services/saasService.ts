@@ -3529,3 +3529,125 @@ export async function createLetterByPastor(payload: LetterCreatePayload) {
     n8n: { ok: true, status: 200 },
   };
 }
+
+// ============================================================================
+// MODULO DEPOSITO — controle de estoque de materiais evangelisticos
+// ============================================================================
+
+// Comentario: tipos do modulo deposito
+export type DepositProduct = {
+  id: string;
+  code: string;
+  description: string;
+  group_name: string;
+  subgroup: string | null;
+  unit: string;
+  unit_price: number;
+  min_stock: number;
+  is_active: boolean;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type DepositStockItem = DepositProduct & {
+  total_quantity: number;
+  is_low_stock: boolean;
+  stock_entries: Array<{ id: string; church_totvs_id: string; quantity: number }>;
+};
+
+export type DepositMovement = {
+  id: string;
+  product_id: string;
+  type: "ENTRADA" | "SAIDA" | "TRANSFERENCIA" | "AJUSTE" | "PERDA";
+  quantity: number;
+  unit_price: number | null;
+  church_origin_totvs: string | null;
+  church_destination_totvs: string | null;
+  responsible_name: string | null;
+  notes: string | null;
+  created_at: string;
+  deposit_products?: { code: string; description: string; group_name: string };
+};
+
+export type DepositSummary = {
+  total_products: number;
+  total_stock: number;
+  low_stock_count: number;
+  entries_month: number;
+  exits_month: number;
+  transfers_month: number;
+  total_value: number;
+};
+
+// Comentario: lista todos os produtos cadastrados no deposito
+export async function depositListProducts(filters?: { search?: string; group_name?: string; is_active?: boolean }) {
+  const res = await api.depositListProducts(filters || {});
+  return (res as { products: DepositProduct[] }).products || [];
+}
+
+// Comentario: cria um novo produto no deposito
+export async function depositCreateProduct(payload: Partial<DepositProduct>) {
+  return await api.depositCreateProduct(payload as Record<string, unknown>);
+}
+
+// Comentario: atualiza um produto existente
+export async function depositUpdateProduct(payload: Partial<DepositProduct> & { id: string }) {
+  return await api.depositUpdateProduct(payload as Record<string, unknown>);
+}
+
+// Comentario: lista estoque consolidado com filtros
+export async function depositListStock(filters?: {
+  search?: string;
+  group_name?: string;
+  church_totvs_id?: string;
+  low_stock?: boolean;
+  is_active?: boolean;
+}) {
+  const res = await api.depositListStock(filters || {});
+  return (res as { stock: DepositStockItem[]; total: number });
+}
+
+// Comentario: retorna KPIs/resumo do deposito
+export async function depositGetSummary(): Promise<DepositSummary> {
+  const res = await api.depositGetSummary();
+  return (res as { summary: DepositSummary }).summary;
+}
+
+// Comentario: registra movimentacao (entrada, saida, ajuste, perda)
+export async function depositCreateMovement(payload: {
+  product_id: string;
+  type: string;
+  quantity: number;
+  unit_price?: number;
+  church_totvs_id?: string;
+  notes?: string;
+}) {
+  return await api.depositCreateMovement(payload as Record<string, unknown>);
+}
+
+// Comentario: transfere mercadoria entre igrejas
+export async function depositCreateTransfer(payload: {
+  product_id: string;
+  quantity: number;
+  church_origin_totvs: string;
+  church_destination_totvs: string;
+  notes?: string;
+}) {
+  return await api.depositCreateTransfer(payload as Record<string, unknown>);
+}
+
+// Comentario: lista historico de movimentacoes com paginacao e filtros
+export async function depositListMovements(filters?: {
+  type?: string;
+  product_id?: string;
+  date_start?: string;
+  date_end?: string;
+  church_origin_totvs?: string;
+  church_destination_totvs?: string;
+  page?: number;
+  page_size?: number;
+}) {
+  const res = await api.depositListMovements(filters || {});
+  return res as { movements: DepositMovement[]; total: number; page: number; page_size: number };
+}

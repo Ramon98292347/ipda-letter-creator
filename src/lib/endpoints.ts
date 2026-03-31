@@ -188,4 +188,14 @@ export const api = {
     post("member-docs-api", { action: "generate-print-batch", ...body }),
   listPrintBatchCarteirinhas: (body: { church_totvs_id: string }) =>
     post("member-docs-api", { action: "list-print-batches", ...body }),
+
+  // Comentario: endpoints do modulo Deposito — controle de estoque
+  depositListProducts: (body: Record<string, unknown>) => post("deposit-api", { action: "list-products", ...body }),
+  depositCreateProduct: (body: Record<string, unknown>) => post("deposit-api", { action: "create-product", ...body }),
+  depositUpdateProduct: (body: Record<string, unknown>) => post("deposit-api", { action: "update-product", ...body }),
+  depositListStock: (body: Record<string, unknown>) => post("deposit-api", { action: "list-stock", ...body }),
+  depositGetSummary: () => post("deposit-api", { action: "get-summary" }),
+  depositCreateMovement: (body: Record<string, unknown>) => post("deposit-api", { action: "create-movement", ...body }),
+  depositCreateTransfer: (body: Record<string, unknown>) => post("deposit-api", { action: "create-transfer", ...body }),
+  depositListMovements: (body: Record<string, unknown>) => post("deposit-api", { action: "list-movements", ...body }),
 };

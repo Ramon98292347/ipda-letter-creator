@@ -1,6 +1,6 @@
 import { useEffect, useState, type ComponentType, type ReactNode } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
-import { BarChart2, Building2, Bell, Calculator, Church, ClipboardList, DollarSign, Download, FileText, Loader2, LogOut, Megaphone, MoreHorizontal, Settings, TrendingDown, Users } from "lucide-react";
+import { BarChart2, Building2, Bell, Calculator, Church, ClipboardList, DollarSign, Download, FileText, Loader2, LogOut, Megaphone, MoreHorizontal, Package, Settings, TrendingDown, Users } from "lucide-react";
 import { useUser } from "@/context/UserContext";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -25,6 +25,7 @@ const pastorMenu: MenuItem[] = [
   { to: "/pastor/igrejas", label: "Igrejas", icon: Building2 },
   { to: "/carta", label: "Cartas", icon: FileText },
   { to: "/pastor/financeiro", label: "Financeiro", icon: DollarSign },
+  { to: "/pastor/deposito", label: "Depósito", icon: Package },
   { to: "/divulgacao", label: "Divulgacao", icon: Megaphone },
   { to: "/config", label: "Configuracoes", icon: Settings },
 ];
@@ -34,6 +35,7 @@ const adminMenu: MenuItem[] = [
   { to: "/admin/membros", label: "Membros", icon: Users },
   { to: "/admin/igrejas", label: "Igrejas", icon: Building2 },
   { to: "/carta", label: "Cartas", icon: FileText },
+  { to: "/admin/deposito", label: "Depósito", icon: Package },
   { to: "/divulgacao", label: "Divulgacao", icon: Megaphone },
   { to: "/config", label: "Configuracoes", icon: Settings },
 ];
