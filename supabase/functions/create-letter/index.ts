@@ -540,10 +540,17 @@ Deno.serve(async (req) => {
         ? "PENDENTE"
         : "AUTORIZADO";
 
+    // URL pública de verificação da carta (para QR Code impresso na carta)
+    const appBaseUrl = String(Deno.env.get("APP_BASE_URL") || "https://sistem-ipda.vercel.app").replace(/\/$/, "");
+    const verifyUrl = `${appBaseUrl}/validar-carta?id=${String(created.id || "")}`;
+
+    const membroNome = preacher_name;
+    const membroTelefone = preacher_phone ?? "";
+
     const n8nPayload = {
       letter_id: created.id,
-      nome: preacher_name,
-      telefone: preacher_phone ?? "",
+      nome: membroNome,
+      telefone: membroTelefone,
       igreja_origem: created.church_origin,
       origem: created.church_origin,
       igreja_destino: created.church_destination,
@@ -564,9 +571,16 @@ Deno.serve(async (req) => {
       cidade_igreja: originChurch?.address_city ?? "",
       uf_igreja: originChurch?.address_state ?? "",
       status_usuario: statusUsuario,
-      status_carta: created.status,
+      // Carta criada automaticamente sempre vai para o membro diretamente
+      status_carta: "LIBERADA_PARA_MEMBRO",
+      membro_nome: membroNome,
+      membro_telefone: membroTelefone,
+      pastor_local_nome: "",
+      pastor_local_telefone: "",
+      pastor_local_email: "",
       client_id: church_totvs_id,
       obreiro_id: preacher_user_id ?? "",
+      verify_url: verifyUrl,
     };
 
     let n8nOk = false;
