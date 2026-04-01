@@ -635,17 +635,20 @@ export default function DivulgacaoPage() {
           <TabsContent value="camisetas" className="space-y-3">
             <div className="flex items-center justify-between">
               <h3 className="text-xl font-bold text-slate-900">Gestão de Camisetas</h3>
-              <Button
-                className="bg-[#232b7a] text-white hover:bg-[#1b2367]"
-                onClick={() => {
-                  setEditingProdutoId(null);
-                  setProdutoForm({ name: "", description: "", image_url: "", price: "" });
-                  setOpenProdutoModal(true);
-                }}
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                Nova camiseta
-              </Button>
+              {/* Comentario: apenas pastor pode criar camisetas, admin so pode visualizar */}
+              {roleMode !== "admin" && (
+                <Button
+                  className="bg-[#232b7a] text-white hover:bg-[#1b2367]"
+                  onClick={() => {
+                    setEditingProdutoId(null);
+                    setProdutoForm({ name: "", description: "", image_url: "", price: "" });
+                    setOpenProdutoModal(true);
+                  }}
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Nova camiseta
+                </Button>
+              )}
             </div>
             <Card><CardContent className="overflow-x-auto p-0">
               <table className="w-full min-w-[760px] text-sm">
@@ -667,11 +670,14 @@ export default function DivulgacaoPage() {
                       <td className="px-4 py-3 font-semibold">{formatMoney(product.price)}</td>
                       <td className="px-4 py-3"><span className={`rounded-full px-3 py-1 text-xs font-semibold ${product.is_active ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>{product.is_active ? "Ativo" : "Inativo"}</span></td>
                       <td className="px-4 py-3">
-                        <div className="flex items-center gap-3">
-                          <button className="text-blue-700" onClick={() => { setEditingProdutoId(product.id); setProdutoForm({ name: product.name || "", description: product.description || "", image_url: product.image_url || "", price: String(product.price || "") }); setOpenProdutoModal(true); }}><Edit className="h-4 w-4" /></button>
-                          <button className="text-slate-500" onClick={() => post("upsert-product", { id: product.id, is_active: !product.is_active }).then(() => queryClient.invalidateQueries({ queryKey: ["div-products"] }))}>{product.is_active ? <ToggleRight className="h-4 w-4" /> : <ToggleLeft className="h-4 w-4" />}</button>
-                          <button className="text-rose-600" onClick={() => post("upsert-product", { id: product.id, is_active: false }).then(() => { toast.success("Camiseta inativada."); queryClient.invalidateQueries({ queryKey: ["div-products"] }); })}><Trash2 className="h-4 w-4" /></button>
-                        </div>
+                        {/* Comentario: apenas pastor pode editar/deletar camisetas */}
+                        {roleMode !== "admin" && (
+                          <div className="flex items-center gap-3">
+                            <button className="text-blue-700" onClick={() => { setEditingProdutoId(product.id); setProdutoForm({ name: product.name || "", description: product.description || "", image_url: product.image_url || "", price: String(product.price || "") }); setOpenProdutoModal(true); }}><Edit className="h-4 w-4" /></button>
+                            <button className="text-slate-500" onClick={() => post("upsert-product", { id: product.id, is_active: !product.is_active }).then(() => queryClient.invalidateQueries({ queryKey: ["div-products"] }))}>{product.is_active ? <ToggleRight className="h-4 w-4" /> : <ToggleLeft className="h-4 w-4" />}</button>
+                            <button className="text-rose-600" onClick={() => post("upsert-product", { id: product.id, is_active: false }).then(() => { toast.success("Camiseta inativada."); queryClient.invalidateQueries({ queryKey: ["div-products"] }); })}><Trash2 className="h-4 w-4" /></button>
+                          </div>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -683,17 +689,20 @@ export default function DivulgacaoPage() {
           <TabsContent value="tamanhos" className="space-y-3">
             <div className="flex items-center justify-between">
               <h3 className="text-xl font-bold text-slate-900">Gestão de Tamanhos</h3>
-              <Button
-                className="bg-[#232b7a] text-white hover:bg-[#1b2367]"
-                onClick={() => {
-                  setEditingTamanhoId(null);
-                  setTamanhoForm({ product_id: "", size: "", stock: "0" });
-                  setOpenTamanhoModal(true);
-                }}
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                Novo tamanho
-              </Button>
+              {/* Comentario: apenas pastor pode criar tamanhos, admin so pode visualizar */}
+              {roleMode !== "admin" && (
+                <Button
+                  className="bg-[#232b7a] text-white hover:bg-[#1b2367]"
+                  onClick={() => {
+                    setEditingTamanhoId(null);
+                    setTamanhoForm({ product_id: "", size: "", stock: "0" });
+                    setOpenTamanhoModal(true);
+                  }}
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Novo tamanho
+                </Button>
+              )}
             </div>
             <Card><CardContent className="overflow-x-auto p-0">
               <table className="w-full min-w-[760px] text-sm">
@@ -708,11 +717,14 @@ export default function DivulgacaoPage() {
                         <td className="px-4 py-3">{size.stock || 0}</td>
                         <td className="px-4 py-3"><span className={`rounded-full px-3 py-1 text-xs font-semibold ${size.is_active ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>{size.is_active ? "Ativo" : "Inativo"}</span></td>
                         <td className="px-4 py-3">
-                          <div className="flex items-center gap-3">
-                            <button className="text-blue-700" onClick={() => { setEditingTamanhoId(size.id); setTamanhoForm({ product_id: size.product_id, size: size.size || "", stock: String(size.stock || 0) }); setOpenTamanhoModal(true); }}><Edit className="h-4 w-4" /></button>
-                            <button className="text-slate-500" onClick={() => post("upsert-product-size", { id: size.id, is_active: !size.is_active }).then(() => queryClient.invalidateQueries({ queryKey: ["div-sizes"] }))}>{size.is_active ? <ToggleRight className="h-4 w-4" /> : <ToggleLeft className="h-4 w-4" />}</button>
-                            <button className="text-rose-600" onClick={() => post("upsert-product-size", { id: size.id, is_active: false }).then(() => { toast.success("Tamanho inativado."); queryClient.invalidateQueries({ queryKey: ["div-sizes"] }); })}><Trash2 className="h-4 w-4" /></button>
-                          </div>
+                          {/* Comentario: apenas pastor pode editar/deletar tamanhos */}
+                          {roleMode !== "admin" && (
+                            <div className="flex items-center gap-3">
+                              <button className="text-blue-700" onClick={() => { setEditingTamanhoId(size.id); setTamanhoForm({ product_id: size.product_id, size: size.size || "", stock: String(size.stock || 0) }); setOpenTamanhoModal(true); }}><Edit className="h-4 w-4" /></button>
+                              <button className="text-slate-500" onClick={() => post("upsert-product-size", { id: size.id, is_active: !size.is_active }).then(() => queryClient.invalidateQueries({ queryKey: ["div-sizes"] }))}>{size.is_active ? <ToggleRight className="h-4 w-4" /> : <ToggleLeft className="h-4 w-4" />}</button>
+                              <button className="text-rose-600" onClick={() => post("upsert-product-size", { id: size.id, is_active: false }).then(() => { toast.success("Tamanho inativado."); queryClient.invalidateQueries({ queryKey: ["div-sizes"] }); })}><Trash2 className="h-4 w-4" /></button>
+                            </div>
+                          )}
                         </td>
                       </tr>
                     );
@@ -725,17 +737,20 @@ export default function DivulgacaoPage() {
           <TabsContent value="eventos" className="space-y-3">
             <div className="flex items-center justify-between">
               <h3 className="text-xl font-bold text-slate-900">Gestão de Eventos</h3>
-              <Button
-                className="bg-[#232b7a] text-white hover:bg-[#1b2367]"
-                onClick={() => {
-                  setEditingEventoId(null);
-                  setEventoForm({ title: "", description: "", banner_url: "", start_date: "", end_date: "", sort_order: "0" });
-                  setOpenEventoModal(true);
-                }}
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                Novo evento
-              </Button>
+              {/* Comentario: apenas pastor pode criar eventos, admin so pode visualizar */}
+              {roleMode !== "admin" && (
+                <Button
+                  className="bg-[#232b7a] text-white hover:bg-[#1b2367]"
+                  onClick={() => {
+                    setEditingEventoId(null);
+                    setEventoForm({ title: "", description: "", banner_url: "", start_date: "", end_date: "", sort_order: "0" });
+                    setOpenEventoModal(true);
+                  }}
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Novo evento
+                </Button>
+              )}
             </div>
             <Card><CardContent className="overflow-x-auto p-0">
               <table className="w-full min-w-[760px] text-sm">
@@ -751,11 +766,14 @@ export default function DivulgacaoPage() {
                       <td className="px-4 py-3">{event.position || 0}</td>
                       <td className="px-4 py-3"><span className={`rounded-full px-3 py-1 text-xs font-semibold ${event.is_active ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>{event.is_active ? "Ativo" : "Inativo"}</span></td>
                       <td className="px-4 py-3">
-                        <div className="flex items-center gap-3">
-                          <button className="text-blue-700" onClick={() => { setEditingEventoId(event.id); setEventoForm({ title: event.title || "", description: event.body_text || "", banner_url: event.media_url || "", start_date: String(event.starts_at || "").slice(0, 10), end_date: String(event.ends_at || "").slice(0, 10), sort_order: String(event.position || 0) }); setOpenEventoModal(true); }}><Edit className="h-4 w-4" /></button>
-                          <button className="text-slate-500" onClick={() => post("announcements-api", { action: "upsert", id: event.id, church_totvs_id: session?.totvs_id, is_active: !event.is_active }).then(() => queryClient.invalidateQueries({ queryKey: ["div-ann"] }))}>{event.is_active ? <ToggleRight className="h-4 w-4" /> : <ToggleLeft className="h-4 w-4" />}</button>
-                          <button className="text-rose-600" onClick={() => deleteEvento.mutate(event.id)}><Trash2 className="h-4 w-4" /></button>
-                        </div>
+                        {/* Comentario: apenas pastor pode editar/deletar eventos */}
+                        {roleMode !== "admin" && (
+                          <div className="flex items-center gap-3">
+                            <button className="text-blue-700" onClick={() => { setEditingEventoId(event.id); setEventoForm({ title: event.title || "", description: event.body_text || "", banner_url: event.media_url || "", start_date: String(event.starts_at || "").slice(0, 10), end_date: String(event.ends_at || "").slice(0, 10), sort_order: String(event.position || 0) }); setOpenEventoModal(true); }}><Edit className="h-4 w-4" /></button>
+                            <button className="text-slate-500" onClick={() => post("announcements-api", { action: "upsert", id: event.id, church_totvs_id: session?.totvs_id, is_active: !event.is_active }).then(() => queryClient.invalidateQueries({ queryKey: ["div-ann"] }))}>{event.is_active ? <ToggleRight className="h-4 w-4" /> : <ToggleLeft className="h-4 w-4" />}</button>
+                            <button className="text-rose-600" onClick={() => deleteEvento.mutate(event.id)}><Trash2 className="h-4 w-4" /></button>
+                          </div>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -767,17 +785,20 @@ export default function DivulgacaoPage() {
           <TabsContent value="informativos" className="space-y-3">
             <div className="flex items-center justify-between">
               <h3 className="text-xl font-bold text-slate-900">Gestão de Informativos</h3>
-              <Button
-                className="bg-[#232b7a] text-white hover:bg-[#1b2367]"
-                onClick={() => {
-                  setEditingInformativoId(null);
-                  setInformativoForm({ title: "", body_text: "", media_url: "", position: "1", start_date: "", end_date: "" });
-                  setOpenInformativoModal(true);
-                }}
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                Novo informativo
-              </Button>
+              {/* Comentario: apenas pastor pode criar informativos, admin so pode visualizar */}
+              {roleMode !== "admin" && (
+                <Button
+                  className="bg-[#232b7a] text-white hover:bg-[#1b2367]"
+                  onClick={() => {
+                    setEditingInformativoId(null);
+                    setInformativoForm({ title: "", body_text: "", media_url: "", position: "1", start_date: "", end_date: "" });
+                    setOpenInformativoModal(true);
+                  }}
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Novo informativo
+                </Button>
+              )}
             </div>
             <Card><CardContent className="overflow-x-auto p-0">
               <table className="w-full min-w-[760px] text-sm">
@@ -789,11 +810,14 @@ export default function DivulgacaoPage() {
                       <td className="px-4 py-3">{ann.body_text || "-"}</td>
                       <td className="px-4 py-3"><span className={`rounded-full px-3 py-1 text-xs font-semibold ${ann.is_active ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>{ann.is_active ? "Ativo" : "Inativo"}</span></td>
                       <td className="px-4 py-3">
-                        <div className="flex items-center gap-3">
-                          <button className="text-blue-700" onClick={() => { setEditingInformativoId(ann.id); setInformativoForm({ title: ann.title || "", body_text: ann.body_text || "", media_url: ann.media_url || "", position: String(ann.position || 1), start_date: String(ann.starts_at || "").slice(0, 10), end_date: String(ann.ends_at || "").slice(0, 10) }); setOpenInformativoModal(true); }}><Edit className="h-4 w-4" /></button>
-                          <button className="text-slate-500" onClick={() => post("announcements-api", { action: "upsert", id: ann.id, church_totvs_id: session?.totvs_id, is_active: !ann.is_active }).then(() => queryClient.invalidateQueries({ queryKey: ["div-ann"] }))}>{ann.is_active ? <ToggleRight className="h-4 w-4" /> : <ToggleLeft className="h-4 w-4" />}</button>
-                          <button className="text-rose-600" onClick={() => deleteInformativo.mutate(ann.id)}><Trash2 className="h-4 w-4" /></button>
-                        </div>
+                        {/* Comentario: apenas pastor pode editar/deletar informativos */}
+                        {roleMode !== "admin" && (
+                          <div className="flex items-center gap-3">
+                            <button className="text-blue-700" onClick={() => { setEditingInformativoId(ann.id); setInformativoForm({ title: ann.title || "", body_text: ann.body_text || "", media_url: ann.media_url || "", position: String(ann.position || 1), start_date: String(ann.starts_at || "").slice(0, 10), end_date: String(ann.ends_at || "").slice(0, 10) }); setOpenInformativoModal(true); }}><Edit className="h-4 w-4" /></button>
+                            <button className="text-slate-500" onClick={() => post("announcements-api", { action: "upsert", id: ann.id, church_totvs_id: session?.totvs_id, is_active: !ann.is_active }).then(() => queryClient.invalidateQueries({ queryKey: ["div-ann"] }))}>{ann.is_active ? <ToggleRight className="h-4 w-4" /> : <ToggleLeft className="h-4 w-4" />}</button>
+                            <button className="text-rose-600" onClick={() => deleteInformativo.mutate(ann.id)}><Trash2 className="h-4 w-4" /></button>
+                          </div>
+                        )}
                       </td>
                     </tr>
                   ))}
