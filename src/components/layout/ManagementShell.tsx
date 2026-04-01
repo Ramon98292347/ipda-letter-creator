@@ -26,8 +26,8 @@ const pastorMenu: MenuItem[] = [
   { to: "/carta", label: "Cartas", icon: FileText },
   { to: "/pastor/financeiro", label: "Financeiro", icon: DollarSign },
   { to: "/pastor/deposito", label: "Depósito", icon: Package },
-  { to: "/divulgacao", label: "Divulgacao", icon: Megaphone },
-  { to: "/config", label: "Configuracoes", icon: Settings },
+  { to: "/divulgacao", label: "Divulgação", icon: Megaphone },
+  { to: "/config", label: "Configurações", icon: Settings },
 ];
 
 const adminMenu: MenuItem[] = [
@@ -36,8 +36,8 @@ const adminMenu: MenuItem[] = [
   { to: "/admin/igrejas", label: "Igrejas", icon: Building2 },
   { to: "/carta", label: "Cartas", icon: FileText },
   { to: "/admin/deposito", label: "Depósito", icon: Package },
-  { to: "/divulgacao", label: "Divulgacao", icon: Megaphone },
-  { to: "/config", label: "Configuracoes", icon: Settings },
+  { to: "/divulgacao", label: "Divulgação", icon: Megaphone },
+  { to: "/config", label: "Configurações", icon: Settings },
 ];
 
 const obreiroMenu: MenuItem[] = [
@@ -52,8 +52,8 @@ const secretarioMenu: MenuItem[] = [
   { to: "/pastor/igrejas", label: "Igrejas", icon: Building2 },
   { to: "/carta", label: "Cartas", icon: FileText },
   { to: "/pastor/financeiro", label: "Financeiro", icon: DollarSign },
-  { to: "/divulgacao", label: "Divulgacao", icon: Megaphone },
-  { to: "/config", label: "Configuracoes", icon: Settings },
+  { to: "/divulgacao", label: "Divulgação", icon: Megaphone },
+  { to: "/config", label: "Configurações", icon: Settings },
 ];
 
 // Comentario: financeiro tem acesso ao dashboard, contagem de caixa, saídas, ficha diária, relatórios e configurações
