@@ -7,6 +7,7 @@ import { MinisterialAttendanceTab } from "@/components/admin/MinisterialAttendan
 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { listChurchesInScope, listMembers } from "@/services/saasService";
 import { PageLoading } from "@/components/shared/PageLoading";
 import { MobileFiltersCard } from "@/components/shared/MobileFiltersCard";
