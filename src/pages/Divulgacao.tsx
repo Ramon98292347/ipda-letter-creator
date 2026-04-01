@@ -215,9 +215,13 @@ export default function DivulgacaoPage() {
     [announcements],
   );
 
+  // Comentario: para admin, mostra TODOS os informativos (sem filtro por link_url)
+  // Para pastor, mostra apenas aqueles que nao sao eventos (link_url != EVENT_MARKER)
   const infoItems = useMemo<AnnouncementRow[]>(
-    () => announcements.filter((item) => String(item.link_url || "") !== EVENT_MARKER),
-    [announcements],
+    () => roleMode === "admin"
+      ? announcements
+      : announcements.filter((item) => String(item.link_url || "") !== EVENT_MARKER),
+    [announcements, roleMode],
   );
 
   const { data: churches = [] } = useQuery<ChurchRow[]>({
