@@ -92,15 +92,22 @@ export function AvatarCapture({ onFileReady, disabled = false, currentUrl }: Ava
         audio: false,
       });
       streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        await videoRef.current.play();
+      const video = videoRef.current;
+      if (video) {
+        video.srcObject = stream;
+        // Comentario: aguarda o vídeo começar a renderizar antes de iniciar a detecção
+        // Isto garante que video.videoWidth tenha valor correto
+        const handlePlaying = () => {
+          video.removeEventListener("playing", handlePlaying);
+          setFacingMode(modo);
+          facingModeRef.current = modo;
+          setCameraActive(true);
+          setFaceDetected(false);
+          if (modelsLoaded) iniciarDeteccao();
+        };
+        video.addEventListener("playing", handlePlaying);
+        void video.play();
       }
-      setFacingMode(modo);
-      facingModeRef.current = modo;
-      setCameraActive(true);
-      setFaceDetected(false);
-      if (modelsLoaded) iniciarDeteccao();
     } catch {
       setStatusMsg("Câmera indisponível. Use a galeria.");
     }
@@ -226,13 +233,28 @@ export function AvatarCapture({ onFileReady, disabled = false, currentUrl }: Ava
   function verificarRostoDentroOval(box: { x: number; y: number; width: number; height: number }): boolean {
     const cx = DISPLAY_WIDTH / 2;
     const cy = DISPLAY_HEIGHT * 0.42;
-    const fx = box.x + box.width / 2;
-    const fy = box.y + box.height / 2;
-    const dentro =
-      Math.pow((fx - cx) / (DISPLAY_WIDTH * 0.35), 2) +
-      Math.pow((fy - cy) / (DISPLAY_HEIGHT * 0.40), 2) <= 1;
+    const rx = DISPLAY_WIDTH * 0.35;   // Semi-eixo horizontal da oval
+    const ry = DISPLAY_HEIGHT * 0.40;  // Semi-eixo vertical da oval
+
+    // Comentario: verifica se TODOS os 4 cantos do rosto estão dentro da oval
+    // Isto garante que 100% do rosto está dentro da bolinha, não apenas o centro
+    const cantos = [
+      { x: box.x, y: box.y },                          // Canto superior esquerdo
+      { x: box.x + box.width, y: box.y },              // Canto superior direito
+      { x: box.x, y: box.y + box.height },             // Canto inferior esquerdo
+      { x: box.x + box.width, y: box.y + box.height }, // Canto inferior direito
+    ];
+
+    const todosDentroOval = cantos.every((canto) => {
+      const normX = (canto.x - cx) / rx;
+      const normY = (canto.y - cy) / ry;
+      return Math.pow(normX, 2) + Math.pow(normY, 2) <= 1;
+    });
+
     // Comentario: rosto deve ocupar pelo menos 38% da largura (cabeça+pescoço+ombros, formato 3x4)
-    return dentro && box.width > DISPLAY_WIDTH * 0.38;
+    const tamanhoMinimo = box.width > DISPLAY_WIDTH * 0.38;
+
+    return todosDentroOval && tamanhoMinimo;
   }
 
   // ── Capturar foto ───────────────────────────────────────────────────────────

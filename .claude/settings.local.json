@@ -9,7 +9,9 @@
       "Bash(convert app-icon.png -resize 512x512 -gravity center -extent 562x562 -background transparent app-icon-maskable-512.png)",
       "Bash(ls -lh app-icon*.png)",
       "Bash(npm install:*)",
-      "Bash(node scripts/generate-icons.js)"
+      "Bash(node scripts/generate-icons.js)",
+      "Bash(npm list:*)",
+      "Bash(npm run:*)"
     ]
   }
 }
