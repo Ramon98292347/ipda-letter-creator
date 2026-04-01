@@ -279,40 +279,68 @@ export function AvatarCapture({ onFileReady, disabled = false, currentUrl }: Ava
   }
 
   // ── Galeria ─────────────────────────────────────────────────────────────────
-  // Comentario: valida se a foto da galeria tem um rosto visível antes de aceitar
+  // Comentario: VALIDACAO RIGOROSA - so aceita fotos com rosto/pescoço/ombros (3x4)
+  // Bloqueia: corpo inteiro, rosto muito pequeno, rosto nao detectado
   async function handleGaleria(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file) return;
 
-    // Comentario: se modelos carregaram, valida rosto na imagem da galeria
-    if (modelsLoaded) {
-      setProcessing(true);
-      setStatusMsg("Verificando rosto na imagem...");
-      setProgress(20);
-      try {
-        const img = await carregarImagem(file);
-        const detections = await faceapi.detectAllFaces(
-          img,
-          new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.5 })
-        );
-        if (detections.length === 0) {
-          // Comentario: nao bloqueia o upload por falha de deteccao.
-          // Em alguns celulares/compressao o modelo pode falhar mesmo com rosto valido.
-          setStatusMsg("Rosto nao detectado automaticamente. A imagem sera enviada mesmo assim.");
-        }
-        // Comentario: verifica tamanho do rosto para avisar, sem bloquear envio.
-        if (detections.length > 0) {
-          const det = detections[0].box;
-          const rostoPercentual = det.width / img.naturalWidth;
-          if (rostoPercentual < 0.25) {
-            setStatusMsg("Rosto pequeno detectado. A imagem sera enviada mesmo assim.");
-          }
-        }
-      } catch {
-        // Comentario: se falhar a detecção, permite continuar
-      }
+    // Comentario: OBRIGATORIO carregar modelos para validar arquivo importado
+    if (!modelsLoaded) {
+      setStatusMsg("❌ Detecção indisponível. Use a câmera para capturar foto.");
+      return;
     }
+
+    setProcessing(true);
+    setStatusMsg("Verificando rosto na imagem...");
+    setProgress(20);
+    try {
+      const img = await carregarImagem(file);
+      const detections = await faceapi.detectAllFaces(
+        img,
+        new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.5 })
+      );
+
+      // Regra 1: DEVE detectar rosto (nao aceita se nao encontrar)
+      if (detections.length === 0) {
+        setStatusMsg("❌ Rosto não detectado. Tire uma foto apenas do rosto com pescoço e ombros (3x4).");
+        setProcessing(false);
+        return;
+      }
+
+      const det = detections[0].box;
+      const rostoPercentual = det.width / img.naturalWidth;
+
+      // Regra 2: Rosto deve ocupar entre 30% e 65% da largura (nem muito pequeno, nem corpo inteiro)
+      if (rostoPercentual < 0.30) {
+        setStatusMsg("❌ Rosto muito pequeno. Aproxime mais a câmera/imagem.");
+        setProcessing(false);
+        return;
+      }
+
+      if (rostoPercentual > 0.65) {
+        setStatusMsg("❌ Foto muito aproximada. Deve mostrar rosto, pescoço e ombros apenas.");
+        setProcessing(false);
+        return;
+      }
+
+      // Regra 3: Proporção da imagem (3x4 = 1.33 razão altura/largura)
+      const razaoAspect = img.naturalHeight / img.naturalWidth;
+      if (razaoAspect < 1.20 || razaoAspect > 1.50) {
+        setStatusMsg("❌ Formato inválido. Use proporção 3x4 (altura > largura).");
+        setProcessing(false);
+        return;
+      }
+
+      setStatusMsg("✅ Foto validada com sucesso!");
+      setProgress(50);
+    } catch (err) {
+      setStatusMsg("❌ Erro ao validar imagem. Tente novamente ou use a câmera.");
+      setProcessing(false);
+      return;
+    }
+
     void processarFoto(file);
   }
 
