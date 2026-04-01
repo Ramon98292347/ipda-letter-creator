@@ -310,11 +310,11 @@ async function actionBirthday(sb: ReturnType<typeof createClient>, req: Request)
     (internalKey && providedInternal === internalKey);
   if (!authorized) return json({ ok: false, error: "unauthorized" }, 401);
 
-  // Comentario: busca todos os membros ativos com data de nascimento
+  // Comentario: busca TODOS os membros com data de nascimento, incluindo status PENDENTE
+  // (anteriormente filtrava is_active=true, excluindo usuários com status PENDENTE)
   const { data: users, error } = await sb
     .from("users")
     .select("id, full_name, phone, email, birth_date, default_totvs_id")
-    .eq("is_active", true)
     .not("birth_date", "is", null);
 
   if (error) return json({ ok: false, error: "db_error", details: error.message }, 500);
@@ -387,20 +387,32 @@ async function actionBirthday(sb: ReturnType<typeof createClient>, req: Request)
 
       // Comentario: Envia os dados para o webhook do n8n para envio de mensagem
       try {
-        await fetch("https://n8n-n8n.ynlng8.easypanel.host/webhook/senha", {
+        const webhookUrl = "https://n8n-n8n.ynlng8.easypanel.host/webhook/senha";
+        const payload = {
+          event: "birthday",
+          user_id: b.id,
+          nome: b.full_name,
+          telefone: b.phone,
+          email: b.email,
+          church_totvs_id: churchTotvsId,
+        };
+
+        const response = await fetch(webhookUrl, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            event: "birthday",
-            user_id: b.id,
-            nome: b.full_name,
-            telefone: b.phone,
-            email: b.email,
-            church_totvs_id: churchTotvsId,
-          }),
+          body: JSON.stringify(payload),
         });
+
+        if (!response.ok) {
+          const text = await response.text();
+          console.error(
+            `[n8n] Erro webhook aniversário (${b.full_name}): HTTP ${response.status} ${response.statusText}. Response: ${text}`
+          );
+        } else {
+          console.log(`[n8n] Webhook enviado com sucesso para ${b.full_name} (telefone: ${b.phone})`);
+        }
       } catch (err) {
-        console.error("[n8n] Erro webhook aniversário:", err);
+        console.error(`[n8n] Erro ao chamar webhook para ${b.full_name}:`, err);
       }
     }
 

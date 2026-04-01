@@ -11,10 +11,12 @@
  * Observacoes: Funciona para qualquer role (obreiro ou pastor). Pastor mae pode
  *              bloquear/aprovar pastores do seu escopo. A hierarquia garante a seguranca.
  *              O registration_status � atualizado em TODOS os itens do array totvs_access.
+ *              Envia notificação interna e push ao usuário avisando sobre a aprovação/rejeição.
  */
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { jwtVerify } from "https://esm.sh/jose@5.2.4";
+import { sendInternalPushNotification } from "../_shared/push.ts";
 
 type Role = "admin" | "pastor" | "obreiro";
 type RegistrationStatus = "APROVADO" | "PENDENTE";
@@ -210,6 +212,38 @@ Deno.serve(async (req) => {
       .eq("id", userId);
 
     if (updateError) return json({ ok: false, error: "db_error_update", details: updateError.message }, 500);
+
+    // Comentario: cria notificacao interna para o usuario sabendo o resultado da aprovacao/rejeicao
+    const notificationTitle = status === "APROVADO" ? "Cadastro Aprovado! ✅" : "Cadastro Pendente ⏳";
+    const notificationMsg = status === "APROVADO"
+      ? "Parabéns! Seu cadastro foi aprovado. Você agora pode usar todas as funcionalidades do sistema."
+      : "Seu cadastro está aguardando aprovação. Um administrador revisará em breve.";
+
+    // Inserir notificação interna no banco
+    await sb.from("notifications").insert({
+      user_id: userId,
+      church_totvs_id: targetTotvs,
+      type: "registration_status",
+      title: notificationTitle,
+      message: notificationMsg,
+      read_at: null,
+    }).catch((err) => {
+      console.warn("[set-user-registration-status] Erro ao criar notificação interna:", err);
+    });
+
+    // Comentario: envia push notification usando função centralizada
+    const pushSent = await sendInternalPushNotification({
+      title: notificationTitle,
+      body: notificationMsg,
+      url: "/",
+      user_ids: [userId],
+    });
+
+    if (pushSent) {
+      console.log(`[set-user-registration-status] Push enviado para ${userId} (status: ${status})`);
+    } else {
+      console.warn(`[set-user-registration-status] Falha ao enviar push para ${userId}`);
+    }
 
     return json({ ok: true, user_id: userId, registration_status: status }, 200);
   } catch (err) {
