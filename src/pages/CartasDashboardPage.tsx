@@ -39,6 +39,8 @@ export default function CartasDashboardPage() {
   const queryClient = useQueryClient();
   const { usuario, session } = useUser();
   const [selectedChurchTotvs, setSelectedChurchTotvs] = useState<string>("all");
+  const [filterChurchClass, setFilterChurchClass] = useState<string>("all");
+  const [filterChurchTotvs, setFilterChurchTotvs] = useState<string>("");
   const [showFiltersMobile, setShowFiltersMobile] = useState(false);
 
   const role = String(usuario?.role || "").toLowerCase();
@@ -67,15 +69,38 @@ export default function CartasDashboardPage() {
     if (fromChurches.length) return fromChurches;
     return scopeTotvsIds;
   }, [churchesInScope, scopeTotvsIds]);
+
+  // Comentario: filtra igrejas por classe e totvs quando admin tem "all" selecionado
+  const filteredChurchesInScope = useMemo(() => {
+    if (roleMode !== "admin" || selectedChurchTotvs !== "all") return churchesInScope;
+
+    let result = churchesInScope;
+    if (filterChurchClass !== "all") {
+      result = result.filter((c) => String(c.class || "").toLowerCase() === filterChurchClass.toLowerCase());
+    }
+    if (filterChurchTotvs.trim()) {
+      const query = filterChurchTotvs.trim().toLowerCase();
+      result = result.filter((c) => String(c.totvs_id || "").toLowerCase().includes(query));
+    }
+    return result;
+  }, [churchesInScope, filterChurchClass, filterChurchTotvs, roleMode, selectedChurchTotvs]);
+
   const allowScopeView = roleMode === "admin" || effectiveScopeTotvsIds.length > 1;
-  const selectedScopeForLetters =
-    roleMode === "admin" && selectedChurchTotvs !== "all" ? [selectedChurchTotvs] : effectiveScopeTotvsIds;
+  const selectedScopeForLetters = useMemo(() => {
+    if (roleMode === "admin" && selectedChurchTotvs !== "all") {
+      return [selectedChurchTotvs];
+    }
+    if (roleMode === "admin" && selectedChurchTotvs === "all") {
+      // Comentario: usa igrejas filtradas por classe/totvs
+      return filteredChurchesInScope.map((c) => String(c.totvs_id || "")).filter(Boolean);
+    }
+    return effectiveScopeTotvsIds;
+  }, [roleMode, selectedChurchTotvs, filteredChurchesInScope, effectiveScopeTotvsIds]);
 
   const { data: metrics, isLoading: loadingMetrics, isFetching: fetchingMetrics } = useQuery({
     queryKey: ["cartas-dashboard-metrics", selectedScopeForLetters.join("|")],
     queryFn: () => getPastorMetrics(),
-    // Comentario: para admin, so carrega metricas se uma igreja especifica foi selecionada.
-    enabled: selectedScopeForLetters.length > 0 && !(roleMode === "admin" && selectedChurchTotvs === "all"),
+    enabled: selectedScopeForLetters.length > 0,
     refetchInterval: 60 * 1000,
   });
 
@@ -102,9 +127,7 @@ export default function CartasDashboardPage() {
       data.flat().forEach((item) => map.set(item.id, item));
       return Array.from(map.values());
     },
-    // Comentario: para admin, so carrega cartas se uma igreja especifica foi selecionada.
-    // Evita 1000+ requisicoes paralelas ao carregar todas as igrejas.
-    enabled: selectedScopeForLetters.length > 0 && !(roleMode === "admin" && selectedChurchTotvs === "all"),
+    enabled: selectedScopeForLetters.length > 0,
     refetchInterval: 60 * 1000,
   });
 
@@ -117,20 +140,17 @@ export default function CartasDashboardPage() {
         roles: ["pastor", "obreiro"],
         church_totvs_id: roleMode === "admin" && selectedChurchTotvs !== "all" ? selectedChurchTotvs : undefined,
       }),
-    // Comentario: para admin, so carrega membros se uma igreja especifica foi selecionada.
-    enabled: selectedScopeForLetters.length > 0 && !(roleMode === "admin" && selectedChurchTotvs === "all"),
+    enabled: selectedScopeForLetters.length > 0,
     refetchInterval: 10000,
   });
 
-  // Comentario: para admin, nao requer cartas carregadas se todas as igrejas estao selecionadas.
-  const shouldRequireLettersLoaded = roleMode === "pastor" || (roleMode === "admin" && selectedChurchTotvs !== "all");
   const loadingPage =
     !effectiveScopeTotvsIds.length ||
     loadingMetrics ||
-    (shouldRequireLettersLoaded && loadingLetters) ||
+    loadingLetters ||
     loadingMembers ||
     (fetchingMetrics && !metrics) ||
-    (shouldRequireLettersLoaded && fetchingLetters && !letters.length) ||
+    (fetchingLetters && !letters.length) ||
     (fetchingMembers && !membrosRes);
 
   useEffect(() => {
@@ -291,11 +311,12 @@ export default function CartasDashboardPage() {
                 {showFiltersMobile ? "Recolher filtros" : "Filtros"}
               </button>
             ) : null}
-            {/* Comentario: filtro de igreja — escondido no celular, visivel em sm+ */}
+            {/* Comentario: filtros de admin — escondidos no celular, visiveis em sm+ */}
             {roleMode === "admin" ? (
-              <div className={`${showFiltersMobile ? "block" : "hidden"} w-full sm:block sm:w-auto`}>
-                <Select value={selectedChurchTotvs} onValueChange={setSelectedChurchTotvs}>
-                  <SelectTrigger className="w-full sm:w-[280px]">
+              <div className={`${showFiltersMobile ? "flex flex-col" : "hidden"} w-full gap-2 sm:flex sm:w-auto sm:flex-row sm:items-center`}>
+                {/* Filtro de igreja */}
+                <Select value={selectedChurchTotvs} onValueChange={(v) => { setSelectedChurchTotvs(v); setFilterChurchClass("all"); setFilterChurchTotvs(""); }}>
+                  <SelectTrigger className="w-full sm:w-[200px]">
                     <SelectValue placeholder="Filtrar por igreja" />
                   </SelectTrigger>
                   <SelectContent>
@@ -307,6 +328,35 @@ export default function CartasDashboardPage() {
                     ))}
                   </SelectContent>
                 </Select>
+
+                {/* Filtros adicionais quando "Todas as igrejas" está selecionado */}
+                {selectedChurchTotvs === "all" && (
+                  <>
+                    {/* Filtro por classe */}
+                    <Select value={filterChurchClass} onValueChange={setFilterChurchClass}>
+                      <SelectTrigger className="w-full sm:w-[160px]">
+                        <SelectValue placeholder="Classe" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todas as classes</SelectItem>
+                        <SelectItem value="estadual">Estadual</SelectItem>
+                        <SelectItem value="setorial">Setorial</SelectItem>
+                        <SelectItem value="central">Central</SelectItem>
+                        <SelectItem value="regional">Regional</SelectItem>
+                        <SelectItem value="local">Local</SelectItem>
+                      </SelectContent>
+                    </Select>
+
+                    {/* Input para buscar por TOTVS */}
+                    <input
+                      type="text"
+                      placeholder="Buscar TOTVS..."
+                      value={filterChurchTotvs}
+                      onChange={(e) => setFilterChurchTotvs(e.target.value)}
+                      className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm placeholder-slate-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 sm:w-[140px]"
+                    />
+                  </>
+                )}
               </div>
             ) : null}
             <Button
