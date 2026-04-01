@@ -92,32 +92,15 @@ export function AvatarCapture({ onFileReady, disabled = false, currentUrl }: Ava
         audio: false,
       });
       streamRef.current = stream;
-      const video = videoRef.current;
-      if (video) {
-        video.srcObject = stream;
-        setFacingMode(modo);
-        facingModeRef.current = modo;
-        setCameraActive(true);
-        setFaceDetected(false);
-
-        // Comentario: aguarda o vídeo começar a renderizar antes de iniciar a detecção
-        // Isto garante que video.videoWidth tenha valor correto
-        // Timeout de 2s garante que funcione mesmo se playing nao disparar
-        const handlePlaying = () => {
-          video.removeEventListener("playing", handlePlaying);
-          clearTimeout(playingTimeout);
-          if (modelsLoaded) iniciarDeteccao();
-        };
-
-        const playingTimeout = setTimeout(() => {
-          video.removeEventListener("playing", handlePlaying);
-          // Se nao disparou playing em 2s, inicia deteccao mesmo assim
-          if (modelsLoaded) iniciarDeteccao();
-        }, 2000);
-
-        video.addEventListener("playing", handlePlaying);
-        void video.play();
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        await videoRef.current.play();
       }
+      setFacingMode(modo);
+      facingModeRef.current = modo;
+      setCameraActive(true);
+      setFaceDetected(false);
+      if (modelsLoaded) iniciarDeteccao();
     } catch {
       setStatusMsg("Câmera indisponível. Use a galeria.");
     }
