@@ -11,7 +11,8 @@
       "Bash(npm install:*)",
       "Bash(node scripts/generate-icons.js)",
       "Bash(npm list:*)",
-      "Bash(npm run:*)"
+      "Bash(npm run:*)",
+      "Bash(find /c/Users/ramon/OneDrive/Documentos/Ramon/Projeto trae/carta/ipda-letter-creator/public -name *.ts -o -name *.js)"
     ]
   }
 }
