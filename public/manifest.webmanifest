@@ -1,27 +1,35 @@
-﻿{
-  "name": "Sistema de Gestão Eclesiástica",
-  "short_name": "SGE IPDA",
+{
+  "name": "IPDA - Sistema de Gestão Eclesiástica",
+  "short_name": "IPDA Gestão",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#0f172a",
+  "background_color": "#ffffff",
   "theme_color": "#0ea5e9",
   "lang": "pt-BR",
-  "description": "Sistema de Gestão Eclesiástica",
+  "description": "Sistema completo para gestão de membros, obreiros e emissão de cartas da Igreja Pentecostal Deus é Amor.",
+  "categories": [
+    "productivity",
+    "education",
+    "social"
+  ],
   "icons": [
     {
-      "src": "/system-icon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml"
+      "src": "/app-icon.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
     },
     {
-      "src": "/system-icon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml"
+      "src": "/app-icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
     },
     {
-      "src": "/favicon.ico",
-      "sizes": "48x48 64x64 128x128",
-      "type": "image/x-icon"
+      "src": "/app-icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ]
 }
