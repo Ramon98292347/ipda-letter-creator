@@ -203,7 +203,8 @@ export default function DivulgacaoPage() {
 
   const { data: announcements = [] } = useQuery<AnnouncementRow[]>({
     queryKey: ["div-ann", session?.totvs_id, roleMode],
-    enabled: !!session?.totvs_id,
+    // Comentario: habilita query para admin (mesmo sem session.totvs_id) e pastor (com session.totvs_id)
+    enabled: roleMode === "admin" || !!session?.totvs_id,
     // Comentario: admin ve TODAS as divulgacoes (sem filtro por church_totvs_id)
     // Pastor ve apenas divulgacoes da sua igreja
     queryFn: async () => (await post<any>("announcements-api", { action: "list-admin", church_totvs_id: roleMode === "admin" ? undefined : session?.totvs_id })).announcements || [],
