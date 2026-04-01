@@ -5,8 +5,16 @@ import { Button } from "@/components/ui/button";
 
 export function PwaOnboarding() {
   const [show, setShow] = useState(false);
-  const { usuario } = useUser();
-  const { supported, subscribed, subscribe, loading: pushLoading } = usePushNotifications(usuario?.id ? String(usuario.id) : undefined);
+  const { usuario, session } = useUser();
+
+  // Comentario: prepara scope para validacao de hierarquia em notificacoes
+  const userScopeIds = (session?.scope_totvs_ids || usuario?.totvs_access || []).filter(Boolean);
+
+  const { supported, subscribed, subscribe, loading: pushLoading } = usePushNotifications(
+    usuario?.id ? String(usuario.id) : undefined,
+    usuario?.role,
+    userScopeIds
+  );
   const [isIOS, setIsIOS] = useState(false);
   const [isStandalone, setIsStandalone] = useState(false);
   const [isMobile, setIsMobile] = useState(false);

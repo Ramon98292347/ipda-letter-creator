@@ -91,7 +91,15 @@ export default function UsuarioDashboard() {
   const [searchParams, setSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
   const { usuario, session, setUsuario, setTelefone } = useUser();
-  const { supported: pushSupported, subscribed: pushSubscribed, loading: pushLoading, subscribe: subscribePush, unsubscribe: unsubscribePush } = usePushNotifications(session?.id);
+
+  // Comentario: prepara scope para validacao de hierarquia em notificacoes
+  const userScopeIds = (session?.scope_totvs_ids || usuario?.totvs_access || []).filter(Boolean);
+
+  const { supported: pushSupported, subscribed: pushSubscribed, loading: pushLoading, subscribe: subscribePush, unsubscribe: unsubscribePush } = usePushNotifications(
+    session?.id,
+    usuario?.role,
+    userScopeIds
+  );
 
   const [dateStart, setDateStart] = useState("");
   const [dateEnd, setDateEnd] = useState("");

@@ -106,7 +106,7 @@ export function ManagementShell({
 }) {
   const nav = useNavigate();
   const location = useLocation();
-  const { usuario, clearAuth } = useUser();
+  const { usuario, session, clearAuth } = useUser();
   const menu =
     roleMode === "admin" ? adminMenu :
     roleMode === "pastor" ? pastorMenu :
@@ -118,8 +118,16 @@ export function ManagementShell({
   const [pendingRoute, setPendingRoute] = useState<string | null>(null);
   const [avatarOk, setAvatarOk] = useState(true);
   const { canInstall, install, isInstalled } = usePwaInstall();
-  // Comentario: hook de push notifications — ativa automaticamente se o usuario ainda nao assinou
-  const { supported: pushSupported, subscribed: pushSubscribed, subscribe: subscribePush } = usePushNotifications(usuario?.id);
+
+  // Comentario: prepara dados para validacao de escopo em notificacoes
+  const userScopeIds = (session?.scope_totvs_ids || usuario?.totvs_access || []).filter(Boolean);
+
+  // Comentario: hook de push notifications — passa role e scope para validar hierarquia
+  const { supported: pushSupported, subscribed: pushSubscribed, subscribe: subscribePush } = usePushNotifications(
+    usuario?.id,
+    usuario?.role,
+    userScopeIds
+  );
   const queryClient = useQueryClient();
   const { isOnline } = useOfflineStatus();
   const primaryMobileMenu = menu.slice(0, 4);

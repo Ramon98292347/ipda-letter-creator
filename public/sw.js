@@ -46,6 +46,65 @@ self.addEventListener('fetch', (event) => {
 
 // --- Push Notifications ---
 
+// Comentario: valida se usuario tem escopo para receber a notificacao (hierarquia)
+async function validarEscopoNotificacao(data) {
+  // Se nao informou scope, mostra a notificacao (compatibilidade com antigas)
+  if (!data.churchClass || !data.scopeTotvsIds) {
+    return true;
+  }
+
+  try {
+    // Tenta recuperar usuario do storage para validar escopo
+    const db = await openUserDB();
+    const user = await getFromDB(db, 'user');
+
+    if (!user) return true; // Se nao tiver user salvo, aceita notificacao
+
+    const userRole = String(user.role || '').toLowerCase();
+    const notifChurchClass = String(data.churchClass || '').toLowerCase();
+    const notifScope = Array.isArray(data.scopeTotvsIds) ? data.scopeTotvsIds : [];
+
+    // Comentario: admin ve todas as notificacoes
+    if (userRole === 'admin') {
+      return true;
+    }
+
+    // Comentario: pastor ve notificacoes de seu escopo (hierarquia)
+    const userScope = Array.isArray(user.scope_totvs_ids) ? user.scope_totvs_ids : [];
+    const temInteseccao = notifScope.some(id => userScope.includes(id));
+
+    return temInteseccao;
+  } catch (err) {
+    console.warn('[push] erro ao validar escopo:', err);
+    return true; // Se erro, aceita notificacao
+  }
+}
+
+// Helpers para IndexedDB (armazenar escopo do usuario)
+function openUserDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open('ipda-user-db', 1);
+    req.onerror = () => reject(req.error);
+    req.onsuccess = () => resolve(req.result);
+    req.onupgradeneeded = (e) => {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains('user')) {
+        db.createObjectStore('user');
+      }
+    };
+  });
+}
+
+function getFromDB(db, key) {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('user', 'readonly');
+    const store = tx.objectStore('user');
+    const req = store.get(key);
+    req.onerror = () => reject(req.error);
+    req.onsuccess = () => resolve(req.result);
+  });
+}
+
 self.addEventListener('push', (event) => {
   if (!event.data) return;
 
@@ -56,17 +115,27 @@ self.addEventListener('push', (event) => {
     data = { title: 'SGE IPDA', body: event.data.text() };
   }
 
-  const title = data.title || 'SGE IPDA';
-  const options = {
-    body: data.body || '',
-    icon: '/app-icon.png',
-    badge: '/app-icon.png',
-    data: { url: data.url || '/' },
-    vibrate: [200, 100, 200],
-    requireInteraction: false,
-  };
+  // Comentario: valida escopo antes de mostrar notificacao
+  event.waitUntil(
+    validarEscopoNotificacao(data).then((podeExibir) => {
+      if (!podeExibir) {
+        console.log('[push] notificacao bloqueada (fora do escopo)');
+        return;
+      }
 
-  event.waitUntil(self.registration.showNotification(title, options));
+      const title = data.title || 'SGE IPDA';
+      const options = {
+        body: data.body || '',
+        icon: '/app-icon.png',
+        badge: '/app-icon.png',
+        data: { url: data.url || '/' },
+        vibrate: [200, 100, 200],
+        requireInteraction: false,
+      };
+
+      return self.registration.showNotification(title, options);
+    })
+  );
 });
 
 self.addEventListener('notificationclick', (event) => {

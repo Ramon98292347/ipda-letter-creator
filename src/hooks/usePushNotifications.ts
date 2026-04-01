@@ -19,7 +19,34 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
   return outputArray;
 }
 
-export function usePushNotifications(userId?: string) {
+// Comentario: salva dados do usuario no IndexedDB para o service worker validar escopo
+async function salvarUserNoSW(userData: { role?: string; scope_totvs_ids?: string[] }) {
+  try {
+    const db = await new Promise<IDBDatabase>((resolve, reject) => {
+      const req = indexedDB.open("ipda-user-db", 1);
+      req.onerror = () => reject(req.error);
+      req.onsuccess = () => resolve(req.result);
+      req.onupgradeneeded = (e) => {
+        const db = (e.target as IDBOpenDBRequest).result;
+        if (!db.objectStoreNames.contains("user")) {
+          db.createObjectStore("user");
+        }
+      };
+    });
+
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction("user", "readwrite");
+      const store = tx.objectStore("user");
+      const req = store.put(userData, "user");
+      req.onerror = () => reject(req.error);
+      req.onsuccess = () => resolve();
+    });
+  } catch (err) {
+    console.warn("[push] erro ao salvar user no SW:", err);
+  }
+}
+
+export function usePushNotifications(userId?: string, userRole?: string, scopeTotvsIds?: string[]) {
   const supported =
     typeof window !== "undefined" &&
     "serviceWorker" in navigator &&
@@ -40,6 +67,13 @@ export function usePushNotifications(userId?: string) {
     });
   }, [supported]);
 
+  // Comentario: salva dados do usuario no SW para validar escopo de notificacoes
+  useEffect(() => {
+    if (userRole && scopeTotvsIds) {
+      void salvarUserNoSW({ role: userRole, scope_totvs_ids: scopeTotvsIds });
+    }
+  }, [userRole, scopeTotvsIds]);
+
   async function subscribe() {
     if (!supported) return;
     setLoading(true);
@@ -59,8 +93,10 @@ export function usePushNotifications(userId?: string) {
       let sub = await reg.pushManager.getSubscription();
 
       if (!sub) {
+        // Comentario: userVisibleOnly: false permite notificacoes em background/app fechado
+        // True apenas mostra quando usuario esta interagindo (problema original)
         sub = await reg.pushManager.subscribe({
-          userVisibleOnly: true,
+          userVisibleOnly: false,
           applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
         });
       }
