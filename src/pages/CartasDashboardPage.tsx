@@ -10,6 +10,7 @@ import { getPastorMetrics, listChurchesInScope, listMembers, listPastorLetters }
 import { PageLoading } from "@/components/shared/PageLoading";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabaseRealtime } from "@/lib/supabaseRealtime";
+import { useDebounce } from "@/hooks/useDebounce";
 
 function KpiCard({
   label,
@@ -40,7 +41,9 @@ export default function CartasDashboardPage() {
   const { usuario, session } = useUser();
   const [selectedChurchTotvs, setSelectedChurchTotvs] = useState<string>("all");
   const [filterChurchClass, setFilterChurchClass] = useState<string>("all");
-  const [filterChurchTotvs, setFilterChurchTotvs] = useState<string>("");
+  const [filterChurchTotvsInput, setFilterChurchTotvsInput] = useState<string>("");
+  // Comentario: debounce de 600ms aguarda o usuario terminar de digitar antes de filtrar
+  const debouncedFilterTotvs = useDebounce(filterChurchTotvsInput, 600);
   const [showFiltersMobile, setShowFiltersMobile] = useState(false);
 
   const role = String(usuario?.role || "").toLowerCase();
@@ -78,12 +81,12 @@ export default function CartasDashboardPage() {
     if (filterChurchClass !== "all") {
       result = result.filter((c) => String(c.class || "").toLowerCase() === filterChurchClass.toLowerCase());
     }
-    if (filterChurchTotvs.trim()) {
-      const query = filterChurchTotvs.trim().toLowerCase();
+    if (debouncedFilterTotvs.trim()) {
+      const query = debouncedFilterTotvs.trim().toLowerCase();
       result = result.filter((c) => String(c.totvs_id || "").toLowerCase().includes(query));
     }
     return result;
-  }, [churchesInScope, filterChurchClass, filterChurchTotvs, roleMode, selectedChurchTotvs]);
+  }, [churchesInScope, filterChurchClass, debouncedFilterTotvs, roleMode, selectedChurchTotvs]);
 
   const allowScopeView = roleMode === "admin" || effectiveScopeTotvsIds.length > 1;
   const selectedScopeForLetters = useMemo(() => {
@@ -315,7 +318,7 @@ export default function CartasDashboardPage() {
             {roleMode === "admin" ? (
               <div className={`${showFiltersMobile ? "flex flex-col" : "hidden"} w-full gap-2 sm:flex sm:w-auto sm:flex-row sm:items-center`}>
                 {/* Filtro de igreja */}
-                <Select value={selectedChurchTotvs} onValueChange={(v) => { setSelectedChurchTotvs(v); setFilterChurchClass("all"); setFilterChurchTotvs(""); }}>
+                <Select value={selectedChurchTotvs} onValueChange={(v) => { setSelectedChurchTotvs(v); setFilterChurchClass("all"); setFilterChurchTotvsInput(""); }}>
                   <SelectTrigger className="w-full sm:w-[200px]">
                     <SelectValue placeholder="Filtrar por igreja" />
                   </SelectTrigger>
@@ -347,12 +350,12 @@ export default function CartasDashboardPage() {
                       </SelectContent>
                     </Select>
 
-                    {/* Input para buscar por TOTVS */}
+                    {/* Input para buscar por TOTVS — aguarda terminar de digitar para filtrar */}
                     <input
                       type="text"
                       placeholder="Buscar TOTVS..."
-                      value={filterChurchTotvs}
-                      onChange={(e) => setFilterChurchTotvs(e.target.value)}
+                      value={filterChurchTotvsInput}
+                      onChange={(e) => setFilterChurchTotvsInput(e.target.value)}
                       className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm placeholder-slate-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 sm:w-[140px]"
                     />
                   </>
