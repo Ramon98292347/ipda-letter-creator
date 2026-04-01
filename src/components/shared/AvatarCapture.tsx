@@ -92,15 +92,24 @@ export function AvatarCapture({ onFileReady, disabled = false, currentUrl }: Ava
         audio: false,
       });
       streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        await videoRef.current.play();
+      const video = videoRef.current;
+      if (video) {
+        video.srcObject = stream;
+        setFacingMode(modo);
+        facingModeRef.current = modo;
+        setFaceDetected(false);
+
+        // Comentario: aguarda o vídeo estar pronto antes de renderizar a câmera
+        // Isso garante que a imagem aparece imediatamente quando a câmera abre
+        const handlePlay = () => {
+          video.removeEventListener("play", handlePlay);
+          setCameraActive(true);
+          if (modelsLoaded) iniciarDeteccao();
+        };
+
+        video.addEventListener("play", handlePlay);
+        await video.play();
       }
-      setFacingMode(modo);
-      facingModeRef.current = modo;
-      setCameraActive(true);
-      setFaceDetected(false);
-      if (modelsLoaded) iniciarDeteccao();
     } catch {
       setStatusMsg("Câmera indisponível. Use a galeria.");
     }
