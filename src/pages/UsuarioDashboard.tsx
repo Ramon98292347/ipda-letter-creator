@@ -46,6 +46,7 @@ type LetterFormState = {
   igreja_destino: string;
   igreja_destino_manual: string;
   dia_pregacao: string;
+  preach_period: "MANHA" | "TARDE" | "NOITE" | "";
 };
 
 type QuickRange = "today" | "7" | "15" | "30" | "all";
@@ -54,6 +55,7 @@ const emptyLetterForm: LetterFormState = {
   igreja_destino: "",
   igreja_destino_manual: "",
   dia_pregacao: "",
+  preach_period: "",
 };
 
 function statusClass(status: string) {
@@ -704,6 +706,10 @@ async function openPdf(letter: PastorLetter) {
       toast.error("A data da pregação deve ficar entre hoje e os próximos 30 dias.");
       return;
     }
+    if (!letterForm.preach_period) {
+      toast.error("Selecione o horário da pregação: Manhã, Tarde ou Noite.");
+      return;
+    }
 
     setCreatingLetter(true);
     try {
@@ -714,7 +720,7 @@ async function openPdf(letter: PastorLetter) {
         preacher_name: String(profile?.full_name || usuario?.nome || ""),
         minister_role: ministerialRole,
         preach_date: letterForm.dia_pregacao,
-        preach_period: "NOITE",
+        preach_period: letterForm.preach_period as "MANHA" | "TARDE" | "NOITE",
         // Comentario: origem e sempre a mae com pastor (signerChurch), nunca a propria regional/local.
         // Para "Outros", usa a mae mais alta (highestSignerForOthers). Igual ao telas-cartas.
         church_origin: displayOriginTotvs ? `${displayOriginTotvs} - ${displayOriginName}`.trim() : (displayOriginName || String(session?.church_name || "")),
@@ -1182,7 +1188,8 @@ async function openPdf(letter: PastorLetter) {
                     Modelo: <span className="font-medium">9901 - PIUMA-NITEROI</span>. Se digitar diferente, o sistema tenta padronizar automaticamente.
                   </p>
                 </div>
-                <div className="grid gap-3 md:grid-cols-2">
+                {/* Comentario: grid de 3 colunas para data pregacao, horario e data emissao */}
+                <div className="grid gap-3 md:grid-cols-3">
                   <div className="space-y-2">
                     <Label>Data da pregacao</Label>
                     <Input
@@ -1192,6 +1199,19 @@ async function openPdf(letter: PastorLetter) {
                       value={letterForm.dia_pregacao}
                       onChange={(e) => setLetterForm((prev) => ({ ...prev, dia_pregacao: e.target.value }))}
                     />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Horário da pregação</Label>
+                    <Select value={letterForm.preach_period} onValueChange={(v) => setLetterForm((prev) => ({ ...prev, preach_period: v as "MANHA" | "TARDE" | "NOITE" }))}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione o horário" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="MANHA">Manhã</SelectItem>
+                        <SelectItem value="TARDE">Tarde</SelectItem>
+                        <SelectItem value="NOITE">Noite</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div className="space-y-2">
                     <Label>Data de emissao da carta</Label>
