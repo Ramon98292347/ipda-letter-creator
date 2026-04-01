@@ -202,9 +202,11 @@ export default function DivulgacaoPage() {
   });
 
   const { data: announcements = [] } = useQuery<AnnouncementRow[]>({
-    queryKey: ["div-ann", session?.totvs_id],
+    queryKey: ["div-ann", session?.totvs_id, roleMode],
     enabled: !!session?.totvs_id,
-    queryFn: async () => (await post<any>("announcements-api", { action: "list-admin", church_totvs_id: session?.totvs_id })).announcements || [],
+    // Comentario: admin ve TODAS as divulgacoes (sem filtro por church_totvs_id)
+    // Pastor ve apenas divulgacoes da sua igreja
+    queryFn: async () => (await post<any>("announcements-api", { action: "list-admin", church_totvs_id: roleMode === "admin" ? undefined : session?.totvs_id })).announcements || [],
   });
 
   const events = useMemo<EventRow[]>(
