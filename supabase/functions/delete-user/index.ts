@@ -28,13 +28,50 @@ function json(obj: unknown, status = 200) {
   return new Response(JSON.stringify(obj), { status, headers: corsHeaders() });
 }
 
-type Role = "admin" | "pastor" | "obreiro";
+// Comentario: tipos para church e hierarchy rank
+type ChurchRow = { totvs_id: string; parent_totvs_id: string | null; class: string };
+type ChurchClass = "estadual" | "setorial" | "central" | "regional" | "local";
+
+type Role = "admin" | "pastor" | "obreiro" | "secretario" | "financeiro";
 type SessionClaims = {
   user_id: string;
   role: Role;
   active_totvs_id: string;
   scope_totvs_ids?: string[];
 };
+
+// Comentario: computa escopo de igrejas (raiz + todas as filhas na hierarquia)
+function computeScope(rootTotvs: string, churches: ChurchRow[]): Set<string> {
+  const children = new Map<string, string[]>();
+  for (const c of churches) {
+    const p = c.parent_totvs_id || "";
+    if (!children.has(p)) children.set(p, []);
+    children.get(p)!.push(c.totvs_id);
+  }
+  const scope = new Set<string>();
+  const queue: string[] = [rootTotvs];
+  while (queue.length) {
+    const cur = queue.shift()!;
+    if (scope.has(cur)) continue;
+    scope.add(cur);
+    const kids = children.get(cur) || [];
+    for (const k of kids) queue.push(k);
+  }
+  return scope;
+}
+
+// Comentario: retorna o rank da class da church para comparacao hierarquica
+function getRankForClass(churchClass: string | null): number {
+  const classStr = String(churchClass || "").toLowerCase();
+  const rank: Record<string, number> = {
+    estadual: 5,
+    setorial: 4,
+    central: 3,
+    regional: 2,
+    local: 1,
+  };
+  return rank[classStr] || 0;
+}
 
 async function verifySessionJWT(req: Request): Promise<SessionClaims | null> {
   const auth = req.headers.get("authorization") || "";
@@ -89,21 +126,45 @@ Deno.serve(async (req) => {
     if (targetErr) return json({ ok: false, error: "db_error_target", details: targetErr.message }, 500);
     if (!target) return json({ ok: false, error: "user_not_found" }, 404);
 
+    // Comentario: validacoes adicionais para role pastor (com hierarquia)
     if (session.role === "pastor") {
       const targetRole = String(target.role || "").toLowerCase();
+
+      // Comentario: pastor nunca pode deletar admin
       if (targetRole === "admin") return json({ ok: false, error: "forbidden_target_admin" }, 403);
+
+      // Comentario: valida escopo
       const targetTotvs = String(target.default_totvs_id || "");
       const allowed = new Set([session.active_totvs_id, ...(session.scope_totvs_ids || [])]);
       if (!targetTotvs || !allowed.has(targetTotvs)) {
         return json({ ok: false, error: "forbidden_out_of_scope" }, 403);
       }
+
+      // Comentario: se o target for outro pastor, verifica rank hierarquico
+      if (targetRole === "pastor") {
+        const { data: churches } = await sb.from("churches").select("totvs_id, parent_totvs_id, class");
+        const churchRows = (churches || []) as ChurchRow[];
+
+        const sessionChurch = churchRows.find((c) => c.totvs_id === session.active_totvs_id);
+        const targetChurch = churchRows.find((c) => c.totvs_id === targetTotvs);
+
+        const sessionRank = getRankForClass(sessionChurch?.class || null);
+        const targetRank = getRankForClass(targetChurch?.class || null);
+
+        // Comentario: session pastor precisa de rank >= alvo pastor
+        if (sessionRank < targetRank) {
+          return json({ ok: false, error: "forbidden_higher_rank" }, 403);
+        }
+      }
     }
 
+    // Comentario: tabelas que referenciam o usuario e precisam ser limpas
     const cleanupTables = [
       "release_requests",
       "member_carteirinha_documents",
       "member_ficha_documents",
       "member_ficha_obreiro_documents",
+      "ministerial_meeting_attendance",
     ];
     for (const table of cleanupTables) {
       await sb.from(table).delete().eq("member_id", targetId);
