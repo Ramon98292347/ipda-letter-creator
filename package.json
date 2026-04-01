@@ -10,7 +10,8 @@
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "deploy:functions": "supabase functions deploy notifications-api set-user-registration-status"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
