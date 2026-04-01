@@ -822,7 +822,8 @@ const Index = () => {
                 </div>
                 {errors.destinoId && <p className="text-xs text-destructive">Selecione a igreja de destino.</p>}
 
-                <div className="grid md:grid-cols-2 gap-4">
+                {/* Comentario: grade de 3 colunas para data pregacao, horario e data emissao */}
+                <div className="grid md:grid-cols-3 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="dataPregacao" className="text-sm font-medium text-slate-800">
                       Data da pregação
@@ -849,6 +850,20 @@ const Index = () => {
                   </div>
 
                   <div className="space-y-2">
+                    <Label className="text-sm font-medium text-slate-800">Horário da pregação</Label>
+                    <Select value={preachPeriod} onValueChange={(v) => setPreachPeriod(v as PreachPeriod)}>
+                      <SelectTrigger className="h-11 rounded-xl border-slate-300 bg-slate-50 transition-colors focus:border-blue-500 focus:ring-blue-500">
+                        <SelectValue placeholder="Selecione o horário" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="MANHA">Manhã</SelectItem>
+                        <SelectItem value="TARDE">Tarde</SelectItem>
+                        <SelectItem value="NOITE">Noite</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
                     <Label htmlFor="dataEmissao" className="text-sm font-medium text-slate-800">
                       Data de emissão da carta
                     </Label>
@@ -869,20 +884,6 @@ const Index = () => {
                     })()}
                     {errors.dataEmissao && <p className="text-xs text-destructive">{errors.dataEmissao.message as string}</p>}
                   </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium text-slate-800">Horário da pregação</Label>
-                    <Select value={preachPeriod} onValueChange={(v) => setPreachPeriod(v as PreachPeriod)}>
-                    <SelectTrigger className="h-11 rounded-xl border-slate-300 bg-slate-50 transition-colors focus:border-blue-500 focus:ring-blue-500">
-                      <SelectValue placeholder="Selecione o horário" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="MANHA">Manhã</SelectItem>
-                      <SelectItem value="TARDE">Tarde</SelectItem>
-                      <SelectItem value="NOITE">Noite</SelectItem>
-                    </SelectContent>
-                  </Select>
                 </div>
 
                 <div className="flex flex-col sm:flex-row gap-3 pt-4">
