@@ -92,23 +92,26 @@ export function AvatarCapture({ onFileReady, disabled = false, currentUrl }: Ava
         audio: false,
       });
       streamRef.current = stream;
-      const video = videoRef.current;
-      if (video) {
-        video.srcObject = stream;
-        setFacingMode(modo);
-        facingModeRef.current = modo;
-        setCameraActive(true);
-        setFaceDetected(false);
+      setFacingMode(modo);
+      facingModeRef.current = modo;
+      setCameraActive(true);
+      setFaceDetected(false);
 
-        // Comentario: play() pode falhar se permissão de câmera foi negada
-        // Mas se chegou aqui, permissão foi concedida
-        video.play().then(() => {
-          if (modelsLoaded) iniciarDeteccao();
-        }).catch(() => {
-          // Se play falhar, inicia deteccao mesmo assim
-          if (modelsLoaded) iniciarDeteccao();
-        });
-      }
+      // Comentario: depois que o elemento renderiza no DOM, configura e toca o vídeo
+      // Usa setTimeout para garantir que o elemento <video> já existe no DOM
+      setTimeout(() => {
+        const video = videoRef.current;
+        if (video) {
+          video.srcObject = stream;
+          // Aguarda o vídeo começar a tocar para iniciar a detecção (mesmo que alternarCamera)
+          const handlePlaying = () => {
+            video.removeEventListener("playing", handlePlaying);
+            if (modelsLoaded) iniciarDeteccao();
+          };
+          video.addEventListener("playing", handlePlaying);
+          void video.play();
+        }
+      }, 0);
     } catch {
       setStatusMsg("Câmera indisponível. Use a galeria.");
     }
