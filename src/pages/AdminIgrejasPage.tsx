@@ -37,28 +37,33 @@ function IgrejaStat({
 // Comentario: pagina de igrejas para admin com filtros de busca por nome/TOTVS e classificacao.
 export default function AdminIgrejasPage() {
   const queryClient = useQueryClient();
-  const { session } = useUser();
-  // Comentario: activeTotvsId limita o escopo ao mesmo que o dashboard usa,
-  // evitando mostrar igrejas fora do escopo da igreja logada.
-  const activeTotvsId = String(session?.totvs_id || "");
+  const { session, usuario } = useUser();
+  // Comentario: para admin, mostrar TODAS as igrejas do banco (sem filtro de escopo)
+  // Para pastor, limitar ao escopo da igreja logada
+  const roleLower = String(usuario?.role || "").toLowerCase();
+  const activeTotvsId = roleLower === "admin" ? "" : String(session?.totvs_id || "");
   const [filterNome, setFilterNome] = useState("");
   // Comentario: debounce de 400ms evita recalcular o filtro a cada tecla pressionada.
   const debouncedNome = useDebounce(filterNome, 400);
   const [filterClasse, setFilterClasse] = useState("all");
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(20);
+  const [pageSize, setPageSize] = useState(100);
+
+  // Comentario: para admin, activeTotvsId eh vazio (mostra todas as igrejas)
+  // Para pastor, activeTotvsId eh a church logada
+  const isAdmin = roleLower === "admin";
 
   const { data: optionsRows = [] } = useQuery({
     queryKey: ["admin-igrejas-options", activeTotvsId],
     queryFn: () => listChurchesInScope(1, 5000, activeTotvsId || undefined),
-    enabled: Boolean(activeTotvsId),
+    enabled: isAdmin || Boolean(activeTotvsId),
     refetchInterval: 10000,
   });
 
   const { data: pageData, isLoading, isFetching } = useQuery({
     queryKey: ["admin-igrejas-page", page, pageSize, activeTotvsId],
     queryFn: () => listChurchesInScopePaged(page, pageSize, activeTotvsId || undefined),
-    enabled: Boolean(activeTotvsId),
+    enabled: isAdmin || Boolean(activeTotvsId),
     staleTime: 30_000,
     refetchInterval: 10000,
   });
