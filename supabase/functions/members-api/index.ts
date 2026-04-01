@@ -446,7 +446,14 @@ async function handleSave(
       "id, cpf, full_name, role, default_totvs_id, totvs_access, is_active, can_create_released_letter, updated_at"
     )
     .single();
-  if (saveErr) return json({ ok: false, error: "db_error_save_user" }, 500);
+
+  // Comentario: trata violacao de UNIQUE constraint no CPF (codigo de erro PostgreSQL 23505)
+  if (saveErr) {
+    if (saveErr.code === "23505" && String(saveErr.message || "").includes("cpf")) {
+      return json({ ok: false, error: "cpf_already_used", detail: "Este CPF ja esta cadastrado no sistema." }, 409);
+    }
+    return json({ ok: false, error: "db_error_save_user" }, 500);
+  }
 
   return json({ ok: true, user: saved }, 200);
 }

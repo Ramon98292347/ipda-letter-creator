@@ -503,9 +503,10 @@ const Index = () => {
         : igrejaOrigem.nome
       : (usuario?.igreja_nome ?? "");
 
+    // Comentario: validacao do campo "Outros" — deve comecal com numero (codigo TOTVS)
     const destinoManual = destinoOutros.trim();
-    if (!igrejaDestino && destinoManual.length < 3) {
-      toast.error("Selecione a igreja de destino ou informe em Outros.");
+    if (!igrejaDestino && !destinoManual.match(/^\d{3,}/)) {
+      toast.error("O campo 'Outros' deve iniciar com o código da igreja. Ex: 9530 - CAMPO GRANDE");
       return;
     }
 

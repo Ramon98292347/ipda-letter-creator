@@ -196,6 +196,23 @@ Deno.serve(async (req) => {
     if (!newPastor) return json({ ok: false, error: "pastor_user_not_found" }, 404);
     if (newPastor.is_active === false) return json({ ok: false, error: "pastor_user_inactive" }, 409);
 
+    // Comentario: verifica se este usuario ja e pastor de outra church
+    // Regra: um pastor so pode ser atribuido a uma unica church
+    const { data: alreadyPastor } = await sb
+      .from("churches")
+      .select("totvs_id, nome")
+      .eq("pastor_user_id", pastor_user_id)
+      .neq("totvs_id", church_totvs_id)
+      .maybeSingle();
+
+    if (alreadyPastor) {
+      return json({
+        ok: false,
+        error: "pastor_already_assigned",
+        detail: `Este usuario ja e pastor da igreja ${String(alreadyPastor.totvs_id || "")}. Um pastor so pode ser atribuido a uma unica church.`,
+      }, 409);
+    }
+
     const newAccess = normalizeTotvsAccess(newPastor.totvs_access);
     const newAccessUpdated = upsertChurchAccess(newAccess, church_totvs_id, "pastor");
     // Comentario: ao cadastrar/trocar pastor, a igreja padrao do usuario passa a ser a igreja atribuida.

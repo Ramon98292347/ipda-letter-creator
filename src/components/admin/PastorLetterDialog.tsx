@@ -313,7 +313,8 @@ export function PastorLetterDialog({ open, onOpenChange, letterTarget, onSuccess
     if (!preachPeriod) { toast.error("Selecione o período da pregação."); return; }
     if (!preachDate) { toast.error("Selecione a data da pregação."); return; }
     if (preachDate < todayIso) { toast.error("A data de pregação deve ser hoje ou no futuro."); return; }
-    if (!destino && !destinoOutros.trim()) { toast.error("Selecione a igreja de destino ou informe em Outros."); return; }
+    // Comentario: validacao do campo "Outros" — deve comecal com numero (codigo TOTVS)
+    if (!destino && !normalizeManual(destinoOutros).match(/^\d{3,}/)) { toast.error("O campo 'Outros' deve iniciar com o código da igreja. Ex: 9530 - CAMPO GRANDE"); return; }
 
     const origemText = displayOriginName
       ? `${displayOriginTotvs} - ${displayOriginName}`

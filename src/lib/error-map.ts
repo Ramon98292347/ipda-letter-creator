@@ -59,6 +59,7 @@ const CODE_MAP: Record<string, string> = {
   profile_incomplete_for_letter: "Complete os seus dados (data de batismo, endereco e foto) para continuar emitindo cartas.",
   member_profile_incomplete_for_ficha: "Complete os dados do membro (data de batismo, endereco e foto) para emitir a ficha.",
   cpf_already_registered: "CPF já cadastrado no sistema.",
+  cpf_already_used: "Este CPF já está cadastrado no sistema.",
   password_too_short: "A senha precisa ter pelo menos 6 caracteres.",
   invalid_or_expired_token: "Link de redefinição inválido ou expirado. Solicite um novo.",
   missing_token: "Link de redefinição inválido.",
