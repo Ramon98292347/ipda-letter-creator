@@ -74,7 +74,8 @@ export default function CartasDashboardPage() {
   const { data: metrics, isLoading: loadingMetrics, isFetching: fetchingMetrics } = useQuery({
     queryKey: ["cartas-dashboard-metrics", selectedScopeForLetters.join("|")],
     queryFn: () => getPastorMetrics(),
-    enabled: selectedScopeForLetters.length > 0,
+    // Comentario: para admin, so carrega metricas se uma igreja especifica foi selecionada.
+    enabled: selectedScopeForLetters.length > 0 && !(roleMode === "admin" && selectedChurchTotvs === "all"),
     refetchInterval: 60 * 1000,
   });
 
@@ -101,7 +102,9 @@ export default function CartasDashboardPage() {
       data.flat().forEach((item) => map.set(item.id, item));
       return Array.from(map.values());
     },
-    enabled: selectedScopeForLetters.length > 0,
+    // Comentario: para admin, so carrega cartas se uma igreja especifica foi selecionada.
+    // Evita 1000+ requisicoes paralelas ao carregar todas as igrejas.
+    enabled: selectedScopeForLetters.length > 0 && !(roleMode === "admin" && selectedChurchTotvs === "all"),
     refetchInterval: 60 * 1000,
   });
 
@@ -114,17 +117,20 @@ export default function CartasDashboardPage() {
         roles: ["pastor", "obreiro"],
         church_totvs_id: roleMode === "admin" && selectedChurchTotvs !== "all" ? selectedChurchTotvs : undefined,
       }),
-    enabled: selectedScopeForLetters.length > 0,
+    // Comentario: para admin, so carrega membros se uma igreja especifica foi selecionada.
+    enabled: selectedScopeForLetters.length > 0 && !(roleMode === "admin" && selectedChurchTotvs === "all"),
     refetchInterval: 10000,
   });
 
+  // Comentario: para admin, nao requer cartas carregadas se todas as igrejas estao selecionadas.
+  const shouldRequireLettersLoaded = roleMode === "pastor" || (roleMode === "admin" && selectedChurchTotvs !== "all");
   const loadingPage =
     !effectiveScopeTotvsIds.length ||
     loadingMetrics ||
-    loadingLetters ||
+    (shouldRequireLettersLoaded && loadingLetters) ||
     loadingMembers ||
     (fetchingMetrics && !metrics) ||
-    (fetchingLetters && !letters.length) ||
+    (shouldRequireLettersLoaded && fetchingLetters && !letters.length) ||
     (fetchingMembers && !membrosRes);
 
   useEffect(() => {
