@@ -1,3 +1,6 @@
+[functions.caravanas-api]
+verify_jwt = false
+
 [functions.letters-api]
 verify_jwt = false
 
