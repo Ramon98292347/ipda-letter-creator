@@ -68,6 +68,34 @@ function formatCurrency(value: number) {
   return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
+function formatNumber(value: number) {
+  return value.toLocaleString("pt-BR");
+}
+
+// Máscara de moeda brasileira: 1.234,56
+function maskCurrency(raw: string): string {
+  const digits = raw.replace(/\D/g, "");
+  if (!digits) return "";
+  const num = Number(digits) / 100;
+  return num.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function unmaskCurrency(masked: string): number {
+  const clean = masked.replace(/\./g, "").replace(",", ".");
+  return Number(clean) || 0;
+}
+
+// Máscara de quantidade: 1.000, 10.000
+function maskQuantity(raw: string): string {
+  const digits = raw.replace(/\D/g, "");
+  if (!digits) return "";
+  return Number(digits).toLocaleString("pt-BR");
+}
+
+function unmaskQuantity(masked: string): number {
+  return Number(masked.replace(/\./g, "")) || 0;
+}
+
 function formatDate(value?: string | null) {
   if (!value) return "-";
   const d = new Date(value);
@@ -190,12 +218,12 @@ export default function DepositoPage() {
 
         {/* ── Cards de resumo ─────────────────────────────────────────── */}
         <section className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-7">
-          <SummaryCard title="Itens cadastrados" value={summary?.total_products ?? 0} icon={Package} gradient="from-blue-600 to-blue-500" />
-          <SummaryCard title="Total em estoque" value={summary?.total_stock ?? 0} icon={Box} gradient="from-indigo-600 to-indigo-500" />
-          <SummaryCard title="Estoque baixo" value={summary?.low_stock_count ?? 0} icon={AlertTriangle} gradient="from-rose-600 to-rose-500" />
-          <SummaryCard title="Entradas (mês)" value={summary?.entries_month ?? 0} icon={ArrowUpCircle} gradient="from-emerald-600 to-emerald-500" />
-          <SummaryCard title="Saídas (mês)" value={summary?.exits_month ?? 0} icon={TrendingDown} gradient="from-amber-600 to-amber-500" />
-          <SummaryCard title="Transferências" value={summary?.transfers_month ?? 0} icon={ArrowRightLeft} gradient="from-sky-600 to-sky-500" />
+          <SummaryCard title="Itens cadastrados" value={formatNumber(summary?.total_products ?? 0)} icon={Package} gradient="from-blue-600 to-blue-500" />
+          <SummaryCard title="Total em estoque" value={formatNumber(summary?.total_stock ?? 0)} icon={Box} gradient="from-indigo-600 to-indigo-500" />
+          <SummaryCard title="Estoque baixo" value={formatNumber(summary?.low_stock_count ?? 0)} icon={AlertTriangle} gradient="from-rose-600 to-rose-500" />
+          <SummaryCard title="Entradas (mês)" value={formatNumber(summary?.entries_month ?? 0)} icon={ArrowUpCircle} gradient="from-emerald-600 to-emerald-500" />
+          <SummaryCard title="Saídas (mês)" value={formatNumber(summary?.exits_month ?? 0)} icon={TrendingDown} gradient="from-amber-600 to-amber-500" />
+          <SummaryCard title="Transferências" value={formatNumber(summary?.transfers_month ?? 0)} icon={ArrowRightLeft} gradient="from-sky-600 to-sky-500" />
           <SummaryCard title="Valor estoque" value={formatCurrency(summary?.total_value ?? 0)} icon={DollarSign} gradient="from-violet-600 to-violet-500" />
         </section>
 
@@ -378,8 +406,8 @@ function EstoqueTab({
                   <td className="px-3 py-2.5 font-mono text-xs">{item.code}</td>
                   <td className="px-3 py-2.5 font-medium">{item.description}</td>
                   <td className="px-3 py-2.5"><Badge variant="outline" className="text-xs">{item.group_name}</Badge></td>
-                  <td className="px-3 py-2.5 text-right font-semibold">{item.total_quantity}</td>
-                  <td className="px-3 py-2.5 text-right text-slate-500">{item.min_stock}</td>
+                  <td className="px-3 py-2.5 text-right font-semibold">{formatNumber(item.total_quantity)}</td>
+                  <td className="px-3 py-2.5 text-right text-slate-500">{formatNumber(item.min_stock)}</td>
                   <td className="px-3 py-2.5 text-right">{formatCurrency(item.unit_price)}</td>
                   <td className="px-3 py-2.5 text-right font-semibold">{formatCurrency(item.total_quantity * item.unit_price)}</td>
                   <td className="px-3 py-2.5">
@@ -442,7 +470,7 @@ function MovimentacoesTab({ movements, loading }: { movements: DepositMovement[]
                   <td className="px-3 py-2.5"><Badge variant="outline" className={`text-xs ${movementBadge(m.type)}`}>{m.type}</Badge></td>
                   <td className="px-3 py-2.5 font-mono text-xs">{m.deposit_products?.code || "-"}</td>
                   <td className="px-3 py-2.5">{m.deposit_products?.description || "-"}</td>
-                  <td className="px-3 py-2.5 text-right font-semibold">{m.quantity}</td>
+                  <td className="px-3 py-2.5 text-right font-semibold">{formatNumber(m.quantity)}</td>
                   <td className="px-3 py-2.5 text-xs">{m.responsible_name || "-"}</td>
                   <td className="px-3 py-2.5 text-xs text-slate-500 truncate max-w-[200px]">{m.notes || "-"}</td>
                 </tr>
@@ -486,7 +514,7 @@ function TransferenciasTab({ transfers, loading }: { transfers: DepositMovement[
                   <td className="px-3 py-2.5 text-xs">{formatDate(m.created_at)}</td>
                   <td className="px-3 py-2.5 font-mono text-xs">{m.deposit_products?.code || "-"}</td>
                   <td className="px-3 py-2.5">{m.deposit_products?.description || "-"}</td>
-                  <td className="px-3 py-2.5 text-right font-semibold">{m.quantity}</td>
+                  <td className="px-3 py-2.5 text-right font-semibold">{formatNumber(m.quantity)}</td>
                   <td className="px-3 py-2.5 text-xs">{m.church_origin_totvs || "-"}</td>
                   <td className="px-3 py-2.5 text-xs">{m.church_destination_totvs || "-"}</td>
                   <td className="px-3 py-2.5 text-xs">{m.responsible_name || "-"}</td>
@@ -587,12 +615,12 @@ function ProductModal({ open, onClose, product, onSaved }: {
         group_name: product.group_name,
         subgroup: product.subgroup || "",
         unit: product.unit,
-        unit_price: String(product.unit_price),
-        min_stock: String(product.min_stock),
+        unit_price: product.unit_price ? maskCurrency(String(Math.round(product.unit_price * 100))) : "0,00",
+        min_stock: product.min_stock ? maskQuantity(String(product.min_stock)) : "0",
         notes: product.notes || "",
       });
     } else {
-      setForm({ code: "", description: "", group_name: "", subgroup: "", unit: "UN", unit_price: "0", min_stock: "0", notes: "" });
+      setForm({ code: "", description: "", group_name: "", subgroup: "", unit: "UN", unit_price: "0,00", min_stock: "0", notes: "" });
     }
   }, [product, open]);
 
@@ -609,8 +637,8 @@ function ProductModal({ open, onClose, product, onSaved }: {
           group_name: form.group_name,
           subgroup: form.subgroup || null,
           unit: form.unit,
-          unit_price: Number(form.unit_price) || 0,
-          min_stock: Number(form.min_stock) || 0,
+          unit_price: unmaskCurrency(form.unit_price),
+          min_stock: unmaskQuantity(form.min_stock),
           notes: form.notes || null,
         });
         toast.success("Produto atualizado.");
@@ -621,8 +649,8 @@ function ProductModal({ open, onClose, product, onSaved }: {
           group_name: form.group_name,
           subgroup: form.subgroup || null,
           unit: form.unit,
-          unit_price: Number(form.unit_price) || 0,
-          min_stock: Number(form.min_stock) || 0,
+          unit_price: unmaskCurrency(form.unit_price),
+          min_stock: unmaskQuantity(form.min_stock),
           notes: form.notes || null,
         });
         toast.success("Produto cadastrado.");
@@ -673,12 +701,23 @@ function ProductModal({ open, onClose, product, onSaved }: {
               <Input value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} placeholder="UN" />
             </div>
             <div>
-              <Label>Valor unitário</Label>
-              <Input type="number" step="0.01" value={form.unit_price} onChange={(e) => setForm({ ...form, unit_price: e.target.value })} />
+              <Label>Valor unitário (R$)</Label>
+              <Input
+                inputMode="numeric"
+                value={form.unit_price}
+                onChange={(e) => setForm({ ...form, unit_price: maskCurrency(e.target.value) })}
+                placeholder="0,00 = Grátis"
+              />
+              {unmaskCurrency(form.unit_price) === 0 && <p className="text-xs text-slate-500 mt-1">Grátis</p>}
             </div>
             <div>
               <Label>Estoque mínimo</Label>
-              <Input type="number" value={form.min_stock} onChange={(e) => setForm({ ...form, min_stock: e.target.value })} />
+              <Input
+                inputMode="numeric"
+                value={form.min_stock}
+                onChange={(e) => setForm({ ...form, min_stock: maskQuantity(e.target.value) })}
+                placeholder="0"
+              />
             </div>
           </div>
           <div>
@@ -715,13 +754,13 @@ function MovementModal({ open, onClose, products, initialProductId, activeTotvs,
 
   async function save() {
     if (!form.product_id) { toast.error("Selecione o produto."); return; }
-    if (!Number(form.quantity) || Number(form.quantity) <= 0) { toast.error("Informe a quantidade."); return; }
+    if (!unmaskQuantity(form.quantity) || unmaskQuantity(form.quantity) <= 0) { toast.error("Informe a quantidade."); return; }
     setSaving(true);
     try {
       await depositCreateMovement({
         product_id: form.product_id,
         type: form.type,
-        quantity: Number(form.quantity),
+        quantity: unmaskQuantity(form.quantity),
         church_totvs_id: form.church_totvs_id || activeTotvs,
         notes: form.notes || undefined,
       });
@@ -766,7 +805,7 @@ function MovementModal({ open, onClose, products, initialProductId, activeTotvs,
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label>Quantidade</Label>
-              <Input type="number" min="1" value={form.quantity} onChange={(e) => setForm({ ...form, quantity: e.target.value })} placeholder="0" />
+              <Input inputMode="numeric" value={form.quantity} onChange={(e) => setForm({ ...form, quantity: maskQuantity(e.target.value) })} placeholder="0" />
             </div>
             <div>
               <Label>Igreja (TOTVS)</Label>
@@ -806,14 +845,14 @@ function TransferModal({ open, onClose, products, activeTotvs, onSaved }: {
 
   async function save() {
     if (!form.product_id) { toast.error("Selecione o produto."); return; }
-    if (!Number(form.quantity) || Number(form.quantity) <= 0) { toast.error("Informe a quantidade."); return; }
+    if (!unmaskQuantity(form.quantity) || unmaskQuantity(form.quantity) <= 0) { toast.error("Informe a quantidade."); return; }
     if (!form.origin.trim()) { toast.error("Informe a igreja de origem."); return; }
     if (!form.destination.trim()) { toast.error("Informe a igreja de destino."); return; }
     setSaving(true);
     try {
       await depositCreateTransfer({
         product_id: form.product_id,
-        quantity: Number(form.quantity),
+        quantity: unmaskQuantity(form.quantity),
         church_origin_totvs: form.origin,
         church_destination_totvs: form.destination,
         notes: form.notes || undefined,
@@ -849,7 +888,7 @@ function TransferModal({ open, onClose, products, activeTotvs, onSaved }: {
           </div>
           <div>
             <Label>Quantidade</Label>
-            <Input type="number" min="1" value={form.quantity} onChange={(e) => setForm({ ...form, quantity: e.target.value })} placeholder="0" />
+            <Input inputMode="numeric" value={form.quantity} onChange={(e) => setForm({ ...form, quantity: maskQuantity(e.target.value) })} placeholder="0" />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
