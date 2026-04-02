@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ManagementShell } from "@/components/layout/ManagementShell";
 import { Button } from "@/components/ui/button";
@@ -25,8 +25,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Bus, Check, Trash2, Loader2, Users, Map, Calendar } from "lucide-react";
+import { Bus, Check, Trash2, Loader2, Users, Map, Calendar, QrCode, Copy, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
+import QRCode from "qrcode";
 import { useUser } from "@/context/UserContext";
 import { NovaCaravanaForm } from "@/components/shared/NovaCaravanaForm";
 import {
@@ -43,6 +44,23 @@ export default function CaravanasPage() {
   const [filterStatus, setFilterStatus] = useState<"todas" | "Recebida" | "Confirmada">("todas");
   const [loadingId, setLoadingId] = useState<string | null>(null);
   const [openNewCaravana, setOpenNewCaravana] = useState(false);
+  const [qrCodeUrl, setQrCodeUrl] = useState("");
+  const [copied, setCopied] = useState(false);
+
+  const registroUrl = `${window.location.origin}/caravanas/registrar`;
+
+  useEffect(() => {
+    // Gera QR code
+    QRCode.toDataURL(registroUrl, {
+      errorCorrectionLevel: "H",
+      type: "image/png",
+      quality: 0.95,
+      margin: 1,
+      width: 250,
+    })
+      .then((url) => setQrCodeUrl(url))
+      .catch((err) => console.error("Erro ao gerar QR code:", err));
+  }, []);
 
   const isAdmin = usuario?.role === "admin";
   const roleMode = (usuario?.role || "admin") as "admin" | "pastor" | "secretario";
@@ -107,6 +125,12 @@ export default function CaravanasPage() {
     }
   };
 
+  const handleCopyLink = () => {
+    navigator.clipboard.writeText(registroUrl);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
   return (
     <ManagementShell roleMode={roleMode}>
       <div className="space-y-6">
@@ -166,6 +190,70 @@ export default function CaravanasPage() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Divulgação */}
+        <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-blue-900">
+              <QrCode className="h-5 w-5" />
+              Divulgar Registro de Caravanas
+            </CardTitle>
+            <CardDescription className="text-blue-700">
+              Compartilhe este link e QR code com os voluntários para que registrem suas caravanas
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* QR Code */}
+              <div className="flex flex-col items-center gap-3">
+                <div className="bg-white p-3 rounded-lg border border-blue-200 shadow-sm">
+                  {qrCodeUrl ? (
+                    <img src={qrCodeUrl} alt="QR Code" className="w-48 h-48" />
+                  ) : (
+                    <div className="w-48 h-48 bg-slate-200 animate-pulse rounded" />
+                  )}
+                </div>
+                <p className="text-sm text-slate-600 text-center">
+                  Escaneie com o celular para acessar o formulário
+                </p>
+              </div>
+
+              {/* Link */}
+              <div className="space-y-3">
+                <div>
+                  <Label className="text-sm font-semibold text-blue-900 mb-2 block">Link de Registro</Label>
+                  <div className="bg-white border border-blue-200 p-3 rounded-lg break-all text-sm font-mono text-blue-600 select-all">
+                    {registroUrl}
+                  </div>
+                </div>
+                <Button
+                  onClick={() => window.location.href = registroUrl}
+                  className="w-full bg-blue-600 hover:bg-blue-700 h-10"
+                >
+                  <ExternalLink className="h-4 w-4 mr-2" />
+                  Acessar Formulário
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={handleCopyLink}
+                  className="w-full h-10 border-blue-200 hover:bg-blue-50"
+                >
+                  {copied ? (
+                    <>
+                      <Check className="h-4 w-4 mr-2 text-green-600" />
+                      Link Copiado!
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="h-4 w-4 mr-2" />
+                      Copiar Link
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Filters */}
         <div className="space-y-4">
