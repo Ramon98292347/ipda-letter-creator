@@ -4,9 +4,10 @@ import { post } from "@/lib/api";
 
 // Chave pública VAPID gerada para este projeto.
 // A chave privada correspondente deve ser configurada como variável de ambiente
-// VAPID_PRIVATE_KEY na Edge Function "send-push".
+// VAPID_PRIVATE_KEY no Supabase (Edge Functions).
+// Gerar novo par: npx web-push generate-vapid-keys
 const VAPID_PUBLIC_KEY =
-  "BGdzvSnIMmH2PJUwTuDI9msG6Gfo2pR8EwVRj_echdF3xXXqEC4DABymgV8odBskaEr6-EgylrJFWZTx2x5WWro";
+  "BPjB7Z77SSXtXOn2i2Cf1BjoStG0rzXf6_xb4oTBVyoyaF6udxa20x677X99L99Sqtj3tE_2wusQ9MhhdBkkskg";
 
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
