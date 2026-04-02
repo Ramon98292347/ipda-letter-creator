@@ -46,6 +46,7 @@ const ORDER_WEBHOOK_URL = "https://n8n-n8n.ynlng8.easypanel.host/webhook/pedido-
 type OrderDraft = {
   fullName?: string;
   phone?: string;
+  email?: string;
   estadualId?: string;
   churchId?: string;
   notes?: string;
@@ -111,6 +112,7 @@ export default function CamisasPedidoPage() {
 
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
   const [estadualId, setEstadualId] = useState("");
   const [churchId, setChurchId] = useState("");
   const [notes, setNotes] = useState("");
@@ -212,6 +214,7 @@ export default function CamisasPedidoPage() {
       const draft = JSON.parse(stored) as OrderDraft;
       setFullName(String(draft.fullName || ""));
       setPhone(String(draft.phone || ""));
+      setEmail(String(draft.email || ""));
       setEstadualId(String(draft.estadualId || ""));
       setChurchId(String(draft.churchId || ""));
       setNotes(String(draft.notes || ""));
@@ -231,6 +234,7 @@ export default function CamisasPedidoPage() {
     const draft: OrderDraft = {
       fullName,
       phone,
+      email,
       estadualId,
       churchId,
       notes,
@@ -239,7 +243,7 @@ export default function CamisasPedidoPage() {
       installments,
     };
     localStorage.setItem(ORDER_DRAFT_KEY, JSON.stringify(draft));
-  }, [churchId, estadualId, fullName, installments, items, notes, paymentMethod, phone]);
+  }, [churchId, email, estadualId, fullName, installments, items, notes, paymentMethod, phone]);
 
   useEffect(() => {
     quantityRef.current = quantity;
@@ -336,6 +340,9 @@ export default function CamisasPedidoPage() {
     if (!fullName.trim()) return toast.error("Informe seu nome completo.");
     const phoneDigits = phone.replace(/\D/g, "");
     if (phoneDigits.length < 10) return toast.error("Informe seu telefone com DDD.");
+    const emailValue = String(email || "").trim().toLowerCase();
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailValue || !emailRegex.test(emailValue)) return toast.error("Informe um e-mail valido.");
     if (!estadualId) return toast.error("Selecione a estadual.");
     if (!churchId) return toast.error("Selecione a igreja.");
     if (items.length === 0) return toast.error("Adicione ao menos 1 item.");
@@ -351,6 +358,7 @@ export default function CamisasPedidoPage() {
       order_number: orderNumber,
       full_name: fullName,
       phone: phoneDigits,
+      email: emailValue,
       estadual_totvs_id: estadualId,
       church_totvs_id: churchId,
       church_name: church?.church_name || "",
@@ -371,6 +379,50 @@ export default function CamisasPedidoPage() {
       created_at: new Date().toISOString(),
     };
 
+    let contactsPayload = {
+      pastor_name: "",
+      pastor_phone: "",
+      pastor_email: "",
+      secretary_name: "",
+      secretary_phone: "",
+      secretary_email: "",
+    };
+
+    try {
+      const contactsRes = await post<{
+        ok: boolean;
+        pastor?: { full_name?: string | null; phone?: string | null; email?: string | null } | null;
+        secretary?: { full_name?: string | null; phone?: string | null; email?: string | null } | null;
+      }>("get-church-order-contacts-public", { church_totvs_id: churchId }, { skipAuth: true });
+      contactsPayload = {
+        pastor_name: String(contactsRes?.pastor?.full_name || "").trim(),
+        pastor_phone: String(contactsRes?.pastor?.phone || "").trim(),
+        pastor_email: String(contactsRes?.pastor?.email || "").trim(),
+        secretary_name: String(contactsRes?.secretary?.full_name || "").trim(),
+        secretary_phone: String(contactsRes?.secretary?.phone || "").trim(),
+        secretary_email: String(contactsRes?.secretary?.email || "").trim(),
+      };
+    } catch (err) {
+      console.error("Erro ao buscar contatos da igreja para webhook:", err);
+    }
+
+    const webhookPayload = {
+      ...order,
+      ...contactsPayload,
+      contacts: {
+        pastor: {
+          name: contactsPayload.pastor_name,
+          phone: contactsPayload.pastor_phone,
+          email: contactsPayload.pastor_email,
+        },
+        secretary: {
+          name: contactsPayload.secretary_name,
+          phone: contactsPayload.secretary_phone,
+          email: contactsPayload.secretary_email,
+        },
+      },
+    };
+
     localStorage.setItem("lastOrder", JSON.stringify(order));
     localStorage.setItem("activeChurchTotvsId", churchId);
 
@@ -384,7 +436,7 @@ export default function CamisasPedidoPage() {
       await fetch(ORDER_WEBHOOK_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(order),
+        body: JSON.stringify(webhookPayload),
       });
     } catch (err) {
       console.error("Erro ao enviar para webhook:", err);
@@ -523,13 +575,17 @@ export default function CamisasPedidoPage() {
                 <p className="text-sm text-slate-500 mb-1">Nome</p>
                 <p className="font-medium text-slate-900 truncate">{completedOrder.full_name}</p>
               </div>
-              <div>
-                <p className="text-sm text-slate-500 mb-1">Telefone</p>
-                <p className="font-medium text-slate-900">{maskPhone(completedOrder.phone)}</p>
-              </div>
-              <div>
-                <p className="text-sm text-slate-500 mb-1">Igreja</p>
-                <p className="font-medium text-slate-900 truncate">{completedOrder.church_name || completedOrder.church_totvs_id}</p>
+                <div>
+                  <p className="text-sm text-slate-500 mb-1">Telefone</p>
+                  <p className="font-medium text-slate-900">{maskPhone(completedOrder.phone)}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-slate-500 mb-1">E-mail</p>
+                  <p className="font-medium text-slate-900 truncate">{completedOrder.email || "-"}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-slate-500 mb-1">Igreja</p>
+                  <p className="font-medium text-slate-900 truncate">{completedOrder.church_name || completedOrder.church_totvs_id}</p>
               </div>
               <div>
                 <p className="text-sm text-slate-500 mb-1">Estadual</p>
@@ -627,6 +683,16 @@ export default function CamisasPedidoPage() {
                 onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 11))}
                 className="w-full border rounded-md px-3 py-2 text-sm bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                 placeholder="(27) 99999-9999"
+              />
+            </div>
+            <div className="md:col-span-2">
+              <label className="text-sm font-medium text-foreground mb-1 block">E-mail *</label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full border rounded-md px-3 py-2 text-sm bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                placeholder="seuemail@exemplo.com"
               />
             </div>
           </div>

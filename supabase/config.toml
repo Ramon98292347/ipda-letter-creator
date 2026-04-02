@@ -129,6 +129,9 @@ verify_jwt = false
 [functions.get-public-ministerial-meeting]
 verify_jwt = false
 
+[functions.get-church-order-contacts-public]
+verify_jwt = false
+
 [functions.list-announcements]
 verify_jwt = false
 
