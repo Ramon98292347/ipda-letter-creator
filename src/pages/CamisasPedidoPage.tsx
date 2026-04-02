@@ -196,62 +196,22 @@ export default function CamisasPedidoPage() {
   });
   const selectedChurch = availableChurches.find((church) => church.totvs_id === churchId) || null;
 
+  // Quando estadualId muda, computa as igrejas do escopo
+  const scopeChurches = useMemo(() => {
+    if (!estadualId || !churchCatalog.length) return [];
+    const ids = computeScopeIds(estadualId, churchCatalog);
+    return churchCatalog.filter(
+      (c) => ids.has(String(c.totvs_id)) && String(c.totvs_id) !== estadualId,
+    );
+  }, [estadualId, churchCatalog]);
+
   useEffect(() => {
-    let cancelled = false;
-
-    const lookupByTotvs = async () => {
-      if (churchSearchDigits.length < 2) {
-        if (availableChurches.length) setAvailableChurches([]);
-        if (churchValidated) setChurchValidated(false);
-        if (churchId) setChurchId("");
-        return;
-      }
-
-      try {
-        const res = await post<{ ok: boolean; churches: ChurchRow[] }>(
-          "list-churches-public",
-          { query: churchSearchDigits, limit: 10 },
-          { skipAuth: true },
-        );
-        if (cancelled) return;
-        const list = res.churches || [];
-        if (list.length === 0) {
-          setAvailableChurches([]);
-          setChurchValidated(false);
-          setChurchId("");
-          return;
-        }
-
-        setAvailableChurches(list);
-        if (churchSearchDigits.length >= 4) {
-          const exact = list.find((item) => String(item.totvs_id) === String(churchSearchDigits));
-          if (exact) {
-            setChurchId(exact.totvs_id);
-            setChurchValidated(true);
-          } else {
-            setChurchId("");
-            setChurchValidated(false);
-          }
-        } else {
-          setChurchId("");
-          setChurchValidated(false);
-        }
-      } catch (err) {
-        console.error("Erro ao buscar igreja:", err);
-        if (!cancelled) {
-          setAvailableChurches([]);
-          setChurchValidated(false);
-          setChurchId("");
-        }
-      }
-    };
-
-    void lookupByTotvs();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [churchSearchDigits]);
+    setAvailableChurches(scopeChurches);
+    if (churchId && !scopeChurches.some((c) => c.totvs_id === churchId)) {
+      setChurchId("");
+      setChurchValidated(false);
+    }
+  }, [scopeChurches]);
 
   useEffect(() => {
     const stored = localStorage.getItem(ORDER_DRAFT_KEY);
@@ -293,15 +253,36 @@ export default function CamisasPedidoPage() {
     quantityRef.current = quantity;
   }, [quantity]);
 
+  // Resolve a estadual/setorial dona do link
   useEffect(() => {
-    if (churchTotvsId && estadualId !== churchTotvsId) {
-      setEstadualId(churchTotvsId);
+    if (!churchTotvsId || !churchCatalog.length) {
+      if (!estadualId && scopeOptions.length) {
+        setEstadualId(String(scopeOptions[0].totvs_id));
+      }
       return;
     }
-    if (!estadualId && !churchTotvsId && scopeOptions.length) {
-      setEstadualId(String(scopeOptions[0].totvs_id));
+    // Se o churchTotvsId já é uma estadual/setorial, usar diretamente
+    const direct = churchCatalog.find((c) => String(c.totvs_id) === String(churchTotvsId));
+    if (direct && isScopeRoot(direct, churchCatalog)) {
+      if (estadualId !== churchTotvsId) setEstadualId(churchTotvsId);
+      return;
     }
-  }, [estadualId, churchTotvsId, scopeOptions]);
+    // Senão, subir na hierarquia até achar a estadual/setorial pai
+    if (direct) {
+      let current = direct;
+      while (current.parent_totvs_id) {
+        const parent = churchCatalog.find((c) => String(c.totvs_id) === String(current.parent_totvs_id));
+        if (!parent) break;
+        if (isScopeRoot(parent, churchCatalog)) {
+          if (estadualId !== parent.totvs_id) setEstadualId(String(parent.totvs_id));
+          return;
+        }
+        current = parent;
+      }
+    }
+    // Fallback: usar o próprio churchTotvsId
+    if (estadualId !== churchTotvsId) setEstadualId(churchTotvsId);
+  }, [churchTotvsId, churchCatalog, scopeOptions]);
 
   const addItemWithParams = (productId: string, size: string, qty: number) => {
     const product = products.find((p) => p.id === productId);
@@ -713,7 +694,7 @@ export default function CamisasPedidoPage() {
                     setChurchValidated(true);
                   }
                 }}
-                disabled={!estadualId || availableChurches.length === 0}
+                disabled={!estadualId || filteredChurches.length === 0}
                 className="w-full border rounded-md px-3 py-2 text-sm bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
               >
                 <option value="">
@@ -723,7 +704,7 @@ export default function CamisasPedidoPage() {
                       ? `${selectedChurch.totvs_id} - ${selectedChurch.church_name} (${selectedChurch.class || ""})`
                       : "Selecione a igreja..."}
                 </option>
-                {availableChurches.map((c) => (
+                {filteredChurches.map((c) => (
                   <option key={c.totvs_id} value={c.totvs_id}>
                     {c.totvs_id} - {c.church_name} ({c.class})
                   </option>
