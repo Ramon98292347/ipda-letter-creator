@@ -147,6 +147,17 @@ function badgeByStatus(status?: string | null) {
   return STATUS_BADGE[key] || "bg-slate-100 text-slate-600";
 }
 
+export const parseImageUrls = (val: string | null | undefined): string[] => {
+  if (!val) return [];
+  try {
+    const parsed = JSON.parse(val);
+    if (Array.isArray(parsed)) return parsed.filter(Boolean);
+    return [val];
+  } catch {
+    return [val];
+  }
+};
+
 export default function DivulgacaoPage() {
   const { usuario, session } = useUser();
   const queryClient = useQueryClient();
@@ -171,7 +182,7 @@ export default function DivulgacaoPage() {
   const [uploadingEvento, setUploadingEvento] = useState(false);
   const [uploadingInformativo, setUploadingInformativo] = useState(false);
 
-  const [produtoForm, setProdutoForm] = useState({ name: "", description: "", image_url: "", price: "" });
+  const [produtoForm, setProdutoForm] = useState({ name: "", description: "", image_urls: [] as string[], price: "" });
   const [tamanhoForm, setTamanhoForm] = useState({ product_id: "", size: "", stock: "0" });
   const [eventoForm, setEventoForm] = useState({ title: "", description: "", banner_url: "", start_date: "", end_date: "", sort_order: "0" });
   const [informativoForm, setInformativoForm] = useState({
@@ -248,7 +259,7 @@ export default function DivulgacaoPage() {
         description: produtoForm.description.trim() || null,
         event_id: null,
         event_title: null,
-        image_url: produtoForm.image_url.trim() || null,
+        image_url: produtoForm.image_urls.length > 0 ? JSON.stringify(produtoForm.image_urls) : null,
         price: Number(produtoForm.price || 0),
         is_active: true,
       }),
@@ -256,7 +267,7 @@ export default function DivulgacaoPage() {
       toast.success(editingProdutoId ? "Camiseta atualizada." : "Camiseta cadastrada.");
       setOpenProdutoModal(false);
       setEditingProdutoId(null);
-      setProdutoForm({ name: "", description: "", image_url: "", price: "" });
+      setProdutoForm({ name: "", description: "", image_urls: [], price: "" });
       await queryClient.invalidateQueries({ queryKey: ["div-products"] });
     },
     onError: () => toast.error("Falha ao cadastrar camiseta."),
@@ -392,15 +403,19 @@ export default function DivulgacaoPage() {
   };
 
   const onSelectProdutoFile = async (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
     try {
       setUploadingProduto(true);
-      const url = await uploadToAvatars(file, "produtos");
-      setProdutoForm((prev) => ({ ...prev, image_url: url }));
-      toast.success("Imagem enviada com sucesso.");
+      const newUrls: string[] = [];
+      for (const file of files) {
+        const url = await uploadToAvatars(file, "produtos");
+        newUrls.push(url);
+      }
+      setProdutoForm((prev) => ({ ...prev, image_urls: [...prev.image_urls, ...newUrls] }));
+      toast.success(files.length > 1 ? "Imagens enviadas com sucesso." : "Imagem enviada com sucesso.");
     } catch {
-      toast.error("Não foi possível enviar a imagem.");
+      toast.error("Não foi possível enviar.")
     } finally {
       setUploadingProduto(false);
       e.target.value = "";
@@ -648,7 +663,7 @@ export default function DivulgacaoPage() {
                 className="bg-[#232b7a] text-white hover:bg-[#1b2367]"
                 onClick={() => {
                   setEditingProdutoId(null);
-                  setProdutoForm({ name: "", description: "", image_url: "", price: "" });
+                  setProdutoForm({ name: "", description: "", image_urls: [], price: "" });
                   setOpenProdutoModal(true);
                 }}
               >
@@ -660,12 +675,14 @@ export default function DivulgacaoPage() {
               <table className="w-full min-w-[760px] text-sm">
                 <thead><tr className="border-b bg-slate-50 text-left text-slate-600"><th className="px-4 py-3">Produto</th><th className="px-4 py-3">Preço</th><th className="px-4 py-3">Status</th><th className="px-4 py-3">Ações</th></tr></thead>
                 <tbody>
-                  {products.map((product) => (
+                  {products.map((product) => {
+                    const parsedUrls = parseImageUrls(product.image_url);
+                    return (
                     <tr key={product.id} className="border-b last:border-0">
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-3">
                           <div className="h-10 w-10 overflow-hidden rounded-md bg-slate-100">
-                            {product.image_url ? <img src={product.image_url} alt={product.name || "Produto"} className="h-full w-full object-cover" /> : null}
+                            {parsedUrls[0] ? <img src={parsedUrls[0]} alt={product.name || "Produto"} className="h-full w-full object-cover" /> : null}
                           </div>
                           <div>
                             <p className="font-semibold">{product.name || "Sem nome"}</p>
@@ -677,13 +694,14 @@ export default function DivulgacaoPage() {
                       <td className="px-4 py-3"><span className={`rounded-full px-3 py-1 text-xs font-semibold ${product.is_active ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>{product.is_active ? "Ativo" : "Inativo"}</span></td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-3">
-                          <button className="text-blue-700" onClick={() => { setEditingProdutoId(product.id); setProdutoForm({ name: product.name || "", description: product.description || "", image_url: product.image_url || "", price: String(product.price || "") }); setOpenProdutoModal(true); }}><Edit className="h-4 w-4" /></button>
+                          <button className="text-blue-700" onClick={() => { setEditingProdutoId(product.id); setProdutoForm({ name: product.name || "", description: product.description || "", image_urls: parsedUrls, price: String(product.price || "") }); setOpenProdutoModal(true); }}><Edit className="h-4 w-4" /></button>
                           <button className="text-slate-500" onClick={() => post("upsert-product", { id: product.id, is_active: !product.is_active }).then(() => queryClient.invalidateQueries({ queryKey: ["div-products"] }))}>{product.is_active ? <ToggleRight className="h-4 w-4" /> : <ToggleLeft className="h-4 w-4" />}</button>
                           <button className="text-rose-600" onClick={() => post("upsert-product", { id: product.id, is_active: false }).then(() => { toast.success("Camiseta inativada."); queryClient.invalidateQueries({ queryKey: ["div-products"] }); })}><Trash2 className="h-4 w-4" /></button>
                         </div>
                       </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             </CardContent></Card>
@@ -858,26 +876,30 @@ export default function DivulgacaoPage() {
             <div className="space-y-1"><Label>Nome *</Label><Input value={produtoForm.name} onChange={(e) => setProdutoForm((p) => ({ ...p, name: e.target.value }))} /></div>
             <div className="space-y-1"><Label>Descrição</Label><Textarea value={produtoForm.description} onChange={(e) => setProdutoForm((p) => ({ ...p, description: e.target.value }))} /></div>
             <div className="space-y-2">
-              <Label>URL da imagem</Label>
-              <Input value={produtoForm.image_url} onChange={(e) => setProdutoForm((p) => ({ ...p, image_url: e.target.value }))} />
-              {produtoForm.image_url ? (
-                <div className="relative overflow-hidden rounded-lg border">
-                  <img src={produtoForm.image_url} alt="Pré-visualização da camiseta" className="max-h-56 w-full object-cover" />
-                  <button
-                    type="button"
-                    className="absolute right-2 top-2 rounded-full bg-white/90 px-2 py-1 text-xs text-rose-600"
-                    onClick={() => setProdutoForm((p) => ({ ...p, image_url: "" }))}
-                  >
-                    Remover
-                  </button>
+              <Label>Imagens da Camiseta</Label>
+              {produtoForm.image_urls.length > 0 ? (
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-2 border rounded-lg p-2 bg-slate-50 mb-2">
+                  {produtoForm.image_urls.map((url, idx) => (
+                    <div key={idx} className="relative overflow-hidden rounded-md border bg-white aspect-square">
+                      <img src={url} alt={`Preview ${idx + 1}`} className="h-full w-full object-cover" />
+                      <button
+                        type="button"
+                        className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-black/60 text-white hover:bg-rose-600 transition-colors"
+                        onClick={() => setProdutoForm((p) => ({ ...p, image_urls: p.image_urls.filter((_, i) => i !== idx) }))}
+                      >
+                        <XCircle className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ))}
                 </div>
               ) : null}
-              <div className="rounded-lg border border-dashed border-slate-300 p-4 text-center">
-                <Label htmlFor="produto-file" className="inline-flex h-10 cursor-pointer items-center rounded-md border border-slate-300 px-4 text-sm hover:bg-slate-50">
-                  Adicionar arquivo
+              <div className="rounded-lg border border-dashed border-slate-300 p-4 text-center mt-2">
+                <Label htmlFor="produto-file" className="inline-flex h-10 cursor-pointer items-center rounded-md border border-slate-300 px-4 text-sm hover:bg-slate-50 transition-colors">
+                  <Plus className="h-4 w-4 mr-2" />
+                  {produtoForm.image_urls.length > 0 ? "Adicionar mais fotos" : "Selecionar fotos"}
                 </Label>
-                <input id="produto-file" type="file" accept="image/*" className="hidden" onChange={onSelectProdutoFile} />
-                <span className="mt-2 block text-xs text-slate-500">{uploadingProduto ? "Enviando..." : "JPG, PNG ou WEBP"}</span>
+                <input id="produto-file" type="file" multiple accept="image/*" className="hidden" onChange={onSelectProdutoFile} />
+                <span className="mt-2 block text-xs text-slate-500">{uploadingProduto ? "Enviando..." : "Múltiplas fotos permitidas"}</span>
               </div>
             </div>
             <div className="space-y-1"><Label>Preço *</Label><Input type="number" value={produtoForm.price} onChange={(e) => setProdutoForm((p) => ({ ...p, price: e.target.value }))} /></div>

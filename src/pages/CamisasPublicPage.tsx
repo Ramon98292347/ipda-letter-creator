@@ -42,6 +42,81 @@ function inDateWindow(item: AnnouncementRow) {
   return startsOk && endsOk;
 }
 
+export const parseImageUrls = (val: string | null | undefined): string[] => {
+  if (!val) return [];
+  try {
+    const parsed = JSON.parse(val);
+    if (Array.isArray(parsed)) return parsed.filter(Boolean);
+    return [val];
+  } catch {
+    return [val];
+  }
+};
+
+function ProductCard({ product, churchTotvsId }: { product: ProductRow; churchTotvsId: string }) {
+  const [imgIndex, setImgIndex] = useState(0);
+  const images = useMemo(() => parseImageUrls(product.image_url), [product.image_url]);
+
+  const nextImg = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setImgIndex((p) => (p + 1) % images.length);
+  };
+
+  const prevImg = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setImgIndex((p) => (p - 1 + images.length) % images.length);
+  };
+
+  return (
+    <Card className="overflow-hidden rounded-2xl border border-slate-300 bg-white shadow-sm transition-all hover:shadow-md">
+      <div className="relative aspect-[4/5] overflow-hidden bg-slate-200 group">
+        {images.length > 0 ? (
+          <>
+            <img src={images[imgIndex]} alt={product.name || "Produto"} className="h-full w-full object-cover transition-opacity duration-300" />
+            {images.length > 1 && (
+              <>
+                <button
+                  type="button"
+                  onClick={prevImg}
+                  className="absolute left-2 top-1/2 -translate-y-1/2 flex h-8 w-8 items-center justify-center rounded-full bg-black/30 text-white opacity-0 transition-opacity hover:bg-black/60 group-hover:opacity-100"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={nextImg}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 flex h-8 w-8 items-center justify-center rounded-full bg-black/30 text-white opacity-0 transition-opacity hover:bg-black/60 group-hover:opacity-100"
+                >
+                  <ArrowRight className="h-4 w-4" />
+                </button>
+                <div className="absolute bottom-2 left-0 right-0 flex justify-center gap-1.5">
+                  {images.map((_, i) => (
+                    <div key={i} className={`h-1.5 rounded-full transition-all ${i === imgIndex ? "w-3 bg-white" : "w-1.5 bg-white/60"}`} />
+                  ))}
+                </div>
+              </>
+            )}
+          </>
+        ) : (
+          <div className="flex h-full items-center justify-center text-slate-500">Sem imagem</div>
+        )}
+        <span className="absolute right-3 top-3 rounded-full bg-red-600 px-3 py-1 text-sm font-bold text-white shadow-md">
+          {formatMoney(product.price)}
+        </span>
+      </div>
+      <CardContent className="space-y-3 p-5">
+        <p className="text-2xl font-bold text-slate-900">{product.name || "Sem nome"}</p>
+        <p className="text-slate-600">{product.description || "Produto oficial da igreja."}</p>
+        <Button asChild className="w-full rounded-xl bg-[#232b7a] text-lg hover:bg-[#1b2367]">
+          <Link to={`/camisas/${churchTotvsId}/pedido?produto=${product.id}&auto=1`}>Fazer pedido</Link>
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function CamisasPublicPage() {
   const { churchTotvsId = "" } = useParams();
   const [slide, setSlide] = useState(0);
@@ -257,25 +332,7 @@ export default function CamisasPublicPage() {
 
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {products.map((product) => (
-              <Card key={product.id} className="overflow-hidden rounded-2xl border border-slate-300 bg-white">
-                <div className="relative aspect-[4/5] overflow-hidden bg-slate-200">
-                  {product.image_url ? (
-                    <img src={product.image_url} alt={product.name || "Produto"} className="h-full w-full object-cover" />
-                  ) : (
-                    <div className="flex h-full items-center justify-center text-slate-500">Sem imagem</div>
-                  )}
-                  <span className="absolute right-3 top-3 rounded-full bg-red-600 px-3 py-1 text-sm font-bold text-white">
-                    {formatMoney(product.price)}
-                  </span>
-                </div>
-                <CardContent className="space-y-3 p-5">
-                  <p className="text-2xl font-bold text-slate-900">{product.name || "Sem nome"}</p>
-                  <p className="text-slate-600">{product.description || "Produto oficial da igreja."}</p>
-                  <Button asChild className="w-full rounded-xl bg-[#232b7a] text-lg hover:bg-[#1b2367]">
-                    <Link to={`/camisas/${churchTotvsId}/pedido?produto=${product.id}&auto=1`}>Fazer pedido</Link>
-                  </Button>
-                </CardContent>
-              </Card>
+              <ProductCard key={product.id} product={product} churchTotvsId={churchTotvsId} />
             ))}
           </div>
 

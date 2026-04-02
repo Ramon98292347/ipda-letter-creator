@@ -92,6 +92,17 @@ function formatMoney(value: number) {
   return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
+export const parseImageUrls = (val: string | null | undefined): string[] => {
+  if (!val) return [];
+  try {
+    const parsed = JSON.parse(val);
+    if (Array.isArray(parsed)) return parsed.filter(Boolean);
+    return [val];
+  } catch {
+    return [val];
+  }
+};
+
 export default function CamisasPedidoPage() {
   const { churchTotvsId = "" } = useParams();
   const [searchParams] = useSearchParams();
@@ -116,6 +127,7 @@ export default function CamisasPedidoPage() {
   const [selectedSize, setSelectedSize] = useState("");
   const [quantity, setQuantity] = useState(1);
   const [autoAdded, setAutoAdded] = useState(false);
+  const [completedOrder, setCompletedOrder] = useState<any>(null);
   const [autoSelectionSync, setAutoSelectionSync] = useState(false);
   const [autoSyncItemKey, setAutoSyncItemKey] = useState("");
   const quantityRef = useRef(1);
@@ -265,7 +277,7 @@ export default function CamisasPedidoPage() {
         quantity: safeQty,
         unit_price: unitPrice,
         total_price: unitPrice * safeQty,
-        image_url: product.image_url || undefined,
+        image_url: parseImageUrls(product.image_url)[0] || undefined,
       };
       return [...prev, newItem];
     });
@@ -357,6 +369,8 @@ export default function CamisasPedidoPage() {
     setSubmitting(false);
     localStorage.removeItem(ORDER_DRAFT_KEY);
     toast.success("Pedido enviado com sucesso.");
+    setCompletedOrder(order);
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   useEffect(() => {
@@ -462,7 +476,7 @@ export default function CamisasPedidoPage() {
         setAutoSyncItemKey(nextKey);
         return prev.map((item, index) =>
           index === existingIndex
-            ? { ...item, quantity: nextQty, total_price: unitPrice * nextQty, image_url: currentProduct.image_url || undefined }
+            ? { ...item, quantity: nextQty, total_price: unitPrice * nextQty, image_url: parseImageUrls(currentProduct.image_url)[0] || undefined }
             : item,
         );
       }
@@ -474,7 +488,7 @@ export default function CamisasPedidoPage() {
         quantity: nextQty,
         unit_price: unitPrice,
         total_price: unitPrice * nextQty,
-        image_url: currentProduct.image_url || undefined,
+        image_url: parseImageUrls(currentProduct.image_url)[0] || undefined,
       };
 
       if (autoTrackedIndex >= 0) {
@@ -493,6 +507,111 @@ export default function CamisasPedidoPage() {
 
   if (loadingScopeCatalog || loadingProducts) {
     return <PageLoading title="Carregando pedido" description="Buscando produtos da igreja..." />;
+  }
+
+  if (completedOrder) {
+    const paymentLabel = completedOrder.payment_method === "CARTAO_CREDITO"
+      ? `Cartão de Crédito (${completedOrder.payment_installments || 1}x)`
+      : completedOrder.payment_method === "PIX"
+        ? "Pix"
+        : "Cartão de Débito";
+
+    return (
+      <div className="min-h-screen bg-slate-50 text-slate-900 py-10 px-4 flex items-center justify-center">
+        <div className="max-w-xl w-full">
+          <div className="text-center mb-8">
+            <div className="inline-flex items-center justify-center w-16 h-16 bg-green-100 text-green-600 rounded-full mb-4">
+              <BadgeCheck className="w-8 h-8" />
+            </div>
+            <h1 className="text-2xl font-bold text-slate-900 mb-2 font-heading tracking-tight">Pedido Registrado!</h1>
+            <p className="text-slate-600">Seu pedido foi registrado com sucesso.</p>
+          </div>
+
+          <div className="bg-white rounded-xl border border-slate-200 p-6 sm:p-8 shadow-sm mb-6">
+            <div className="flex justify-between items-center pb-4 border-b border-slate-100 mb-6">
+              <span className="text-slate-500 font-medium">Nº do Pedido</span>
+              <span className="font-bold text-slate-900 text-lg tracking-tight">{completedOrder.order_number}</span>
+            </div>
+
+            <div className="grid grid-cols-2 gap-y-6 gap-x-4 mb-8">
+              <div>
+                <p className="text-sm text-slate-500 mb-1">Nome</p>
+                <p className="font-medium text-slate-900 truncate">{completedOrder.full_name}</p>
+              </div>
+              <div>
+                <p className="text-sm text-slate-500 mb-1">Telefone</p>
+                <p className="font-medium text-slate-900">{maskPhone(completedOrder.phone)}</p>
+              </div>
+              <div>
+                <p className="text-sm text-slate-500 mb-1">Igreja</p>
+                <p className="font-medium text-slate-900 truncate">{completedOrder.church_name || completedOrder.church_totvs_id}</p>
+              </div>
+              <div>
+                <p className="text-sm text-slate-500 mb-1">Estadual</p>
+                <p className="font-medium text-slate-900 truncate">{completedOrder.estadual_totvs_id}</p>
+              </div>
+              <div className="col-span-2">
+                <p className="text-sm text-slate-500 mb-1">Pagamento</p>
+                <p className="font-medium text-slate-900">{paymentLabel}</p>
+              </div>
+            </div>
+
+            <div className="mb-6">
+              <p className="font-bold text-slate-900 mb-4 font-heading">Itens</p>
+              <div className="space-y-3">
+                {completedOrder.items.map((it: any, idx: number) => (
+                  <div key={idx} className="flex justify-between items-center">
+                    <div className="flex items-center gap-2 text-slate-700">
+                      <Shirt className="w-4 h-4 text-slate-400" />
+                      <span>{it.product_name} ({it.size}) x{it.quantity}</span>
+                    </div>
+                    <span className="font-medium text-slate-900">
+                      {formatMoney(it.total_price)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex justify-between items-center pt-5 border-t border-slate-100 bg-slate-50/50 -mx-6 -mb-6 p-6 rounded-b-xl">
+              <span className="font-bold text-slate-900 font-heading text-lg">Total</span>
+              <span className="font-bold text-red-600 text-xl tracking-tight">
+                {formatMoney(completedOrder.total_amount)}
+              </span>
+            </div>
+          </div>
+
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-5 mb-8">
+            <h3 className="font-bold text-amber-900 mb-2 flex items-center gap-2 text-sm">
+              <span role="img" aria-label="money bag">💰</span> Sobre o Pagamento
+            </h3>
+            <p className="text-sm text-amber-800 leading-relaxed">
+              Pedido registrado com sucesso. O pagamento será realizado manualmente conforme orientação da administração.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <Link
+              to={`/camisas/${churchTotvsId || estadualId}`}
+              className="flex items-center justify-center gap-2 py-3 px-4 border border-slate-200 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition-colors font-medium text-sm text-center"
+            >
+              Voltar ao Início
+            </Link>
+            <button
+              onClick={() => {
+                setItems([]);
+                setCompletedOrder(null);
+                setNotes("");
+                window.scrollTo({ top: 0, behavior: "smooth" });
+              }}
+              className="flex items-center justify-center py-3 px-4 bg-slate-800 text-white rounded-lg hover:bg-slate-900 transition-colors font-medium text-sm"
+            >
+              Novo Pedido
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -679,8 +798,8 @@ export default function CamisasPedidoPage() {
           {currentProduct && (
             <div className="flex items-center gap-3 mt-2 p-3 bg-secondary rounded-lg">
               <div className="w-12 h-12 bg-muted rounded overflow-hidden flex items-center justify-center shrink-0">
-                {currentProduct.image_url ? (
-                  <img src={currentProduct.image_url} alt={currentProduct.name} className="w-full h-full object-cover" />
+                {parseImageUrls(currentProduct.image_url)[0] ? (
+                  <img src={parseImageUrls(currentProduct.image_url)[0]} alt={currentProduct.name} className="w-full h-full object-cover" />
                 ) : (
                   <Shirt className="h-6 w-6 text-muted-foreground" />
                 )}
