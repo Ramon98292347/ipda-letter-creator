@@ -1289,19 +1289,22 @@ export async function getChurchDetails(totvsId: string): Promise<ChurchDetails |
 
     const { data, error } = await supabaseAnon
       .from("churches")
-      .select("totvs_id, nome, nome_pastor, email_pastor, phone_pastor, cidade_estado")
+      .select("totvs_id, church_name, nome_pastor, contact_email, contact_phone, address_city, address_state")
       .eq("totvs_id", totvsId)
       .maybeSingle();
 
-    if (error || !data) return null;
+    if (error || !data) {
+      console.error("Erro ao buscar church:", error);
+      return null;
+    }
 
     return {
       totvs_id: data.totvs_id,
-      church_name: data.nome || "",
+      church_name: data.church_name || "",
       nome_pastor: data.nome_pastor || null,
-      email_pastor: data.email_pastor || null,
-      phone_pastor: data.phone_pastor || null,
-      cidade_estado: data.cidade_estado || null,
+      email_pastor: data.contact_email || null,
+      phone_pastor: data.contact_phone || null,
+      cidade_estado: data.address_city || data.address_state ? `${data.address_city || ""} - ${data.address_state || ""}`.trim() : null,
     };
   } catch (err) {
     console.error("Erro ao buscar dados da church:", err);
