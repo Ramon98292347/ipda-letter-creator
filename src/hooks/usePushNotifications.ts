@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 import { post } from "@/lib/api";
 
@@ -75,7 +75,7 @@ export function usePushNotifications(userId?: string, userRole?: string, scopeTo
     }
   }, [userRole, scopeTotvsIds]);
 
-  async function subscribe() {
+  const subscribe = useCallback(async () => {
     if (!supported) return;
     setLoading(true);
     try {
@@ -123,9 +123,9 @@ export function usePushNotifications(userId?: string, userRole?: string, scopeTo
     } finally {
       setLoading(false);
     }
-  }
+  }, [supported, userId]);
 
-  async function unsubscribe() {
+  const unsubscribe = useCallback(async () => {
     if (!supported) return;
     setLoading(true);
     try {
@@ -141,7 +141,7 @@ export function usePushNotifications(userId?: string, userRole?: string, scopeTo
     } finally {
       setLoading(false);
     }
-  }
+  }, [supported, userId]);
 
   return { supported, permission, subscribed, loading, subscribe, unsubscribe };
 }
