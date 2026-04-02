@@ -38,6 +38,7 @@ import {
   type CaravanaItem,
 } from "@/services/saasService";
 import { post } from "@/lib/api";
+import { supabase } from "@/lib/supabase";
 
 export default function CaravanasPage() {
   const { usuario, session } = useUser();
@@ -124,6 +125,31 @@ export default function CaravanasPage() {
     const max = Math.max(...dates);
     return new Date(max).toLocaleDateString("pt-BR");
   }, [caravanas]);
+
+  // Real-time subscription para atualizações da tabela caravanas
+  useEffect(() => {
+    if (!supabase) return;
+
+    const channel = supabase
+      .channel("public:caravanas")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "caravanas",
+        },
+        () => {
+          // Invalida a query para buscar dados atualizados
+          queryClient.invalidateQueries({ queryKey: ["caravanas"] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      channel.unsubscribe();
+    };
+  }, [queryClient]);
 
   const handleConfirm = async (caravan: CaravanaItem) => {
     setLoadingId(caravan.id);
