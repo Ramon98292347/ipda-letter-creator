@@ -18,9 +18,17 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Bus, Check, Trash2, Loader2, Users, Map, Calendar } from "lucide-react";
 import { toast } from "sonner";
 import { useUser } from "@/context/UserContext";
+import { NovaCaravanaForm } from "@/components/shared/NovaCaravanaForm";
 import {
   listCaravanas,
   confirmCaravana,
@@ -34,6 +42,7 @@ export default function CaravanasPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState<"todas" | "Recebida" | "Confirmada">("todas");
   const [loadingId, setLoadingId] = useState<string | null>(null);
+  const [openNewCaravana, setOpenNewCaravana] = useState(false);
 
   const isAdmin = usuario?.role === "admin";
   const roleMode = (usuario?.role || "admin") as "admin" | "pastor" | "secretario";
@@ -114,6 +123,9 @@ export default function CaravanasPage() {
                 : "Veja as caravanas da sua jurisdição"}
             </p>
           </div>
+          <Button onClick={() => setOpenNewCaravana(true)} className="bg-blue-600 hover:bg-blue-700">
+            + Nova Caravana
+          </Button>
         </div>
 
         {/* Stats Cards */}
@@ -408,6 +420,22 @@ export default function CaravanasPage() {
             </div>
           </div>
         )}
+
+        {/* Modal Nova Caravana */}
+        <Dialog open={openNewCaravana} onOpenChange={setOpenNewCaravana}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Nova Caravana</DialogTitle>
+              <DialogDescription>
+                Preencha os dados para registrar uma nova caravana
+              </DialogDescription>
+            </DialogHeader>
+            <NovaCaravanaForm onSuccess={() => {
+              setOpenNewCaravana(false);
+              queryClient.invalidateQueries({ queryKey: ["caravanas"] });
+            }} />
+          </DialogContent>
+        </Dialog>
       </div>
     </ManagementShell>
   );
