@@ -29,9 +29,8 @@ async function getAuthUser(req: Request) {
   }
 }
 
-async function handleRegister(req: Request, sb: any) {
+async function handleRegister(body: any, sb: any) {
   try {
-    const body = await req.json();
     const {
       church_code,
       church_name,
@@ -106,9 +105,8 @@ async function handleRegister(req: Request, sb: any) {
   }
 }
 
-async function handleList(req: Request, sb: any, user: any) {
+async function handleList(body: any, sb: any, user: any) {
   try {
-    const body = await req.json();
     const { status, search, church_code: filterChurch } = body;
 
     const isAdmin = String(user?.role || "").toLowerCase() === "admin";
@@ -154,9 +152,8 @@ async function handleList(req: Request, sb: any, user: any) {
   }
 }
 
-async function handleConfirm(req: Request, sb: any, user: any) {
+async function handleConfirm(body: any, sb: any, user: any) {
   try {
-    const body = await req.json();
     const { id } = body;
 
     if (!id) {
@@ -220,9 +217,8 @@ async function handleConfirm(req: Request, sb: any, user: any) {
   }
 }
 
-async function handleDelete(req: Request, sb: any, user: any) {
+async function handleDelete(body: any, sb: any, user: any) {
   try {
-    const body = await req.json();
     const { id } = body;
 
     if (!id) {
@@ -262,7 +258,7 @@ Deno.serve(async (req: Request) => {
 
     // Register não precisa de autenticação
     if (action === "register") {
-      return await handleRegister(req, sb);
+      return await handleRegister(body, sb);
     }
 
     // Outras ações requerem JWT
@@ -273,11 +269,11 @@ Deno.serve(async (req: Request) => {
 
     switch (action) {
       case "list":
-        return await handleList(req, sb, user);
+        return await handleList(body, sb, user);
       case "confirm":
-        return await handleConfirm(req, sb, user);
+        return await handleConfirm(body, sb, user);
       case "delete":
-        return await handleDelete(req, sb, user);
+        return await handleDelete(body, sb, user);
       default:
         return json({ ok: false, error: "unknown_action" }, 400);
     }
