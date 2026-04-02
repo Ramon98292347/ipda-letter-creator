@@ -62,10 +62,23 @@ export function usePushNotifications(userId?: string, userRole?: string, scopeTo
 
   useEffect(() => {
     if (!supported) return;
-    setPermission(Notification.permission);
-    navigator.serviceWorker.ready.then((reg) => {
-      reg.pushManager.getSubscription().then((sub) => setSubscribed(!!sub));
-    });
+
+    // Comentario: verifica permissao e subscrição ao carregar
+    const checkSubscription = async () => {
+      setPermission(Notification.permission);
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.getSubscription();
+      setSubscribed(!!sub);
+    };
+
+    void checkSubscription();
+
+    // Comentario: revalida subscrição após permissão mudar (polling rápido)
+    const timerId = setTimeout(() => {
+      void checkSubscription();
+    }, 500);
+
+    return () => clearTimeout(timerId);
   }, [supported]);
 
   // Comentario: salva dados do usuario no SW para validar escopo de notificacoes
