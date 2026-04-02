@@ -26,7 +26,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Bus, Check, Trash2, Loader2, Users, Map, Calendar, QrCode, Copy, ExternalLink, Plus, Edit, Building2, Phone } from "lucide-react";
+import { Bus, Check, Trash2, Loader2, Users, Map, Calendar, QrCode, Copy, ExternalLink, Plus, Edit, Building2, Phone, Search, Filter } from "lucide-react";
 import { toast } from "sonner";
 import QRCode from "qrcode";
 import { useUser } from "@/context/UserContext";
@@ -53,6 +53,8 @@ export default function CaravanasPage() {
   const [eventStartDate, setEventStartDate] = useState("");
   const [eventEndDate, setEventEndDate] = useState("");
   const [isCreatingEvent, setIsCreatingEvent] = useState(false);
+  const [filterPastor, setFilterPastor] = useState("");
+  const [filterDate, setFilterDate] = useState("");
 
   type EventRow = {
     id: string;
@@ -64,7 +66,7 @@ export default function CaravanasPage() {
   const { data: events = [], isLoading: eventsLoading } = useQuery({
     queryKey: ["events", session?.totvs_id],
     queryFn: async () => {
-      const res = await post("announcements-api", {
+      const res = await post<any>("announcements-api", {
         action: "list-events",
         church_code: session?.totvs_id || null
       });
@@ -88,16 +90,39 @@ export default function CaravanasPage() {
     refetchInterval: 30000,
   });
 
+  const filteredCaravanas = useMemo(() => {
+    let list = caravanas;
+    if (filterPastor) {
+      const p = filterPastor.toLowerCase();
+      list = list.filter(c => c.pastor_name?.toLowerCase().includes(p));
+    }
+    if (filterDate) {
+      // filterDate must match created_at date
+      list = list.filter(c => {
+        if (!c.created_at) return false;
+        const d = new Date(c.created_at);
+        const iso = d.toISOString().split("T")[0]; // yyyy-mm-dd
+        return iso === filterDate;
+      });
+    }
+    return list;
+  }, [caravanas, filterPastor, filterDate]);
+
   const recebidas = useMemo(() => {
-    return caravanas.filter((c) => c.status === "Recebida");
-  }, [caravanas]);
+    return filteredCaravanas.filter((c) => c.status === "Recebida");
+  }, [filteredCaravanas]);
 
   const confirmadas = useMemo(() => {
-    return caravanas.filter((c) => c.status === "Confirmada");
-  }, [caravanas]);
+    return filteredCaravanas.filter((c) => c.status === "Confirmada");
+  }, [filteredCaravanas]);
 
-  const totalPassageiros = useMemo(() => {
-    return caravanas.reduce((sum, c) => sum + (c.passenger_count || 0), 0);
+  const totalIgrejas = useMemo(() => new Set(caravanas.map(c => c.church_name)).size, [caravanas]);
+  const totalPastores = useMemo(() => new Set(caravanas.map(c => c.pastor_name).filter(Boolean)).size, [caravanas]);
+  const ultimaAtualizacao = useMemo(() => {
+    if (caravanas.length === 0) return "-";
+    const dates = caravanas.map(c => new Date(c.created_at || 0).getTime());
+    const max = Math.max(...dates);
+    return new Date(max).toLocaleDateString("pt-BR");
   }, [caravanas]);
 
   const handleConfirm = async (caravan: CaravanaItem) => {
@@ -144,7 +169,7 @@ export default function CaravanasPage() {
 
     setIsCreatingEvent(true);
     try {
-      const res = await post("announcements-api", {
+      const res = await post<any>("announcements-api", {
         action: "upsert-event",
         title: eventTitle,
         starts_at: eventStartDate || null,
@@ -183,329 +208,246 @@ export default function CaravanasPage() {
   return (
     <ManagementShell roleMode={roleMode}>
       <div className="space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
+        {/* Header no novo estilo */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <Bus className="h-6 w-6 text-blue-600" />
-              <h1 className="text-3xl font-bold text-slate-900">Caravanas</h1>
-            </div>
-            <p className="text-slate-600">
+            <h1 className="text-2xl font-bold" style={{ color: "#2e384d" }}>Gerenciamento de Caravanas</h1>
+            <p className="text-sm text-slate-500">
               {isAdmin
-                ? "Gerencie todas as caravanas registradas"
-                : "Veja as caravanas da sua jurisdição"}
+                ? "Visualize e gerencie todas as caravanas cadastradas"
+                : "Visualize e gerencie as caravanas da sua jurisdição"}
             </p>
           </div>
           <div className="flex gap-2">
-            <Button onClick={() => setOpenScheduleEvent(true)} variant="outline" className="border-blue-600 text-blue-600 hover:bg-blue-50">
-              <Calendar className="h-4 w-4 mr-2" />
-              Agendar Evento
-            </Button>
-            <Button onClick={() => setOpenNewCaravana(true)} className="bg-blue-600 hover:bg-blue-700">
+            {/* Mantido agendamento apenas secundario se quiser usar */}
+            {isAdmin && (
+               <Button onClick={() => setOpenScheduleEvent(true)} variant="outline" className="border-slate-300 text-slate-700 hover:bg-slate-50 shadow-sm">
+                 <Calendar className="h-4 w-4 mr-2" />
+                 Agendar Evento
+               </Button>
+            )}
+            <Button onClick={() => setOpenNewCaravana(true)} className="hover:bg-[#1a237e]/90 shadow-sm transition-colors" style={{ backgroundColor: "#1e3a8a", color: "white" }}>
               <Plus className="h-4 w-4 mr-2" />
               Nova Caravana
             </Button>
           </div>
         </div>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-slate-600">
-                Recebidas
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-slate-900">{recebidas.length}</div>
-              <p className="text-xs text-slate-500 mt-1">aguardando confirmação</p>
-            </CardContent>
+        {/* 4 Cards Superiores (Resumo) */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+          <Card className="shadow-sm border-slate-200 flex flex-col justify-between p-4">
+            <div className="flex items-center text-slate-500 text-sm font-medium mb-3">
+              <Bus className="h-4 w-4 mr-2" /> Total de Caravanas
+            </div>
+            <div className="text-3xl font-bold text-slate-800">{caravanas.length}</div>
           </Card>
-
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-slate-600">
-                Confirmadas
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-green-600">{confirmadas.length}</div>
-              <p className="text-xs text-slate-500 mt-1">prontas para viajar</p>
-            </CardContent>
+          <Card className="shadow-sm border-slate-200 flex flex-col justify-between p-4">
+            <div className="flex items-center text-slate-500 text-sm font-medium mb-3">
+              <Building2 className="h-4 w-4 mr-2" /> Igrejas Diferentes
+            </div>
+            <div className="text-3xl font-bold text-slate-800">{totalIgrejas}</div>
           </Card>
-
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-slate-600">
-                Total de Passageiros
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-blue-600">{totalPassageiros}</div>
-              <p className="text-xs text-slate-500 mt-1">em todas as caravanas</p>
-            </CardContent>
+          <Card className="shadow-sm border-slate-200 flex flex-col justify-between p-4">
+            <div className="flex items-center text-slate-500 text-sm font-medium mb-3">
+              <Users className="h-4 w-4 mr-2" /> Pastores
+            </div>
+            <div className="text-3xl font-bold text-slate-800">{totalPastores}</div>
+          </Card>
+          <Card className="shadow-sm border-slate-200 flex flex-col justify-between p-4">
+            <div className="flex items-center text-slate-500 text-sm font-medium mb-3">
+              <Calendar className="h-4 w-4 mr-2" /> Última Atualização
+            </div>
+            <div className="text-2xl font-bold text-slate-800">{ultimaAtualizacao}</div>
           </Card>
         </div>
 
-        {/* Filters */}
-        <div className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="search">Buscar</Label>
-              <Input
-                id="search"
-                placeholder="Igreja, líder, pastor..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="status">Status</Label>
-              <Select value={filterStatus} onValueChange={(v) => setFilterStatus(v as any)}>
-                <SelectTrigger id="status">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="todas">Todas</SelectItem>
-                  <SelectItem value="Recebida">Recebidas</SelectItem>
-                  <SelectItem value="Confirmada">Confirmadas</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+        {/* Linha de Filtros */}
+        <div className="flex flex-col md:flex-row items-center gap-3 w-full">
+          <div className="relative flex-1 w-full">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <Input
+              placeholder="Buscar por igreja, pastor ou líder..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-9 w-full shadow-sm bg-white border-slate-200"
+            />
+          </div>
+          <div className="w-full md:w-auto min-w-[140px]">
+             <Select value={filterStatus} onValueChange={(v) => setFilterStatus(v as any)}>
+               <SelectTrigger className="shadow-sm bg-white border-slate-200">
+                 <SelectValue />
+               </SelectTrigger>
+               <SelectContent>
+                 <SelectItem value="todas">Todas</SelectItem>
+                 <SelectItem value="Recebida">Recebidas</SelectItem>
+                 <SelectItem value="Confirmada">Confirmadas</SelectItem>
+               </SelectContent>
+             </Select>
+          </div>
+          <div className="relative w-full md:w-auto min-w-[200px]">
+            <Filter className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <Input
+              placeholder="Filtrar por pastor..."
+              value={filterPastor}
+              onChange={(e) => setFilterPastor(e.target.value)}
+              className="pl-9 shadow-sm bg-white border-slate-200 w-full"
+            />
+          </div>
+          <div className="w-full md:w-auto">
+             <Input
+               type="date"
+               value={filterDate}
+               onChange={(e) => setFilterDate(e.target.value)}
+               className="shadow-sm bg-white border-slate-200 w-full"
+             />
           </div>
         </div>
 
-        {/* Content */}
-        {isLoading ? (
-          <Card>
-            <CardContent className="flex items-center justify-center py-8">
-              <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
-            </CardContent>
-          </Card>
-        ) : caravanas.length === 0 ? (
-          <Card>
-            <CardContent className="flex items-center justify-center py-12">
-              <div className="text-center">
-                <Bus className="h-12 w-12 text-slate-300 mx-auto mb-3" />
-                <p className="text-slate-600">Nenhuma caravana registrada</p>
-              </div>
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="space-y-4">
-            {/* Desktop View */}
-            <div className="hidden md:block">
-              <div className="border rounded-lg overflow-hidden">
-                <table className="w-full">
-                  <thead className="bg-slate-50 border-b">
-                    <tr>
-                      <th className="px-4 py-3 text-left text-sm font-semibold text-slate-700">
-                        Igreja
-                      </th>
-                      <th className="px-4 py-3 text-left text-sm font-semibold text-slate-700">
-                        Líder
-                      </th>
-                      <th className="px-4 py-3 text-left text-sm font-semibold text-slate-700">
-                        Veículo
-                      </th>
-                      <th className="px-4 py-3 text-left text-sm font-semibold text-slate-700">
-                        Passageiros
-                      </th>
-                      <th className="px-4 py-3 text-left text-sm font-semibold text-slate-700">
-                        Status
-                      </th>
-                      <th className="px-4 py-3 text-right text-sm font-semibold text-slate-700">
-                        Ações
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {caravanas.map((caravan, idx) => (
-                      <tr
-                        key={caravan.id}
-                        className={`border-b ${
-                          idx % 2 === 0 ? "bg-white" : "bg-slate-50"
-                        } hover:bg-blue-50`}
-                      >
-                        <td className="px-4 py-3 text-sm">
-                          <div className="font-medium text-slate-900">
-                            {caravan.church_name}
-                          </div>
-                          {caravan.city_state && (
-                            <div className="text-xs text-slate-500">{caravan.city_state}</div>
-                          )}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-slate-900">
-                          {caravan.leader_name}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-slate-900">
-                          {caravan.vehicle_plate}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-slate-900">
-                          {caravan.passenger_count}
-                        </td>
-                        <td className="px-4 py-3 text-sm">
-                          <Badge
-                            variant={
-                              caravan.status === "Confirmada" ? "default" : "secondary"
-                            }
-                            className={
-                              caravan.status === "Confirmada"
-                                ? "bg-green-100 text-green-800"
-                                : "bg-amber-100 text-amber-800"
-                            }
-                          >
-                            {caravan.status}
-                          </Badge>
-                        </td>
-                        <td className="px-4 py-3 text-right space-x-2">
-                          {caravan.status === "Recebida" && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleConfirm(caravan)}
-                              disabled={loadingId === caravan.id}
-                              className="text-green-600 hover:text-green-700 hover:bg-green-50"
-                            >
-                              {loadingId === caravan.id ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                              ) : (
-                                <>
-                                  <Check className="h-4 w-4 mr-1" />
-                                  Confirmar
-                                </>
-                              )}
-                            </Button>
-                          )}
-                          {isAdmin && (
-                            <AlertDialog>
-                              <AlertDialogTrigger asChild>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </AlertDialogTrigger>
-                              <AlertDialogContent>
-                                <AlertDialogHeader>
-                                  <AlertDialogTitle>Deletar caravana?</AlertDialogTitle>
-                                  <AlertDialogDescription>
-                                    Esta ação não pode ser desfeita.
-                                  </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                  <AlertDialogAction
-                                    onClick={() => handleDelete(caravan.id)}
-                                    className="bg-red-600 hover:bg-red-700"
-                                  >
-                                    Deletar
-                                  </AlertDialogAction>
-                                </AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+        <div className="text-sm text-slate-500 font-medium">
+          {filteredCaravanas.length} de {caravanas.length} caravanas encontradas
+        </div>
 
-            {/* Cards View (Desktop) */}
-            <div className="hidden md:grid md:grid-cols-2 gap-4">
-              {caravanas.map((caravan) => (
-                <Card
-                  key={caravan.id}
-                  className={`overflow-hidden border-2 ${
-                    caravan.status === "Confirmada"
-                      ? "bg-green-50 border-green-300"
-                      : "bg-amber-50 border-amber-300"
-                  }`}
-                >
-                  <CardContent className="p-4 space-y-3">
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-center gap-2">
-                        <Building2 className={`h-5 w-5 ${caravan.status === "Confirmada" ? "text-green-600" : "text-amber-600"}`} />
-                        <div>
-                          <div className={`font-semibold ${caravan.status === "Confirmada" ? "text-green-900" : "text-amber-900"}`}>
-                            {caravan.church_name}
+        {isLoading ? (
+          <div className="flex items-center justify-center py-12">
+             <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
+          </div>
+        ) : (
+          <div className="space-y-10">
+            {/* Seção Recebidas */}
+            {recebidas.length > 0 && (
+              <div>
+                <h2 className="text-xl font-bold text-slate-700 mb-4 tracking-tight">Recebidas</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {recebidas.map((caravan) => (
+                    <div
+                      key={caravan.id}
+                      className="border border-slate-200 bg-white shadow-sm hover:shadow relative transition-shadow rounded-xl p-5"
+                    >
+                      <div className="flex justify-between items-start mb-4">
+                        <div className="flex items-center gap-3">
+                          <div className="bg-slate-100 p-2.5 rounded-lg text-slate-600">
+                            <Building2 className="h-5 w-5" />
+                          </div>
+                          <div>
+                            <div className="font-bold text-slate-800 uppercase tracking-wide text-sm">{caravan.church_name}</div>
+                            <div className="text-xs text-slate-500 mt-0.5">{caravan.city_state || "Local não info."}</div>
                           </div>
                         </div>
+                        <div className="flex flex-col items-end gap-2">
+                            <Badge className="bg-amber-100/50 text-amber-700 hover:bg-amber-100/80 font-medium border border-amber-200/50 px-2.5 shadow-none transition-colors">
+                              Pendente
+                            </Badge>
+                            <div className="flex items-center">
+                              {isAdmin && (
+                                <AlertDialog>
+                                  <AlertDialogTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400 hover:text-red-700 hover:bg-red-50 -mr-1">
+                                      <Trash2 className="h-3.5 w-3.5" />
+                                    </Button>
+                                  </AlertDialogTrigger>
+                                  <AlertDialogContent>
+                                    <AlertDialogHeader><AlertDialogTitle>Deletar caravana?</AlertDialogTitle></AlertDialogHeader>
+                                    <AlertDialogFooter><AlertDialogCancel>Cancelar</AlertDialogCancel><AlertDialogAction onClick={() => handleDelete(caravan.id)} className="bg-red-600">Deletar</AlertDialogAction></AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
+                              )}
+                            </div>
+                        </div>
                       </div>
-                      <Badge className={caravan.status === "Confirmada" ? "bg-green-200 text-green-800" : "bg-amber-200 text-amber-800"}>
-                        {caravan.status}
-                      </Badge>
-                    </div>
 
-                    <div className={`text-sm ${caravan.status === "Confirmada" ? "text-green-700" : "text-amber-700"}`}>
-                      <div className="flex items-center gap-2 mb-2">
-                        <Users className="h-4 w-4" />
-                        <span>Pastor: {caravan.pastor_name}</span>
+                      <div className="space-y-2.5 text-sm text-slate-600 mb-5">
+                        <div className="flex items-center"><Users className="h-4 w-4 mr-2.5 text-slate-400" /> <span className="font-medium mr-1">Pastor:</span> {caravan.pastor_name}</div>
+                        <div className="flex items-center"><Bus className="h-4 w-4 mr-2.5 text-slate-400" /> <span className="font-medium mr-1">Placa:</span> {caravan.vehicle_plate}</div>
+                        <div className="flex items-center"><Users className="h-4 w-4 mr-2.5 text-slate-400" /> <span className="font-medium mr-1">Líder:</span> {caravan.leader_name}</div>
+                        <div className="flex items-center"><Phone className="h-4 w-4 mr-2.5 text-slate-400" /> {caravan.leader_whatsapp}</div>
                       </div>
-                      <div className="flex items-center gap-2 mb-2">
-                        <Map className="h-4 w-4" />
-                        <span>Placa: {caravan.vehicle_plate}</span>
-                      </div>
-                      <div className="flex items-center gap-2 mb-2">
-                        <Users className="h-4 w-4" />
-                        <span>Líder: {caravan.leader_name}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Phone className="h-4 w-4" />
-                        <span>{caravan.leader_whatsapp}</span>
+
+                      <div className="pt-3.5 border-t border-slate-100 flex items-center justify-between">
+                         <div className="flex items-center text-xs font-medium text-slate-400">
+                           <Calendar className="h-3.5 w-3.5 mr-1.5" />
+                           {caravan.created_at ? new Date(caravan.created_at).toLocaleDateString("pt-BR") : "-"}
+                         </div>
+                         <Button
+                           size="sm"
+                           onClick={() => handleConfirm(caravan)}
+                           disabled={loadingId === caravan.id}
+                           className="bg-green-600 hover:bg-green-700 text-white h-7 text-xs px-3 shadow-none transition-colors"
+                         >
+                           {loadingId === caravan.id ? <Loader2 className="h-3 w-3 animate-spin mr-1.5" /> : <Check className="h-3 w-3 mr-1.5" />}
+                           Confirmar
+                         </Button>
                       </div>
                     </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
-                    <div className="flex items-center justify-between pt-2 border-t" style={{borderColor: caravan.status === "Confirmada" ? "#86efac" : "#fde047"}}>
-                      <div className={`text-xs ${caravan.status === "Confirmada" ? "text-green-600" : "text-amber-600"}`}>
+            {/* Seção Confirmadas */}
+            {confirmadas.length > 0 && (
+              <div>
+                <h2 className="text-xl font-bold text-slate-700 mb-4 tracking-tight">Confirmadas</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {confirmadas.map((caravan) => (
+                    <div
+                      key={caravan.id}
+                      className="border border-green-200 bg-green-50/40 shadow-sm relative rounded-xl p-5"
+                    >
+                      <div className="flex justify-between items-start mb-4">
+                        <div className="flex items-center gap-3">
+                          <div className="bg-green-100/70 p-2.5 rounded-lg text-green-700">
+                            <Building2 className="h-5 w-5" />
+                          </div>
+                          <div>
+                            <div className="font-bold text-slate-800 uppercase tracking-wide text-sm">{caravan.church_name}</div>
+                            <div className="text-xs text-slate-500 mt-0.5">{caravan.city_state || "Local não info."}</div>
+                          </div>
+                        </div>
+                        <div className="flex flex-col items-end gap-2">
+                             <Badge className="bg-green-200/50 text-green-700 hover:bg-green-200/70 font-medium px-2.5 shadow-none transition-colors border border-green-300/30">
+                              Confirmada
+                            </Badge>
+                            <div className="flex items-center">
+                              {isAdmin && (
+                                <AlertDialog>
+                                  <AlertDialogTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500 hover:text-red-700 hover:bg-red-50 -mr-1">
+                                      <Trash2 className="h-3.5 w-3.5" />
+                                    </Button>
+                                  </AlertDialogTrigger>
+                                  <AlertDialogContent>
+                                    <AlertDialogHeader><AlertDialogTitle>Deletar caravana?</AlertDialogTitle></AlertDialogHeader>
+                                    <AlertDialogFooter><AlertDialogCancel>Cancelar</AlertDialogCancel><AlertDialogAction onClick={() => handleDelete(caravan.id)} className="bg-red-600">Deletar</AlertDialogAction></AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
+                              )}
+                            </div>
+                        </div>
+                      </div>
+
+                      <div className="space-y-2.5 text-sm text-green-900/80 mb-5">
+                        <div className="flex items-center"><Users className="h-4 w-4 mr-2.5 text-green-700/60" /> <span className="font-medium mr-1">Pastor:</span> {caravan.pastor_name}</div>
+                        <div className="flex items-center"><Bus className="h-4 w-4 mr-2.5 text-green-700/60" /> <span className="font-medium mr-1">Placa:</span> {caravan.vehicle_plate}</div>
+                        <div className="flex items-center"><Users className="h-4 w-4 mr-2.5 text-green-700/60" /> <span className="font-medium mr-1">Líder:</span> {caravan.leader_name}</div>
+                        <div className="flex items-center"><Phone className="h-4 w-4 mr-2.5 text-green-700/60" /> {caravan.leader_whatsapp}</div>
+                      </div>
+
+                      <div className="pt-3.5 border-t border-green-200/60 flex items-center text-xs font-medium text-green-700/70">
+                        <Calendar className="h-3.5 w-3.5 mr-1.5" />
                         {caravan.created_at ? new Date(caravan.created_at).toLocaleDateString("pt-BR") : "-"}
                       </div>
-                      <div className="flex gap-2">
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className={caravan.status === "Confirmada" ? "text-green-600 hover:bg-green-100" : "text-amber-600 hover:bg-amber-100"}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        {isAdmin && (
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                className="text-red-600 hover:bg-red-100"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>Deletar caravana?</AlertDialogTitle>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                <AlertDialogAction
-                                  onClick={() => handleDelete(caravan.id)}
-                                  className="bg-red-600"
-                                >
-                                  Deletar
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
-                        )}
-                      </div>
                     </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            {!isLoading && filteredCaravanas.length === 0 && (
+              <div className="flex flex-col items-center justify-center py-16 border border-dashed rounded-xl border-slate-200 bg-slate-50/50">
+                 <Bus className="h-12 w-12 text-slate-300 mx-auto mb-3" />
+                 <p className="text-slate-500 font-medium">Nenhuma caravana encontrada para esses filtros.</p>
+              </div>
+            )}
           </div>
         )}
 

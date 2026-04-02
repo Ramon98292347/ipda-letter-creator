@@ -56,6 +56,7 @@ async function handleRegister(body: any, sb: any) {
     }
 
     const { data, error } = await sb.from("caravanas").insert({
+      totvs_id: church_code || null,
       church_code: church_code || null,
       church_name,
       city_state: city_state || null,
@@ -114,7 +115,7 @@ async function handleList(body: any, sb: any, user: any) {
     const userScopes = (user?.totvs_access || user?.scope_totvs_ids || []).filter(Boolean);
     const activeTotvs = String(user?.active_totvs_id || "");
 
-    let query = sb.from("caravanas").select("id, church_code, church_name, city_state, pastor_name, pastor_email, pastor_phone, vehicle_plate, leader_name, leader_whatsapp, passenger_count, status, created_at, updated_at");
+    let query = sb.from("caravanas").select("id, totvs_id, church_code, church_name, city_state, pastor_name, pastor_email, pastor_phone, vehicle_plate, leader_name, leader_whatsapp, passenger_count, status, created_at, updated_at");
 
     // Filtro por status
     if (status && status !== "todas") {
@@ -132,9 +133,9 @@ async function handleList(body: any, sb: any, user: any) {
     // Filtro por escopo: admin vê tudo, pastor vê apenas suas churches
     if (!isAdmin) {
       if (userScopes.length > 0) {
-        query = query.in("church_code", userScopes);
+        query = query.in("totvs_id", userScopes);
       } else if (activeTotvs) {
-        query = query.eq("church_code", activeTotvs);
+        query = query.eq("totvs_id", activeTotvs);
       }
     }
 
@@ -250,7 +251,7 @@ Deno.serve(async (req: Request) => {
   try {
     const sb = createClient(
       Deno.env.get("SUPABASE_URL") || "",
-      Deno.env.get("SUPABASE_ANON_KEY") || ""
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || ""
     );
 
     const body = await req.json();
