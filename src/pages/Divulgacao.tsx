@@ -354,6 +354,7 @@ export default function DivulgacaoPage() {
     },
     onSuccess: () => {
       toast.success("Evento excluído.");
+      queryClient.invalidateQueries({ queryKey: ["div-ann"] });
     },
     onError: (error, variables, context) => {
       if (context) {
@@ -373,6 +374,7 @@ export default function DivulgacaoPage() {
     },
     onSuccess: () => {
       toast.success("Informativo excluído.");
+      queryClient.invalidateQueries({ queryKey: ["div-ann"] });
     },
     onError: (error, variables, context) => {
       if (context) {
@@ -393,6 +395,7 @@ export default function DivulgacaoPage() {
     },
     onSuccess: () => {
       toast.success("Camiseta excluída.");
+      queryClient.invalidateQueries({ queryKey: ["div-products"] });
     },
     onError: (error, variables, context) => {
       // Restore if failed
@@ -414,6 +417,7 @@ export default function DivulgacaoPage() {
     },
     onSuccess: () => {
       toast.success("Tamanho excluído.");
+      queryClient.invalidateQueries({ queryKey: ["div-sizes"] });
     },
     onError: (error, variables, context) => {
       // Restore if failed
@@ -435,6 +439,7 @@ export default function DivulgacaoPage() {
     },
     onSuccess: () => {
       toast.success("Pedido excluído.");
+      queryClient.invalidateQueries({ queryKey: ["div-orders"] });
     },
     onError: (error, variables, context) => {
       // Restore if failed

@@ -1,6 +1,15 @@
 [functions.caravanas-api]
 verify_jwt = false
 
+[functions.delete-order]
+verify_jwt = false
+
+[functions.delete-product]
+verify_jwt = false
+
+[functions.delete-product-size]
+verify_jwt = false
+
 [functions.letters-api]
 verify_jwt = false
 
