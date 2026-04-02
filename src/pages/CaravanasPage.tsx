@@ -17,7 +17,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from "@/components/ui/dialog";
+} from "@/components/ui/alert-dialog";
 import { Bus, Check, Trash2, Loader2, Users, Map, Calendar } from "lucide-react";
 import { toast } from "sonner";
 import { useUser } from "@/context/UserContext";
