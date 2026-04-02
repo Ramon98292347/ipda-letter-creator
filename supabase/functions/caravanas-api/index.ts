@@ -118,7 +118,7 @@ async function handleList(body: any, sb: any, user: any) {
     const userScopes = (user?.totvs_access || user?.scope_totvs_ids || []).filter(Boolean);
     const activeTotvs = String(user?.active_totvs_id || "");
 
-    let query = sb.from("caravanas").select("id, totvs_id, church_code, church_name, city_state, pastor_name, pastor_email, pastor_phone, vehicle_plate, leader_name, leader_whatsapp, passenger_count, status, created_at, updated_at");
+    let query = sb.from("caravanas").select("id, event_id, totvs_id, church_code, church_name, city_state, pastor_name, pastor_email, pastor_phone, vehicle_plate, leader_name, leader_whatsapp, passenger_count, status, created_at, updated_at");
 
     // Filtro por status
     if (status && status !== "todas") {
@@ -133,12 +133,27 @@ async function handleList(body: any, sb: any, user: any) {
       );
     }
 
-    // Filtro por escopo: admin vê tudo, pastor vê apenas suas churches
+    // Filtro por escopo: admin vê tudo, pastor vê apenas eventos de sua jurisdição
     if (!isAdmin) {
-      if (userScopes.length > 0) {
-        query = query.in("totvs_id", userScopes);
-      } else if (activeTotvs) {
-        query = query.eq("totvs_id", activeTotvs);
+      const churchScopes = userScopes.length > 0 ? userScopes : (activeTotvs ? [activeTotvs] : []);
+
+      if (churchScopes.length > 0) {
+        // Busca eventos que pertencem ao escopo do usuário
+        const { data: eventIds, error: eventsError } = await sb
+          .from("announcements")
+          .select("id")
+          .in("church_code", churchScopes);
+
+        if (eventsError) throw eventsError;
+
+        const allowedEventIds = (eventIds || []).map((e: any) => e.id).filter(Boolean);
+
+        // Filtra caravanas por eventos permitidos (ou sem event_id para dados antigos)
+        if (allowedEventIds.length > 0) {
+          query = query.or(`event_id.in.(${allowedEventIds.join(",")}),event_id.is.null`);
+        } else {
+          query = query.is("event_id", null);
+        }
       }
     }
 
@@ -175,11 +190,24 @@ async function handleConfirm(body: any, sb: any, user: any) {
       return json({ ok: false, error: "caravan_not_found" }, 404);
     }
 
-    // Validar acesso: admin ou pastor do escopo
+    // Validar acesso: admin ou pastor do evento
     const isAdmin = String(user?.role || "").toLowerCase() === "admin";
     const userScopes = (user?.totvs_access || user?.scope_totvs_ids || []).filter(Boolean);
     const activeTotvs = String(user?.active_totvs_id || "");
-    const canAccess = isAdmin || userScopes.includes(String(caravan.church_code)) || (activeTotvs === String(caravan.church_code));
+
+    let canAccess = isAdmin;
+    if (!canAccess && caravan.event_id) {
+      // Busca o evento para validar propriedade
+      const { data: event } = await sb
+        .from("announcements")
+        .select("church_code")
+        .eq("id", caravan.event_id)
+        .single();
+
+      if (event) {
+        canAccess = userScopes.includes(String(event.church_code)) || (activeTotvs === String(event.church_code));
+      }
+    }
 
     if (!canAccess) {
       return json({ ok: false, error: "forbidden" }, 403);
