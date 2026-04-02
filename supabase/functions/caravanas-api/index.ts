@@ -116,7 +116,7 @@ async function handleList(req: Request, sb: any, user: any) {
     const userScopes = (user?.totvs_access || user?.scope_totvs_ids || []).filter(Boolean);
     const activeTotvs = String(user?.active_totvs_id || "");
 
-    let query = sb.from("caravanas").select("*");
+    let query = sb.from("caravanas").select("id, church_code, church_name, city_state, pastor_name, pastor_email, pastor_phone, vehicle_plate, leader_name, leader_whatsapp, passenger_count, status, created_at, updated_at");
 
     // Filtro por status
     if (status && status !== "todas") {
@@ -142,12 +142,15 @@ async function handleList(req: Request, sb: any, user: any) {
 
     const { data, error } = await query.order("created_at", { ascending: false });
 
-    if (error) throw error;
+    if (error) {
+      console.error("[list] erro de query:", error);
+      throw error;
+    }
 
     return json({ ok: true, caravanas: data || [] });
   } catch (error) {
     console.error("[list] erro:", error);
-    return json({ ok: false, error: "internal_error" }, 500);
+    return json({ ok: false, error: "internal_error", details: String(error) }, 500);
   }
 }
 
