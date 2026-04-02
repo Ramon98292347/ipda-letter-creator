@@ -21,6 +21,14 @@ type ProductRow = {
   price?: number | null;
 };
 
+type ProductSizeRow = {
+  id: string;
+  product_id: string;
+  size: string;
+  stock?: number | null;
+  is_active?: boolean | null;
+};
+
 type AnnouncementRow = {
   id: string;
   title?: string | null;
@@ -53,8 +61,6 @@ export const parseImageUrls = (val: string | null | undefined): string[] => {
     return [val];
   }
 };
-
-const TAMANHOS = ["PP", "P", "M", "G", "GG", "XG"];
 
 function ProductCard({ product, churchTotvsId, onSelectSize }: { product: ProductRow; churchTotvsId: string; onSelectSize: (productId: string) => void }) {
   const [imgIndex, setImgIndex] = useState(0);
@@ -129,6 +135,8 @@ export default function CamisasPublicPage() {
   );
   const [sizeDialogOpen, setSizeDialogOpen] = useState(false);
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
+  const [availableSizes, setAvailableSizes] = useState<ProductSizeRow[]>([]);
+  const [loadingSizes, setLoadingSizes] = useState(false);
 
   const { data: churchRes, isLoading: loadingChurch } = useQuery({
     queryKey: ["camisas-public-church", churchTotvsId],
@@ -204,9 +212,23 @@ export default function CamisasPublicPage() {
     if (slide >= totalPages) setSlide(0);
   }, [slide, totalPages]);
 
-  const handleSelectSize = (productId: string) => {
+  const handleSelectSize = async (productId: string) => {
     setSelectedProductId(productId);
-    setSizeDialogOpen(true);
+    setLoadingSizes(true);
+    try {
+      const res = await post<{ ok: boolean; product_sizes: ProductSizeRow[] }>(
+        "list-product-sizes-public",
+        { product_id: productId },
+        { skipAuth: true }
+      );
+      setAvailableSizes(res?.product_sizes || []);
+    } catch (error) {
+      console.error("Erro ao buscar tamanhos:", error);
+      setAvailableSizes([]);
+    } finally {
+      setLoadingSizes(false);
+      setSizeDialogOpen(true);
+    }
   };
 
   const handleSizeConfirm = (tamanho: string) => {
@@ -377,20 +399,36 @@ export default function CamisasPublicPage() {
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle className="text-2xl">Escolha o Tamanho</DialogTitle>
-            <DialogDescription>Selecione o tamanho da camiseta desejada</DialogDescription>
+            <DialogDescription>Selecione o tamanho disponível da camiseta</DialogDescription>
           </DialogHeader>
-          <div className="grid grid-cols-3 gap-3">
-            {TAMANHOS.map((tamanho) => (
-              <Button
-                key={tamanho}
-                onClick={() => handleSizeConfirm(tamanho)}
-                variant="outline"
-                className="h-14 rounded-lg border-2 border-slate-200 text-lg font-bold hover:border-[#232b7a] hover:bg-[#232b7a] hover:text-white transition-all"
-              >
-                {tamanho}
-              </Button>
-            ))}
-          </div>
+          {loadingSizes ? (
+            <div className="flex justify-center py-8">
+              <div className="h-6 w-6 animate-spin rounded-full border-2 border-slate-300 border-t-[#232b7a]" />
+            </div>
+          ) : availableSizes.length > 0 ? (
+            <div className="grid grid-cols-3 gap-3">
+              {availableSizes
+                .filter((s) => s.is_active !== false)
+                .map((sizeRow) => (
+                  <Button
+                    key={sizeRow.id}
+                    onClick={() => handleSizeConfirm(sizeRow.size)}
+                    variant="outline"
+                    className="h-14 rounded-lg border-2 border-slate-200 text-lg font-bold hover:border-[#232b7a] hover:bg-[#232b7a] hover:text-white transition-all"
+                    disabled={sizeRow.stock === 0}
+                  >
+                    <span className="flex flex-col items-center">
+                      <span>{sizeRow.size}</span>
+                      {sizeRow.stock === 0 && <span className="text-xs text-red-600">Fora</span>}
+                    </span>
+                  </Button>
+                ))}
+            </div>
+          ) : (
+            <div className="py-8 text-center text-slate-600">
+              Nenhum tamanho disponível para este produto.
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>
