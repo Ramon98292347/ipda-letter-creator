@@ -50,7 +50,8 @@ Deno.serve(async (req) => {
 
   try {
     const session = await verifySessionJWT(req);
-    if (!session) return json({ ok: false, error: "unauthorized" }, 401);
+    // Permite acesso não autenticado para formulários públicos como Caravanas,
+    // mas a variavel session sera null.
 
     const body = (await req.json().catch(() => ({}))) as Body;
     const totvs = String(body.totvs_id || "").trim();
@@ -78,6 +79,9 @@ Deno.serve(async (req) => {
         .maybeSingle();
 
       if (!byTotvs) return json({ ok: true, pastor: null });
+      if (!session) {
+        delete byTotvs.signature_url;
+      }
       return json({ ok: true, pastor: byTotvs });
     }
 
@@ -88,6 +92,9 @@ Deno.serve(async (req) => {
       .eq("id", church.pastor_user_id)
       .eq("is_active", true)
       .maybeSingle();
+    if (pastor && !session) {
+      delete pastor.signature_url;
+    }
 
     return json({ ok: true, pastor: pastor || null });
   } catch (err) {
