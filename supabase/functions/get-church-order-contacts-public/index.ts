@@ -25,6 +25,17 @@ type Contact = {
   email: string | null;
 };
 
+function hasTotvsAccess(totvsAccess: unknown, churchTotvsId: string): boolean {
+  if (!Array.isArray(totvsAccess)) return false;
+  for (const entry of totvsAccess) {
+    if (typeof entry === "string" && String(entry).trim() === churchTotvsId) return true;
+    if (!entry || typeof entry !== "object") continue;
+    const item = entry as Record<string, unknown>;
+    if (String(item.totvs_id || "").trim() === churchTotvsId) return true;
+  }
+  return false;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders() });
   if (req.method !== "POST") return json({ ok: false, error: "method_not_allowed" }, 405);
@@ -68,18 +79,43 @@ Deno.serve(async (req) => {
       }
     }
 
+    if (!pastor) {
+      const { data: fallbackPastorRows, error: fallbackPastorErr } = await sb
+        .from("users")
+        .select("id, full_name, phone, email")
+        .eq("role", "pastor")
+        .eq("default_totvs_id", churchTotvsId)
+        .eq("is_active", true)
+        .order("updated_at", { ascending: false })
+        .limit(1);
+      if (fallbackPastorErr) return json({ ok: false, error: "db_error_pastor_fallback", details: fallbackPastorErr.message }, 500);
+      const firstPastor = (fallbackPastorRows || [])[0] as Record<string, unknown> | undefined;
+      if (firstPastor) {
+        pastor = {
+          id: String(firstPastor.id || ""),
+          full_name: String(firstPastor.full_name || ""),
+          phone: firstPastor.phone ? String(firstPastor.phone) : null,
+          email: firstPastor.email ? String(firstPastor.email) : null,
+        };
+      }
+    }
+
     const { data: secretarioRows, error: secretarioErr } = await sb
       .from("users")
-      .select("id, full_name, phone, email")
+      .select("id, full_name, phone, email, default_totvs_id, totvs_access")
       .eq("role", "secretario")
-      .eq("default_totvs_id", churchTotvsId)
       .eq("is_active", true)
       .order("updated_at", { ascending: false })
-      .limit(1);
+      .limit(200);
 
     if (secretarioErr) return json({ ok: false, error: "db_error_secretary", details: secretarioErr.message }, 500);
 
-    const firstSecretary = (secretarioRows || [])[0] as Record<string, unknown> | undefined;
+    const firstSecretary = (secretarioRows || []).find((row) => {
+      const item = row as Record<string, unknown>;
+      const defaultTotvs = String(item.default_totvs_id || "").trim();
+      if (defaultTotvs === churchTotvsId) return true;
+      return hasTotvsAccess(item.totvs_access, churchTotvsId);
+    }) as Record<string, unknown> | undefined;
     const secretary: Contact | null = firstSecretary
       ? {
         id: String(firstSecretary.id || ""),

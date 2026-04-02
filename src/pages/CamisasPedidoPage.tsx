@@ -379,6 +379,8 @@ export default function CamisasPedidoPage() {
       created_at: new Date().toISOString(),
     };
 
+    const contactChurchTotvsId = String(churchTotvsId || churchId || "").trim();
+
     let contactsPayload = {
       pastor_name: "",
       pastor_phone: "",
@@ -391,9 +393,10 @@ export default function CamisasPedidoPage() {
     try {
       const contactsRes = await post<{
         ok: boolean;
+        church_totvs_id?: string;
         pastor?: { full_name?: string | null; phone?: string | null; email?: string | null } | null;
         secretary?: { full_name?: string | null; phone?: string | null; email?: string | null } | null;
-      }>("get-church-order-contacts-public", { church_totvs_id: churchId }, { skipAuth: true });
+      }>("get-church-order-contacts-public", { church_totvs_id: contactChurchTotvsId }, { skipAuth: true });
       contactsPayload = {
         pastor_name: String(contactsRes?.pastor?.full_name || "").trim(),
         pastor_phone: String(contactsRes?.pastor?.phone || "").trim(),
@@ -408,6 +411,7 @@ export default function CamisasPedidoPage() {
 
     const webhookPayload = {
       ...order,
+      contact_church_totvs_id: contactChurchTotvsId,
       ...contactsPayload,
       contacts: {
         pastor: {

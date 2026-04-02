@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Search, PlusCircle, MoreHorizontal, User } from "lucide-react";
 import { AvatarCapture } from "@/components/shared/AvatarCapture";
+import { AvatarWithFallback } from "@/components/shared/AvatarWithFallback";
 import { toast } from "sonner";
 import { useUser } from "@/context/UserContext";
 import {
@@ -140,38 +141,6 @@ const ministerRoleOptions = [
   { value: "Obreiro",    label: "Obreiro" },
   { value: "Membro",     label: "Membro" },
 ];
-const FAILED_AVATAR_URLS = new Set<string>();
-
-function resolveAvatarUrl(src?: string | null) {
-  const url = String(src || "").trim();
-  if (!url) return null;
-  if (!/^https?:\/\//i.test(url)) return null;
-  if (FAILED_AVATAR_URLS.has(url)) return null;
-  return url;
-}
-
-function AvatarWithFallback({ src, alt, className }: { src?: string | null; alt: string; className: string }) {
-  const resolved = resolveAvatarUrl(src);
-  const [failed, setFailed] = useState(false);
-  if (resolved && !failed) {
-    return (
-      <img
-        src={resolved}
-        alt={alt}
-        className={className}
-        onError={() => {
-          FAILED_AVATAR_URLS.add(resolved);
-          setFailed(true);
-        }}
-      />
-    );
-  }
-  return (
-    <div className={`${className} flex items-center justify-center border border-slate-200 bg-white text-slate-400`}>
-      <User className="h-5 w-5" />
-    </div>
-  );
-}
 
 export function ObreirosTab({
   activeTotvsId,

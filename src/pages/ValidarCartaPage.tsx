@@ -288,11 +288,12 @@ export default function ValidarCartaPage() {
                   <div className="px-6 py-5">
                     {data.member && (
                       <div className="flex items-center gap-3 mb-5">
-                        {data.member.avatar_url ? (
+                        {data.member.avatar_url && /^https?:\/\//i.test(data.member.avatar_url) ? (
                           <img
                             src={data.member.avatar_url}
                             alt={data.member.full_name}
                             className="h-12 w-12 rounded-full object-cover border-2 border-blue-400/40"
+                            onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
                           />
                         ) : (
                           <div className="h-12 w-12 rounded-full bg-blue-500/20 border-2 border-blue-400/30 flex items-center justify-center">

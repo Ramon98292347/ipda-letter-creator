@@ -33,7 +33,7 @@ Deno.serve(async (req: Request) => {
     );
 
     const { error } = await sb
-      .from("deposit_products")
+      .from("products")
       .delete()
       .eq("id", id);
 
