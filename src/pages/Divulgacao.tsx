@@ -424,6 +424,27 @@ export default function DivulgacaoPage() {
     },
   });
 
+  const deleteOrder = useMutation({
+    mutationFn: async (id: string) => post("delete-order", { id }),
+    onMutate: async (id) => {
+      // Remove from UI immediately (optimistic update)
+      await queryClient.cancelQueries({ queryKey: ["div-orders"] });
+      const previousOrders = queryClient.getQueryData<DashboardOrder[]>(["div-orders"]) || [];
+      queryClient.setQueryData(["div-orders"], previousOrders.filter((o) => o.id !== id));
+      return previousOrders;
+    },
+    onSuccess: () => {
+      toast.success("Pedido excluído.");
+    },
+    onError: (error, variables, context) => {
+      // Restore if failed
+      if (context) {
+        queryClient.setQueryData(["div-orders"], context);
+      }
+      toast.error("Falha ao excluir pedido.");
+    },
+  });
+
   const filteredOrders = useMemo(() => {
     const q = orderSearch.trim().toLowerCase();
     return orders.filter((o) => {
@@ -706,9 +727,16 @@ export default function DivulgacaoPage() {
                           </span>
                         </td>
                         <td className="px-4 py-3">
-                          <button className="text-blue-700 hover:opacity-80" onClick={() => openOrderDetail(order)}>
-                            <Eye className="h-4 w-4" />
-                          </button>
+                          <div className="flex items-center gap-2">
+                            <button className="text-blue-700 hover:opacity-80" onClick={() => openOrderDetail(order)}>
+                              <Eye className="h-4 w-4" />
+                            </button>
+                            {["admin", "pastor", "secretario"].includes(usuario?.role || "") && (
+                              <button className="text-rose-600 hover:opacity-80" onClick={() => deleteOrder.mutate(order.id)}>
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     ))}
