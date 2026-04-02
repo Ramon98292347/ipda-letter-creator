@@ -36,6 +36,7 @@ export default function CaravanasPage() {
   const [loadingId, setLoadingId] = useState<string | null>(null);
 
   const isAdmin = usuario?.role === "admin";
+  const roleMode = (usuario?.role || "admin") as "admin" | "pastor" | "secretario";
 
   const { data: caravanas = [], isLoading } = useQuery({
     queryKey: ["caravanas", filterStatus, searchTerm],
@@ -98,7 +99,7 @@ export default function CaravanasPage() {
   };
 
   return (
-    <ManagementShell>
+    <ManagementShell roleMode={roleMode}>
       <div className="space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
