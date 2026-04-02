@@ -1264,6 +1264,15 @@ export async function listAdminChurchSummary(scopeTotvsIds: string[]): Promise<A
 
 // Busca rapida de igrejas por TOTVS ou nome usando a edge function search-churches-public
 export type ChurchSearchResult = { totvs_id: string; church_name: string; class: string };
+export type ChurchDetails = {
+  totvs_id: string;
+  church_name: string;
+  nome_pastor: string | null;
+  email_pastor: string | null;
+  phone_pastor: string | null;
+  cidade_estado: string | null;
+};
+
 export async function searchChurchesPublic(query: string, limit = 8): Promise<ChurchSearchResult[]> {
   const { post } = await import("@/lib/api");
   const result = await post<{ ok?: boolean; churches?: ChurchSearchResult[] }>(
@@ -1272,6 +1281,32 @@ export async function searchChurchesPublic(query: string, limit = 8): Promise<Ch
     { skipAuth: true },
   );
   return result?.churches ?? [];
+}
+
+export async function getChurchDetails(totvsId: string): Promise<ChurchDetails | null> {
+  try {
+    if (!totvsId) return null;
+
+    const { data, error } = await supabaseAnon
+      .from("churches")
+      .select("totvs_id, nome, nome_pastor, email_pastor, phone_pastor, cidade_estado")
+      .eq("totvs_id", totvsId)
+      .maybeSingle();
+
+    if (error || !data) return null;
+
+    return {
+      totvs_id: data.totvs_id,
+      church_name: data.nome || "",
+      nome_pastor: data.nome_pastor || null,
+      email_pastor: data.email_pastor || null,
+      phone_pastor: data.phone_pastor || null,
+      cidade_estado: data.cidade_estado || null,
+    };
+  } catch (err) {
+    console.error("Erro ao buscar dados da church:", err);
+    return null;
+  }
 }
 
 export async function listChurchesInScope(page = 1, pageSize = 5000, rootTotvsId?: string): Promise<ChurchInScopeItem[]> {

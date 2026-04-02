@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { registerCaravana } from "@/services/saasService";
+import { registerCaravana, getChurchDetails } from "@/services/saasService";
 import { supabase } from "@/lib/supabase";
 
 function maskPhone(value: string): string {
@@ -66,7 +66,7 @@ export default function CaravanaByChurchPage() {
       try {
         const { data, error } = await supabase
           .from("churches")
-          .select("totvs_id, nome, nome_pastor, cidade_estado")
+          .select("totvs_id, nome, nome_pastor, email_pastor, phone_pastor, cidade_estado")
           .eq("totvs_id", churchTotvsId)
           .maybeSingle();
 
@@ -77,6 +77,8 @@ export default function CaravanaByChurchPage() {
           setChurch(data);
           setChurchName(data.nome || "");
           setPastorName(data.nome_pastor || "");
+          setPastorEmail(data.email_pastor || "");
+          setPastorPhone(data.phone_pastor || "");
           setCityState(data.cidade_estado || "");
           setShowManual(false);
         } else {
@@ -136,6 +138,8 @@ export default function CaravanaByChurchPage() {
         church_name: churchName,
         city_state: cityState || null,
         pastor_name: pastorName,
+        pastor_email: pastorEmail || null,
+        pastor_phone: pastorPhone || null,
         vehicle_plate: vehiclePlate,
         leader_name: leaderName,
         leader_whatsapp: leaderPhone,

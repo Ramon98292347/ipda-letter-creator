@@ -1,10 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { Loader2, Phone, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { registerCaravana, searchChurchesPublic } from "@/services/saasService";
+import { registerCaravana, searchChurchesPublic, getChurchDetails } from "@/services/saasService";
 
 function maskPhone(value: string): string {
   const digits = value.replace(/\D/g, "");
@@ -72,6 +72,27 @@ export function CaravanaForm({ onSuccess }: { onSuccess?: () => void }) {
       setSearchLoading(false);
     }
   };
+
+  // Busca dados completos da church quando selecionada
+  useEffect(() => {
+    if (!selectedChurch || isManual) {
+      setPastorName("");
+      setPastorEmail("");
+      setPastorPhone("");
+      return;
+    }
+
+    const loadChurchDetails = async () => {
+      const details = await getChurchDetails(selectedChurch.totvs_id);
+      if (details) {
+        setPastorName(details.nome_pastor || "");
+        setPastorEmail(details.email_pastor || "");
+        setPastorPhone(details.phone_pastor || "");
+      }
+    };
+
+    loadChurchDetails();
+  }, [selectedChurch, isManual]);
 
   const validateForm = (): boolean => {
     if (!selectedChurch) {
@@ -217,12 +238,12 @@ export function CaravanaForm({ onSuccess }: { onSuccess?: () => void }) {
 
         <div className="space-y-2">
           <Label htmlFor="pastor" className="text-sm">
-            Pastor *
+            Pastor * {selectedChurch && !isManual && <span className="text-green-600 text-xs">✓ Preenchido</span>}
           </Label>
           <Input
             id="pastor"
             value={pastorName}
-            onChange={(e) => setPastorName(e.target.value)}
+            onChange={(e) => isManual && setPastorName(e.target.value)}
             placeholder="Nome do pastor"
             readOnly={!isManual && !!selectedChurch}
             className="text-sm"
@@ -231,28 +252,30 @@ export function CaravanaForm({ onSuccess }: { onSuccess?: () => void }) {
 
         <div className="space-y-2">
           <Label htmlFor="pastorEmail" className="text-sm">
-            Email do Pastor
+            Email do Pastor {selectedChurch && !isManual && pastorEmail && <span className="text-green-600 text-xs">✓</span>}
           </Label>
           <Input
             id="pastorEmail"
             type="email"
             value={pastorEmail}
-            onChange={(e) => setPastorEmail(e.target.value)}
+            onChange={(e) => isManual && setPastorEmail(e.target.value)}
             placeholder="email@exemplo.com"
+            readOnly={!isManual && !!selectedChurch}
             className="text-sm"
           />
         </div>
 
         <div className="space-y-2">
           <Label htmlFor="pastorPhone" className="text-sm">
-            Telefone do Pastor
+            Telefone do Pastor {selectedChurch && !isManual && pastorPhone && <span className="text-green-600 text-xs">✓</span>}
           </Label>
           <Input
             id="pastorPhone"
             value={pastorPhone}
-            onChange={(e) => setPastorPhone(maskPhone(e.target.value))}
+            onChange={(e) => isManual && setPastorPhone(maskPhone(e.target.value))}
             placeholder="(XX) XXXXX-XXXX"
             maxLength={15}
+            readOnly={!isManual && !!selectedChurch}
             className="text-sm"
           />
         </div>

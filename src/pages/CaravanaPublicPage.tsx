@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { Bus, User, Phone, MapPin, Building2, Loader2, Check } from "lucide-react";
@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { registerCaravana, searchChurchesPublic } from "@/services/saasService";
+import { registerCaravana, searchChurchesPublic, getChurchDetails } from "@/services/saasService";
 import { toast as useToast } from "sonner";
 
 // Máscaras
@@ -79,6 +79,27 @@ export default function CaravanaPublicPage() {
       setSearchLoading(false);
     }
   };
+
+  // Busca dados completos da church quando selecionada
+  useEffect(() => {
+    if (!selectedChurch || isManual) {
+      setPastorName("");
+      setPastorEmail("");
+      setPastorPhone("");
+      return;
+    }
+
+    const loadChurchDetails = async () => {
+      const details = await getChurchDetails(selectedChurch.totvs_id);
+      if (details) {
+        setPastorName(details.nome_pastor || "");
+        setPastorEmail(details.email_pastor || "");
+        setPastorPhone(details.phone_pastor || "");
+      }
+    };
+
+    loadChurchDetails();
+  }, [selectedChurch, isManual]);
 
   const validateForm = (): boolean => {
     if (!selectedChurch) {
