@@ -117,7 +117,6 @@ export default function CamisasPedidoPage() {
   const [items, setItems] = useState<OrderItem[]>([]);
   const [churchValidated, setChurchValidated] = useState(false);
   const [churchSearch, setChurchSearch] = useState("");
-  const [availableChurches, setAvailableChurches] = useState<ChurchRow[]>([]);
   const [paymentMethod, setPaymentMethod] = useState<"CARTAO_CREDITO" | "PIX" | "CARTAO_DEBITO">("PIX");
   const [installments, setInstallments] = useState(1);
 
@@ -189,12 +188,6 @@ export default function CamisasPedidoPage() {
     } as ChurchRow;
   }, [baseChurch, churchTotvsId]);
   const churchSearchDigits = churchSearch.replace(/\D/g, "");
-  const filteredChurches = availableChurches.filter((church) => {
-    const raw = churchSearch.trim().toLowerCase();
-    if (!raw && !churchSearchDigits) return true;
-    return church.church_name.toLowerCase().includes(raw) || church.totvs_id.includes(churchSearchDigits);
-  });
-  const selectedChurch = availableChurches.find((church) => church.totvs_id === churchId) || null;
 
   // Quando estadualId muda, computa as igrejas do escopo
   const scopeChurches = useMemo(() => {
@@ -205,13 +198,12 @@ export default function CamisasPedidoPage() {
     );
   }, [estadualId, churchCatalog]);
 
-  useEffect(() => {
-    setAvailableChurches(scopeChurches);
-    if (churchId && !scopeChurches.some((c) => c.totvs_id === churchId)) {
-      setChurchId("");
-      setChurchValidated(false);
-    }
-  }, [scopeChurches]);
+  const filteredChurches = scopeChurches.filter((church) => {
+    const raw = churchSearch.trim().toLowerCase();
+    if (!raw && !churchSearchDigits) return true;
+    return church.church_name.toLowerCase().includes(raw) || church.totvs_id.includes(churchSearchDigits);
+  });
+  const selectedChurch = scopeChurches.find((church) => church.totvs_id === churchId) || null;
 
   useEffect(() => {
     const stored = localStorage.getItem(ORDER_DRAFT_KEY);
@@ -350,7 +342,7 @@ export default function CamisasPedidoPage() {
 
     setSubmitting(true);
 
-    const church = availableChurches.find((c) => c.totvs_id === churchId);
+    const church = scopeChurches.find((c) => c.totvs_id === churchId);
     const orderNumber = `PED-${String(Math.floor(Math.random() * 9999) + 1).padStart(4, "0")}`;
 
     const order = {
@@ -688,7 +680,7 @@ export default function CamisasPedidoPage() {
                 onChange={(e) => {
                   const nextChurchId = e.target.value;
                   setChurchId(nextChurchId);
-                  const nextChurch = availableChurches.find((church) => church.totvs_id === nextChurchId);
+                  const nextChurch = scopeChurches.find((church) => church.totvs_id === nextChurchId);
                   if (nextChurch) {
                     setChurchSearch(String(nextChurch.totvs_id));
                     setChurchValidated(true);
