@@ -1287,39 +1287,28 @@ export async function getChurchDetails(totvsId: string): Promise<ChurchDetails |
   try {
     if (!totvsId) return null;
 
-    // Busca church e faz join com users para pegar dados do pastor
-    const { data, error } = await supabaseAnon
-      .from("churches")
-      .select(`
-        totvs_id,
-        church_name,
-        contact_email,
-        contact_phone,
-        address_city,
-        address_state,
-        pastor_user_id,
-        users!pastor_user_id(full_name, email, phone)
-      `)
-      .eq("totvs_id", totvsId)
-      .maybeSingle();
+    // Usa a function existente do sistema para buscar pastor
+    const { post } = await import("@/lib/api");
+    const result = await post<{ pastor?: any }>(
+      "get-pastor-contact",
+      { totvs_id: totvsId },
+      { skipAuth: true }
+    );
 
-    if (error || !data) {
-      console.error("Erro ao buscar church:", error);
-      return null;
-    }
+    if (!result?.pastor) return null;
 
-    const pastorData = Array.isArray(data.users) ? data.users[0] : data.users;
+    const pastor = result.pastor;
 
     return {
-      totvs_id: data.totvs_id,
-      church_name: data.church_name || "",
-      nome_pastor: pastorData?.full_name || null,
-      email_pastor: pastorData?.email || null,
-      phone_pastor: pastorData?.phone || null,
-      cidade_estado: data.address_city || data.address_state ? `${data.address_city || ""} - ${data.address_state || ""}`.trim() : null,
+      totvs_id: totvsId,
+      church_name: "", // Não retorna church_name dessa function
+      nome_pastor: pastor.full_name || null,
+      email_pastor: pastor.email || null,
+      phone_pastor: pastor.phone || null,
+      cidade_estado: null,
     };
   } catch (err) {
-    console.error("Erro ao buscar dados da church:", err);
+    console.error("Erro ao buscar dados do pastor:", err);
     return null;
   }
 }

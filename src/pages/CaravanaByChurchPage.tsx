@@ -6,8 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { registerCaravana, getChurchDetails } from "@/services/saasService";
-import { supabase } from "@/lib/supabase";
+import { registerCaravana, getChurchDetails, searchChurchesPublic, getPastorByTotvsPublic } from "@/services/saasService";
 
 function maskPhone(value: string): string {
   const digits = value.replace(/\D/g, "");
@@ -64,33 +63,23 @@ export default function CaravanaByChurchPage() {
       }
 
       try {
-        const { data, error } = await supabase
-          .from("churches")
-          .select(`
-            totvs_id,
-            church_name,
-            contact_email,
-            contact_phone,
-            address_city,
-            address_state,
-            pastor_user_id,
-            users!pastor_user_id(full_name, email, phone)
-          `)
-          .eq("totvs_id", churchTotvsId)
-          .maybeSingle();
+        // Busca a church (para validar que existe)
+        const churches = await searchChurchesPublic("", 1000); // Pega todas as igrejas
+        const church = churches.find(c => c.totvs_id === churchTotvsId);
 
-        if (error) throw error;
+        if (church) {
+          // Igreja encontrada - busca dados do pastor
+          setChurch(church);
+          setChurchName(church.church_name || "");
 
-        if (data) {
-          // Igreja encontrada - preenche automaticamente
-          setChurch(data);
-          const pastorData = Array.isArray(data.users) ? data.users[0] : data.users;
+          // Busca dados do pastor via function existente
+          const pastor = await getPastorByTotvsPublic(churchTotvsId);
+          if (pastor) {
+            setPastorName(pastor.full_name || "");
+            setPastorEmail(pastor.email || "");
+            setPastorPhone(pastor.phone || "");
+          }
 
-          setChurchName(data.church_name || "");
-          setPastorName(pastorData?.full_name || "");
-          setPastorEmail(pastorData?.email || "");
-          setPastorPhone(pastorData?.phone || "");
-          setCityState(data.address_city || data.address_state ? `${data.address_city || ""} - ${data.address_state || ""}`.trim() : "");
           setShowManual(false);
         } else {
           // Igreja não encontrada - modo manual
