@@ -339,6 +339,8 @@ function SummaryCard({ title, value, icon: Icon, gradient }: {
 // ============================================================================
 // ABA: ESTOQUE ATUAL
 // ============================================================================
+const ESTOQUE_PAGE_SIZE = 10;
+
 function EstoqueTab({
   stock, loading, search, onSearchChange, filterGroup, onFilterGroupChange,
   filterLowStock, onFilterLowStockChange, existingGroups, onEdit, onMovement,
@@ -355,6 +357,13 @@ function EstoqueTab({
   onEdit: (p: DepositStockItem) => void;
   onMovement: (pid: string) => void;
 }) {
+  const [page, setPage] = useState(1);
+  const totalPages = Math.max(1, Math.ceil(stock.length / ESTOQUE_PAGE_SIZE));
+  const paginatedStock = stock.slice((page - 1) * ESTOQUE_PAGE_SIZE, page * ESTOQUE_PAGE_SIZE);
+
+  // Reset page when filters change
+  useEffect(() => { setPage(1); }, [search, filterGroup, filterLowStock]);
+
   return (
     <div className="space-y-4">
       {/* Comentario: barra de filtros do estoque */}
@@ -385,6 +394,7 @@ function EstoqueTab({
       ) : stock.length === 0 ? (
         <p className="py-8 text-center text-sm text-slate-500">Nenhum item encontrado.</p>
       ) : (
+        <>
         <div className="overflow-x-auto rounded-lg border border-slate-200">
           <table className="w-full text-sm">
             <thead className="bg-slate-50 text-left text-xs font-semibold text-slate-600">
@@ -401,7 +411,7 @@ function EstoqueTab({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {stock.map((item) => (
+              {paginatedStock.map((item) => (
                 <tr key={item.id} className="hover:bg-slate-50/50">
                   <td className="px-3 py-2.5 font-mono text-xs">{item.code}</td>
                   <td className="px-3 py-2.5 font-medium">{item.description}</td>
@@ -432,6 +442,45 @@ function EstoqueTab({
             </tbody>
           </table>
         </div>
+        {/* Paginação */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between pt-2">
+            <p className="text-xs text-slate-500">
+              Mostrando {((page - 1) * ESTOQUE_PAGE_SIZE) + 1}–{Math.min(page * ESTOQUE_PAGE_SIZE, stock.length)} de {formatNumber(stock.length)}
+            </p>
+            <div className="flex items-center gap-1">
+              <Button size="sm" variant="outline" disabled={page <= 1} onClick={() => setPage(page - 1)} className="h-8 px-3 text-xs">
+                Anterior
+              </Button>
+              {Array.from({ length: totalPages }, (_, i) => i + 1)
+                .filter((p) => p === 1 || p === totalPages || Math.abs(p - page) <= 1)
+                .reduce<(number | "...")[]>((acc, p, idx, arr) => {
+                  if (idx > 0 && p - (arr[idx - 1]) > 1) acc.push("...");
+                  acc.push(p);
+                  return acc;
+                }, [])
+                .map((p, idx) =>
+                  p === "..." ? (
+                    <span key={`dots-${idx}`} className="px-1 text-xs text-slate-400">...</span>
+                  ) : (
+                    <Button
+                      key={p}
+                      size="sm"
+                      variant={p === page ? "default" : "outline"}
+                      className="h-8 w-8 p-0 text-xs"
+                      onClick={() => setPage(p as number)}
+                    >
+                      {p}
+                    </Button>
+                  )
+                )}
+              <Button size="sm" variant="outline" disabled={page >= totalPages} onClick={() => setPage(page + 1)} className="h-8 px-3 text-xs">
+                Próximo
+              </Button>
+            </div>
+          </div>
+        )}
+        </>
       )}
     </div>
   );
