@@ -328,9 +328,16 @@ export function AvatarCapture({ onFileReady, disabled = false, currentUrl }: Ava
         new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.5 })
       );
 
+      // Regra 0: APENAS 1 ROSTO permitido (foto individual para carteirinha/ficha)
+      if (detections.length > 1) {
+        setStatusMsg("❌ Mais de um rosto detectado. A foto deve ser INDIVIDUAL (apenas você), no formato 3x4 para carteirinha e ficha de membro.");
+        setProcessing(false);
+        return;
+      }
+
       // Regra 1: DEVE detectar rosto (nao aceita se nao encontrar)
       if (detections.length === 0) {
-        setStatusMsg("❌ Rosto não detectado. Tire uma foto apenas do rosto com pescoço e ombros (3x4).");
+        setStatusMsg("❌ Rosto não detectado. Envie uma foto 3x4 INDIVIDUAL (rosto, pescoço e ombros). Esta foto será usada na carteirinha e ficha de membro.");
         setProcessing(false);
         return;
       }
@@ -340,13 +347,13 @@ export function AvatarCapture({ onFileReady, disabled = false, currentUrl }: Ava
 
       // Regra 2: Rosto deve ocupar entre 30% e 65% da largura (nem muito pequeno, nem corpo inteiro)
       if (rostoPercentual < 0.30) {
-        setStatusMsg("❌ Rosto muito pequeno. Aproxime mais a câmera/imagem.");
+        setStatusMsg("❌ Rosto muito pequeno ou foto de corpo inteiro. A foto 3x4 deve mostrar apenas rosto, pescoço e ombros (sem corpo inteiro, sem outras pessoas).");
         setProcessing(false);
         return;
       }
 
       if (rostoPercentual > 0.65) {
-        setStatusMsg("❌ Foto muito aproximada. Deve mostrar rosto, pescoço e ombros apenas.");
+        setStatusMsg("❌ Foto muito aproximada. A foto 3x4 deve mostrar rosto, pescoço e ombros.");
         setProcessing(false);
         return;
       }
@@ -354,7 +361,7 @@ export function AvatarCapture({ onFileReady, disabled = false, currentUrl }: Ava
       // Regra 3: Proporção da imagem (3x4 = 1.33 razão altura/largura)
       const razaoAspect = img.naturalHeight / img.naturalWidth;
       if (razaoAspect < 1.20 || razaoAspect > 1.50) {
-        setStatusMsg("❌ Formato inválido. Use proporção 3x4 (altura > largura).");
+        setStatusMsg("❌ Formato inválido. A foto deve ter proporção 3x4 (retrato/vertical). Não use fotos paisagem ou selfies cortadas.");
         setProcessing(false);
         return;
       }
@@ -576,7 +583,7 @@ export function AvatarCapture({ onFileReady, disabled = false, currentUrl }: Ava
               <p className="text-xs text-slate-500">{statusMsg}</p>
             ) : (
               <p className="text-xs text-slate-500">
-                Detecção automática de rosto com câmera.
+                Foto 3x4 INDIVIDUAL (rosto, pescoço e ombros). Será usada na carteirinha e ficha de membro.
               </p>
             )}
           </div>
@@ -595,7 +602,7 @@ export function AvatarCapture({ onFileReady, disabled = false, currentUrl }: Ava
                 <img src={currentUrl} alt="Foto atual" className="h-full w-full object-cover object-top" />
               ) : (
                 <div className="flex h-full w-full items-center justify-center text-center text-[10px] text-slate-500 px-1">
-                  Pré-visualização 3x4
+                  Foto 3x4 individual (carteirinha)
                 </div>
               )}
             </div>

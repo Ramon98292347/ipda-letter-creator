@@ -246,6 +246,7 @@ Deno.serve(async (req) => {
     const password_hash = password ? bcrypt.hashSync(password, 10) : null;
 
     const ministerio = String(body.ministerio || body.minister_role || "").trim();
+    if (!ministerio) return json({ ok: false, error: "minister_role_required" }, 400);
     const matriculaInput = String(body.matricula || "").trim();
     const matriculaFinal = matriculaInput
       || String((existingUser as Record<string, unknown> | undefined)?.matricula || "").trim()
