@@ -1287,9 +1287,19 @@ export async function getChurchDetails(totvsId: string): Promise<ChurchDetails |
   try {
     if (!totvsId) return null;
 
+    // Busca church e faz join com users para pegar dados do pastor
     const { data, error } = await supabaseAnon
       .from("churches")
-      .select("totvs_id, church_name, nome_pastor, contact_email, contact_phone, address_city, address_state")
+      .select(`
+        totvs_id,
+        church_name,
+        contact_email,
+        contact_phone,
+        address_city,
+        address_state,
+        pastor_user_id,
+        users!pastor_user_id(full_name, email, phone)
+      `)
       .eq("totvs_id", totvsId)
       .maybeSingle();
 
@@ -1298,12 +1308,14 @@ export async function getChurchDetails(totvsId: string): Promise<ChurchDetails |
       return null;
     }
 
+    const pastorData = Array.isArray(data.users) ? data.users[0] : data.users;
+
     return {
       totvs_id: data.totvs_id,
       church_name: data.church_name || "",
-      nome_pastor: data.nome_pastor || null,
-      email_pastor: data.contact_email || null,
-      phone_pastor: data.contact_phone || null,
+      nome_pastor: pastorData?.full_name || null,
+      email_pastor: pastorData?.email || null,
+      phone_pastor: pastorData?.phone || null,
       cidade_estado: data.address_city || data.address_state ? `${data.address_city || ""} - ${data.address_state || ""}`.trim() : null,
     };
   } catch (err) {

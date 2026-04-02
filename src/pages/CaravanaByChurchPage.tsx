@@ -66,7 +66,16 @@ export default function CaravanaByChurchPage() {
       try {
         const { data, error } = await supabase
           .from("churches")
-          .select("totvs_id, church_name, nome_pastor, contact_email, contact_phone, address_city, address_state")
+          .select(`
+            totvs_id,
+            church_name,
+            contact_email,
+            contact_phone,
+            address_city,
+            address_state,
+            pastor_user_id,
+            users!pastor_user_id(full_name, email, phone)
+          `)
           .eq("totvs_id", churchTotvsId)
           .maybeSingle();
 
@@ -75,10 +84,12 @@ export default function CaravanaByChurchPage() {
         if (data) {
           // Igreja encontrada - preenche automaticamente
           setChurch(data);
+          const pastorData = Array.isArray(data.users) ? data.users[0] : data.users;
+
           setChurchName(data.church_name || "");
-          setPastorName(data.nome_pastor || "");
-          setPastorEmail(data.contact_email || "");
-          setPastorPhone(data.contact_phone || "");
+          setPastorName(pastorData?.full_name || "");
+          setPastorEmail(pastorData?.email || "");
+          setPastorPhone(pastorData?.phone || "");
           setCityState(data.address_city || data.address_state ? `${data.address_city || ""} - ${data.address_state || ""}`.trim() : "");
           setShowManual(false);
         } else {
