@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -25,7 +26,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Bus, Check, Trash2, Loader2, Users, Map, Calendar, QrCode, Copy, ExternalLink } from "lucide-react";
+import { Bus, Check, Trash2, Loader2, Users, Map, Calendar, QrCode, Copy, ExternalLink, Plus } from "lucide-react";
 import { toast } from "sonner";
 import QRCode from "qrcode";
 import { useUser } from "@/context/UserContext";
@@ -36,6 +37,7 @@ import {
   deleteCaravana,
   type CaravanaItem,
 } from "@/services/saasService";
+import { post } from "@/lib/api";
 
 export default function CaravanasPage() {
   const { usuario } = useUser();
@@ -44,23 +46,28 @@ export default function CaravanasPage() {
   const [filterStatus, setFilterStatus] = useState<"todas" | "Recebida" | "Confirmada">("todas");
   const [loadingId, setLoadingId] = useState<string | null>(null);
   const [openNewCaravana, setOpenNewCaravana] = useState(false);
-  const [qrCodeUrl, setQrCodeUrl] = useState("");
-  const [copied, setCopied] = useState(false);
+  const [openScheduleEvent, setOpenScheduleEvent] = useState(false);
+  const [eventMode, setEventMode] = useState<"select" | "create">("select");
+  const [selectedEvent, setSelectedEvent] = useState<any>(null);
+  const [eventTitle, setEventTitle] = useState("");
+  const [eventStartDate, setEventStartDate] = useState("");
+  const [eventEndDate, setEventEndDate] = useState("");
+  const [isCreatingEvent, setIsCreatingEvent] = useState(false);
 
-  const registroUrl = `${window.location.origin}/caravanas/registrar`;
+  type EventRow = {
+    id: string;
+    title?: string | null;
+    starts_at?: string | null;
+    ends_at?: string | null;
+  };
 
-  useEffect(() => {
-    // Gera QR code
-    QRCode.toDataURL(registroUrl, {
-      errorCorrectionLevel: "H",
-      type: "image/png",
-      quality: 0.95,
-      margin: 1,
-      width: 250,
-    })
-      .then((url) => setQrCodeUrl(url))
-      .catch((err) => console.error("Erro ao gerar QR code:", err));
-  }, []);
+  const { data: events = [], isLoading: eventsLoading } = useQuery({
+    queryKey: ["events"],
+    queryFn: async () => {
+      const res = await post("announcements-api", { action: "list-events" });
+      return (res?.events || []) as EventRow[];
+    },
+  });
 
   const isAdmin = usuario?.role === "admin";
   const roleMode = (usuario?.role || "admin") as "admin" | "pastor" | "secretario";
@@ -125,10 +132,43 @@ export default function CaravanasPage() {
     }
   };
 
-  const handleCopyLink = () => {
-    navigator.clipboard.writeText(registroUrl);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  const handleCreateEvent = async () => {
+    if (!eventTitle.trim()) {
+      toast.error("Informe o título do evento");
+      return;
+    }
+
+    setIsCreatingEvent(true);
+    try {
+      const res = await post("announcements-api", {
+        action: "upsert-event",
+        title: eventTitle,
+        starts_at: eventStartDate || null,
+        ends_at: eventEndDate || null,
+        is_active: true,
+      });
+
+      if (res?.ok && res?.event) {
+        toast.success("Evento criado com sucesso!");
+        setSelectedEvent(res.event);
+        setEventMode("select");
+        queryClient.invalidateQueries({ queryKey: ["events"] });
+      } else {
+        toast.error("Erro ao criar evento");
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error("Erro ao criar evento");
+    } finally {
+      setIsCreatingEvent(false);
+    }
+  };
+
+  const handleScheduleEvent = (event: EventRow) => {
+    setSelectedEvent(event);
+    const eventLink = `${window.location.origin}/caravanas/evento/${event.id}`;
+    window.open(eventLink, "_blank");
+    setOpenScheduleEvent(false);
   };
 
   return (
@@ -147,9 +187,16 @@ export default function CaravanasPage() {
                 : "Veja as caravanas da sua jurisdição"}
             </p>
           </div>
-          <Button onClick={() => setOpenNewCaravana(true)} className="bg-blue-600 hover:bg-blue-700">
-            + Nova Caravana
-          </Button>
+          <div className="flex gap-2">
+            <Button onClick={() => setOpenScheduleEvent(true)} variant="outline" className="border-blue-600 text-blue-600 hover:bg-blue-50">
+              <Calendar className="h-4 w-4 mr-2" />
+              Agendar Evento
+            </Button>
+            <Button onClick={() => setOpenNewCaravana(true)} className="bg-blue-600 hover:bg-blue-700">
+              <Plus className="h-4 w-4 mr-2" />
+              Nova Caravana
+            </Button>
+          </div>
         </div>
 
         {/* Stats Cards */}
@@ -190,70 +237,6 @@ export default function CaravanasPage() {
             </CardContent>
           </Card>
         </div>
-
-        {/* Divulgação */}
-        <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-blue-900">
-              <QrCode className="h-5 w-5" />
-              Divulgar Registro de Caravanas
-            </CardTitle>
-            <CardDescription className="text-blue-700">
-              Compartilhe este link e QR code com os voluntários para que registrem suas caravanas
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* QR Code */}
-              <div className="flex flex-col items-center gap-3">
-                <div className="bg-white p-3 rounded-lg border border-blue-200 shadow-sm">
-                  {qrCodeUrl ? (
-                    <img src={qrCodeUrl} alt="QR Code" className="w-48 h-48" />
-                  ) : (
-                    <div className="w-48 h-48 bg-slate-200 animate-pulse rounded" />
-                  )}
-                </div>
-                <p className="text-sm text-slate-600 text-center">
-                  Escaneie com o celular para acessar o formulário
-                </p>
-              </div>
-
-              {/* Link */}
-              <div className="space-y-3">
-                <div>
-                  <Label className="text-sm font-semibold text-blue-900 mb-2 block">Link de Registro</Label>
-                  <div className="bg-white border border-blue-200 p-3 rounded-lg break-all text-sm font-mono text-blue-600 select-all">
-                    {registroUrl}
-                  </div>
-                </div>
-                <Button
-                  onClick={() => window.location.href = registroUrl}
-                  className="w-full bg-blue-600 hover:bg-blue-700 h-10"
-                >
-                  <ExternalLink className="h-4 w-4 mr-2" />
-                  Acessar Formulário
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={handleCopyLink}
-                  className="w-full h-10 border-blue-200 hover:bg-blue-50"
-                >
-                  {copied ? (
-                    <>
-                      <Check className="h-4 w-4 mr-2 text-green-600" />
-                      Link Copiado!
-                    </>
-                  ) : (
-                    <>
-                      <Copy className="h-4 w-4 mr-2" />
-                      Copiar Link
-                    </>
-                  )}
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
 
         {/* Filters */}
         <div className="space-y-4">
@@ -508,6 +491,135 @@ export default function CaravanasPage() {
             </div>
           </div>
         )}
+
+        {/* Modal Agendar Evento */}
+        <Dialog open={openScheduleEvent} onOpenChange={setOpenScheduleEvent}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Agendar Evento para Caravanas</DialogTitle>
+              <DialogDescription>
+                {eventMode === "select"
+                  ? "Selecione um evento existente ou crie um novo"
+                  : "Preencha os dados do novo evento"}
+              </DialogDescription>
+            </DialogHeader>
+
+            {eventMode === "select" ? (
+              <div className="space-y-4">
+                {eventsLoading ? (
+                  <div className="flex justify-center py-4">
+                    <Loader2 className="h-5 w-5 animate-spin text-slate-400" />
+                  </div>
+                ) : events.length === 0 ? (
+                  <div className="text-center py-4">
+                    <p className="text-sm text-slate-600 mb-3">Nenhum evento registrado</p>
+                    <Button
+                      onClick={() => setEventMode("create")}
+                      className="w-full bg-blue-600 hover:bg-blue-700"
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      Criar Novo Evento
+                    </Button>
+                  </div>
+                ) : (
+                  <>
+                    <div className="space-y-2 max-h-64 overflow-y-auto">
+                      {events.map((event) => (
+                        <button
+                          key={event.id}
+                          onClick={() => handleScheduleEvent(event)}
+                          className="w-full text-left p-3 border rounded-lg hover:bg-blue-50 hover:border-blue-300 transition"
+                        >
+                          <div className="font-medium text-slate-900">{event.title}</div>
+                          {event.starts_at && (
+                            <div className="text-xs text-slate-500 mt-1">
+                              {new Date(event.starts_at).toLocaleDateString("pt-BR")}
+                            </div>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                    <Button
+                      onClick={() => setEventMode("create")}
+                      variant="outline"
+                      className="w-full border-blue-600 text-blue-600 hover:bg-blue-50"
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      Criar Novo Evento
+                    </Button>
+                  </>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="eventTitle" className="text-sm font-medium">
+                    Título do Evento *
+                  </Label>
+                  <Input
+                    id="eventTitle"
+                    value={eventTitle}
+                    onChange={(e) => setEventTitle(e.target.value)}
+                    placeholder="Ex: Conferência de Caravanas 2026"
+                    className="text-sm"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="eventStart" className="text-sm font-medium">
+                      Data de Início
+                    </Label>
+                    <Input
+                      id="eventStart"
+                      type="date"
+                      value={eventStartDate}
+                      onChange={(e) => setEventStartDate(e.target.value)}
+                      className="text-sm"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="eventEnd" className="text-sm font-medium">
+                      Data de Término
+                    </Label>
+                    <Input
+                      id="eventEnd"
+                      type="date"
+                      value={eventEndDate}
+                      onChange={(e) => setEventEndDate(e.target.value)}
+                      className="text-sm"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex gap-2">
+                  <Button
+                    onClick={() => setEventMode("select")}
+                    variant="outline"
+                    className="flex-1"
+                    disabled={isCreatingEvent}
+                  >
+                    Voltar
+                  </Button>
+                  <Button
+                    onClick={handleCreateEvent}
+                    className="flex-1 bg-blue-600 hover:bg-blue-700"
+                    disabled={isCreatingEvent}
+                  >
+                    {isCreatingEvent ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Criando...
+                      </>
+                    ) : (
+                      "Criar Evento"
+                    )}
+                  </Button>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
 
         {/* Modal Nova Caravana */}
         <Dialog open={openNewCaravana} onOpenChange={setOpenNewCaravana}>

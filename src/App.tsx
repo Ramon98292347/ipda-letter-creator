@@ -75,6 +75,7 @@ const CaravanaPublicPage = lazy(() => import("./pages/CaravanaPublicPage"));
 const CaravanasPage = lazy(() => import("./pages/CaravanasPage"));
 const CaravanaLandingPage = lazy(() => import("./pages/CaravanaLandingPage"));
 const CaravanaByChurchPage = lazy(() => import("./pages/CaravanaByChurchPage"));
+const CaravanaEventPage = lazy(() => import("./pages/CaravanaEventPage"));
 
 function RequireAuth({ children }: { children: JSX.Element }) {
   const { usuario, token } = useUser();
@@ -197,6 +198,14 @@ const router = createBrowserRouter(
         element={
           <Suspense fallback={pageFallback}>
             <CaravanaPublicPage />
+          </Suspense>
+        }
+      />
+      <Route
+        path="/caravanas/evento/:eventId"
+        element={
+          <Suspense fallback={pageFallback}>
+            <CaravanaEventPage />
           </Suspense>
         }
       />
