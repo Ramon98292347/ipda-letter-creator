@@ -10,6 +10,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { listNotifications, markAllNotificationsRead, markNotificationRead } from "@/services/saasService";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { useOfflineStatus } from "@/hooks/useOfflineStatus";
+import { AvatarImage } from "@/components/shared/AvatarImage";
 
 type RoleMode = "admin" | "pastor" | "obreiro" | "secretario" | "financeiro";
 
@@ -116,7 +117,6 @@ export function ManagementShell({
   const [openNotifications, setOpenNotifications] = useState(false);
   const [openInstallPrompt, setOpenInstallPrompt] = useState(false);
   const [pendingRoute, setPendingRoute] = useState<string | null>(null);
-  const [avatarOk, setAvatarOk] = useState(true);
   const { canInstall, install, isInstalled } = usePwaInstall();
 
   // Comentario: prepara dados para validacao de escopo em notificacoes
@@ -165,10 +165,6 @@ export function ManagementShell({
     const timer = setTimeout(() => setPendingRoute(null), 350);
     return () => clearTimeout(timer);
   }, [location.pathname, pendingRoute]);
-
-  useEffect(() => {
-    setAvatarOk(true);
-  }, [usuario?.avatar_url]);
 
   function navigateWithLoading(to: string) {
     setPendingRoute(to);
@@ -255,18 +251,11 @@ export function ManagementShell({
               >
                 {isOnline ? "Online" : "Offline"}
               </span>
-              {usuario?.avatar_url && avatarOk ? (
-                <img
-                  src={usuario.avatar_url}
-                  alt=""
-                  className="h-7 w-7 rounded-full object-cover ring-1 ring-slate-200"
-                  onError={() => setAvatarOk(false)}
-                />
-              ) : (
-                <div className="flex h-7 w-7 items-center justify-center rounded-full bg-blue-100 text-xs font-bold text-blue-700">
-                  {(usuario?.nome || usuario?.full_name || "U").charAt(0).toUpperCase()}
-                </div>
-              )}
+              <AvatarImage
+                src={usuario?.avatar_url || null}
+                alt={usuario?.nome || usuario?.full_name || "Usuario"}
+                className="h-7 w-7 rounded-full object-cover ring-1 ring-slate-200"
+              />
               <span className="hidden max-w-[120px] truncate text-xs text-slate-700 xl:block">{usuario?.nome || usuario?.full_name || "Usuario"}</span>
             </div>
             <Button variant="outline" size="sm" onClick={onLogout} className="hover:border-blue-600 hover:bg-blue-50">

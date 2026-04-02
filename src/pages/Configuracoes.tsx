@@ -12,6 +12,7 @@ import { useUser } from "@/context/UserContext";
 import { getFriendlyError } from "@/lib/error-map";
 import { supabase } from "@/lib/supabase";
 import { addAuditLog } from "@/lib/audit";
+import { AvatarImage } from "@/components/shared/AvatarImage";
 
 type ExportRole = "todos" | "pastor" | "obreiro";
 
@@ -233,13 +234,11 @@ export default function ConfiguracoesPage() {
             <CardContent className="space-y-3 text-sm text-slate-700">
               <div className="flex items-center gap-3">
                 {/* Comentario: avatar do usuario logado */}
-                {usuario?.avatar_url ? (
-                  <img src={usuario.avatar_url} alt="" className="h-12 w-12 rounded-full object-cover ring-2 ring-slate-200" />
-                ) : (
-                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-blue-100 text-lg font-bold text-blue-700">
-                    {(usuario?.nome || "U").charAt(0).toUpperCase()}
-                  </div>
-                )}
+                <AvatarImage
+                  src={usuario?.avatar_url || null}
+                  alt={usuario?.nome || "Usuario"}
+                  className="h-12 w-12 rounded-full object-cover ring-2 ring-slate-200"
+                />
                 <div>
                   <p className="font-semibold text-slate-900">{usuario?.nome || usuario?.full_name || "-"}</p>
                   <p className="text-xs text-slate-500">{usuario?.role || "-"}</p>

@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CheckSquare, FileText, Grid2X2, IdCard, List, Loader2, MoreVertical, Printer, Save, Send, Square, Users } from "lucide-react";
 import { supabaseRealtime } from "@/lib/supabaseRealtime";
 import { AvatarCapture } from "@/components/shared/AvatarCapture";
+import { AvatarImage } from "@/components/shared/AvatarImage";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 import { ManagementShell } from "@/components/layout/ManagementShell";
@@ -1567,11 +1568,11 @@ export default function PastorMembrosPage() {
                               ? <CheckSquare className="h-4 w-4 text-blue-600" />
                               : <Square className="h-4 w-4 text-slate-300" />}
                           </div>
-                          {c.member_avatar_url ? (
-                            <img src={c.member_avatar_url} alt="" className="h-12 w-10 rounded border border-slate-200 object-cover" />
-                          ) : (
-                            <div className="flex h-12 w-10 items-center justify-center rounded bg-slate-100 text-xs text-slate-400">—</div>
-                          )}
+                          <AvatarImage
+                            src={c.member_avatar_url || null}
+                            alt=""
+                            className="h-12 w-10 rounded border border-slate-200 object-cover"
+                          />
                           <div className="min-w-0 flex-1">
                             <p className="truncate text-sm font-semibold text-slate-900">{c.member_name || "—"}</p>
                             <p className="text-xs text-slate-600">CPF: {c.member_cpf || "—"}</p>
@@ -1626,11 +1627,11 @@ export default function PastorMembrosPage() {
                                 : <Square className="h-4 w-4 text-slate-300" />}
                             </td>
                             <td className="px-3 py-2">
-                              {c.member_avatar_url ? (
-                                <img src={c.member_avatar_url} alt="" className="h-10 w-8 rounded border border-slate-200 object-cover" />
-                              ) : (
-                                <div className="flex h-10 w-8 items-center justify-center rounded bg-slate-100 text-xs text-slate-400">—</div>
-                              )}
+                              <AvatarImage
+                                src={c.member_avatar_url || null}
+                                alt=""
+                                className="h-10 w-8 rounded border border-slate-200 object-cover"
+                              />
                             </td>
                             <td className="px-3 py-2 font-medium text-slate-900">{c.member_name || "—"}</td>
                             <td className="px-3 py-2 text-slate-600">{c.member_cpf || "—"}</td>

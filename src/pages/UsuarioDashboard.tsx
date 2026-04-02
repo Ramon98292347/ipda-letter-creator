@@ -35,6 +35,7 @@ import { post } from "@/lib/api";
 import { Bell, BellOff, Building2, CalendarDays, Download, Eye, FileText, IdCard, Loader2, MoreHorizontal, Phone, RefreshCw, Search, Share2, Trash2, Unlock, UserCircle2 } from "lucide-react";
 import { ImageCaptureInput } from "@/components/shared/ImageCaptureInput";
 import { AvatarCapture } from "@/components/shared/AvatarCapture";
+import { AvatarImage } from "@/components/shared/AvatarImage";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 
 type DestinationOption = {
@@ -1309,17 +1310,11 @@ async function openPdf(letter: PastorLetter) {
           <div className="space-y-4 text-sm">
             {/* Foto 3x4 centralizada */}
             <div className="flex justify-center">
-              {profile?.avatar_url ? (
-                <img
-                  src={profile.avatar_url}
-                  alt="Foto 3x4"
-                  className="h-36 w-28 rounded-lg border-2 border-slate-200 object-cover shadow"
-                />
-              ) : (
-                <div className="flex h-36 w-28 items-center justify-center rounded-lg border-2 border-slate-200 bg-slate-100 text-slate-400">
-                  <UserCircle2 className="h-16 w-16" />
-                </div>
-              )}
+              <AvatarImage
+                src={profile?.avatar_url || null}
+                alt="Foto 3x4"
+                className="h-36 w-28 rounded-lg border-2 border-slate-200 object-cover shadow"
+              />
             </div>
             {/* Dados pessoais */}
             <div className="space-y-2">
@@ -1379,7 +1374,11 @@ async function openPdf(letter: PastorLetter) {
                 {/* Comentario: mostra foto atual do perfil se existir */}
                 {profileForm.avatar_url && !avatarFile && (
                   <div className="mb-2 flex justify-center">
-                    <img src={profileForm.avatar_url} alt="Foto atual" className="h-20 w-16 rounded-lg border object-cover shadow-sm" />
+                    <AvatarImage
+                      src={profileForm.avatar_url}
+                      alt="Foto atual"
+                      className="h-20 w-16 rounded-lg border object-cover shadow-sm"
+                    />
                   </div>
                 )}
                 {/* AvatarCapture: inclui câmera/galeria, remoção de fundo por IA e preview 3x4 */}
