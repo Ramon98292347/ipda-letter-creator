@@ -118,7 +118,6 @@ export default function CamisasPedidoPage() {
   const [churchValidated, setChurchValidated] = useState(false);
   const [churchSearch, setChurchSearch] = useState("");
   const [availableChurches, setAvailableChurches] = useState<ChurchRow[]>([]);
-  const [loadingScopedChurches, setLoadingScopedChurches] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<"CARTAO_CREDITO" | "PIX" | "CARTAO_DEBITO">("PIX");
   const [installments, setInstallments] = useState(1);
 
@@ -131,7 +130,6 @@ export default function CamisasPedidoPage() {
   const [autoSelectionSync, setAutoSelectionSync] = useState(false);
   const [autoSyncItemKey, setAutoSyncItemKey] = useState("");
   const quantityRef = useRef(1);
-  const lastChurchSearchRef = useRef<string>("");
 
   const { data: churchCatalogRes, isLoading: loadingScopeCatalog } = useQuery({
     queryKey: ["camisas-pedido-church-catalog"],
@@ -374,68 +372,45 @@ export default function CamisasPedidoPage() {
   };
 
   useEffect(() => {
-    let cancelled = false;
+    // Filtrar igrejas disponíveis baseado na busca (dentro do escopo já definido)
+    const raw = churchSearch.trim().toLowerCase();
+    const digits = churchSearch.replace(/\D/g, "");
 
-    const lookupByTotvs = async () => {
-      if (churchSearchDigits.length < 2) {
-        lastChurchSearchRef.current = "";
-        if (availableChurches.length) setAvailableChurches([]);
-        if (churchValidated) setChurchValidated(false);
-        if (churchId) setChurchId("");
+    if (!raw && !digits) {
+      setChurchValidated(false);
+      if (churchId) setChurchId("");
+      return;
+    }
+
+    // Auto-select se encontrar exatamente o TOTVS com 4+ dígitos
+    if (digits.length >= 4) {
+      const exact = filteredChurches.find((item) => String(item.totvs_id) === String(digits));
+      if (exact) {
+        setChurchId(exact.totvs_id);
+        setChurchValidated(true);
         return;
       }
+    }
 
-      if (lastChurchSearchRef.current === churchSearchDigits) return;
-      lastChurchSearchRef.current = churchSearchDigits;
+    setChurchId("");
+    setChurchValidated(false);
+  }, [churchSearch, filteredChurches]);
 
-      setLoadingScopedChurches(true);
-      try {
-        const res = await post<{ ok: boolean; churches: ChurchRow[] }>(
-          "list-churches-public",
-          { query: churchSearchDigits, limit: 10 },
-          { skipAuth: true },
-        );
-        if (cancelled) return;
-        const list = res.churches || [];
-        if (list.length === 0) {
-          setAvailableChurches([]);
-          setChurchValidated(false);
-          setChurchId("");
-          return;
-        }
+  // Filtrar igrejas disponíveis baseado no estadualId selecionado
+  useEffect(() => {
+    if (!estadualId) {
+      setAvailableChurches([]);
+      setChurchId("");
+      setChurchSearch("");
+      return;
+    }
 
-        setAvailableChurches(list);
-        if (churchSearchDigits.length >= 4) {
-          const exact = list.find((item) => String(item.totvs_id) === String(churchSearchDigits));
-          if (exact) {
-            setChurchId(exact.totvs_id);
-            setChurchValidated(true);
-          } else {
-            setChurchId("");
-            setChurchValidated(false);
-          }
-        } else {
-          setChurchId("");
-          setChurchValidated(false);
-        }
-      } catch (err) {
-        console.error("Erro ao buscar igreja:", err);
-        if (!cancelled) {
-          setAvailableChurches([]);
-          setChurchValidated(false);
-          setChurchId("");
-        }
-      } finally {
-        if (!cancelled) setLoadingScopedChurches(false);
-      }
-    };
-
-    void lookupByTotvs();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [churchSearchDigits]);
+    const scopedChurches = churchCatalog.filter((church) => scopeIds.has(church.totvs_id));
+    setAvailableChurches(scopedChurches);
+    setChurchId("");
+    setChurchSearch("");
+    setChurchValidated(false);
+  }, [estadualId, scopeIds, churchCatalog]);
 
   useEffect(() => {
     if (!preselectedProduct) return;
@@ -707,11 +682,9 @@ export default function CamisasPedidoPage() {
                 <option value="">
                   {!estadualId
                     ? "Selecione a estadual/setorial..."
-                    : loadingScopedChurches
-                      ? "Carregando..."
-                      : selectedChurch
-                        ? `${selectedChurch.totvs_id} - ${selectedChurch.church_name} (${selectedChurch.class || ""})`
-                        : "Selecione a igreja..."}
+                    : selectedChurch
+                      ? `${selectedChurch.totvs_id} - ${selectedChurch.church_name} (${selectedChurch.class || ""})`
+                      : "Selecione a igreja..."}
                 </option>
                 {availableChurches.map((c) => (
                   <option key={c.totvs_id} value={c.totvs_id}>
@@ -732,17 +705,17 @@ export default function CamisasPedidoPage() {
         </div>
 
         {/* Add items */}
-        <div className="bg-card rounded-lg border p-6 mb-6 space-y-4">
-          <h2 className="font-heading font-bold text-foreground">Adicionar Camiseta</h2>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
-            <div className="md:col-span-2">
-              <label className="text-sm font-medium text-foreground mb-1 block">Produto</label>
+        <div className="bg-card rounded-lg border p-6 mb-6 shadow-sm">
+          <h2 className="font-heading font-bold text-foreground mb-4">Adicionar Camiseta</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-12 gap-4 items-end">
+            <div className="sm:col-span-2 md:col-span-5">
+              <label className="text-sm font-medium text-foreground mb-1 block uppercase tracking-wider text-[10px]">Produto</label>
               <select
                 value={selectedProduct}
                 onChange={(e) => { setSelectedProduct(e.target.value); setSelectedSize(""); }}
-                className="w-full border rounded-md px-3 py-2 text-sm bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                className="w-full border rounded-md px-3 py-2 text-sm bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-all"
               >
-                <option value="">Selecione...</option>
+                <option value="">Selecione o modelo...</option>
                 {activeProducts.map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.name} - {formatMoney(Number(p.price || 0))}
@@ -750,45 +723,45 @@ export default function CamisasPedidoPage() {
                 ))}
               </select>
             </div>
-            <div>
-              <label className="text-sm font-medium text-foreground mb-1 block">Tamanho</label>
+            <div className="md:col-span-3">
+              <label className="text-sm font-medium text-foreground mb-1 block uppercase tracking-wider text-[10px]">Tamanho</label>
               <select
                 value={selectedSize}
                 onChange={(e) => setSelectedSize(e.target.value)}
                 disabled={!selectedProduct}
-                className="w-full border rounded-md px-3 py-2 text-sm bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
+                className="w-full border rounded-md px-3 py-2 text-sm bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50 transition-all"
               >
-                <option value="">Tamanho</option>
+                <option value="">Escolha...</option>
                 {currentSizes.filter((s) => s.is_active !== false).map((s) => (
                   <option key={s.id} value={s.size}>{s.size}</option>
                 ))}
               </select>
             </div>
-            <div className="flex gap-2 items-end">
-              <div className="flex-1">
-                <label className="text-sm font-medium text-foreground mb-1 block">Qtd</label>
-                <div className="flex items-center border rounded-md">
-                  <button
-                    type="button"
-                    onClick={() => setQuantity((prev) => Math.max(1, prev - 1))}
-                    className="px-2 py-2 text-muted-foreground hover:text-foreground"
-                  >
-                    <Minus className="h-4 w-4" />
-                  </button>
-                  <span className="px-3 text-sm font-medium text-foreground">{quantity}</span>
-                  <button
-                    type="button"
-                    onClick={() => setQuantity((prev) => prev + 1)}
-                    className="px-2 py-2 text-muted-foreground hover:text-foreground"
-                  >
-                    <Plus className="h-4 w-4" />
-                  </button>
-                </div>
+            <div className="md:col-span-2">
+              <label className="text-sm font-medium text-foreground mb-1 block uppercase tracking-wider text-[10px]">Qtd</label>
+              <div className="flex items-center border rounded-md h-10">
+                <button
+                  type="button"
+                  onClick={() => setQuantity((prev) => Math.max(1, prev - 1))}
+                  className="px-3 py-2 text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <Minus className="h-4 w-4" />
+                </button>
+                <span className="flex-1 text-center text-sm font-bold text-foreground">{quantity}</span>
+                <button
+                  type="button"
+                  onClick={() => setQuantity((prev) => prev + 1)}
+                  className="px-3 py-2 text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <Plus className="h-4 w-4" />
+                </button>
               </div>
+            </div>
+            <div className="md:col-span-2">
               <button
                 type="button"
                 onClick={addItem}
-                className="bg-primary text-primary-foreground px-4 py-2 rounded-md text-sm font-semibold hover:opacity-90 transition-opacity"
+                className="w-full bg-primary text-primary-foreground h-10 px-4 rounded-md text-sm font-bold hover:bg-primary/90 transition-all shadow-sm active:scale-95"
               >
                 Adicionar
               </button>
