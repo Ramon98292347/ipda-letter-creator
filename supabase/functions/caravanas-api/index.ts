@@ -18,10 +18,11 @@ async function getAuthUser(req: Request) {
 
   try {
     const token = authHeader.replace("Bearer ", "");
-    const secret = new TextEncoder().encode(Deno.env.get("SUPABASE_JWT_SECRET") || "");
-    const verified = await jwtVerify(token, secret);
+    const secret = new TextEncoder().encode(Deno.env.get("USER_SESSION_JWT_SECRET") || "");
+    const verified = await jwtVerify(token, secret, { algorithms: ["HS256"] });
     return verified.payload;
-  } catch {
+  } catch (err) {
+    console.error("[auth] JWT validation error:", err);
     return null;
   }
 }
@@ -102,9 +103,10 @@ async function handleList(req: Request, sb: any, user: any) {
     const body = await req.json();
     const { status, search, church_code: filterChurch } = body;
 
-    const isAdmin = user?.role === "admin";
-    const userRole = user?.role;
-    const userScopes = (user?.totvs_access || []).filter(Boolean);
+    const isAdmin = String(user?.role || "").toLowerCase() === "admin";
+    const userRole = String(user?.role || "").toLowerCase();
+    const userScopes = (user?.totvs_access || user?.scope_totvs_ids || []).filter(Boolean);
+    const activeTotvs = String(user?.active_totvs_id || "");
 
     let query = sb.from("caravanas").select("*");
 
@@ -121,9 +123,13 @@ async function handleList(req: Request, sb: any, user: any) {
       );
     }
 
-    // Filtro por escopo (se não admin)
-    if (!isAdmin && userRole === "pastor" && userScopes.length > 0) {
-      query = query.in("church_code", userScopes);
+    // Filtro por escopo: admin vê tudo, pastor vê apenas suas churches
+    if (!isAdmin) {
+      if (userScopes.length > 0) {
+        query = query.in("church_code", userScopes);
+      } else if (activeTotvs) {
+        query = query.eq("church_code", activeTotvs);
+      }
     }
 
     const { data, error } = await query.order("created_at", { ascending: false });
@@ -158,9 +164,10 @@ async function handleConfirm(req: Request, sb: any, user: any) {
     }
 
     // Validar acesso: admin ou pastor do escopo
-    const isAdmin = user?.role === "admin";
-    const userScopes = (user?.totvs_access || []).filter(Boolean);
-    const canAccess = isAdmin || (user?.role === "pastor" && userScopes.includes(caravan.church_code));
+    const isAdmin = String(user?.role || "").toLowerCase() === "admin";
+    const userScopes = (user?.totvs_access || user?.scope_totvs_ids || []).filter(Boolean);
+    const activeTotvs = String(user?.active_totvs_id || "");
+    const canAccess = isAdmin || userScopes.includes(String(caravan.church_code)) || (activeTotvs === String(caravan.church_code));
 
     if (!canAccess) {
       return json({ ok: false, error: "forbidden" }, 403);
@@ -212,7 +219,8 @@ async function handleDelete(req: Request, sb: any, user: any) {
     }
 
     // Apenas admin pode deletar
-    if (user?.role !== "admin") {
+    const isAdmin = String(user?.role || "").toLowerCase() === "admin";
+    if (!isAdmin) {
       return json({ ok: false, error: "forbidden" }, 403);
     }
 
