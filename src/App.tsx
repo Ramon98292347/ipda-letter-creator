@@ -73,6 +73,7 @@ const DepositoPage = lazy(() => import("./pages/DepositoPage"));
 // Comentario: paginas de caravanas
 const CaravanaPublicPage = lazy(() => import("./pages/CaravanaPublicPage"));
 const CaravanasPage = lazy(() => import("./pages/CaravanasPage"));
+const CaravanaLandingPage = lazy(() => import("./pages/CaravanaLandingPage"));
 
 function RequireAuth({ children }: { children: JSX.Element }) {
   const { usuario, token } = useUser();
@@ -115,7 +116,7 @@ function OnReloadRedirect() {
       const entries = performance.getEntriesByType("navigation") as PerformanceEntry[];
       const last = entries && entries.length ? entries[entries.length - 1] : undefined;
       const type = (last && (last as unknown as { type?: string }).type) ?? undefined;
-      const publicPaths = new Set(["/", "/cadastro", "/reset-senha", "/validar-carta", "/caravanas/registrar"]);
+      const publicPaths = new Set(["/", "/cadastro", "/reset-senha", "/validar-carta", "/caravanas/registrar", "/caravanas-evento"]);
       const isPublicPath = publicPaths.has(loc.pathname) || loc.pathname.startsWith("/presenca-publica/");
       const isCamisasPublicPath = loc.pathname.startsWith("/camisas/");
       const isSelectChurchValid = loc.pathname === "/select-church" && !!pendingCpf && availableChurches.length > 0;
@@ -179,6 +180,14 @@ const router = createBrowserRouter(
         element={
           <Suspense fallback={pageFallback}>
             <ResetSenhaPage />
+          </Suspense>
+        }
+      />
+      <Route
+        path="/caravanas-evento"
+        element={
+          <Suspense fallback={pageFallback}>
+            <CaravanaLandingPage />
           </Suspense>
         }
       />
