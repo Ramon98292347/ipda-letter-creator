@@ -99,6 +99,51 @@ export default function ConfiguracoesPage() {
     }
   }
 
+  async function exportarIgrejasCsv() {
+    setLoadingExport(true);
+    try {
+      // Comentario: busca todas as igrejas do escopo do usuario logado
+      const { data: igrejas, error } = await supabase
+        .from("churches")
+        .select("totvs_id, nome, parent_totvs_id, class, pastor_user_id, phone, email, address")
+        .order("nome");
+
+      if (error) throw error;
+      if (!igrejas || igrejas.length === 0) {
+        toast.info("Nenhuma igreja encontrada.");
+        return;
+      }
+
+      const header = ["TOTVS", "Nome", "Classe", "Pai (TOTVS)", "Pastor (ID)", "Telefone", "Email", "Endereço"];
+      const lines = (igrejas || []).map((item: any) =>
+        [
+          csvEscape(item.totvs_id),
+          csvEscape(item.nome),
+          csvEscape(item.class || "-"),
+          csvEscape(item.parent_totvs_id || "-"),
+          csvEscape(item.pastor_user_id || "-"),
+          csvEscape(item.phone || "-"),
+          csvEscape(item.email || "-"),
+          csvEscape(item.address || "-"),
+        ].join(","),
+      );
+      const csv = [header.join(","), ...lines].join("\n");
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      const data = new Date().toISOString().slice(0, 10);
+      a.href = url;
+      a.download = `igrejas_${data}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success("Exportação de igrejas concluída.");
+    } catch (err: unknown) {
+      toast.error(getFriendlyError(err, "Erro ao exportar igrejas"));
+    } finally {
+      setLoadingExport(false);
+    }
+  }
+
   async function uploadStampFile(file: File, folder: "assinatura" | "carimbos/pastor" | "carimbos/igreja") {
     if (!supabase) throw new Error("supabase-not-configured");
     if (!file.type.startsWith("image/")) throw new Error("invalid-image");
@@ -233,6 +278,21 @@ export default function ConfiguracoesPage() {
               <Button onClick={exportarUsuariosCsv} disabled={loadingExport} className="bg-blue-600 hover:bg-blue-700">
                 {loadingExport ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
                 {loadingExport ? "Exportando..." : "Baixar CSV"}
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Download className="h-5 w-5 text-emerald-600" /> Exportação de Igreja
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <p className="text-xs text-slate-500">Exporte todas as igrejas do sistema em formato CSV com informações de hierarquia, pastor responsável e contato.</p>
+              <Button onClick={exportarIgrejasCsv} disabled={loadingExport} className="bg-emerald-600 hover:bg-emerald-700 w-full">
+                {loadingExport ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
+                {loadingExport ? "Exportando..." : "Baixar CSV de Igrejas"}
               </Button>
             </CardContent>
           </Card>
