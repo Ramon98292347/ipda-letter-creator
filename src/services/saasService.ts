@@ -3659,6 +3659,8 @@ export type CaravanaItem = {
   church_name: string;
   city_state: string | null;
   pastor_name: string | null;
+  pastor_email: string | null;
+  pastor_phone: string | null;
   vehicle_plate: string | null;
   leader_name: string;
   leader_whatsapp: string | null;
@@ -3672,18 +3674,32 @@ export async function registerCaravana(data: {
   church_name: string;
   city_state?: string | null;
   pastor_name?: string | null;
+  pastor_email?: string | null;
+  pastor_phone?: string | null;
   vehicle_plate?: string | null;
   leader_name: string;
   leader_whatsapp: string;
   passenger_count: number;
 }) {
-  const { post } = await import("@/lib/api");
-  const result = await post<{ ok?: boolean; id?: string }>(
-    "caravanas-api",
-    { action: "register", ...data },
-    { skipAuth: true }
-  );
-  return result;
+  // Usar fetch direto para evitar problemas com headers
+  const FUNCTIONS_BASE = import.meta.env.VITE_SUPABASE_URL?.replace(/\/$/, "") + "/functions/v1";
+  const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+  const response = await fetch(`${FUNCTIONS_BASE}/caravanas-api`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(SUPABASE_ANON_KEY ? { apikey: SUPABASE_ANON_KEY } : {}),
+    },
+    body: JSON.stringify({ action: "register", ...data }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.message || `Erro ao registrar caravana: ${response.status}`);
+  }
+
+  return await response.json();
 }
 
 export async function listCaravanas(filters?: {

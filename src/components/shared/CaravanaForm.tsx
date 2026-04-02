@@ -46,6 +46,8 @@ export function CaravanaForm({ onSuccess }: { onSuccess?: () => void }) {
   const [manualChurch, setManualChurch] = useState("");
   const [manualCity, setManualCity] = useState("");
   const [pastorName, setPastorName] = useState("");
+  const [pastorEmail, setPastorEmail] = useState("");
+  const [pastorPhone, setPastorPhone] = useState("");
   const [vehiclePlate, setVehiclePlate] = useState("");
   const [passengerCount, setPassengerCount] = useState("");
   const [leaderName, setLeaderName] = useState("");
@@ -92,6 +94,10 @@ export function CaravanaForm({ onSuccess }: { onSuccess?: () => void }) {
       toast.error("Informe o nome do pastor");
       return false;
     }
+    if (pastorEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(pastorEmail)) {
+      toast.error("Email do pastor inválido");
+      return false;
+    }
     if (!isValidPlate(vehiclePlate)) {
       toast.error("Placa do veículo inválida");
       return false;
@@ -127,6 +133,8 @@ export function CaravanaForm({ onSuccess }: { onSuccess?: () => void }) {
         church_name: churchName,
         city_state: cityState,
         pastor_name: pastorName,
+        pastor_email: pastorEmail || null,
+        pastor_phone: pastorPhone || null,
         vehicle_plate: vehiclePlate,
         leader_name: leaderName,
         leader_whatsapp: leaderPhone,
@@ -217,6 +225,34 @@ export function CaravanaForm({ onSuccess }: { onSuccess?: () => void }) {
             onChange={(e) => setPastorName(e.target.value)}
             placeholder="Nome do pastor"
             readOnly={!isManual && !!selectedChurch}
+            className="text-sm"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="pastorEmail" className="text-sm">
+            Email do Pastor
+          </Label>
+          <Input
+            id="pastorEmail"
+            type="email"
+            value={pastorEmail}
+            onChange={(e) => setPastorEmail(e.target.value)}
+            placeholder="email@exemplo.com"
+            className="text-sm"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="pastorPhone" className="text-sm">
+            Telefone do Pastor
+          </Label>
+          <Input
+            id="pastorPhone"
+            value={pastorPhone}
+            onChange={(e) => setPastorPhone(maskPhone(e.target.value))}
+            placeholder="(XX) XXXXX-XXXX"
+            maxLength={15}
             className="text-sm"
           />
         </div>
