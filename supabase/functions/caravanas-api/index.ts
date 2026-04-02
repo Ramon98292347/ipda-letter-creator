@@ -221,7 +221,7 @@ async function handleConfirm(body: any, sb: any, user: any) {
 
     if (updateError) throw updateError;
 
-    // Webhook de confirmação
+    // Webhook de confirmação com todos os dados
     try {
       const webhookUrl = Deno.env.get("CARAVANAS_WEBHOOK_URL");
       if (webhookUrl) {
@@ -230,10 +230,20 @@ async function handleConfirm(body: any, sb: any, user: any) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             action: "confirm",
-            id,
+            id: caravan.id,
+            event_id: caravan.event_id || null,
+            church_code: caravan.church_code || null,
             church_name: caravan.church_name,
+            city_state: caravan.city_state || null,
+            pastor_name: caravan.pastor_name || null,
+            pastor_email: caravan.pastor_email || null,
+            pastor_phone: caravan.pastor_phone || null,
+            vehicle_plate: caravan.vehicle_plate || null,
             leader_name: caravan.leader_name,
-            pastor_name: caravan.pastor_name,
+            leader_whatsapp: caravan.leader_whatsapp || null,
+            passenger_count: caravan.passenger_count || 0,
+            status: "Confirmada",
+            created_at: caravan.created_at,
             confirmed_at: new Date().toISOString(),
           }),
         }).catch((err) => console.warn("[webhook] erro ao enviar:", err));
