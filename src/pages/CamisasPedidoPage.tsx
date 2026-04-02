@@ -188,10 +188,6 @@ export default function CamisasPedidoPage() {
       parent_totvs_id: null,
     } as ChurchRow;
   }, [baseChurch, churchTotvsId]);
-  const scopeIds = useMemo(() => {
-    if (!estadualId) return new Set<string>();
-    return computeScopeIds(estadualId, churchCatalog);
-  }, [estadualId, churchCatalog]);
   const churchSearchDigits = churchSearch.replace(/\D/g, "");
   const filteredChurches = availableChurches.filter((church) => {
     const raw = churchSearch.trim().toLowerCase();
@@ -405,12 +401,14 @@ export default function CamisasPedidoPage() {
       return;
     }
 
-    const scopedChurches = churchCatalog.filter((church) => scopeIds.has(church.totvs_id));
+    // Calcular scope local para evitar dependência em useMemo (Set causa re-renders infinitos)
+    const scopedIds = computeScopeIds(estadualId, churchCatalog);
+    const scopedChurches = churchCatalog.filter((church) => scopedIds.has(church.totvs_id));
     setAvailableChurches(scopedChurches);
     setChurchId("");
     setChurchSearch("");
     setChurchValidated(false);
-  }, [estadualId, scopeIds, churchCatalog]);
+  }, [estadualId, churchCatalog]);
 
   useEffect(() => {
     if (!preselectedProduct) return;
