@@ -41,7 +41,7 @@ type OrderItem = {
 };
 
 const ORDER_DRAFT_KEY = "pedidoDraft";
-const ORDER_WEBHOOK_URL = "https://n8n-n8n.ynlng8.easypanel.host/webhook/pedido-camisas";
+const ORDER_WEBHOOK_URL = String(import.meta.env.VITE_WEBHOOK_PEDIDO_CAMISAS || "").trim();
 
 type OrderDraft = {
   fullName?: string;
@@ -437,11 +437,15 @@ export default function CamisasPedidoPage() {
     }
 
     try {
-      await fetch(ORDER_WEBHOOK_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(webhookPayload),
-      });
+      if (!ORDER_WEBHOOK_URL) {
+        console.warn("VITE_WEBHOOK_PEDIDO_CAMISAS não configurada. Webhook não foi enviado.");
+      } else {
+        await fetch(ORDER_WEBHOOK_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(webhookPayload),
+        });
+      }
     } catch (err) {
       console.error("Erro ao enviar para webhook:", err);
     }

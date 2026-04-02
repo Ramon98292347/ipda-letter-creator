@@ -387,7 +387,8 @@ async function actionBirthday(sb: ReturnType<typeof createClient>, req: Request)
 
       // Comentario: Envia os dados para o webhook do n8n para envio de mensagem
       try {
-        const webhookUrl = "https://n8n-n8n.ynlng8.easypanel.host/webhook/senha";
+        const webhookUrl = String(Deno.env.get("N8N_BIRTHDAYS_WEBHOOK_URL") || "").trim();
+        if (!webhookUrl) continue;
         const payload = {
           event: "birthday",
           user_id: b.id,

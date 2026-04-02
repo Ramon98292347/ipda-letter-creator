@@ -22,8 +22,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const N8N_WEBHOOK = Deno.env.get("N8N_BIRTHDAYS_WEBHOOK_URL")
-  || "https://n8n-n8n.ynlng8.easypanel.host/webhook/senha";
+const N8N_WEBHOOK = String(Deno.env.get("N8N_BIRTHDAYS_WEBHOOK_URL") || "").trim();
 
 const CRON_SECRET = Deno.env.get("CRON_SECRET") || "";
 
@@ -157,8 +156,55 @@ Deno.serve(async (req) => {
           );
           notifications += leaderIds.length;
         }
+
+        // Comentario: cria também notificação para os próprios aniversariantes.
+        await sb.from("notifications").insert(
+          birthdays.map((b) => ({
+            church_totvs_id: churchTotvsId,
+            user_id: b.id,
+            type: "birthday",
+            title: "Feliz Aniversário! 🎉",
+            message: "O SGE IPDA e a secretaria desejam a você muitas bênçãos pelo seu dia!",
+            is_read: false,
+            read_at: null,
+            data: {
+              date: today,
+              birthday_user_id: b.id,
+              full_name: b.full_name,
+              phone: b.phone || null,
+              email: b.email || null,
+            },
+          })),
+        );
+        notifications += birthdays.length;
       }
 
+      // Comentario: envia webhook por aniversariante (quando configurado).
+      for (const b of birthdays) {
+        if (!N8N_WEBHOOK) break;
+        try {
+          const resp = await fetch(N8N_WEBHOOK, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              action: "aniversario",
+              event_type: "aniversario",
+              requested_at: new Date().toISOString(),
+              date: today,
+              church_totvs_id: churchTotvsId,
+              user_id: b.id,
+              nome: b.full_name,
+              telefone: b.phone || null,
+              email: b.email || null,
+              birth_date: b.birth_date || null,
+            }),
+          });
+          if (resp.ok) sent++;
+          else failed++;
+        } catch {
+          failed++;
+        }
+      }
     }
 
     // Comentario: webhook deve disparar UMA UNICA VEZ por dia (lote global).
@@ -170,7 +216,7 @@ Deno.serve(async (req) => {
       .gte("created_at", todayStartUtc)
       .limit(1);
 
-    if ((alreadySent || []).length === 0) {
+    if ((alreadySent || []).length === 0 && N8N_WEBHOOK) {
       const globalBirthdays = Array.from(byChurch.entries()).flatMap(([churchTotvsId, birthdays]) =>
         birthdays.map((b) => ({
           id: b.id,
@@ -197,7 +243,6 @@ Deno.serve(async (req) => {
         });
 
         if (resp.ok) {
-          sent++;
           await sb.from("notifications").insert({
             church_totvs_id: "GLOBAL",
             user_id: null,

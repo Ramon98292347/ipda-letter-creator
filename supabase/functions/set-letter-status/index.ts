@@ -18,7 +18,9 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { jwtVerify } from "https://esm.sh/jose@5.2.4";
 
-const N8N_WEBHOOK_URL = "https://n8n-n8n.ynlng8.easypanel.host/webhook/carta-pregacao";
+const N8N_WEBHOOK_URL = Deno.env.get("N8N_LETTER_WEBHOOK_URL")
+  || Deno.env.get("N8N_WEBHOOK_CARTA_PREGACAO")
+  || "";
 
 function corsHeaders() {
   return {
@@ -304,6 +306,7 @@ Deno.serve(async (req) => {
         };
 
         // Envia o payload para o N8N gerar e enviar o PDF
+        if (!N8N_WEBHOOK_URL) throw new Error("missing_n8n_letter_webhook_url");
         const webhookResp = await fetch(N8N_WEBHOOK_URL, {
           method: "POST",
           headers: { "Content-Type": "application/json" },

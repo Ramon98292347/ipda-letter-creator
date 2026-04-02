@@ -21,7 +21,9 @@ import { jwtVerify } from "https://esm.sh/jose@5.2.4";
 import { insertNotification, sendInternalPushNotification } from "../_shared/push.ts";
 
 // URL do webhook N8N que gera o PDF da carta de pregacao
-const N8N_WEBHOOK_URL = "https://n8n-n8n.ynlng8.easypanel.host/webhook/carta-pregacao";
+const N8N_WEBHOOK_URL = Deno.env.get("N8N_LETTER_WEBHOOK_URL")
+  || Deno.env.get("N8N_WEBHOOK_CARTA_PREGACAO")
+  || "";
 
 // ---------------------------------------------------------------------------
 // FUNCOES UTILITARIAS COMPARTILHADAS
@@ -785,6 +787,7 @@ async function handleCreate(session: SessionClaims, body: Record<string, unknown
     // Cartas em AGUARDANDO_LIBERACAO aguardam liberação manual; o webhook é disparado pelo approve-release ou set-letter-status.
     if (status === "LIBERADA") {
       try {
+        if (!N8N_WEBHOOK_URL) throw new Error("missing_n8n_letter_webhook_url");
         const resp = await fetch(N8N_WEBHOOK_URL, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -1233,6 +1236,7 @@ async function handleSetStatus(session: SessionClaims, body: Record<string, unkn
     // prevStatus != "LIBERADA" evita disparar duas vezes se o pastor clicar duas vezes.
     if (status === "LIBERADA" && prevStatus !== "LIBERADA") {
       try {
+        if (!N8N_WEBHOOK_URL) throw new Error("missing_n8n_letter_webhook_url");
         // Lê os IDs importantes da carta para buscar dados completos
         const churchTotvs = String(letter.church_totvs_id || "");
         const signerTotvs = String(letter.signer_totvs_id || "");
@@ -1585,6 +1589,7 @@ async function handleApproveRelease(session: SessionClaims, body: Record<string,
 
     // Dispara o webhook N8N para gerar o PDF agora que a carta foi liberada manualmente
     try {
+      if (!N8N_WEBHOOK_URL) throw new Error("missing_n8n_letter_webhook_url");
       // Extrai os IDs necessários da carta para buscar dados completos
       const churchTotvs = String(letter.church_totvs_id || "");
       const signerTotvs = String(letter.signer_totvs_id || "");

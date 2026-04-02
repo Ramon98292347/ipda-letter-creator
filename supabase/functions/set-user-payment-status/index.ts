@@ -42,7 +42,7 @@ type Body = {
   due_date?: string | null;
 };
 
-const N8N_PAYMENT_WEBHOOK_URL = "https://n8n-n8n.ynlng8.easypanel.host/webhook/pagamento";
+const N8N_PAYMENT_WEBHOOK_URL = Deno.env.get("N8N_PAYMENT_WEBHOOK_URL") || "";
 
 async function verifySessionJWT(req: Request): Promise<SessionClaims | null> {
   const auth = req.headers.get("authorization") || "";
@@ -168,6 +168,7 @@ Deno.serve(async (req) => {
         },
       };
 
+      if (!N8N_PAYMENT_WEBHOOK_URL) throw new Error("missing_n8n_payment_webhook_url");
       const n8nResp = await fetch(N8N_PAYMENT_WEBHOOK_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },

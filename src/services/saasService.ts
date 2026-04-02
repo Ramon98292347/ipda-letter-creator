@@ -2203,8 +2203,8 @@ async function notifyBirthdayWebhookOnce(payload: {
   if (typeof window !== "undefined" && localStorage.getItem(dedupKey) === "1") return;
 
   try {
-    const webhookUrl = String(import.meta.env.VITE_BIRTHDAYS_WEBHOOK_URL || "").trim()
-      || "https://n8n-n8n.ynlng8.easypanel.host/webhook/senha";
+    const webhookUrl = String(import.meta.env.VITE_BIRTHDAYS_WEBHOOK_URL || "").trim();
+    if (!webhookUrl) return;
     await fetch(webhookUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
