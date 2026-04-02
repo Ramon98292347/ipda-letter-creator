@@ -1,10 +1,11 @@
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useNavigate } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, ArrowRight, Megaphone, Shirt } from "lucide-react";
 import { post } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { PageLoading } from "@/components/shared/PageLoading";
 
 type ChurchRow = {
@@ -53,7 +54,9 @@ export const parseImageUrls = (val: string | null | undefined): string[] => {
   }
 };
 
-function ProductCard({ product, churchTotvsId }: { product: ProductRow; churchTotvsId: string }) {
+const TAMANHOS = ["PP", "P", "M", "G", "GG", "XG"];
+
+function ProductCard({ product, churchTotvsId, onSelectSize }: { product: ProductRow; churchTotvsId: string; onSelectSize: (productId: string) => void }) {
   const [imgIndex, setImgIndex] = useState(0);
   const images = useMemo(() => parseImageUrls(product.image_url), [product.image_url]);
 
@@ -109,8 +112,8 @@ function ProductCard({ product, churchTotvsId }: { product: ProductRow; churchTo
       <CardContent className="space-y-3 p-5">
         <p className="text-2xl font-bold text-slate-900">{product.name || "Sem nome"}</p>
         <p className="text-slate-600">{product.description || "Produto oficial da igreja."}</p>
-        <Button asChild className="w-full rounded-xl bg-[#232b7a] text-lg hover:bg-[#1b2367]">
-          <Link to={`/camisas/${churchTotvsId}/pedido?produto=${product.id}&auto=1`}>Fazer pedido</Link>
+        <Button onClick={() => onSelectSize(product.id)} className="w-full rounded-xl bg-[#232b7a] text-lg hover:bg-[#1b2367]">
+          Fazer pedido
         </Button>
       </CardContent>
     </Card>
@@ -118,11 +121,14 @@ function ProductCard({ product, churchTotvsId }: { product: ProductRow; churchTo
 }
 
 export default function CamisasPublicPage() {
+  const navigate = useNavigate();
   const { churchTotvsId = "" } = useParams();
   const [slide, setSlide] = useState(0);
   const [itemsPerPage, setItemsPerPage] = useState(() =>
     typeof window !== "undefined" && window.innerWidth < 768 ? 1 : 2,
   );
+  const [sizeDialogOpen, setSizeDialogOpen] = useState(false);
+  const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
 
   const { data: churchRes, isLoading: loadingChurch } = useQuery({
     queryKey: ["camisas-public-church", churchTotvsId],
@@ -198,6 +204,16 @@ export default function CamisasPublicPage() {
     if (slide >= totalPages) setSlide(0);
   }, [slide, totalPages]);
 
+  const handleSelectSize = (productId: string) => {
+    setSelectedProductId(productId);
+    setSizeDialogOpen(true);
+  };
+
+  const handleSizeConfirm = (tamanho: string) => {
+    navigate(`/camisas/${churchTotvsId}/pedido?produto=${selectedProductId}&tamanho=${tamanho}&auto=1`);
+    setSizeDialogOpen(false);
+  };
+
   if (loadingChurch || loadingProducts) {
     return <PageLoading title="Carregando vitrine" description="Buscando produtos da igreja..." />;
   }
@@ -227,7 +243,6 @@ export default function CamisasPublicPage() {
           </div>
           <nav className="hidden items-center gap-4 text-lg text-slate-700 md:flex">
             <a href="#inicio" className="rounded-xl bg-[#232b7a] px-4 py-2 font-semibold text-white">Início</a>
-            <a href="#camisetas" className="font-medium hover:text-[#232b7a]">Camisetas</a>
             <Link to={`/camisas/${churchTotvsId}/pedido`} className="font-medium hover:text-[#232b7a]">Pedir</Link>
           </nav>
         </div>
@@ -332,7 +347,7 @@ export default function CamisasPublicPage() {
 
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {products.map((product) => (
-              <ProductCard key={product.id} product={product} churchTotvsId={churchTotvsId} />
+              <ProductCard key={product.id} product={product} churchTotvsId={churchTotvsId} onSelectSize={handleSelectSize} />
             ))}
           </div>
 
@@ -356,6 +371,28 @@ export default function CamisasPublicPage() {
           </div>
         </div>
       </footer>
+
+      {/* Dialog de seleção de tamanho */}
+      <Dialog open={sizeDialogOpen} onOpenChange={setSizeDialogOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-2xl">Escolha o Tamanho</DialogTitle>
+            <DialogDescription>Selecione o tamanho da camiseta desejada</DialogDescription>
+          </DialogHeader>
+          <div className="grid grid-cols-3 gap-3">
+            {TAMANHOS.map((tamanho) => (
+              <Button
+                key={tamanho}
+                onClick={() => handleSizeConfirm(tamanho)}
+                variant="outline"
+                className="h-14 rounded-lg border-2 border-slate-200 text-lg font-bold hover:border-[#232b7a] hover:bg-[#232b7a] hover:text-white transition-all"
+              >
+                {tamanho}
+              </Button>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
