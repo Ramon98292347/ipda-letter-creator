@@ -32,6 +32,7 @@ async function getAuthUser(req: Request) {
 async function handleRegister(body: any, sb: any) {
   try {
     const {
+      event_id,
       church_code,
       church_name,
       city_state,
@@ -56,6 +57,7 @@ async function handleRegister(body: any, sb: any) {
     }
 
     const { data, error } = await sb.from("caravanas").insert({
+      event_id: event_id || null,
       totvs_id: church_code || null,
       church_code: church_code || null,
       church_name,
@@ -81,6 +83,7 @@ async function handleRegister(body: any, sb: any) {
           body: JSON.stringify({
             action: "register",
             id: data?.id,
+            event_id: event_id || null,
             church_code: church_code || null,
             church_name,
             city_state: city_state || null,

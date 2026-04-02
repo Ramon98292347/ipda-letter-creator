@@ -3694,6 +3694,7 @@ export async function depositListMovements(filters?: {
 // Comentario: tipos e funcoes para gestao de caravanas
 export type CaravanaItem = {
   id: string;
+  event_id: string | null;
   church_code: string | null;
   church_name: string;
   city_state: string | null;
@@ -3709,6 +3710,7 @@ export type CaravanaItem = {
 };
 
 export async function registerCaravana(data: {
+  event_id?: string | null;
   church_code?: string | null;
   church_name: string;
   city_state?: string | null;

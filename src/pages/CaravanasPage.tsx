@@ -219,13 +219,11 @@ export default function CaravanasPage() {
             </p>
           </div>
           <div className="flex gap-2">
-            {/* Mantido agendamento apenas secundario se quiser usar */}
-            {isAdmin && (
-               <Button onClick={() => setOpenScheduleEvent(true)} variant="outline" className="border-slate-300 text-slate-700 hover:bg-slate-50 shadow-sm">
-                 <Calendar className="h-4 w-4 mr-2" />
-                 Agendar Evento
-               </Button>
-            )}
+            {/* Botão de agendamento restaurado para todos */}
+            <Button onClick={() => setOpenScheduleEvent(true)} variant="outline" className="border-slate-300 text-slate-700 hover:bg-slate-50 shadow-sm">
+              <Calendar className="h-4 w-4 mr-2" />
+              Agendar Evento
+            </Button>
             <Button onClick={() => setOpenNewCaravana(true)} className="hover:bg-[#1a237e]/90 shadow-sm transition-colors" style={{ backgroundColor: "#1e3a8a", color: "white" }}>
               <Plus className="h-4 w-4 mr-2" />
               Nova Caravana

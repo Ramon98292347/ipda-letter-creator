@@ -204,7 +204,7 @@ export default function CaravanaEventPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <CaravanaForm onSuccess={() => {
+            <CaravanaForm eventId={eventId} onSuccess={() => {
               // Mostra mensagem de sucesso
             }} />
           </CardContent>

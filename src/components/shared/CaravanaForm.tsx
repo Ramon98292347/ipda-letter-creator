@@ -35,7 +35,7 @@ function isValidPlate(value: string): boolean {
   return /^[A-Z]{3}\d{3,4}$/.test(clean) || /^[A-Z]{3}\d[A-Z]\d{2}$/.test(clean);
 }
 
-export function CaravanaForm({ onSuccess }: { onSuccess?: () => void }) {
+export function CaravanaForm({ eventId, onSuccess }: { eventId?: string; onSuccess?: () => void }) {
   const [isLoading, setIsLoading] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -150,6 +150,7 @@ export function CaravanaForm({ onSuccess }: { onSuccess?: () => void }) {
       const cityState = isManual ? manualCity : null;
 
       const result = await registerCaravana({
+        event_id: eventId || null,
         church_code: churchCode,
         church_name: churchName,
         city_state: cityState,
