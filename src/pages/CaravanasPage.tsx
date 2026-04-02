@@ -40,7 +40,7 @@ import {
 import { post } from "@/lib/api";
 
 export default function CaravanasPage() {
-  const { usuario } = useUser();
+  const { usuario, session } = useUser();
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState<"todas" | "Recebida" | "Confirmada">("todas");
@@ -62,11 +62,15 @@ export default function CaravanasPage() {
   };
 
   const { data: events = [], isLoading: eventsLoading } = useQuery({
-    queryKey: ["events"],
+    queryKey: ["events", session?.totvs_id],
     queryFn: async () => {
-      const res = await post("announcements-api", { action: "list-events" });
+      const res = await post("announcements-api", {
+        action: "list-events",
+        church_code: session?.totvs_id || null
+      });
       return (res?.events || []) as EventRow[];
     },
+    enabled: !!session?.totvs_id,
   });
 
   const isAdmin = usuario?.role === "admin";
@@ -146,13 +150,18 @@ export default function CaravanasPage() {
         starts_at: eventStartDate || null,
         ends_at: eventEndDate || null,
         is_active: true,
+        church_code: session?.totvs_id || null,
       });
 
       if (res?.ok && res?.event) {
         toast.success("Evento criado com sucesso!");
         setSelectedEvent(res.event);
         setEventMode("select");
-        queryClient.invalidateQueries({ queryKey: ["events"] });
+        queryClient.invalidateQueries({ queryKey: ["events", session?.totvs_id] });
+        // Reset form
+        setEventTitle("");
+        setEventStartDate("");
+        setEventEndDate("");
       } else {
         toast.error("Erro ao criar evento");
       }
