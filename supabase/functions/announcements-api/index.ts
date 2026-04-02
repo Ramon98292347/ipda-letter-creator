@@ -190,12 +190,19 @@ async function actionList(sb: ReturnType<typeof createClient>, req: Request, bod
     }
   }
 
-  const fetchAnnouncementsByTotvs = async (totvsList: string[]) => {
-    const { data, error } = await sb
+  const fetchAnnouncementsByTotvs = async (totvsList: string[], includeInactive = false) => {
+    let query = sb
       .from("announcements")
       .select("id, church_totvs_id, title, type, body_text, media_url, link_url, position, starts_at, ends_at, is_active, created_at")
-      .in("church_totvs_id", totvsList)
-      .eq("is_active", true);
+      .in("church_totvs_id", totvsList);
+
+    // Para list-admin, mostra TODOS (ativos e inativos)
+    // Para list, mostra apenas ativos
+    if (!includeInactive) {
+      query = query.eq("is_active", true);
+    }
+
+    const { data, error } = await query;
     if (error) return { error };
     return { data: data || [] };
   };
@@ -240,7 +247,10 @@ async function actionList(sb: ReturnType<typeof createClient>, req: Request, bod
     churchesToLoad = Array.from(related);
   }
 
-  const loaded = await fetchAnnouncementsByTotvs(churchesToLoad);
+  // Para list-admin (gestão), mostrar TODOS os informativos (ativos e inativos)
+  // Para list (pública), mostrar apenas ativos
+  const includeInactive = action === "list-admin";
+  const loaded = await fetchAnnouncementsByTotvs(churchesToLoad, includeInactive);
   if (loaded.error) return json({ ok: false, error: "db_error_list_announcements", details: loaded.error.message }, 500);
   const data = loaded.data as Record<string, unknown>[];
 
