@@ -2,12 +2,25 @@
 
 ## ✅ O que foi implementado
 
+### Core
 - ✅ Migração SQL para tabela `caravanas`
 - ✅ Edge Function `caravanas-api` (4 actions: register, list, confirm, delete)
 - ✅ Serviços no frontend (`registerCaravana`, `listCaravanas`, etc)
 - ✅ Página pública: `/caravanas/registrar` (sem login)
 - ✅ Página de gestão: `/caravanas` (admin/pastor/secretario)
 - ✅ Item "Caravanas" no menu
+
+### Sistema de Eventos
+- ✅ Botão "Agendar Evento" na página de gestão
+- ✅ Modal para selecionar/criar eventos (integra com `announcements` table)
+- ✅ Links por evento: `/caravanas/evento/:eventId`
+- ✅ Página de divulgação com QR Code e formulário
+- ✅ Eventos filtrados por church do usuário logado
+- ✅ Componente reutilizável `CaravanaForm`
+
+### Por-Church Registration Links
+- ✅ Página `/caravanas/:churchTotvsId` - pré-preenche dados da church
+- ✅ Fallback para modo manual se church não encontrada
 
 ## 🚀 Passos de Deploy
 
@@ -44,7 +57,8 @@ Aguarde a mensagem de sucesso: `Function deployed successfully`
 
 ### Teste 1: Página Pública (Registro)
 
-1. Acesse: `http://localhost:5173/caravanas/registrar` (sem login)
+1. Acesse: `
+` (sem login)
 2. Preencha o formulário:
    - Igreja: selecione ou escolha "Outros"
    - Líder: nome qualquer
@@ -81,6 +95,40 @@ Aguarde a mensagem de sucesso: `Function deployed successfully`
 1. Faça login com role `secretario`
 2. O item "Caravanas" deve aparecer no menu
 3. Deve poder visualizar e confirmar caravanas
+
+### Teste 6: Agendar Evento
+
+1. Na página de gestão `/caravanas`, clique em "Agendar Evento"
+2. **Se existem eventos:**
+   - Vê lista de eventos da sua church
+   - Clica em um evento para gerar link
+3. **Se não existem eventos:**
+   - Clica em "Criar Novo Evento"
+   - Preenche: Título, Data de Início (opcional), Data de Término (opcional)
+   - Clica "Criar Evento"
+4. **Link gerado:** `/caravanas/evento/:eventId`
+5. **Esperado:** Abre página com QR Code + formulário de registro
+
+### Teste 7: Link de Evento
+
+1. Acesse o link gerado (ex: `/caravanas/evento/abc123`)
+2. **Vê:**
+   - Card de divulgação com QR Code
+   - Título do evento
+   - Data do evento
+   - Botões para acessar e copiar link
+   - Formulário completo de registro
+3. Preencha e registre uma caravana
+4. **Esperado:** Caravana aparece na gestão com status "Recebida"
+
+### Teste 8: Filtro de Events por Church
+
+1. Faça login com pastor A (church A)
+2. Crie um evento na church A
+3. Faça logout e login com pastor B (church B)
+4. Clique "Agendar Evento"
+5. **Esperado:** Vê apenas eventos da church B
+6. Criado novo evento aparece apenas para pastor B
 
 ## 🔧 Troubleshooting
 
