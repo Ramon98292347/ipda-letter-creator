@@ -514,21 +514,26 @@ export default function DivulgacaoPage() {
             <h2 className="text-2xl font-bold text-slate-900">Painel</h2>
             <div className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-7">
               {[
-                { label: "Total de Pedidos", value: stats.total, icon: ClipboardList, iconClass: "bg-indigo-100 text-indigo-700", footer: "Total de pedidos" },
-                { label: "Novos", value: stats.novos, icon: Clock, iconClass: "bg-sky-100 text-sky-700", footer: "Novos" },
-                { label: "Aguardando Pgto", value: stats.aguardando, icon: DollarSign, iconClass: "bg-amber-100 text-amber-700", footer: "Aguardando pgto" },
-                { label: "Pagos", value: stats.pagos, icon: DollarSign, iconClass: "bg-emerald-100 text-emerald-700", footer: "Pagos" },
-                { label: "Entregues", value: stats.entregues, icon: Truck, iconClass: "bg-green-100 text-green-700", footer: "Entregues" },
-                { label: "Cancelados", value: stats.cancelados, icon: XCircle, iconClass: "bg-rose-100 text-rose-700", footer: "Cancelados" },
-                { label: "Estoque", value: stats.totalStock, icon: Boxes, iconClass: "bg-orange-100 text-orange-700", footer: `Estoque (${stats.produtosAtivos} produtos)` },
+                { label: "Total de Pedidos", value: stats.total, icon: ClipboardList, gradient: "from-indigo-500 to-indigo-700", footer: "Total de pedidos" },
+                { label: "Novos", value: stats.novos, icon: Clock, gradient: "from-sky-500 to-sky-700", footer: "Novos" },
+                { label: "Aguardando Pgto", value: stats.aguardando, icon: DollarSign, gradient: "from-amber-400 to-amber-600", footer: "Aguardando pgto" },
+                { label: "Pagos", value: stats.pagos, icon: DollarSign, gradient: "from-emerald-500 to-emerald-700", footer: "Pagos" },
+                { label: "Entregues", value: stats.entregues, icon: Truck, gradient: "from-green-500 to-green-700", footer: "Entregues" },
+                { label: "Cancelados", value: stats.cancelados, icon: XCircle, gradient: "from-rose-500 to-rose-700", footer: "Cancelados" },
+                { label: "Estoque", value: stats.totalStock, icon: Boxes, gradient: "from-orange-400 to-orange-600", footer: `Estoque (${stats.produtosAtivos} produtos)` },
               ].map((card) => (
-                <Card key={card.label} className="rounded-xl border border-slate-200 bg-white">
-                  <CardContent className="p-4">
-                    <div className={`mb-3 inline-flex h-10 w-10 items-center justify-center rounded-xl ${card.iconClass}`}>
-                      <card.icon className="h-5 w-5" />
+                <Card key={card.label} className={`rounded-xl border-0 shadow-md bg-gradient-to-br ${card.gradient}`}>
+                  <CardContent className="p-4 flex flex-col justify-between h-full">
+                    <div>
+                      <div className="flex items-center justify-between mb-3">
+                        <span className="text-sm font-medium text-white/90">{card.label}</span>
+                        <div className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-white/20">
+                          <card.icon className="h-5 w-5 text-white" />
+                        </div>
+                      </div>
+                      <p className="text-3xl font-bold leading-none text-white">{card.value}</p>
                     </div>
-                    <p className="text-4xl font-bold leading-none text-slate-900">{card.value}</p>
-                    <p className="mt-2 text-sm text-slate-600">{card.footer}</p>
+                    <p className="mt-4 text-sm text-white/80">{card.footer}</p>
                   </CardContent>
                 </Card>
               ))}

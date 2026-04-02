@@ -259,29 +259,29 @@ export default function CaravanasPage() {
 
         {/* 4 Cards Superiores (Resumo) */}
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-          <Card className="shadow-sm border-blue-200 bg-blue-50 flex flex-col justify-between p-4">
-            <div className="flex items-center text-blue-600 text-sm font-medium mb-3">
+          <Card className="rounded-xl border-0 bg-gradient-to-br from-blue-500 to-blue-700 shadow-md flex flex-col justify-between p-4">
+            <div className="flex items-center text-white/90 text-sm font-medium mb-3">
               <Bus className="h-4 w-4 mr-2" /> Total de Caravanas
             </div>
-            <div className="text-3xl font-bold text-blue-900">{caravanas.length}</div>
+            <div className="text-3xl font-bold text-white">{caravanas.length}</div>
           </Card>
-          <Card className="shadow-sm border-emerald-200 bg-emerald-50 flex flex-col justify-between p-4">
-            <div className="flex items-center text-emerald-600 text-sm font-medium mb-3">
+          <Card className="rounded-xl border-0 bg-gradient-to-br from-emerald-500 to-emerald-700 shadow-md flex flex-col justify-between p-4">
+            <div className="flex items-center text-white/90 text-sm font-medium mb-3">
               <Building2 className="h-4 w-4 mr-2" /> Igrejas Diferentes
             </div>
-            <div className="text-3xl font-bold text-emerald-900">{totalIgrejas}</div>
+            <div className="text-3xl font-bold text-white">{totalIgrejas}</div>
           </Card>
-          <Card className="shadow-sm border-purple-200 bg-purple-50 flex flex-col justify-between p-4">
-            <div className="flex items-center text-purple-600 text-sm font-medium mb-3">
+          <Card className="rounded-xl border-0 bg-gradient-to-br from-purple-500 to-purple-700 shadow-md flex flex-col justify-between p-4">
+            <div className="flex items-center text-white/90 text-sm font-medium mb-3">
               <Users className="h-4 w-4 mr-2" /> Pastores
             </div>
-            <div className="text-3xl font-bold text-purple-900">{totalPastores}</div>
+            <div className="text-3xl font-bold text-white">{totalPastores}</div>
           </Card>
-          <Card className="shadow-sm border-amber-200 bg-amber-50 flex flex-col justify-between p-4">
-            <div className="flex items-center text-amber-600 text-sm font-medium mb-3">
+          <Card className="rounded-xl border-0 bg-gradient-to-br from-amber-400 to-amber-600 shadow-md flex flex-col justify-between p-4">
+            <div className="flex items-center text-white/90 text-sm font-medium mb-3">
               <Calendar className="h-4 w-4 mr-2" /> Última Atualização
             </div>
-            <div className="text-2xl font-bold text-amber-900">{ultimaAtualizacao}</div>
+            <div className="text-2xl font-bold text-white">{ultimaAtualizacao}</div>
           </Card>
         </div>
 

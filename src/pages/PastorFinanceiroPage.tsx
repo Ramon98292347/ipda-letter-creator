@@ -128,18 +128,18 @@ export default function PastorFinanceiroPage() {
         {/* Cards de resumo */}
         {/* Comentario: 1 coluna no celular, 2 no tablet (md), 4 no desktop */}
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4">
-          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="bg-gradient-to-br from-emerald-500 to-emerald-700 p-5 rounded-xl shadow-md border-0">
             <div className="flex items-center gap-3">
-              <div className="rounded-lg bg-green-100 p-2">
-                <TrendingUp className="h-5 w-5 text-green-600" />
+              <div className="rounded-lg bg-white/20 p-2">
+                <TrendingUp className="h-5 w-5 text-white" />
               </div>
-              <div className="min-w-0">
+              <div className="min-w-0 flex-1">
                 {/* Comentario: Total Entradas agora é a soma das contagens de caixa */}
-                <p className="text-sm text-slate-500">Total Entradas</p>
+                <p className="text-sm text-white/90 font-medium">Total Entradas</p>
                 {loadingContagens ? (
-                  <Loader2 className="mt-1 h-5 w-5 animate-spin text-slate-400" />
+                  <Loader2 className="mt-1 h-5 w-5 animate-spin text-white/80" />
                 ) : (
-                  <p className="truncate text-xl font-bold text-green-700">
+                  <p className="truncate text-xl font-bold text-white">
                     {formatarMoeda(totalEntradas)}
                   </p>
                 )}
@@ -147,17 +147,17 @@ export default function PastorFinanceiroPage() {
             </div>
           </div>
 
-          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="bg-gradient-to-br from-red-500 to-red-700 p-5 rounded-xl shadow-md border-0">
             <div className="flex items-center gap-3">
-              <div className="rounded-lg bg-red-100 p-2">
-                <TrendingDown className="h-5 w-5 text-red-600" />
+              <div className="rounded-lg bg-white/20 p-2">
+                <TrendingDown className="h-5 w-5 text-white" />
               </div>
-              <div className="min-w-0">
-                <p className="text-sm text-slate-500">Total Saídas</p>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm text-white/90 font-medium">Total Saídas</p>
                 {loadingDash ? (
-                  <Loader2 className="mt-1 h-5 w-5 animate-spin text-slate-400" />
+                  <Loader2 className="mt-1 h-5 w-5 animate-spin text-white/80" />
                 ) : (
-                  <p className="truncate text-xl font-bold text-red-700">
+                  <p className="truncate text-xl font-bold text-white">
                     {formatarMoeda(dashboard?.total_despesas ?? "0")}
                   </p>
                 )}
@@ -165,17 +165,17 @@ export default function PastorFinanceiroPage() {
             </div>
           </div>
 
-          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="bg-gradient-to-br from-blue-500 to-blue-700 p-5 rounded-xl shadow-md border-0">
             <div className="flex items-center gap-3">
-              <div className="rounded-lg bg-blue-100 p-2">
-                <Wallet className="h-5 w-5 text-blue-600" />
+              <div className="rounded-lg bg-white/20 p-2">
+                <Wallet className="h-5 w-5 text-white" />
               </div>
-              <div className="min-w-0">
-                <p className="text-sm text-slate-500">Saldo</p>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm text-white/90 font-medium">Saldo</p>
                 {loadingDash ? (
-                  <Loader2 className="mt-1 h-5 w-5 animate-spin text-slate-400" />
+                  <Loader2 className="mt-1 h-5 w-5 animate-spin text-white/80" />
                 ) : (
-                  <p className={`truncate text-xl font-bold ${parseFloat(String(dashboard?.saldo ?? "0")) >= 0 ? "text-blue-700" : "text-red-700"}`}>
+                  <p className="truncate text-xl font-bold text-white">
                     {formatarMoeda(dashboard?.saldo ?? "0")}
                   </p>
                 )}
@@ -183,17 +183,17 @@ export default function PastorFinanceiroPage() {
             </div>
           </div>
 
-          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="bg-gradient-to-br from-purple-500 to-purple-700 p-5 rounded-xl shadow-md border-0">
             <div className="flex items-center gap-3">
-              <div className="rounded-lg bg-purple-100 p-2">
-                <DollarSign className="h-5 w-5 text-purple-600" />
+              <div className="rounded-lg bg-white/20 p-2">
+                <DollarSign className="h-5 w-5 text-white" />
               </div>
-              <div className="min-w-0">
-                <p className="text-sm text-slate-500">Transações</p>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm text-white/90 font-medium">Transações</p>
                 {loadingDash ? (
-                  <Loader2 className="mt-1 h-5 w-5 animate-spin text-slate-400" />
+                  <Loader2 className="mt-1 h-5 w-5 animate-spin text-white/80" />
                 ) : (
-                  <p className="text-xl font-bold text-slate-900">
+                  <p className="truncate text-xl font-bold text-white">
                     {dashboard?.total_transacoes ?? 0}
                   </p>
                 )}

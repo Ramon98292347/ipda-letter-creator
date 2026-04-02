@@ -316,78 +316,78 @@ const Dashboard: React.FC = () => {
       {/* Metrics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {/* Total Entradas */}
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+        <div className="bg-gradient-to-br from-emerald-500 to-emerald-700 p-6 rounded-xl shadow-md border-0">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">Entradas do Mes</p>
-              <p className="text-2xl font-bold text-green-600">
+              <p className="text-sm font-medium text-white/90">Entradas do Mês</p>
+              <p className="text-2xl font-bold text-white">
                 R$ {totalEntries.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </p>
             </div>
-            <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-              <TrendingUp className="w-6 h-6 text-green-600" />
+            <div className="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center">
+              <TrendingUp className="w-6 h-6 text-white" />
             </div>
           </div>
-          <div className="flex items-center mt-4 text-sm">
-            <ArrowUpRight className="w-4 h-4 text-green-500 mr-1" />
-            <span className="text-green-600">+12% vs mes anterior</span>
+          <div className="flex items-center mt-4 text-sm text-white/80">
+            <ArrowUpRight className="w-4 h-4 mr-1 text-emerald-200" />
+            <span>+12% vs mês anterior</span>
           </div>
         </div>
 
         {/* Total Saidas */}
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+        <div className="bg-gradient-to-br from-red-500 to-red-700 p-6 rounded-xl shadow-md border-0">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">Saidas do Mes</p>
-              <p className="text-2xl font-bold text-red-600">
+              <p className="text-sm font-medium text-white/90">Saídas do Mês</p>
+              <p className="text-2xl font-bold text-white">
                 R$ {totalExits.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </p>
             </div>
-            <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center">
-              <TrendingDown className="w-6 h-6 text-red-600" />
+            <div className="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center">
+              <TrendingDown className="w-6 h-6 text-white" />
             </div>
           </div>
-          <div className="flex items-center mt-4 text-sm">
-            <ArrowDownRight className="w-4 h-4 text-red-500 mr-1" />
-            <span className="text-red-600">+5% vs mes anterior</span>
+          <div className="flex items-center mt-4 text-sm text-white/80">
+            <ArrowDownRight className="w-4 h-4 mr-1 text-red-200" />
+            <span>+5% vs mês anterior</span>
           </div>
         </div>
 
         {/* Saldo */}
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+        <div className="bg-gradient-to-br from-blue-500 to-blue-700 p-6 rounded-xl shadow-md border-0">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">Saldo do Mes</p>
-              <p className={`text-2xl font-bold ${balance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+              <p className="text-sm font-medium text-white/90">Saldo do Mês</p>
+              <p className="text-2xl font-bold text-white">
                 R$ {balance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </p>
             </div>
-            <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-              <DollarSign className="w-6 h-6 text-[#1A237E]" />
+            <div className="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center">
+              <DollarSign className="w-6 h-6 text-white" />
             </div>
           </div>
           <div className="flex items-center mt-4 text-sm">
-            <span className={`${balance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+            <span className="text-white/80">
               {balance >= 0 ? 'Saldo positivo' : 'Saldo negativo'}
             </span>
           </div>
         </div>
 
         {/* Caixa Hoje */}
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+        <div className="bg-gradient-to-br from-orange-400 to-orange-600 p-6 rounded-xl shadow-md border-0">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">Caixa Hoje</p>
-              <p className="text-2xl font-bold text-[#1A237E]">
+              <p className="text-sm font-medium text-white/90">Caixa Hoje</p>
+              <p className="text-2xl font-bold text-white">
                 R$ {totalEntradasHoje.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </p>
             </div>
-            <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-              <Calendar className="w-6 h-6 text-[#1A237E]" />
+            <div className="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center">
+              <Calendar className="w-6 h-6 text-white" />
             </div>
           </div>
           <div className="flex items-center mt-4 text-sm">
-            <span className="text-gray-600">
+            <span className="text-white/80">
               {totalEntradasHoje > 0 ? 'Entradas registradas' : 'Nenhuma entrada hoje'}
             </span>
           </div>
