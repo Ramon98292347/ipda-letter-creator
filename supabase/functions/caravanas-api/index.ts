@@ -267,9 +267,32 @@ async function handleDelete(body: any, sb: any, user: any) {
       return json({ ok: false, error: "id_required" }, 400);
     }
 
-    // Apenas admin pode deletar
+    const { data: caravan, error: fetchError } = await sb
+      .from("caravanas")
+      .select("*")
+      .eq("id", id)
+      .single();
+
+    if (fetchError || !caravan) {
+      return json({ ok: false, error: "caravan_not_found" }, 404);
+    }
+
     const isAdmin = String(user?.role || "").toLowerCase() === "admin";
-    if (!isAdmin) {
+    const userScopes = (user?.totvs_access || user?.scope_totvs_ids || []).filter(Boolean);
+    const activeTotvs = String(user?.active_totvs_id || "");
+
+    let canAccess = isAdmin;
+    if (!canAccess && caravan.church_code) {
+      canAccess = userScopes.includes(String(caravan.church_code)) || (activeTotvs === String(caravan.church_code));
+    }
+    if (!canAccess && caravan.event_id) {
+      const { data: event } = await sb.from("announcements").select("church_totvs_id").eq("id", caravan.event_id).single();
+      if (event) {
+        canAccess = userScopes.includes(String(event.church_totvs_id)) || (activeTotvs === String(event.church_totvs_id));
+      }
+    }
+
+    if (!canAccess) {
       return json({ ok: false, error: "forbidden" }, 403);
     }
 
@@ -280,6 +303,67 @@ async function handleDelete(body: any, sb: any, user: any) {
     return json({ ok: true });
   } catch (error: any) {
     console.error("[delete] erro:", error);
+    return json({ ok: false, error: "internal_error", details: error?.message || error?.details || JSON.stringify(error) }, 500);
+  }
+}
+
+async function handleUpdate(body: any, sb: any, user: any) {
+  try {
+    const { id, ...updateData } = body;
+
+    if (!id) {
+      return json({ ok: false, error: "id_required" }, 400);
+    }
+
+    const { data: caravan, error: fetchError } = await sb
+      .from("caravanas")
+      .select("*")
+      .eq("id", id)
+      .single();
+
+    if (fetchError || !caravan) {
+      return json({ ok: false, error: "caravan_not_found" }, 404);
+    }
+
+    const isAdmin = String(user?.role || "").toLowerCase() === "admin";
+    const userScopes = (user?.totvs_access || user?.scope_totvs_ids || []).filter(Boolean);
+    const activeTotvs = String(user?.active_totvs_id || "");
+
+    let canAccess = isAdmin;
+    if (!canAccess && caravan.church_code) {
+      canAccess = userScopes.includes(String(caravan.church_code)) || (activeTotvs === String(caravan.church_code));
+    }
+    if (!canAccess && caravan.event_id) {
+      const { data: event } = await sb.from("announcements").select("church_totvs_id").eq("id", caravan.event_id).single();
+      if (event) {
+        canAccess = userScopes.includes(String(event.church_totvs_id)) || (activeTotvs === String(event.church_totvs_id));
+      }
+    }
+
+    if (!canAccess) {
+      return json({ ok: false, error: "forbidden" }, 403);
+    }
+
+    // Apenas os campos permitidos
+    const allowedKeys = ["event_id", "church_code", "church_name", "city_state", "pastor_name", "pastor_email", "pastor_phone", "vehicle_plate", "leader_name", "leader_whatsapp", "passenger_count"];
+    const payload: any = {};
+    for (const k of allowedKeys) {
+      if (updateData[k] !== undefined) {
+        payload[k] = updateData[k];
+      }
+    }
+
+    if (Object.keys(payload).length > 0) {
+      const { error: updateError } = await sb
+        .from("caravanas")
+        .update({ ...payload, updated_at: new Date().toISOString() })
+        .eq("id", id);
+      if (updateError) throw updateError;
+    }
+
+    return json({ ok: true });
+  } catch (error: any) {
+    console.error("[update] erro:", error);
     return json({ ok: false, error: "internal_error", details: error?.message || error?.details || JSON.stringify(error) }, 500);
   }
 }
@@ -316,6 +400,8 @@ Deno.serve(async (req: Request) => {
         return await handleConfirm(body, sb, user);
       case "delete":
         return await handleDelete(body, sb, user);
+      case "update":
+        return await handleUpdate(body, sb, user);
       default:
         return json({ ok: false, error: "unknown_action" }, 400);
     }

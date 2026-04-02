@@ -4,7 +4,7 @@ import { Loader2, Phone, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { registerCaravana, searchChurchesPublic, getChurchDetails } from "@/services/saasService";
+import { registerCaravana, updateCaravana, searchChurchesPublic, getChurchDetails, type CaravanaItem } from "@/services/saasService";
 
 function maskPhone(value: string): string {
   const digits = value.replace(/\D/g, "");
@@ -35,21 +35,25 @@ function isValidPlate(value: string): boolean {
   return /^[A-Z]{3}\d{3,4}$/.test(clean) || /^[A-Z]{3}\d[A-Z]\d{2}$/.test(clean);
 }
 
-export function NovaCaravanaForm({ onSuccess }: { onSuccess?: () => void }) {
+export function NovaCaravanaForm({ onSuccess, initialData }: { onSuccess?: () => void, initialData?: CaravanaItem | null }) {
   const [isLoading, setIsLoading] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
 
-  const [selectedChurch, setSelectedChurch] = useState<any>(null);
-  const [manualChurch, setManualChurch] = useState("");
-  const [manualCity, setManualCity] = useState("");
-  const [pastorName, setPastorName] = useState("");
-  const [vehiclePlate, setVehiclePlate] = useState("");
-  const [passengerCount, setPassengerCount] = useState("");
-  const [leaderName, setLeaderName] = useState("");
-  const [leaderPhone, setLeaderPhone] = useState("");
+  const [selectedChurch, setSelectedChurch] = useState<any>(
+    initialData ? (initialData.church_code ? { totvs_id: initialData.church_code, church_name: initialData.church_name } : { church_code: "OUTROS" }) : null
+  );
+  const [manualChurch, setManualChurch] = useState(initialData?.church_code ? "" : (initialData?.church_name || ""));
+  const [manualCity, setManualCity] = useState(initialData?.city_state || "");
+  const [pastorName, setPastorName] = useState(initialData?.pastor_name || "");
+  const [pastorEmail, setPastorEmail] = useState(initialData?.pastor_email || "");
+  const [pastorPhone, setPastorPhone] = useState(initialData?.pastor_phone || "");
+  const [vehiclePlate, setVehiclePlate] = useState(initialData?.vehicle_plate || "");
+  const [passengerCount, setPassengerCount] = useState(initialData ? String(initialData.passenger_count) : "");
+  const [leaderName, setLeaderName] = useState(initialData?.leader_name || "");
+  const [leaderPhone, setLeaderPhone] = useState(initialData?.leader_whatsapp || "");
 
   const isManual = selectedChurch?.church_code === "OUTROS";
   const CHURCH_NAME_PATTERN = /^\d{3,6}\s-\s[A-Z0-9À-Ü\s]+$/;
@@ -143,7 +147,7 @@ export function NovaCaravanaForm({ onSuccess }: { onSuccess?: () => void }) {
       const churchCode = isManual ? null : selectedChurch?.totvs_id || null;
       const cityState = isManual ? manualCity : null;
 
-      const result = await registerCaravana({
+      const payload = {
         church_code: churchCode,
         church_name: churchName,
         city_state: cityState,
@@ -152,10 +156,17 @@ export function NovaCaravanaForm({ onSuccess }: { onSuccess?: () => void }) {
         leader_name: leaderName,
         leader_whatsapp: leaderPhone,
         passenger_count: parseInt(passengerCount, 10),
-      });
+      };
+
+      let result;
+      if (initialData) {
+        result = await updateCaravana(initialData.id, payload);
+      } else {
+        result = await registerCaravana(payload);
+      }
 
       if (result?.ok) {
-        toast.success("Caravana registrada com sucesso!");
+        toast.success(initialData ? "Caravana atualizada!" : "Caravana registrada com sucesso!");
         // Reset form
         setSelectedChurch(null);
         setManualChurch("");
@@ -385,7 +396,7 @@ export function NovaCaravanaForm({ onSuccess }: { onSuccess?: () => void }) {
             Registrando...
           </>
         ) : (
-          "Registrar"
+          initialData ? "Salvar Alterações" : "Registrar"
         )}
       </Button>
     </form>

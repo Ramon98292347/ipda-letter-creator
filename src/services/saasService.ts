@@ -3773,3 +3773,12 @@ export async function deleteCaravana(id: string) {
   );
   return result;
 }
+
+export async function updateCaravana(id: string, data: Partial<CaravanaItem>) {
+  const { post } = await import("@/lib/api");
+  const result = await post<{ ok?: boolean }>(
+    "caravanas-api",
+    { action: "update", id, ...data }
+  );
+  return result;
+}

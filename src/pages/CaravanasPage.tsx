@@ -26,7 +26,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Bus, Check, Trash2, Loader2, Users, Map, Calendar, QrCode, Copy, ExternalLink, Plus, Edit, Building2, Phone, Search, Filter } from "lucide-react";
+import { Bus, Check, Trash2, Loader2, Users, Map, Calendar, QrCode, Copy, ExternalLink, Plus, Edit, Building2, Phone, Search, Filter, Clock, CheckCircle } from "lucide-react";
 import { toast } from "sonner";
 import QRCode from "qrcode";
 import { useUser } from "@/context/UserContext";
@@ -47,6 +47,7 @@ export default function CaravanasPage() {
   const [filterStatus, setFilterStatus] = useState<"todas" | "Recebida" | "Confirmada">("todas");
   const [loadingId, setLoadingId] = useState<string | null>(null);
   const [openNewCaravana, setOpenNewCaravana] = useState(false);
+  const [caravanaToEdit, setCaravanaToEdit] = useState<CaravanaItem | null>(null);
   const [openScheduleEvent, setOpenScheduleEvent] = useState(false);
   const [eventMode, setEventMode] = useState<"select" | "create">("select");
   const [selectedEvent, setSelectedEvent] = useState<any>(null);
@@ -117,8 +118,8 @@ export default function CaravanasPage() {
     return filteredCaravanas.filter((c) => c.status === "Confirmada");
   }, [filteredCaravanas]);
 
-  const totalIgrejas = useMemo(() => new Set(caravanas.map(c => c.church_name)).size, [caravanas]);
-  const totalPastores = useMemo(() => new Set(caravanas.map(c => c.pastor_name).filter(Boolean)).size, [caravanas]);
+  const totalPendentes = useMemo(() => caravanas.filter(c => c.status === "Recebida" || c.status === "Pendente").length, [caravanas]);
+  const totalConfirmadas = useMemo(() => caravanas.filter(c => c.status === "Confirmada").length, [caravanas]);
   const ultimaAtualizacao = useMemo(() => {
     if (caravanas.length === 0) return "-";
     const dates = caravanas.map(c => new Date(c.created_at || 0).getTime());
@@ -265,19 +266,19 @@ export default function CaravanasPage() {
             </div>
             <div className="text-3xl font-bold text-white">{caravanas.length}</div>
           </Card>
+          <Card className="rounded-xl border-0 bg-gradient-to-br from-orange-400 to-orange-600 shadow-md flex flex-col justify-between p-4">
+            <div className="flex items-center text-white/90 text-sm font-medium mb-3">
+              <Clock className="h-4 w-4 mr-2" /> Pendentes
+            </div>
+            <div className="text-3xl font-bold text-white">{totalPendentes}</div>
+          </Card>
           <Card className="rounded-xl border-0 bg-gradient-to-br from-emerald-500 to-emerald-700 shadow-md flex flex-col justify-between p-4">
             <div className="flex items-center text-white/90 text-sm font-medium mb-3">
-              <Building2 className="h-4 w-4 mr-2" /> Igrejas Diferentes
+              <CheckCircle className="h-4 w-4 mr-2" /> Confirmadas
             </div>
-            <div className="text-3xl font-bold text-white">{totalIgrejas}</div>
+            <div className="text-3xl font-bold text-white">{totalConfirmadas}</div>
           </Card>
           <Card className="rounded-xl border-0 bg-gradient-to-br from-purple-500 to-purple-700 shadow-md flex flex-col justify-between p-4">
-            <div className="flex items-center text-white/90 text-sm font-medium mb-3">
-              <Users className="h-4 w-4 mr-2" /> Pastores
-            </div>
-            <div className="text-3xl font-bold text-white">{totalPastores}</div>
-          </Card>
-          <Card className="rounded-xl border-0 bg-gradient-to-br from-amber-400 to-amber-600 shadow-md flex flex-col justify-between p-4">
             <div className="flex items-center text-white/90 text-sm font-medium mb-3">
               <Calendar className="h-4 w-4 mr-2" /> Última Atualização
             </div>
@@ -345,50 +346,51 @@ export default function CaravanasPage() {
                   {recebidas.map((caravan) => (
                     <div
                       key={caravan.id}
-                      className="border border-slate-200 bg-white shadow-sm hover:shadow relative transition-shadow rounded-xl p-5"
+                      className="border border-orange-200 bg-orange-50/20 shadow-sm relative rounded-xl p-4"
                     >
-                      <div className="flex justify-between items-start mb-4">
-                        <div className="flex items-center gap-3">
-                          <div className="bg-slate-100 p-2.5 rounded-lg text-slate-600">
-                            <Building2 className="h-5 w-5" />
-                          </div>
-                          <div>
-                            <div className="font-bold text-slate-800 uppercase tracking-wide text-sm">{caravan.church_name}</div>
-                            <div className="text-xs text-slate-500 mt-0.5">{caravan.city_state || "Local não info."}</div>
-                          </div>
+                      <div className="flex items-center gap-3 mb-4">
+                        <div className="bg-orange-100 p-2.5 rounded-xl text-orange-700 shrink-0">
+                          <Building2 className="h-5 w-5" />
                         </div>
-                        <div className="flex flex-col items-end gap-2">
-                            <Badge className="bg-amber-100/50 text-amber-700 hover:bg-amber-100/80 font-medium border border-amber-200/50 px-2.5 shadow-none transition-colors">
-                              Pendente
-                            </Badge>
-                            <div className="flex items-center">
-                              {isAdmin && (
-                                <AlertDialog>
-                                  <AlertDialogTrigger asChild>
-                                    <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400 hover:text-red-700 hover:bg-red-50 -mr-1">
-                                      <Trash2 className="h-3.5 w-3.5" />
-                                    </Button>
-                                  </AlertDialogTrigger>
-                                  <AlertDialogContent>
-                                    <AlertDialogHeader><AlertDialogTitle>Deletar caravana?</AlertDialogTitle></AlertDialogHeader>
-                                    <AlertDialogFooter><AlertDialogCancel>Cancelar</AlertDialogCancel><AlertDialogAction onClick={() => handleDelete(caravan.id)} className="bg-red-600">Deletar</AlertDialogAction></AlertDialogFooter>
-                                  </AlertDialogContent>
-                                </AlertDialog>
-                              )}
-                            </div>
+                        <div className="flex flex-1 items-center gap-2 min-w-0">
+                          <span className="font-bold text-slate-800 uppercase tracking-wide truncate text-sm">
+                            {caravan.church_name}
+                          </span>
+                          <Badge className="bg-orange-100 text-orange-700 hover:bg-orange-100 font-medium px-2 py-0.5 shadow-none border-0 shrink-0 text-[10px] uppercase">
+                            Pendente
+                          </Badge>
                         </div>
+                        
+                        {(isAdmin || roleMode === "pastor") && (
+                          <div className="flex items-center gap-1 shrink-0">
+                            <Button variant="ghost" size="icon" onClick={() => setCaravanaToEdit(caravan)} className="h-8 w-8 text-slate-600 hover:text-slate-900 hover:bg-slate-100">
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500 hover:text-red-700 hover:bg-red-50">
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader><AlertDialogTitle>Deletar caravana?</AlertDialogTitle></AlertDialogHeader>
+                                <AlertDialogFooter><AlertDialogCancel>Cancelar</AlertDialogCancel><AlertDialogAction onClick={() => handleDelete(caravan.id)} className="bg-red-600">Deletar</AlertDialogAction></AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          </div>
+                        )}
                       </div>
 
-                      <div className="space-y-2.5 text-sm text-slate-600 mb-5">
-                        <div className="flex items-center"><Users className="h-4 w-4 mr-2.5 text-slate-400" /> <span className="font-medium mr-1">Pastor:</span> {caravan.pastor_name}</div>
-                        <div className="flex items-center"><Bus className="h-4 w-4 mr-2.5 text-slate-400" /> <span className="font-medium mr-1">Placa:</span> {caravan.vehicle_plate}</div>
-                        <div className="flex items-center"><Users className="h-4 w-4 mr-2.5 text-slate-400" /> <span className="font-medium mr-1">Líder:</span> {caravan.leader_name}</div>
-                        <div className="flex items-center"><Phone className="h-4 w-4 mr-2.5 text-slate-400" /> {caravan.leader_whatsapp}</div>
+                      <div className="space-y-3 text-sm text-slate-700 mb-5">
+                        <div className="flex items-center"><Users className="h-4 w-4 mr-3 text-orange-600/70" /> Pastor: {caravan.pastor_name}</div>
+                        <div className="flex items-center"><Bus className="h-4 w-4 mr-3 text-orange-600/70" /> Placa: {caravan.vehicle_plate}</div>
+                        <div className="flex items-center"><Users className="h-4 w-4 mr-3 text-orange-600/70" /> Líder: {caravan.leader_name}</div>
+                        <div className="flex items-center"><Phone className="h-4 w-4 mr-3 text-orange-600/70" /> {caravan.leader_whatsapp}</div>
                       </div>
 
-                      <div className="pt-3.5 border-t border-slate-100 flex items-center justify-between">
-                         <div className="flex items-center text-xs font-medium text-slate-400">
-                           <Calendar className="h-3.5 w-3.5 mr-1.5" />
+                      <div className="pt-4 border-t border-orange-100 flex items-center justify-between">
+                         <div className="flex items-center text-sm font-medium text-orange-800">
+                           <Calendar className="h-4 w-4 mr-2" />
                            {caravan.created_at ? new Date(caravan.created_at).toLocaleDateString("pt-BR") : "-"}
                          </div>
                          <Button
@@ -415,50 +417,53 @@ export default function CaravanasPage() {
                   {confirmadas.map((caravan) => (
                     <div
                       key={caravan.id}
-                      className="border border-green-200 bg-green-50/40 shadow-sm relative rounded-xl p-5"
+                      className="border border-green-300 bg-[#f4fcf5] shadow-sm relative rounded-xl p-4"
                     >
-                      <div className="flex justify-between items-start mb-4">
-                        <div className="flex items-center gap-3">
-                          <div className="bg-green-100/70 p-2.5 rounded-lg text-green-700">
-                            <Building2 className="h-5 w-5" />
-                          </div>
-                          <div>
-                            <div className="font-bold text-slate-800 uppercase tracking-wide text-sm">{caravan.church_name}</div>
-                            <div className="text-xs text-slate-500 mt-0.5">{caravan.city_state || "Local não info."}</div>
-                          </div>
+                      <div className="flex items-center gap-3 mb-4">
+                        <div className="bg-green-100 p-2.5 rounded-xl text-green-700 shrink-0">
+                          <Building2 className="h-5 w-5" />
                         </div>
-                        <div className="flex flex-col items-end gap-2">
-                             <Badge className="bg-green-200/50 text-green-700 hover:bg-green-200/70 font-medium px-2.5 shadow-none transition-colors border border-green-300/30">
-                              Confirmada
-                            </Badge>
-                            <div className="flex items-center">
-                              {isAdmin && (
-                                <AlertDialog>
-                                  <AlertDialogTrigger asChild>
-                                    <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500 hover:text-red-700 hover:bg-red-50 -mr-1">
-                                      <Trash2 className="h-3.5 w-3.5" />
-                                    </Button>
-                                  </AlertDialogTrigger>
-                                  <AlertDialogContent>
-                                    <AlertDialogHeader><AlertDialogTitle>Deletar caravana?</AlertDialogTitle></AlertDialogHeader>
-                                    <AlertDialogFooter><AlertDialogCancel>Cancelar</AlertDialogCancel><AlertDialogAction onClick={() => handleDelete(caravan.id)} className="bg-red-600">Deletar</AlertDialogAction></AlertDialogFooter>
-                                  </AlertDialogContent>
-                                </AlertDialog>
-                              )}
-                            </div>
+                        <div className="flex flex-1 items-center gap-2 min-w-0">
+                          <span className="font-bold text-slate-800 uppercase tracking-wide truncate text-sm">
+                            {caravan.church_name}
+                          </span>
+                          <Badge className="bg-green-200/60 text-green-800 hover:bg-green-200/60 font-medium px-2 py-0.5 shadow-none border border-green-300/30 shrink-0 text-[10px] uppercase">
+                            Confirmada
+                          </Badge>
                         </div>
+                        
+                        {(isAdmin || roleMode === "pastor") && (
+                          <div className="flex items-center gap-1 shrink-0">
+                            <Button variant="ghost" size="icon" onClick={() => setCaravanaToEdit(caravan)} className="h-8 w-8 text-slate-600 hover:text-slate-900 hover:bg-slate-100">
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500 hover:text-red-700 hover:bg-red-50">
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader><AlertDialogTitle>Deletar caravana?</AlertDialogTitle></AlertDialogHeader>
+                                <AlertDialogFooter><AlertDialogCancel>Cancelar</AlertDialogCancel><AlertDialogAction onClick={() => handleDelete(caravan.id)} className="bg-red-600">Deletar</AlertDialogAction></AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          </div>
+                        )}
                       </div>
 
-                      <div className="space-y-2.5 text-sm text-green-900/80 mb-5">
-                        <div className="flex items-center"><Users className="h-4 w-4 mr-2.5 text-green-700/60" /> <span className="font-medium mr-1">Pastor:</span> {caravan.pastor_name}</div>
-                        <div className="flex items-center"><Bus className="h-4 w-4 mr-2.5 text-green-700/60" /> <span className="font-medium mr-1">Placa:</span> {caravan.vehicle_plate}</div>
-                        <div className="flex items-center"><Users className="h-4 w-4 mr-2.5 text-green-700/60" /> <span className="font-medium mr-1">Líder:</span> {caravan.leader_name}</div>
-                        <div className="flex items-center"><Phone className="h-4 w-4 mr-2.5 text-green-700/60" /> {caravan.leader_whatsapp}</div>
+                      <div className="space-y-3 text-sm text-green-900/90 mb-5">
+                        <div className="flex items-center"><Users className="h-4 w-4 mr-3 text-green-700/80" /> Pastor: {caravan.pastor_name}</div>
+                        <div className="flex items-center"><Bus className="h-4 w-4 mr-3 text-green-700/80" /> Placa: {caravan.vehicle_plate}</div>
+                        <div className="flex items-center"><Users className="h-4 w-4 mr-3 text-green-700/80" /> Líder: {caravan.leader_name}</div>
+                        <div className="flex items-center"><Phone className="h-4 w-4 mr-3 text-green-700/80" /> {caravan.leader_whatsapp}</div>
                       </div>
 
-                      <div className="pt-3.5 border-t border-green-200/60 flex items-center text-xs font-medium text-green-700/70">
-                        <Calendar className="h-3.5 w-3.5 mr-1.5" />
-                        {caravan.created_at ? new Date(caravan.created_at).toLocaleDateString("pt-BR") : "-"}
+                      <div className="pt-4 border-t border-green-200/60 flex items-center justify-between">
+                         <div className="flex items-center text-sm font-medium text-green-800">
+                           <Calendar className="h-4 w-4 mr-2" />
+                           {caravan.created_at ? new Date(caravan.created_at).toLocaleDateString("pt-BR") : "-"}
+                         </div>
                       </div>
                     </div>
                   ))}
@@ -604,19 +609,31 @@ export default function CaravanasPage() {
           </DialogContent>
         </Dialog>
 
-        {/* Modal Nova Caravana */}
-        <Dialog open={openNewCaravana} onOpenChange={setOpenNewCaravana}>
-          <DialogContent className="max-w-md">
+        {/* Modal Nova/Editar Caravana */}
+        <Dialog 
+          open={openNewCaravana || !!caravanaToEdit} 
+          onOpenChange={(open) => {
+            if (!open) {
+              setOpenNewCaravana(false);
+              setCaravanaToEdit(null);
+            }
+          }}
+        >
+          <DialogContent className="max-w-[650px] max-h-[90vh] overflow-y-auto w-[95vw]">
             <DialogHeader>
-              <DialogTitle>Nova Caravana</DialogTitle>
+              <DialogTitle>{caravanaToEdit ? "Editar Caravana" : "Nova Caravana"}</DialogTitle>
               <DialogDescription>
-                Preencha os dados para registrar uma nova caravana
+                {caravanaToEdit ? "Edite os dados da caravana selecionada" : "Preencha os dados para registrar uma nova caravana"}
               </DialogDescription>
             </DialogHeader>
-            <NovaCaravanaForm onSuccess={() => {
-              setOpenNewCaravana(false);
-              queryClient.invalidateQueries({ queryKey: ["caravanas"] });
-            }} />
+            <NovaCaravanaForm 
+              initialData={caravanaToEdit}
+              onSuccess={() => {
+                setOpenNewCaravana(false);
+                setCaravanaToEdit(null);
+                queryClient.invalidateQueries({ queryKey: ["caravanas"] });
+              }} 
+            />
           </DialogContent>
         </Dialog>
       </div>

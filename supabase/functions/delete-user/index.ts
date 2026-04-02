@@ -133,19 +133,31 @@ Deno.serve(async (req) => {
       // Comentario: pastor nunca pode deletar admin
       if (targetRole === "admin") return json({ ok: false, error: "forbidden_target_admin" }, 403);
 
-      // Comentario: valida escopo
       const targetTotvs = String(target.default_totvs_id || "");
-      const allowed = new Set([session.active_totvs_id, ...(session.scope_totvs_ids || [])]);
-      if (!targetTotvs || !allowed.has(targetTotvs)) {
+
+      // Buscar igrejas para calcular a hierarquia e o escopo dinamicamente
+      const { data: churches } = await sb.from("churches").select("totvs_id, parent_totvs_id, class, pastor_user_id, is_active");
+      const churchRows = (churches || []) as (ChurchRow & { pastor_user_id: string | null; is_active: boolean | null })[];
+
+      // Resolver a igreja raiz do pastor no escopo real de sua jurisdição
+      let scopeRootTotvs = session.active_totvs_id;
+      const pastorChurches = churchRows.filter(c => c.pastor_user_id === session.user_id && c.is_active);
+      if (pastorChurches.length > 0) {
+        if (!pastorChurches.some(c => c.totvs_id === session.active_totvs_id)) {
+          scopeRootTotvs = pastorChurches[0].totvs_id;
+        }
+      }
+
+      // Calcula todo o escopo debaixo de scopeRootTotvs
+      const scope = computeScope(scopeRootTotvs, churchRows);
+
+      if (!targetTotvs || !scope.has(targetTotvs)) {
         return json({ ok: false, error: "forbidden_out_of_scope" }, 403);
       }
 
       // Comentario: se o target for outro pastor, verifica rank hierarquico
       if (targetRole === "pastor") {
-        const { data: churches } = await sb.from("churches").select("totvs_id, parent_totvs_id, class");
-        const churchRows = (churches || []) as ChurchRow[];
-
-        const sessionChurch = churchRows.find((c) => c.totvs_id === session.active_totvs_id);
+        const sessionChurch = churchRows.find((c) => c.totvs_id === scopeRootTotvs);
         const targetChurch = churchRows.find((c) => c.totvs_id === targetTotvs);
 
         const sessionRank = getRankForClass(sessionChurch?.class || null);
