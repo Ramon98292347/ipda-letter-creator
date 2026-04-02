@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Bus, QrCode, ExternalLink, Copy, Check, Loader2 } from "lucide-react";
 import QRCode from "qrcode";
 import { post } from "@/lib/api";
-import { CaravanaPublicPage } from "./CaravanaPublicPage";
+import { CaravanaForm } from "@/components/shared/CaravanaForm";
 
 type EventRow = {
   id: string;
@@ -195,7 +195,7 @@ export default function CaravanaEventPage() {
           </CardContent>
         </Card>
 
-        {/* Formulário de Registro (apenas para display) */}
+        {/* Formulário de Registro */}
         <Card>
           <CardHeader>
             <CardTitle>Formulário de Registro de Caravana</CardTitle>
@@ -204,9 +204,9 @@ export default function CaravanaEventPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <p className="text-sm text-slate-600 mb-4">
-              Formulário de registro será exibido aqui. Use o link ou QR code acima para acessar no dispositivo do voluntário.
-            </p>
+            <CaravanaForm onSuccess={() => {
+              // Mostra mensagem de sucesso
+            }} />
           </CardContent>
         </Card>
       </main>
