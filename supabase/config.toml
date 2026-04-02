@@ -10,6 +10,33 @@ verify_jwt = false
 [functions.delete-product-size]
 verify_jwt = false
 
+[functions.list-churches-public]
+verify_jwt = false
+
+[functions.list-orders]
+verify_jwt = false
+
+[functions.deposit-api]
+verify_jwt = false
+
+[functions.docs-api]
+verify_jwt = false
+
+[functions.public-verify-letter]
+verify_jwt = false
+
+[functions.list-products-public]
+verify_jwt = false
+
+[functions.list-product-sizes-public]
+verify_jwt = false
+
+[functions.upsert-product]
+verify_jwt = false
+
+[functions.update-order-status]
+verify_jwt = false
+
 [functions.letters-api]
 verify_jwt = false
 
