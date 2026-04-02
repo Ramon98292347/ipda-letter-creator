@@ -113,10 +113,10 @@ export function usePushNotifications(userId?: string, userRole?: string, scopeTo
 
       if (!sub) {
         console.log("[push] criando nova subscrição...");
-        // Comentario: userVisibleOnly: false permite notificacoes em background/app fechado
-        // True apenas mostra quando usuario esta interagindo (problema original)
+        // Comentario: userVisibleOnly: true é OBRIGATÓRIO pelo Chrome
+        // O Service Worker ainda pode processar eventos em background
         sub = await reg.pushManager.subscribe({
-          userVisibleOnly: false,
+          userVisibleOnly: true,
           applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
         });
         console.log("[push] subscrição criada com sucesso");
