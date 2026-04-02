@@ -142,7 +142,7 @@ async function handleList(body: any, sb: any, user: any) {
         const { data: eventIds, error: eventsError } = await sb
           .from("announcements")
           .select("id")
-          .in("church_code", churchScopes);
+          .in("church_totvs_id", churchScopes);
 
         if (eventsError) throw eventsError;
 
@@ -200,12 +200,12 @@ async function handleConfirm(body: any, sb: any, user: any) {
       // Busca o evento para validar propriedade
       const { data: event } = await sb
         .from("announcements")
-        .select("church_code")
+        .select("church_totvs_id")
         .eq("id", caravan.event_id)
         .single();
 
       if (event) {
-        canAccess = userScopes.includes(String(event.church_code)) || (activeTotvs === String(event.church_code));
+        canAccess = userScopes.includes(String(event.church_totvs_id)) || (activeTotvs === String(event.church_totvs_id));
       }
     }
 
