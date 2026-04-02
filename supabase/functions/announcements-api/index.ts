@@ -85,8 +85,6 @@ function json(obj: unknown, status = 200) {
 
 const FORWARDED_ACTIONS: Record<string, string> = {
   "list-public": "list-announcements-public",
-  "list-events": "list-events",
-  "upsert-event": "upsert-event",
   "delete-event": "delete-event",
   "list-events-public": "list-events-public",
   "list-banners": "list-banners",
@@ -389,6 +387,98 @@ async function actionDelete(sb: ReturnType<typeof createClient>, req: Request, b
   return json({ ok: true, deleted_id: id }, 200);
 }
 
+async function actionListEvents(sb: ReturnType<typeof createClient>, req: Request, body: Body) {
+  const session = await verifySessionJWT(req);
+  if (!session) return json({ ok: false, error: "unauthorized" }, 401);
+
+  const churchCode = String(body.church_code || session.active_totvs_id || "").trim();
+  if (!churchCode) return json({ ok: false, error: "missing_church_code" }, 400);
+
+  // Pastor só pode ver eventos da sua própria church
+  if (session.role !== "admin" && churchCode !== session.active_totvs_id) {
+    return json({ ok: false, error: "forbidden_wrong_church" }, 403);
+  }
+
+  const { data: events, error } = await sb
+    .from("announcements")
+    .select("id, title, body_text, media_url, starts_at, ends_at, position, link_url, is_active, created_at, church_totvs_id")
+    .eq("church_totvs_id", churchCode)
+    .eq("is_active", true)
+    .order("created_at", { ascending: false });
+
+  if (error) return json({ ok: false, error: "db_error_list_events", details: error.message }, 500);
+
+  return json({ ok: true, events: (events || []) });
+}
+
+async function actionUpsertEvent(sb: ReturnType<typeof createClient>, req: Request, body: Body) {
+  const session = await verifySessionJWT(req);
+  if (!session) return json({ ok: false, error: "unauthorized" }, 401);
+  if (session.role === "obreiro") return json({ ok: false, error: "forbidden" }, 403);
+
+  const id = String(body.id || "").trim();
+  const title = String(body.title || "").trim();
+  if (!title) return json({ ok: false, error: "missing_title" }, 400);
+
+  const churchCode = String(body.church_code || session.active_totvs_id || "").trim();
+  if (!churchCode) return json({ ok: false, error: "missing_church_code" }, 400);
+
+  // Pastor só pode criar eventos para sua própria church
+  if (session.role !== "admin" && churchCode !== session.active_totvs_id) {
+    return json({ ok: false, error: "forbidden_wrong_church" }, 403);
+  }
+
+  const startsAt = body.starts_at ? String(body.starts_at).trim() : null;
+  const endsAt = body.ends_at ? String(body.ends_at).trim() : null;
+  const isActive = typeof body.is_active === "boolean" ? body.is_active : true;
+
+  if (startsAt && !isValidISODate(startsAt)) {
+    return json({ ok: false, error: "invalid_starts_at" }, 400);
+  }
+  if (endsAt && !isValidISODate(endsAt)) {
+    return json({ ok: false, error: "invalid_ends_at" }, 400);
+  }
+
+  const payload = {
+    title,
+    body_text: body.body_text || null,
+    media_url: body.media_url || null,
+    link_url: body.link_url || null,
+    starts_at: startsAt,
+    ends_at: endsAt,
+    is_active: isActive,
+    church_totvs_id: churchCode,
+    position: 1,
+  };
+
+  let result;
+  if (id) {
+    // Update existing
+    const { data: existing, error: findError } = await sb
+      .from("announcements")
+      .select("id, church_totvs_id")
+      .eq("id", id)
+      .maybeSingle();
+
+    if (findError) return json({ ok: false, error: "db_error_find", details: findError.message }, 500);
+    if (!existing) return json({ ok: false, error: "not_found" }, 404);
+    if (String(existing.church_totvs_id) !== churchCode) {
+      return json({ ok: false, error: "forbidden_wrong_church" }, 403);
+    }
+
+    result = await sb.from("announcements").update(payload).eq("id", id).select("id, title, starts_at, ends_at, church_totvs_id");
+  } else {
+    // Create new
+    result = await sb.from("announcements").insert(payload).select("id, title, starts_at, ends_at, church_totvs_id");
+  }
+
+  if (result.error) return json({ ok: false, error: "db_error_upsert_event", details: result.error.message }, 500);
+  const event = result.data?.[0];
+  if (!event) return json({ ok: false, error: "unexpected_response" }, 500);
+
+  return json({ ok: true, event });
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders() });
   if (req.method !== "POST") return json({ ok: false, error: "method_not_allowed" }, 405);
@@ -403,6 +493,8 @@ Deno.serve(async (req) => {
     if (action === "list" || action === "list-admin") return await actionList(sb, req, body);
     if (action === "upsert") return await actionUpsert(sb, req, body);
     if (action === "delete") return await actionDelete(sb, req, body);
+    if (action === "list-events") return await actionListEvents(sb, req, body);
+    if (action === "upsert-event") return await actionUpsertEvent(sb, req, body);
 
     return json(
       {
