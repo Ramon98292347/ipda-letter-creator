@@ -125,8 +125,12 @@ export default function UsuarioDashboard() {
   const [lastCepLookup, setLastCepLookup] = useState("");
   const [profileForm, setProfileForm] = useState({
     full_name: "",
+    minister_role: "",
     phone: "",
     email: "",
+    rg: "",
+    marital_status: "",
+    profession: "",
     birth_date: "",
     // Comentario: data de batismo e data de separação/ordenação — exibidos para cooperador e acima
     baptism_date: "",
@@ -249,8 +253,12 @@ export default function UsuarioDashboard() {
   useEffect(() => {
     setProfileForm({
       full_name: String(profile?.full_name || usuario?.nome || ""),
+      minister_role: String(profile?.minister_role || ""),
       phone: profile?.phone || "",
       email: profile?.email || "",
+      rg: String(profileRaw?.rg || ""),
+      marital_status: String(profileRaw?.marital_status || ""),
+      profession: String(profileRaw?.profession || ""),
       birth_date: String(profile?.birth_date || ""),
       // Comentario: preenche campos de batismo e separação vindos do perfil
       baptism_date: String(profileRaw?.baptism_date || ""),
@@ -789,8 +797,12 @@ async function openPdf(letter: PastorLetter) {
 
       await updateMyProfile({
         full_name: profileForm.full_name.trim() || undefined,
+        minister_role: profileForm.minister_role || undefined,
         phone: profileForm.phone || undefined,
         email: profileForm.email || undefined,
+        rg: profileForm.rg || undefined,
+        marital_status: profileForm.marital_status || undefined,
+        profession: profileForm.profession || undefined,
         birth_date: profileForm.birth_date || undefined,
         // Comentario: envia campos de batismo e separação ao backend
         baptism_date: profileForm.baptism_date || undefined,
@@ -1366,7 +1378,19 @@ async function openPdf(letter: PastorLetter) {
             </div>
             <div className="space-y-1">
               <Label>Cargo</Label>
-              <Input value={profile?.minister_role || ""} disabled />
+              <select
+                value={profileForm.minister_role}
+                onChange={(e) => setProfileForm((p) => ({ ...p, minister_role: e.target.value }))}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <option value="">Selecione</option>
+                <option value="Membro">Membro</option>
+                <option value="Cooperador">Cooperador</option>
+                <option value="Obreiro">Obreiro</option>
+                <option value="Diácono">Diácono</option>
+                <option value="Presbítero">Presbítero</option>
+                <option value="Pastor">Pastor</option>
+              </select>
             </div>
             <div className="space-y-2">
               <div className="space-y-1">
@@ -1450,9 +1474,34 @@ async function openPdf(letter: PastorLetter) {
               <Label>Data de nascimento</Label>
               <Input type="date" value={profileForm.birth_date} onChange={(e) => setProfileForm((p) => ({ ...p, birth_date: e.target.value }))} />
             </div>
+            <div className="grid gap-2 md:grid-cols-3">
+              <div className="space-y-1">
+                <Label>RG</Label>
+                <Input value={profileForm.rg} onChange={(e) => setProfileForm((p) => ({ ...p, rg: e.target.value }))} />
+              </div>
+              <div className="space-y-1">
+                <Label>Estado civil</Label>
+                <select
+                  value={profileForm.marital_status}
+                  onChange={(e) => setProfileForm((p) => ({ ...p, marital_status: e.target.value }))}
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <option value="">Selecione</option>
+                  <option value="Solteiro(a)">Solteiro(a)</option>
+                  <option value="Casado(a)">Casado(a)</option>
+                  <option value="Divorciado(a)">Divorciado(a)</option>
+                  <option value="Viúvo(a)">Viúvo(a)</option>
+                  <option value="União estável">União estável</option>
+                </select>
+              </div>
+              <div className="space-y-1">
+                <Label>Profissão</Label>
+                <Input value={profileForm.profession} onChange={(e) => setProfileForm((p) => ({ ...p, profession: e.target.value }))} />
+              </div>
+            </div>
             {/* Comentario: campos de batismo e separação — exibidos para cooperador e acima */}
             {(() => {
-              const cargo = String(profile?.minister_role || "").toLowerCase();
+              const cargo = String(profileForm.minister_role || "").toLowerCase();
               const cargosComSeparacao = ["cooperador", "obreiro", "diácono", "diacono", "presbítero", "presbitero", "evangelista", "missionário", "missionario", "pastor"];
               return cargosComSeparacao.some((c) => cargo.includes(c));
             })() && (
