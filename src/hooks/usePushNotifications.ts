@@ -92,12 +92,9 @@ export function usePushNotifications(userId?: string, userRole?: string, scopeTo
     if (!supported) return;
     setLoading(true);
     try {
-      console.log("[push] iniciando subscribe...");
       const perm = await Notification.requestPermission();
-      console.log("[push] permissão recebida:", perm);
       setPermission(perm);
       if (perm !== "granted") {
-        console.warn("[push] permissão não foi concedida:", perm);
         if (typeof window !== "undefined" && (window as any).toast) {
           (window as any).toast.error("Notificações bloqueadas! Libere no cadeado ao lado do site (barra de endereços).");
         } else {
@@ -106,24 +103,19 @@ export function usePushNotifications(userId?: string, userRole?: string, scopeTo
         return;
       }
 
-      console.log("[push] aguardando service worker...");
       const reg = await navigator.serviceWorker.ready;
       let sub = await reg.pushManager.getSubscription();
-      console.log("[push] subscrição existente:", !!sub);
 
       if (!sub) {
-        console.log("[push] criando nova subscrição...");
         // Comentario: userVisibleOnly: true é OBRIGATÓRIO pelo Chrome
         // O Service Worker ainda pode processar eventos em background
         sub = await reg.pushManager.subscribe({
           userVisibleOnly: true,
           applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
         });
-        console.log("[push] subscrição criada com sucesso");
       }
 
       // Comentario: marca como inscrito localmente (browser ja tem a subscription)
-      console.log("[push] setando subscribed=true");
       setSubscribed(true);
 
       // Comentario: salva no backend em background — se falhar, nao impede o botao de sumir
@@ -142,7 +134,7 @@ export function usePushNotifications(userId?: string, userRole?: string, scopeTo
         }).catch((err) => console.warn("[push] falha ao salvar no backend:", err));
       }
     } catch (err) {
-      console.error("[push] erro em subscribe:", err);
+      // Erro silencioso - pode ocorrer em algumas situações, mas não impede o funcionamento
     } finally {
       setLoading(false);
     }

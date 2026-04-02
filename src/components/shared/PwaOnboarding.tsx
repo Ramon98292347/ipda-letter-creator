@@ -58,11 +58,18 @@ export function PwaOnboarding() {
 
   const handleSubscribe = async () => {
     await subscribe();
-    if (isStandalone) {
-      // Se já estava no app, pode fechar.
+    // Comentario: ao ativar notificações, marca como dispensado e fecha
+    localStorage.setItem("pwa_onboarding_dismissed", "true");
+    setShow(false);
+  };
+
+  // Comentario: fecha banner quando notificações são ativadas
+  useEffect(() => {
+    if (subscribed && show) {
+      localStorage.setItem("pwa_onboarding_dismissed", "true");
       setShow(false);
     }
-  };
+  }, [subscribed, show]);
 
   if (!show || !isMobile) return null;
 
