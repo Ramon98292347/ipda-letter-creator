@@ -1386,7 +1386,6 @@ async function openPdf(letter: PastorLetter) {
                 <option value="">Selecione</option>
                 <option value="Membro">Membro</option>
                 <option value="Cooperador">Cooperador</option>
-                <option value="Obreiro">Obreiro</option>
                 <option value="Diácono">Diácono</option>
                 <option value="Presbítero">Presbítero</option>
                 <option value="Pastor">Pastor</option>
