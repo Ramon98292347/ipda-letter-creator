@@ -197,6 +197,63 @@ export default function CamisasPedidoPage() {
   const selectedChurch = availableChurches.find((church) => church.totvs_id === churchId) || null;
 
   useEffect(() => {
+    let cancelled = false;
+
+    const lookupByTotvs = async () => {
+      if (churchSearchDigits.length < 2) {
+        if (availableChurches.length) setAvailableChurches([]);
+        if (churchValidated) setChurchValidated(false);
+        if (churchId) setChurchId("");
+        return;
+      }
+
+      try {
+        const res = await post<{ ok: boolean; churches: ChurchRow[] }>(
+          "list-churches-public",
+          { query: churchSearchDigits, limit: 10 },
+          { skipAuth: true },
+        );
+        if (cancelled) return;
+        const list = res.churches || [];
+        if (list.length === 0) {
+          setAvailableChurches([]);
+          setChurchValidated(false);
+          setChurchId("");
+          return;
+        }
+
+        setAvailableChurches(list);
+        if (churchSearchDigits.length >= 4) {
+          const exact = list.find((item) => String(item.totvs_id) === String(churchSearchDigits));
+          if (exact) {
+            setChurchId(exact.totvs_id);
+            setChurchValidated(true);
+          } else {
+            setChurchId("");
+            setChurchValidated(false);
+          }
+        } else {
+          setChurchId("");
+          setChurchValidated(false);
+        }
+      } catch (err) {
+        console.error("Erro ao buscar igreja:", err);
+        if (!cancelled) {
+          setAvailableChurches([]);
+          setChurchValidated(false);
+          setChurchId("");
+        }
+      }
+    };
+
+    void lookupByTotvs();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [churchSearchDigits]);
+
+  useEffect(() => {
     const stored = localStorage.getItem(ORDER_DRAFT_KEY);
     if (!stored) return;
     try {
@@ -391,24 +448,6 @@ export default function CamisasPedidoPage() {
     setChurchId("");
     setChurchValidated(false);
   }, [churchSearch, filteredChurches]);
-
-  // Filtrar igrejas disponíveis baseado no estadualId selecionado
-  useEffect(() => {
-    if (!estadualId) {
-      setAvailableChurches([]);
-      setChurchId("");
-      setChurchSearch("");
-      return;
-    }
-
-    // Calcular scope local para evitar dependência em useMemo (Set causa re-renders infinitos)
-    const scopedIds = computeScopeIds(estadualId, churchCatalog);
-    const scopedChurches = churchCatalog.filter((church) => scopedIds.has(church.totvs_id));
-    setAvailableChurches(scopedChurches);
-    setChurchId("");
-    setChurchSearch("");
-    setChurchValidated(false);
-  }, [estadualId, churchCatalog]);
 
   useEffect(() => {
     if (!preselectedProduct) return;
