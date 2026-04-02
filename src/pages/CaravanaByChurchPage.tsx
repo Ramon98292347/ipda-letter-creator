@@ -33,7 +33,9 @@ function isValidPhone(value: string): boolean {
 
 function isValidPlate(value: string): boolean {
   const clean = value.replace(/[-\s]/g, "").toUpperCase();
-  return /^[A-Z]{3}\d{4}$/.test(clean) || /^[A-Z]{3}\d[A-Z]\d{2}$/.test(clean);
+  // Antigo: AAA0000 ou AAA00000 (3 letras + 3 ou 4 números)
+  // Mercosul: AAA0A00 (3 letras + 1 número + 1 letra + 2 números)
+  return /^[A-Z]{3}\d{3,4}$/.test(clean) || /^[A-Z]{3}\d[A-Z]\d{2}$/.test(clean);
 }
 
 export default function CaravanaByChurchPage() {
