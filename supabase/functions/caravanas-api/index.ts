@@ -18,7 +18,9 @@ async function getAuthUser(req: Request) {
 
   try {
     const token = authHeader.replace("Bearer ", "");
-    const secret = new TextEncoder().encode(Deno.env.get("USER_SESSION_JWT_SECRET") || "");
+    // Tenta USER_SESSION_JWT_SECRET primeiro, depois SUPABASE_JWT_SECRET como fallback
+    const secretKey = Deno.env.get("USER_SESSION_JWT_SECRET") || Deno.env.get("SUPABASE_JWT_SECRET") || "";
+    const secret = new TextEncoder().encode(secretKey);
     const verified = await jwtVerify(token, secret, { algorithms: ["HS256"] });
     return verified.payload;
   } catch (err) {
