@@ -70,6 +70,9 @@ const CamisasPedidoPage = lazy(() => import("./pages/CamisasPedidoPage"));
 const ValidarCartaPage = lazy(() => import("./pages/ValidarCartaPage"));
 // Comentario: pagina do modulo Deposito (controle de estoque)
 const DepositoPage = lazy(() => import("./pages/DepositoPage"));
+// Comentario: paginas de caravanas
+const CaravanaPublicPage = lazy(() => import("./pages/CaravanaPublicPage"));
+const CaravanasPage = lazy(() => import("./pages/CaravanasPage"));
 
 function RequireAuth({ children }: { children: JSX.Element }) {
   const { usuario, token } = useUser();
@@ -112,7 +115,7 @@ function OnReloadRedirect() {
       const entries = performance.getEntriesByType("navigation") as PerformanceEntry[];
       const last = entries && entries.length ? entries[entries.length - 1] : undefined;
       const type = (last && (last as unknown as { type?: string }).type) ?? undefined;
-      const publicPaths = new Set(["/", "/cadastro", "/reset-senha", "/validar-carta"]);
+      const publicPaths = new Set(["/", "/cadastro", "/reset-senha", "/validar-carta", "/caravanas/registrar"]);
       const isPublicPath = publicPaths.has(loc.pathname) || loc.pathname.startsWith("/presenca-publica/");
       const isCamisasPublicPath = loc.pathname.startsWith("/camisas/");
       const isSelectChurchValid = loc.pathname === "/select-church" && !!pendingCpf && availableChurches.length > 0;
@@ -176,6 +179,14 @@ const router = createBrowserRouter(
         element={
           <Suspense fallback={pageFallback}>
             <ResetSenhaPage />
+          </Suspense>
+        }
+      />
+      <Route
+        path="/caravanas/registrar"
+        element={
+          <Suspense fallback={pageFallback}>
+            <CaravanaPublicPage />
           </Suspense>
         }
       />
@@ -413,6 +424,16 @@ const router = createBrowserRouter(
               <CartasDashboardPage />
             </Suspense>
           </RequireRole>
+        }
+      />
+      <Route
+        path="/caravanas"
+        element={
+          <RequireAnyRole roles={["admin", "pastor", "secretario"]}>
+            <Suspense fallback={pageFallback}>
+              <CaravanasPage />
+            </Suspense>
+          </RequireAnyRole>
         }
       />
       <Route

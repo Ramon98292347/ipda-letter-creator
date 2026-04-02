@@ -3651,3 +3651,68 @@ export async function depositListMovements(filters?: {
   const res = await api.depositListMovements(filters || {});
   return res as { movements: DepositMovement[]; total: number; page: number; page_size: number };
 }
+
+// Comentario: tipos e funcoes para gestao de caravanas
+export type CaravanaItem = {
+  id: string;
+  church_code: string | null;
+  church_name: string;
+  city_state: string | null;
+  pastor_name: string | null;
+  vehicle_plate: string | null;
+  leader_name: string;
+  leader_whatsapp: string | null;
+  passenger_count: number;
+  status: "Recebida" | "Confirmada";
+  created_at: string;
+};
+
+export async function registerCaravana(data: {
+  church_code?: string | null;
+  church_name: string;
+  city_state?: string | null;
+  pastor_name?: string | null;
+  vehicle_plate?: string | null;
+  leader_name: string;
+  leader_whatsapp: string;
+  passenger_count: number;
+}) {
+  const { post } = await import("@/lib/api");
+  const result = await post<{ ok?: boolean; id?: string }>(
+    "caravanas-api",
+    { action: "register", ...data },
+    { skipAuth: true }
+  );
+  return result;
+}
+
+export async function listCaravanas(filters?: {
+  status?: "Recebida" | "Confirmada" | "todas";
+  search?: string;
+  church_code?: string;
+}) {
+  const { post } = await import("@/lib/api");
+  const result = await post<{ ok?: boolean; caravanas?: CaravanaItem[] }>(
+    "caravanas-api",
+    { action: "list", ...filters }
+  );
+  return result?.caravanas ?? [];
+}
+
+export async function confirmCaravana(id: string) {
+  const { post } = await import("@/lib/api");
+  const result = await post<{ ok?: boolean }>(
+    "caravanas-api",
+    { action: "confirm", id }
+  );
+  return result;
+}
+
+export async function deleteCaravana(id: string) {
+  const { post } = await import("@/lib/api");
+  const result = await post<{ ok?: boolean }>(
+    "caravanas-api",
+    { action: "delete", id }
+  );
+  return result;
+}
