@@ -346,38 +346,82 @@ export default function DivulgacaoPage() {
 
   const deleteEvento = useMutation({
     mutationFn: async (id: string) => post("announcements-api", { action: "delete", id }),
-    onSuccess: async () => {
-      toast.success("Evento excluído.");
-      await queryClient.invalidateQueries({ queryKey: ["div-ann"] });
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({ queryKey: ["div-ann"] });
+      const previousAnn = queryClient.getQueryData<AnnouncementRow[]>(["div-ann"]) || [];
+      queryClient.setQueryData(["div-ann"], previousAnn.filter((a) => a.id !== id));
+      return previousAnn;
     },
-    onError: () => toast.error("Falha ao excluir evento."),
+    onSuccess: () => {
+      toast.success("Evento excluído.");
+    },
+    onError: (error, variables, context) => {
+      if (context) {
+        queryClient.setQueryData(["div-ann"], context);
+      }
+      toast.error("Falha ao excluir evento.");
+    },
   });
 
   const deleteInformativo = useMutation({
     mutationFn: async (id: string) => post("announcements-api", { action: "delete", id }),
-    onSuccess: async () => {
-      toast.success("Informativo excluído.");
-      await queryClient.invalidateQueries({ queryKey: ["div-ann"] });
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({ queryKey: ["div-ann"] });
+      const previousAnn = queryClient.getQueryData<AnnouncementRow[]>(["div-ann"]) || [];
+      queryClient.setQueryData(["div-ann"], previousAnn.filter((a) => a.id !== id));
+      return previousAnn;
     },
-    onError: () => toast.error("Falha ao excluir informativo."),
+    onSuccess: () => {
+      toast.success("Informativo excluído.");
+    },
+    onError: (error, variables, context) => {
+      if (context) {
+        queryClient.setQueryData(["div-ann"], context);
+      }
+      toast.error("Falha ao excluir informativo.");
+    },
   });
 
   const deleteProduto = useMutation({
     mutationFn: async (id: string) => post("delete-product", { id }),
-    onSuccess: async () => {
-      toast.success("Camiseta excluída.");
-      await queryClient.invalidateQueries({ queryKey: ["div-products"] });
+    onMutate: async (id) => {
+      // Remove from UI immediately (optimistic update)
+      await queryClient.cancelQueries({ queryKey: ["div-products"] });
+      const previousProducts = queryClient.getQueryData<ProductRow[]>(["div-products"]) || [];
+      queryClient.setQueryData(["div-products"], previousProducts.filter((p) => p.id !== id));
+      return previousProducts;
     },
-    onError: () => toast.error("Falha ao excluir camiseta."),
+    onSuccess: () => {
+      toast.success("Camiseta excluída.");
+    },
+    onError: (error, variables, context) => {
+      // Restore if failed
+      if (context) {
+        queryClient.setQueryData(["div-products"], context);
+      }
+      toast.error("Falha ao excluir camiseta.");
+    },
   });
 
   const deleteTamanho = useMutation({
     mutationFn: async (id: string) => post("delete-product-size", { id }),
-    onSuccess: async () => {
-      toast.success("Tamanho excluído.");
-      await queryClient.invalidateQueries({ queryKey: ["div-sizes"] });
+    onMutate: async (id) => {
+      // Remove from UI immediately (optimistic update)
+      await queryClient.cancelQueries({ queryKey: ["div-sizes"] });
+      const previousSizes = queryClient.getQueryData<ProductSizeRow[]>(["div-sizes"]) || [];
+      queryClient.setQueryData(["div-sizes"], previousSizes.filter((s) => s.id !== id));
+      return previousSizes;
     },
-    onError: () => toast.error("Falha ao excluir tamanho."),
+    onSuccess: () => {
+      toast.success("Tamanho excluído.");
+    },
+    onError: (error, variables, context) => {
+      // Restore if failed
+      if (context) {
+        queryClient.setQueryData(["div-sizes"], context);
+      }
+      toast.error("Falha ao excluir tamanho.");
+    },
   });
 
   const filteredOrders = useMemo(() => {
