@@ -26,7 +26,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Bus, Check, Trash2, Loader2, Users, Map, Calendar, QrCode, Copy, ExternalLink, Plus } from "lucide-react";
+import { Bus, Check, Trash2, Loader2, Users, Map, Calendar, QrCode, Copy, ExternalLink, Plus, Edit, Building2, Phone } from "lucide-react";
 import { toast } from "sonner";
 import QRCode from "qrcode";
 import { useUser } from "@/context/UserContext";
@@ -416,64 +416,72 @@ export default function CaravanasPage() {
               </div>
             </div>
 
-            {/* Mobile View */}
-            <div className="md:hidden space-y-3">
+            {/* Cards View (Desktop) */}
+            <div className="hidden md:grid md:grid-cols-2 gap-4">
               {caravanas.map((caravan) => (
-                <Card key={caravan.id} className="overflow-hidden">
+                <Card
+                  key={caravan.id}
+                  className={`overflow-hidden border-2 ${
+                    caravan.status === "Confirmada"
+                      ? "bg-green-50 border-green-300"
+                      : "bg-amber-50 border-amber-300"
+                  }`}
+                >
                   <CardContent className="p-4 space-y-3">
-                    <div>
-                      <div className="font-semibold text-slate-900">
-                        {caravan.church_name}
-                      </div>
-                      {caravan.city_state && (
-                        <div className="text-sm text-slate-500">{caravan.city_state}</div>
-                      )}
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3 text-sm">
-                      <div>
-                        <div className="text-slate-600">Líder</div>
-                        <div className="font-medium text-slate-900">
-                          {caravan.leader_name}
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-center gap-2">
+                        <Building2 className={`h-5 w-5 ${caravan.status === "Confirmada" ? "text-green-600" : "text-amber-600"}`} />
+                        <div>
+                          <div className={`font-semibold ${caravan.status === "Confirmada" ? "text-green-900" : "text-amber-900"}`}>
+                            {caravan.church_name}
+                          </div>
                         </div>
                       </div>
-                      <div>
-                        <div className="text-slate-600">Passageiros</div>
-                        <div className="font-medium text-slate-900">
-                          {caravan.passenger_count}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center justify-between">
-                      <Badge
-                        className={
-                          caravan.status === "Confirmada"
-                            ? "bg-green-100 text-green-800"
-                            : "bg-amber-100 text-amber-800"
-                        }
-                      >
+                      <Badge className={caravan.status === "Confirmada" ? "bg-green-200 text-green-800" : "bg-amber-200 text-amber-800"}>
                         {caravan.status}
                       </Badge>
-                      <div className="space-x-2">
-                        {caravan.status === "Recebida" && (
-                          <Button
-                            size="sm"
-                            onClick={() => handleConfirm(caravan)}
-                            disabled={loadingId === caravan.id}
-                          >
-                            {loadingId === caravan.id ? (
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : (
-                              "Confirmar"
-                            )}
-                          </Button>
-                        )}
+                    </div>
+
+                    <div className={`text-sm ${caravan.status === "Confirmada" ? "text-green-700" : "text-amber-700"}`}>
+                      <div className="flex items-center gap-2 mb-2">
+                        <Users className="h-4 w-4" />
+                        <span>Pastor: {caravan.pastor_name}</span>
+                      </div>
+                      <div className="flex items-center gap-2 mb-2">
+                        <Map className="h-4 w-4" />
+                        <span>Placa: {caravan.vehicle_plate}</span>
+                      </div>
+                      <div className="flex items-center gap-2 mb-2">
+                        <Users className="h-4 w-4" />
+                        <span>Líder: {caravan.leader_name}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Phone className="h-4 w-4" />
+                        <span>{caravan.leader_whatsapp}</span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between pt-2 border-t" style={{borderColor: caravan.status === "Confirmada" ? "#86efac" : "#fde047"}}>
+                      <div className={`text-xs ${caravan.status === "Confirmada" ? "text-green-600" : "text-amber-600"}`}>
+                        {caravan.created_at ? new Date(caravan.created_at).toLocaleDateString("pt-BR") : "-"}
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className={caravan.status === "Confirmada" ? "text-green-600 hover:bg-green-100" : "text-amber-600 hover:bg-amber-100"}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
                         {isAdmin && (
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
-                              <Button size="sm" variant="destructive">
-                                Deletar
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="text-red-600 hover:bg-red-100"
+                              >
+                                <Trash2 className="h-4 w-4" />
                               </Button>
                             </AlertDialogTrigger>
                             <AlertDialogContent>
