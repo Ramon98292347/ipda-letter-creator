@@ -362,6 +362,24 @@ export default function DivulgacaoPage() {
     onError: () => toast.error("Falha ao excluir informativo."),
   });
 
+  const deleteProduto = useMutation({
+    mutationFn: async (id: string) => post("delete-product", { id }),
+    onSuccess: async () => {
+      toast.success("Camiseta excluída.");
+      await queryClient.invalidateQueries({ queryKey: ["div-products"] });
+    },
+    onError: () => toast.error("Falha ao excluir camiseta."),
+  });
+
+  const deleteTamanho = useMutation({
+    mutationFn: async (id: string) => post("delete-product-size", { id }),
+    onSuccess: async () => {
+      toast.success("Tamanho excluído.");
+      await queryClient.invalidateQueries({ queryKey: ["div-sizes"] });
+    },
+    onError: () => toast.error("Falha ao excluir tamanho."),
+  });
+
   const filteredOrders = useMemo(() => {
     const q = orderSearch.trim().toLowerCase();
     return orders.filter((o) => {
@@ -696,7 +714,7 @@ export default function DivulgacaoPage() {
                         <div className="flex items-center gap-3">
                           <button className="text-blue-700" onClick={() => { setEditingProdutoId(product.id); setProdutoForm({ name: product.name || "", description: product.description || "", image_urls: parsedUrls, price: String(product.price || "") }); setOpenProdutoModal(true); }}><Edit className="h-4 w-4" /></button>
                           <button className="text-slate-500" onClick={() => post("upsert-product", { id: product.id, is_active: !product.is_active }).then(() => queryClient.invalidateQueries({ queryKey: ["div-products"] }))}>{product.is_active ? <ToggleRight className="h-4 w-4" /> : <ToggleLeft className="h-4 w-4" />}</button>
-                          <button className="text-rose-600" onClick={() => post("upsert-product", { id: product.id, is_active: false }).then(() => { toast.success("Camiseta inativada."); queryClient.invalidateQueries({ queryKey: ["div-products"] }); })}><Trash2 className="h-4 w-4" /></button>
+                          <button className="text-rose-600" onClick={() => deleteProduto.mutate(product.id)}><Trash2 className="h-4 w-4" /></button>
                         </div>
                       </td>
                     </tr>
@@ -738,7 +756,7 @@ export default function DivulgacaoPage() {
                           <div className="flex items-center gap-3">
                             <button className="text-blue-700" onClick={() => { setEditingTamanhoId(size.id); setTamanhoForm({ product_id: size.product_id, size: size.size || "", stock: String(size.stock || 0) }); setOpenTamanhoModal(true); }}><Edit className="h-4 w-4" /></button>
                             <button className="text-slate-500" onClick={() => post("upsert-product-size", { id: size.id, is_active: !size.is_active }).then(() => queryClient.invalidateQueries({ queryKey: ["div-sizes"] }))}>{size.is_active ? <ToggleRight className="h-4 w-4" /> : <ToggleLeft className="h-4 w-4" />}</button>
-                            <button className="text-rose-600" onClick={() => post("upsert-product-size", { id: size.id, is_active: false }).then(() => { toast.success("Tamanho inativado."); queryClient.invalidateQueries({ queryKey: ["div-sizes"] }); })}><Trash2 className="h-4 w-4" /></button>
+                            <button className="text-rose-600" onClick={() => deleteTamanho.mutate(size.id)}><Trash2 className="h-4 w-4" /></button>
                           </div>
                         </td>
                       </tr>
