@@ -23,6 +23,7 @@ import { insertNotification, sendInternalPushNotification } from "../_shared/pus
 // URL do webhook N8N que gera o PDF da carta de pregacao
 const N8N_WEBHOOK_URL = Deno.env.get("N8N_LETTER_WEBHOOK_URL")
   || Deno.env.get("N8N_WEBHOOK_CARTA_PREGACAO")
+  || Deno.env.get("N8N_CARTA_PREGACAO_WEBHOOK_URL")
   || Deno.env.get("N8N_WEBHOOK_URL")
   || "";
 

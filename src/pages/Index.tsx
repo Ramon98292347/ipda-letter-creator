@@ -31,8 +31,8 @@ type LegacyUsuarioExtra = {
 };
 
 type CreateLetterResult = {
-  letter?: { id?: string };
-  n8n?: { ok?: boolean };
+  letter?: { id?: string; status?: string };
+  n8n?: { ok?: boolean; status?: number };
   warning?: { code?: string; detail?: string } | null;
 };
 
@@ -540,10 +540,15 @@ const Index = () => {
         toast.warning(result.warning.detail, { duration: 9000 });
       }
 
+      const createdStatus = String(result?.letter?.status || "").toUpperCase();
+      const webhookTriedNow = createdStatus === "LIBERADA";
+
       if (Boolean((result as Record<string, unknown>)?.queued)) {
         toast.success("Sem internet. Carta salva na fila e será enviada automaticamente.");
-      } else if (result?.n8n?.ok === false) {
+      } else if (webhookTriedNow && result?.n8n?.ok === false) {
         toast.warning("Carta criada, mas houve falha ao enviar para geração do PDF.");
+      } else if (!webhookTriedNow) {
+        toast.success("Carta criada com sucesso e aguardando liberação.");
       } else {
         toast.success("Carta criada e enviada para geração do PDF.");
       }
