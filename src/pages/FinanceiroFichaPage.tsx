@@ -1,12 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { ManagementShell } from "@/components/layout/ManagementShell";
-import { Calendar, Plus, Edit2, Trash2, FileText, Save, X, Download, Mail, PlusCircle, ArrowRight } from 'lucide-react';
+import { FileText, Save, PlusCircle, ArrowRight } from 'lucide-react';
 import { useFinance } from '@/contexts/FinanceContext';
 import RegistroDiarioCard from '@/components/FichaDiaria/RegistroDiarioCard';
 import RegistrarEntradaModal from '@/components/FichaDiaria/RegistrarEntradaModal';
 import { getCurrentDateBrazil } from '@/lib/dateUtils';
 import { toast } from '@/components/ui/use-toast';
 import { apiSaveFichasMes } from '@/lib/financeiroApi';
+import { useUser } from '@/context/UserContext';
 
 interface MonthlySheet {
   pdaCode: string;
@@ -33,6 +34,7 @@ interface RegistroDiario {
 
 const FichaDiaria: React.FC = () => {
   const { transactions } = useFinance();
+  const { usuario, session } = useUser();
   const currentDate = new Date();
   const [selectedMonth, setSelectedMonth] = useState(currentDate.getMonth());
   const [selectedYear, setSelectedYear] = useState(currentDate.getFullYear());
@@ -42,6 +44,7 @@ const FichaDiaria: React.FC = () => {
   // Comentario: valor a ser enviado para o próximo mês como transferência
   const [transferenciaProximoMes, setTransferenciaProximoMes] = useState(0);
   const [isSavingFicha, setIsSavingFicha] = useState(false);
+  const [isGeneratingDoc, setIsGeneratingDoc] = useState(false);
   // Comentario: valor que será enviado para o próximo mês (lançado manualmente)
   
   const [monthlySheet, setMonthlySheet] = useState<MonthlySheet>({
@@ -170,6 +173,18 @@ const FichaDiaria: React.FC = () => {
     'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
     'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
   ];
+  const registrosDoMes = useMemo(() => {
+    return registrosDiarios.filter((registro) => {
+      const data = new Date(`${registro.date}T00:00:00`);
+      return data.getMonth() === selectedMonth && data.getFullYear() === selectedYear;
+    });
+  }, [registrosDiarios, selectedMonth, selectedYear]);
+  const transacoesDoMes = useMemo(() => {
+    return transactions.filter((transacao) => {
+      const data = new Date(`${transacao.date}T00:00:00`);
+      return data.getMonth() === selectedMonth && data.getFullYear() === selectedYear;
+    });
+  }, [transactions, selectedMonth, selectedYear]);
 
   const handleRegistrarEntrada = (data: any) => {
     const novoRegistro: RegistroDiario = {
@@ -195,18 +210,84 @@ const FichaDiaria: React.FC = () => {
     localStorage.setItem('registrosDiarios', JSON.stringify(novosRegistros));
   };
 
-  const handleExportPDF = () => {
-    toast({
-      title: 'Em desenvolvimento',
-      description: 'A exportação de PDF está em desenvolvimento.'
-    });
-  };
-
-  const handleSendEmail = () => {
-    toast({
-      title: 'Em desenvolvimento',
-      description: 'O envio por email está em desenvolvimento.'
-    });
+  const handleGerarDocumento = async () => {
+    setIsGeneratingDoc(true);
+    try {
+      const entradasSalvasRaw = localStorage.getItem('entradasSalvas');
+      const entradasSalvas = entradasSalvasRaw ? JSON.parse(entradasSalvasRaw) : [];
+      const entradasSalvasDoMes = Array.isArray(entradasSalvas)
+        ? entradasSalvas.filter((entrada: any) => {
+            const data = new Date(`${String(entrada.date || '')}T00:00:00`);
+            return data.getMonth() === selectedMonth && data.getFullYear() === selectedYear;
+          })
+        : [];
+      const totaisDocumento = {
+        totalEntradasDinheiro: registrosDoMes.reduce((sum, registro) => sum + Number(registro.cashAmount || 0), 0),
+        totalTransferencias: registrosDoMes.reduce((sum, registro) => sum + Number(registro.transfer || 0), 0),
+        totalOfertasMissionarias: registrosDoMes.reduce((sum, registro) => sum + Number(registro.missionaryOffering || 0), 0),
+        transferenciaMesAnterior: Number(transferenciaMesAnterior || 0),
+      };
+      const payload = {
+        origem: 'ipda-letter-creator',
+        tipo_documento: 'ficha-financeira-mensal',
+        gerado_em: new Date().toISOString(),
+        referencia: {
+          mes: selectedMonth + 1,
+          ano: selectedYear,
+          mes_nome: monthNames[selectedMonth],
+        },
+        igreja: {
+          totvs_id: session?.totvs_id || usuario?.default_totvs_id || usuario?.totvs || null,
+          nome: session?.church_name || usuario?.church_name || usuario?.igreja_nome || null,
+          classificacao: session?.church_class || usuario?.church_class || null,
+        },
+        usuario: {
+          id: usuario?.id || null,
+          nome: usuario?.nome || usuario?.full_name || null,
+          role: usuario?.role || session?.role || null,
+        },
+        ficha_mensal: {
+          ...monthlySheet,
+          month: selectedMonth + 1,
+          year: selectedYear,
+          transferencia_mes_anterior: Number(transferenciaMesAnterior || 0),
+          transferencia_proximo_mes: Number(transferenciaProximoMes || 0),
+        },
+        totais: {
+          ...totaisDocumento,
+          totalGeral: totaisDocumento.totalEntradasDinheiro
+            + totaisDocumento.totalTransferencias
+            - totaisDocumento.totalOfertasMissionarias
+            + totaisDocumento.transferenciaMesAnterior,
+        },
+        movimentos: {
+          registros_diarios: registrosDoMes,
+          transacoes_financeiras: transacoesDoMes,
+          entradas_contagem: entradasSalvasDoMes,
+        },
+      };
+      const response = await fetch('https://n8n-n8n.ynlng8.easypanel.host/webhook/financeiro', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (!response.ok) {
+        throw new Error(`Webhook retornou ${response.status}`);
+      }
+      toast({
+        title: 'Documento enviado',
+        description: `Movimentos de ${monthNames[selectedMonth]}/${selectedYear} enviados com sucesso.`,
+      });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Erro desconhecido';
+      toast({
+        title: 'Erro ao gerar documento',
+        description: msg,
+        variant: 'destructive',
+      });
+    } finally {
+      setIsGeneratingDoc(false);
+    }
   };
 
   // Comentario: salva a ficha completa no banco (todas as entradas do mês + transferências)
@@ -284,18 +365,12 @@ const FichaDiaria: React.FC = () => {
             Registrar Entrada
           </button>
           <button
-            onClick={handleExportPDF}
-            className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+            onClick={handleGerarDocumento}
+            disabled={isGeneratingDoc}
+            className="flex items-center px-4 py-2 bg-[#1A237E] text-white rounded-lg hover:bg-[#0D47A1] disabled:opacity-50 transition-colors"
           >
-            <Download className="w-4 h-4 mr-2" />
-            PDF
-          </button>
-          <button
-            onClick={handleSendEmail}
-            className="flex items-center px-4 py-2 bg-[#1A237E] text-white rounded-lg hover:bg-[#0D47A1] transition-colors"
-          >
-            <Mail className="w-4 h-4 mr-2" />
-            Enviar
+            <FileText className="w-4 h-4 mr-2" />
+            {isGeneratingDoc ? 'Gerando...' : 'Gerar documento'}
           </button>
         </div>
       </div>
@@ -455,7 +530,7 @@ const FichaDiaria: React.FC = () => {
         </div>
         
         <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-          <h3 className="text-sm font-medium text-gray-600">Total Geral Consolidado</h3>
+          <h3 className="text-sm font-medium text-gray-600">Total Geral</h3>
           <p className="text-2xl font-bold text-[#1A237E]">
             R$ {grandTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
           </p>
