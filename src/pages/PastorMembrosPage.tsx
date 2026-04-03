@@ -738,6 +738,7 @@ export default function PastorMembrosPage() {
     queryKey: ["print-batch-carteirinhas", activeTotvsId],
     queryFn: () => listPrintBatchCarteirinhas(activeTotvsId),
     enabled: tab === "impressao" && !!activeTotvsId,
+    refetchInterval: tab === "impressao" ? 5000 : false,
   });
 
   // Comentario: filtra carteirinhas baseado no filtro selecionado
@@ -806,7 +807,7 @@ export default function PastorMembrosPage() {
 
       return all;
     },
-    enabled: Boolean(activeTotvsId) && (tab === "ficha_membro" || tab === "carteirinha" || tab === "ficha_obreiro" || tab === "impressao"),
+    enabled: Boolean(activeTotvsId),
     staleTime: 60_000,
   });
 

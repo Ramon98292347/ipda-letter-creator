@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState } from "react";
+﻿﻿﻿﻿import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -145,6 +145,7 @@ const Index = () => {
     queryFn: () => listChurchesInScope(1, 1000, activeTotvsForPastor || undefined),
     enabled: role === "admin" || Boolean(activeTotvsForPastor),
     staleTime: 60_000,
+    refetchInterval: 10000,
   });
   // Converte para o tipo Church usado nos selects do formulario
   const churches = useMemo(() => rawOwnChurches.map(apiToChurch), [rawOwnChurches]);
@@ -162,6 +163,7 @@ const Index = () => {
     queryFn: () => listChurchesInScope(1, 1000, parentTotvsId || undefined),
     enabled: (role === "admin" || Boolean(activeTotvsForPastor)) && Boolean(parentTotvsId),
     staleTime: 60_000,
+    refetchInterval: 10000,
   });
   const parentScopeChurches = useMemo(() => rawParentChurches.map(apiToChurch), [rawParentChurches]);
 
@@ -176,6 +178,7 @@ const Index = () => {
     },
     enabled: Boolean(parentTotvsId) && parentScopeChurches.length === 0,
     staleTime: 60_000,
+    refetchInterval: 10000,
   });
 
   // Mapa totvs_id -> pastor_user_id montado a partir dos dados brutos ja carregados
@@ -194,6 +197,7 @@ const Index = () => {
     queryFn: () => searchChurchesPublic(outrosDebounced, 8),
     enabled: outrosDebounced.trim().length >= 2,
     staleTime: 30_000,
+    refetchInterval: 10000,
   });
 
   // Fonte de igrejas para o campo destino: escopo da mae (se carregado) ou escopo proprio
@@ -235,6 +239,7 @@ const Index = () => {
     },
     enabled: Boolean(session?.totvs_id),
     staleTime: 60_000,
+    refetchInterval: 10000,
   });
   const origemTotvsSelecionada = String(igrejaOrigem?.codigoTotvs || activeTotvsForPastor || "").trim();
 
@@ -264,6 +269,7 @@ const Index = () => {
     queryFn: () => getPastorByTotvsPublic(origemTotvsSelecionada),
     // So chama se nao achou nos dados locais
     enabled: Boolean(origemTotvsSelecionada) && !pastorPorId && !pastorPorTotvs,
+    refetchInterval: 10000,
   });
 
   const pastorResponsavel = String(
@@ -281,14 +287,14 @@ const Index = () => {
     return list.length ? list : churches.slice(0, 3);
   }, [activeChurch, parentChurch, churches]);
 
-  // Destino esta fora do escopo proprio mas dentro do escopo da mae ? ajusta origem para a mae
+  // Destino esta fora do escopo proprio mas dentro do escopo da mae → ajusta origem para a mae
   const shouldUseParentOrigin = useMemo(() => {
     if (!igrejaDestino || !parentChurch || !activeChurch) return false;
     const d = String(igrejaDestino.codigoTotvs || "");
     return parentScopeSet.has(d) && !ownScopeSet.has(d);
   }, [igrejaDestino, parentChurch, activeChurch, parentScopeSet, ownScopeSet]);
 
-  // Para campo Outros: qualquer texto digitado la ? origem vai para a mae mais alta
+  // Para campo Outros: qualquer texto digitado la → origem vai para a mae mais alta
   const shouldUseParentOriginForOthers = Boolean(destinoOutros.trim() && parentChurch);
 
   const effectiveOrigin = useMemo(() => {
@@ -464,7 +470,7 @@ const Index = () => {
     setValue("origemId", fallback.id, { shouldValidate: true });
   }, [allowedOriginChurches, igrejaOrigem?.codigoTotvs, setValue]);
 
-  // Ajuste automatico de origem: se destino esta fora do escopo proprio ? usa a mae
+  // Ajuste automatico de origem: se destino esta fora do escopo proprio → usa a mae
   useEffect(() => {
     if (shouldUseParentOrigin || shouldUseParentOriginForOthers) {
       const parent = parentChurch;
@@ -782,7 +788,7 @@ const Index = () => {
                         setDestinoOutros(formatted);
                         setValue("destinoOutros", formatted, { shouldValidate: false });
                       }}
-                      placeholder="Ex.: 9530 campo grande ? 9530 - CAMPO GRANDE"
+                      placeholder="Ex.: 9530 campo grande → 9530 - CAMPO GRANDE"
                       disabled={Boolean(igrejaDestino) || Boolean(destinoSearch.trim())}
                       className="h-11 pl-10 rounded-xl border-slate-300 bg-slate-50 transition-colors focus:border-blue-500 focus:ring-blue-500"
                     />
@@ -934,5 +940,3 @@ const Index = () => {
 };
 
 export default Index;
-
-

@@ -58,7 +58,6 @@ const CODE_MAP: Record<string, string> = {
   church_not_found: "Sua igreja não existe no cadastro. Peça ao pastor para cadastrar primeiro.",
   profile_incomplete_for_letter: "Complete os seus dados (data de batismo, endereco e foto) para continuar emitindo cartas.",
   member_profile_incomplete_for_ficha: "Complete os dados do membro (data de batismo, endereco e foto) para emitir a ficha.",
-  obreiro_daily_same_destination_limit: "Regra de obreiro: so e permitido emitir 1 carta por dia para a mesma igreja destino.",
   cpf_already_registered: "CPF já cadastrado no sistema.",
   cpf_already_used: "Este CPF já está cadastrado no sistema.",
   password_too_short: "A senha precisa ter pelo menos 6 caracteres.",

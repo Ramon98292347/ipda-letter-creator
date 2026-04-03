@@ -2,8 +2,6 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { PageLoading } from "@/components/shared/PageLoading";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
-import { createSyncStoragePersister } from "@tanstack/query-sync-storage-persister";
 import {
   createBrowserRouter,
   createRoutesFromElements,
@@ -26,15 +24,15 @@ import { startOfflineSyncLoop } from "@/lib/offline/syncEngine";
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      // Comentario: dados ficam frescos por mais tempo para reduzir leituras repetidas.
-      staleTime: 10 * 60 * 1000,
-      // Comentario: mantém cache em memoria por 24h (a persistencia cobre reabertura do app).
-      gcTime: 24 * 60 * 60 * 1000,
+      // Comentario: dados ficam "frescos" por 5 minutos — evita refetch ao navegar entre paginas
+      staleTime: 5 * 60 * 1000,
+      // Comentario: cache fica na memoria por 30 minutos apos sair da tela
+      gcTime: 30 * 60 * 1000,
       // Comentario: nao refaz chamada so porque o usuario voltou para a aba
       refetchOnWindowFocus: false,
       refetchOnReconnect: true,
-      // Comentario: evita reconsulta no mount quando ja temos cache local/persistido.
-      refetchOnMount: false,
+      // Comentario: se dado ainda esta "fresco" (dentro do staleTime), usa o cache sem chamar a API
+      refetchOnMount: true,
       retry: 1,
     },
     mutations: {
@@ -42,14 +40,6 @@ const queryClient = new QueryClient({
     },
   },
 });
-
-const queryPersister =
-  typeof window !== "undefined"
-    ? createSyncStoragePersister({
-        storage: window.localStorage,
-        key: "ipda_rq_cache_v1",
-      })
-    : undefined;
 
 const pageFallback = <PageLoading title="Carregando" description="Aguarde..." />;
 
@@ -551,36 +541,15 @@ function AppBootstrap() {
   );
 }
 
-const AppProviders = () => (
-  <TooltipProvider>
-    <Sonner />
-    <UserProvider>
-      <AppBootstrap />
-    </UserProvider>
-  </TooltipProvider>
+const App = () => (
+  <QueryClientProvider client={queryClient}>
+    <TooltipProvider>
+      <Sonner />
+      <UserProvider>
+        <AppBootstrap />
+      </UserProvider>
+    </TooltipProvider>
+  </QueryClientProvider>
 );
-
-const App = () => {
-  if (!queryPersister) {
-    return (
-      <QueryClientProvider client={queryClient}>
-        <AppProviders />
-      </QueryClientProvider>
-    );
-  }
-
-  return (
-    <PersistQueryClientProvider
-      client={queryClient}
-      persistOptions={{
-        persister: queryPersister,
-        maxAge: 24 * 60 * 60 * 1000,
-        buster: "v1",
-      }}
-    >
-      <AppProviders />
-    </PersistQueryClientProvider>
-  );
-};
 
 export default App;

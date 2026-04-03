@@ -1,4 +1,4 @@
-﻿import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
@@ -87,17 +87,6 @@ function normalizeJwtToken(raw?: string | null): string | undefined {
   }
 }
 
-function parseJwtExp(jwt: string) {
-  try {
-    const payload = jwt.split(".")[1];
-    if (!payload) return null;
-    const json = JSON.parse(atob(payload.replace(/-/g, "+").replace(/_/g, "/")));
-    return typeof json?.exp === "number" ? json.exp : null;
-  } catch {
-    return null;
-  }
-}
-
 export function UserProvider({ children }: { children: React.ReactNode }) {
   const [usuario, setUsuario] = useState<Usuario | undefined>(() => {
     try {
@@ -138,26 +127,22 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!token) return;
 
-    const exp = parseJwtExp(token);
+    function parseExp(jwt: string) {
+      try {
+        const payload = jwt.split(".")[1];
+        if (!payload) return null;
+        const json = JSON.parse(atob(payload.replace(/-/g, "+").replace(/_/g, "/")));
+        return typeof json?.exp === "number" ? json.exp : null;
+      } catch {
+        return null;
+      }
+    }
+
+    const exp = parseExp(token);
     if (!exp) return;
     const nowSec = Math.floor(Date.now() / 1000);
     const msToExpire = (exp - nowSec) * 1000;
-    const isOffline = typeof navigator !== "undefined" && !navigator.onLine;
-    const handleOnlineResume = () => {
-      const refreshedExp = parseJwtExp(token);
-      const refreshedNow = Math.floor(Date.now() / 1000);
-      if (refreshedExp && refreshedExp <= refreshedNow) {
-        toast.error("Sessão offline expirou. Faça login novamente.");
-        clearAuth();
-      }
-    };
-
     if (msToExpire <= 0) {
-      if (isOffline) {
-        toast.message("Modo offline ativo com sessão local salva neste aparelho.");
-        window.addEventListener("online", handleOnlineResume);
-        return () => window.removeEventListener("online", handleOnlineResume);
-      }
       toast.error("Sessão expirada. Faça login novamente.");
       clearAuth();
       return;
@@ -169,19 +154,13 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       warnTimer = setTimeout(() => toast.message("Sua sessão expira em menos de 2 minutos."), warnAt);
     }
     const logoutTimer = setTimeout(() => {
-      if (typeof navigator !== "undefined" && !navigator.onLine) {
-        toast.message("Sessão mantida offline. Ao voltar a internet, será necessário entrar novamente.");
-        return;
-      }
       toast.error("Sessão expirada. Faça login novamente.");
       clearAuth();
     }, msToExpire);
-    window.addEventListener("online", handleOnlineResume);
 
     return () => {
       if (warnTimer) clearTimeout(warnTimer);
       clearTimeout(logoutTimer);
-      window.removeEventListener("online", handleOnlineResume);
     };
   }, [token]);
 
@@ -280,4 +259,3 @@ export function useUser() {
   if (!c) throw new Error("user-ctx");
   return c;
 }
-

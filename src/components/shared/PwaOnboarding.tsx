@@ -1,11 +1,9 @@
 import { useState, useEffect } from "react";
-import { Capacitor } from "@capacitor/core";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { useUser } from "@/context/UserContext";
 import { Button } from "@/components/ui/button";
 
 export function PwaOnboarding() {
-  const isNativeApp = Capacitor.isNativePlatform();
   const [show, setShow] = useState(false);
   const { usuario, session } = useUser();
 
@@ -73,7 +71,7 @@ export function PwaOnboarding() {
     }
   }, [subscribed, show]);
 
-  if (!show || !isMobile || isNativeApp) return null;
+  if (!show || !isMobile) return null;
 
   return (
     <div className="fixed bottom-0 left-0 right-0 z-50 p-4 border-t border-sky-800 bg-sky-900 shadow-2xl animate-in slide-in-from-bottom-8 duration-500">

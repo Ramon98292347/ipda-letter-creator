@@ -173,6 +173,7 @@ export default function UsuarioDocumentosPage() {
     queryKey: ["worker-dashboard-docs", userId],
     queryFn: () => workerDashboard(undefined, undefined, 1, 20),
     enabled: Boolean(userId),
+    refetchInterval: 10000,
   });
 
   const profile = data?.user;
@@ -183,12 +184,14 @@ export default function UsuarioDocumentosPage() {
     queryKey: ["pastor-by-totvs-docs", activeTotvs],
     queryFn: () => getPastorByTotvsPublic(activeTotvs),
     enabled: Boolean(activeTotvs),
+    refetchInterval: 10000,
   });
 
   const { data: docsStatus, refetch: refetchDocsStatus, isFetching: fetchingDocsStatus } = useQuery({
     queryKey: ["worker-docs-status", userId, activeTotvs],
     queryFn: () => getMemberDocsStatus({ member_id: userId, church_totvs_id: activeTotvs }),
     enabled: Boolean(userId && activeTotvs),
+    refetchInterval: 10000,
   });
 
   const fichaPronta = Boolean(
@@ -386,4 +389,3 @@ export default function UsuarioDocumentosPage() {
     </div>
   );
 }
-

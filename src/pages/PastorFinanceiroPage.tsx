@@ -56,6 +56,18 @@ export default function PastorFinanceiroPage() {
     return `${mesSelecionado.ano}-${String(mesSelecionado.mes).padStart(2, "0")}`;
   }, [mesSelecionado]);
 
+  // Comentario: gera opções dos últimos 12 meses para o select
+  const opcoesMeses = useMemo(() => {
+    const opcoes: { value: string; label: string }[] = [];
+    for (let i = 0; i < 12; i++) {
+      const d = new Date(agora.getFullYear(), agora.getMonth() - i, 1);
+      const m = d.getMonth() + 1;
+      const a = d.getFullYear();
+      opcoes.push({ value: `${m}-${a}`, label: `${NOMES_MESES[m - 1]} de ${a}` });
+    }
+    return opcoes;
+  }, []);
+
   // Comentario: busca o resumo do mês selecionado
   const { data: dashboard, isLoading: loadingDash, isError: errDash } = useQuery({
     queryKey: ["pastor-financeiro-dashboard", mesSelecionado?.mes, mesSelecionado?.ano],

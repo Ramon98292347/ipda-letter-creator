@@ -1,6 +1,4 @@
 import { listPendingOperations, markOperationError, markOperationSynced } from "@/lib/offline/repository";
-import { Capacitor } from "@capacitor/core";
-import { Network } from "@capacitor/network";
 
 type QueueItem = {
   id?: number;
@@ -24,21 +22,13 @@ function keyOf(entity: string, operation: string) {
   return `${entity}:${operation}`;
 }
 
-async function isOnlineNow() {
-  if (Capacitor.isNativePlatform()) {
-    const status = await Network.getStatus();
-    return Boolean(status.connected);
-  }
-  return typeof navigator === "undefined" ? true : navigator.onLine;
-}
-
 export function registerSyncHandler(entity: string, operation: "create" | "update" | "delete", handler: SyncHandler) {
   handlers.set(keyOf(entity, operation), handler);
 }
 
 async function processQueue() {
   if (running) return;
-  if (!(await isOnlineNow())) return;
+  if (typeof navigator !== "undefined" && !navigator.onLine) return;
   running = true;
   try {
     const pending = await listPendingOperations();

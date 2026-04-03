@@ -57,6 +57,7 @@ export default function AdminIgrejasPage() {
     queryKey: ["admin-igrejas-options", activeTotvsId],
     queryFn: () => listChurchesInScope(1, 5000, activeTotvsId || undefined),
     enabled: isAdmin || Boolean(activeTotvsId),
+    refetchInterval: 10000,
   });
 
   const { data: pageData, isLoading, isFetching } = useQuery({
@@ -64,6 +65,7 @@ export default function AdminIgrejasPage() {
     queryFn: () => listChurchesInScopePaged(page, pageSize, activeTotvsId || undefined),
     enabled: isAdmin || Boolean(activeTotvsId),
     staleTime: 30_000,
+    refetchInterval: 10000,
   });
 
   const rows = pageData?.churches || [];
