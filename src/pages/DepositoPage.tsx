@@ -70,6 +70,10 @@ function formatCurrency(value: number) {
   return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
+function formatPrice(value: number) {
+  return value === 0 ? "Grátis" : formatCurrency(value);
+}
+
 function formatNumber(value: number) {
   return value.toLocaleString("pt-BR");
 }
@@ -433,8 +437,8 @@ function EstoqueTab({
                   <td className="px-3 py-2.5"><Badge variant="outline" className="text-xs">{item.group_name}</Badge></td>
                   <td className="px-3 py-2.5 text-right font-semibold">{formatNumber(item.total_quantity)}</td>
                   <td className="px-3 py-2.5 text-right text-slate-500">{formatNumber(item.min_stock)}</td>
-                  <td className="px-3 py-2.5 text-right">{formatCurrency(item.unit_price)}</td>
-                  <td className="px-3 py-2.5 text-right font-semibold">{formatCurrency(item.total_quantity * item.unit_price)}</td>
+                  <td className="px-3 py-2.5 text-right">{formatPrice(item.unit_price)}</td>
+                  <td className="px-3 py-2.5 text-right font-semibold">{item.unit_price === 0 ? "Grátis" : formatCurrency(item.total_quantity * item.unit_price)}</td>
                   <td className="px-3 py-2.5">
                     {item.is_low_stock ? (
                       <Badge className="bg-rose-100 text-rose-700 border-rose-200 text-xs">Baixo</Badge>
@@ -736,7 +740,7 @@ function CadastroTab({ products, onEdit, onNew }: {
                 <td className="px-3 py-2.5 font-medium">{p.description}</td>
                 <td className="px-3 py-2.5"><Badge variant="outline" className="text-xs">{p.group_name}</Badge></td>
                 <td className="px-3 py-2.5">{p.unit}</td>
-                <td className="px-3 py-2.5 text-right">{formatCurrency(p.unit_price)}</td>
+                <td className="px-3 py-2.5 text-right">{formatPrice(p.unit_price)}</td>
                 <td className="px-3 py-2.5">
                   <Badge className={`text-xs ${p.is_active ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>
                     {p.is_active ? "Ativo" : "Inativo"}
