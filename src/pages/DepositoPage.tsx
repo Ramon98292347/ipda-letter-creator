@@ -37,6 +37,7 @@ import {
   ClipboardList,
   Package,
   PackagePlus,
+  Printer,
   Search,
   TrendingDown,
   AlertTriangle,
@@ -533,6 +534,87 @@ function MovimentacoesTab({ movements, loading }: { movements: DepositMovement[]
 }
 
 // ============================================================================
+// RECIBO DE TRANSFERENCIA (impressao)
+// ============================================================================
+function printTransferReceipt(m: DepositMovement) {
+  const dataFormatada = formatDate(m.created_at);
+  const html = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<title>Recibo de Transferência</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: Arial, Helvetica, sans-serif; padding: 30px; color: #1a1a1a; font-size: 13px; }
+  .header { text-align: center; border-bottom: 2px solid #1e40af; padding-bottom: 16px; margin-bottom: 20px; }
+  .header h1 { font-size: 18px; color: #1e40af; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 1px; }
+  .header p { font-size: 11px; color: #64748b; }
+  .section { margin-bottom: 18px; }
+  .section-title { font-size: 12px; font-weight: bold; color: #1e40af; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px; }
+  .row { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px dotted #e2e8f0; }
+  .row .label { font-weight: 600; color: #475569; min-width: 140px; }
+  .row .value { text-align: right; flex: 1; }
+  .highlight { background: #f0f4ff; padding: 12px; border-radius: 6px; border: 1px solid #dbeafe; margin: 16px 0; }
+  .highlight .row { border-bottom: none; }
+  .highlight .value { font-weight: 700; font-size: 15px; color: #1e40af; }
+  .signatures { display: flex; justify-content: space-between; margin-top: 60px; padding-top: 10px; }
+  .sig-line { width: 45%; text-align: center; }
+  .sig-line .line { border-top: 1px solid #1a1a1a; padding-top: 6px; font-size: 11px; color: #475569; }
+  .footer { text-align: center; margin-top: 40px; font-size: 10px; color: #94a3b8; border-top: 1px solid #e2e8f0; padding-top: 10px; }
+  .id-ref { font-family: monospace; font-size: 10px; color: #94a3b8; }
+  @media print { body { padding: 20px; } }
+</style>
+</head>
+<body>
+  <div class="header">
+    <h1>Comprovante de Transferência de Mercadoria</h1>
+    <p>Igreja Pentecostal Deus é Amor</p>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Dados da Transferência</div>
+    <div class="row"><span class="label">Data:</span><span class="value">${dataFormatada}</span></div>
+    <div class="row"><span class="label">Responsável:</span><span class="value">${m.responsible_name || "-"}</span></div>
+    <div class="row"><span class="label">Observação:</span><span class="value">${m.notes || "-"}</span></div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Mercadoria</div>
+    <div class="row"><span class="label">Código:</span><span class="value">${m.deposit_products?.code || "-"}</span></div>
+    <div class="row"><span class="label">Descrição:</span><span class="value">${m.deposit_products?.description || "-"}</span></div>
+    <div class="row"><span class="label">Grupo:</span><span class="value">${m.deposit_products?.group_name || "-"}</span></div>
+  </div>
+
+  <div class="highlight">
+    <div class="row"><span class="label">Quantidade transferida:</span><span class="value">${formatNumber(m.quantity)}</span></div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Igrejas</div>
+    <div class="row"><span class="label">Igreja de Origem (TOTVS):</span><span class="value">${m.church_origin_totvs || "-"}</span></div>
+    <div class="row"><span class="label">Igreja de Destino (TOTVS):</span><span class="value">${m.church_destination_totvs || "-"}</span></div>
+  </div>
+
+  <div class="signatures">
+    <div class="sig-line"><div class="line">Responsável pela entrega</div></div>
+    <div class="sig-line"><div class="line">Responsável pelo recebimento</div></div>
+  </div>
+
+  <div class="footer">
+    <p>Documento gerado em ${new Date().toLocaleDateString("pt-BR")} às ${new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</p>
+    <p class="id-ref">Ref: ${m.id.slice(0, 8).toUpperCase()}</p>
+  </div>
+</body>
+</html>`;
+
+  const win = window.open("", "_blank", "width=700,height=900");
+  if (!win) { toast.error("Popup bloqueado. Permita popups para imprimir."); return; }
+  win.document.write(html);
+  win.document.close();
+  win.onload = () => win.print();
+}
+
+// ============================================================================
 // ABA: TRANSFERENCIAS
 // ============================================================================
 function TransferenciasTab({ transfers, loading }: { transfers: DepositMovement[]; loading: boolean }) {
@@ -555,6 +637,7 @@ function TransferenciasTab({ transfers, loading }: { transfers: DepositMovement[
                 <th className="px-3 py-3">Destino</th>
                 <th className="px-3 py-3">Responsável</th>
                 <th className="px-3 py-3">Observação</th>
+                <th className="px-3 py-3">Recibo</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -568,6 +651,11 @@ function TransferenciasTab({ transfers, loading }: { transfers: DepositMovement[
                   <td className="px-3 py-2.5 text-xs">{m.church_destination_totvs || "-"}</td>
                   <td className="px-3 py-2.5 text-xs">{m.responsible_name || "-"}</td>
                   <td className="px-3 py-2.5 text-xs text-slate-500 truncate max-w-[200px]">{m.notes || "-"}</td>
+                  <td className="px-3 py-2.5">
+                    <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => printTransferReceipt(m)} title="Imprimir recibo">
+                      <Printer className="h-3.5 w-3.5 text-blue-600" />
+                    </Button>
+                  </td>
                 </tr>
               ))}
             </tbody>
