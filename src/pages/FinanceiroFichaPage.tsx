@@ -308,6 +308,10 @@ const FichaDiaria: React.FC = () => {
         transferencia_enviada: transferenciaProximoMes,
       });
 
+      // Comentario: mantém a última transferência para o próximo mês disponível
+      // para outras telas (ex.: Relatórios > Resumo Financeiro).
+      localStorage.setItem('transferenciaProximoMes', String(transferenciaProximoMes || 0));
+
       // Comentario: salva a transferência enviada no localStorage para o mês seguinte usar como "mês anterior"
       if (transferenciaProximoMes > 0) {
         localStorage.setItem('transferenciaMesAnterior', transferenciaProximoMes.toString());

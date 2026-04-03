@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, Download, Mail, Save, Printer, X } from 'lucide-react';
+import { Search, Save, Printer, X } from 'lucide-react';
 import { Transaction, CashCount } from '@/types/financeiro';
 import { getCurrentDateBrazil } from '@/lib/dateUtils';
 import { toast } from '@/components/ui/use-toast';
@@ -10,6 +10,7 @@ interface RelatorioFinanceiroMensalProps {
   onBack: () => void;
   transactions: Transaction[];
   cashCounts: CashCount[];
+  canPrint?: boolean;
 }
 
 interface ChurchInfo {
@@ -22,14 +23,13 @@ interface ChurchInfo {
   churchName: string;
   email: string;
   reportClosingDate: string;
-  previousResponsible: string;
-  currentResponsible: string;
 }
 
 const RelatorioFinanceiroMensal: React.FC<RelatorioFinanceiroMensalProps> = ({
   onBack: _onBack,
   transactions,
   cashCounts,
+  canPrint = false,
 }) => {
   const currentDate = new Date();
   const currentMonth = currentDate.getMonth() + 1; // 1-12
@@ -54,8 +54,6 @@ const RelatorioFinanceiroMensal: React.FC<RelatorioFinanceiroMensalProps> = ({
     churchName: '',
     email: '',
     reportClosingDate: getCurrentDateBrazil(),
-    previousResponsible: '',
-    currentResponsible: '',
   });
 
   // ── Campo de transferência do mês anterior ───────────────────────────────
@@ -65,7 +63,7 @@ const RelatorioFinanceiroMensal: React.FC<RelatorioFinanceiroMensalProps> = ({
     return saved ? parseFloat(saved) || 0 : 0;
   });
   const [nextMonthTransfer, setNextMonthTransfer] = useState(() => {
-    const saved = localStorage.getItem('transferenciaMesAnterior');
+    const saved = localStorage.getItem('transferenciaProximoMes');
     return saved ? parseFloat(saved) || 0 : 0;
   });
 
@@ -172,8 +170,6 @@ const RelatorioFinanceiroMensal: React.FC<RelatorioFinanceiroMensalProps> = ({
       churchName: church.church_name,
       email: church.contact_email || '',
       reportClosingDate: churchInfo.reportClosingDate,
-      previousResponsible: churchInfo.previousResponsible,
-      currentResponsible: churchInfo.currentResponsible,
     });
     setChurchSearch(church.church_name);
     setShowDropdown(false);
@@ -202,9 +198,7 @@ const RelatorioFinanceiroMensal: React.FC<RelatorioFinanceiroMensalProps> = ({
         missionarias_dinheiro:  missionariaDinheiro,
         missionarias_pix_cartao: missionariasChequePix,
         transferencia_mes_anterior: previousMonthTransfer,
-        // Responsáveis e data
-        responsavel_anterior: churchInfo.previousResponsible || undefined,
-        responsavel_atual:    churchInfo.currentResponsible || undefined,
+        // Data do fechamento
         data_fechamento:      churchInfo.reportClosingDate || undefined,
       });
       toast({ title: 'Relatório salvo', description: `Fechamento de ${monthNames[currentMonth - 1]}/${currentYear} salvo no banco.` });
@@ -224,17 +218,9 @@ const RelatorioFinanceiroMensal: React.FC<RelatorioFinanceiroMensalProps> = ({
 
   const handlePrint = () => window.print();
 
-  const handleExportPDF = () => {
-    toast({ title: 'Em desenvolvimento', description: 'Exportação de PDF em desenvolvimento.' });
-  };
-
-  const handleSendEmail = () => {
-    toast({ title: 'Em desenvolvimento', description: 'Envio por email em desenvolvimento.' });
-  };
-
   // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <div className="space-y-6 max-w-6xl mx-auto">
+    <div className="space-y-6 w-full">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -247,15 +233,11 @@ const RelatorioFinanceiroMensal: React.FC<RelatorioFinanceiroMensalProps> = ({
           <button onClick={handleSave} disabled={isSaving} className="flex items-center px-4 py-2 bg-[#1A237E] text-white rounded-lg hover:bg-[#0D47A1] disabled:opacity-50 transition-colors">
             <Save className="w-4 h-4 mr-2" /> {isSaving ? 'Salvando...' : 'Salvar'}
           </button>
-          <button onClick={handleExportPDF} className="flex items-center px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors">
-            <Download className="w-4 h-4 mr-2" /> PDF
-          </button>
-          <button onClick={handleSendEmail} className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
-            <Mail className="w-4 h-4 mr-2" /> Enviar
-          </button>
-          <button onClick={handlePrint} className="flex items-center px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors">
-            <Printer className="w-4 h-4 mr-2" /> Imprimir
-          </button>
+          {canPrint ? (
+            <button onClick={handlePrint} className="flex items-center px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors">
+              <Printer className="w-4 h-4 mr-2" /> Imprimir
+            </button>
+          ) : null}
         </div>
       </div>
 
@@ -395,7 +377,7 @@ const RelatorioFinanceiroMensal: React.FC<RelatorioFinanceiroMensalProps> = ({
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <h2 className="text-lg font-semibold text-gray-900 mb-4">Movimento Financeiro do Mês</h2>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div className="grid grid-cols-1 gap-8">
           {/* ENTRADAS */}
           <div>
             <h3 className="text-md font-semibold text-gray-800 mb-4 bg-green-50 p-3 rounded-lg">ENTRADAS</h3>
@@ -595,26 +577,6 @@ const RelatorioFinanceiroMensal: React.FC<RelatorioFinanceiroMensalProps> = ({
         </div>
       </div>
 
-      {/* ── Responsáveis ───────────────────────────────────────────────────── */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">Responsáveis</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Responsável Anterior</label>
-            <input type="text" value={churchInfo.previousResponsible}
-              onChange={(e) => setChurchInfo((p) => ({ ...p, previousResponsible: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1A237E] focus:border-transparent outline-none"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Responsável Atual</label>
-            <input type="text" value={churchInfo.currentResponsible}
-              onChange={(e) => setChurchInfo((p) => ({ ...p, currentResponsible: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1A237E] focus:border-transparent outline-none"
-            />
-          </div>
-        </div>
-      </div>
     </div>
   );
 };

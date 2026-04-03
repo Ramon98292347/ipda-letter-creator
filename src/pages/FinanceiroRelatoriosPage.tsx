@@ -1,17 +1,18 @@
 
 import React, { useMemo, useState, useEffect } from 'react';
 import { ManagementShell } from "@/components/layout/ManagementShell";
-import { BarChart3, Download, Calendar, Filter, FileText, TrendingUp, TrendingDown, Mail, Save, Printer, History } from 'lucide-react';
+import { BarChart3, Calendar, FileText, TrendingUp, TrendingDown, History, Wallet } from 'lucide-react';
 import { useFinance } from '@/contexts/FinanceContext';
 import RelatorioFinanceiroMensal from '@/components/Relatorios/RelatorioFinanceiroMensal';
 import { toast } from '@/components/ui/use-toast';
 import { apiListFechamentos, ApiFechamento, apiListFichasDiarias, ApiFichaDiaria } from '@/lib/financeiroApi';
+import { useUser } from '@/context/UserContext';
 
 const Relatorios: React.FC = () => {
   const { transactions, categories, cashCounts } = useFinance();
-  const [selectedPeriod, setSelectedPeriod] = useState('current-month');
-  const [selectedCategory, setSelectedCategory] = useState('all');
-  const [reportType, setReportType] = useState('summary');
+  const { usuario, session } = useUser();
+  const [isGeneratingDoc, setIsGeneratingDoc] = useState(false);
+  const [reportGenerated, setReportGenerated] = useState(false);
 
   // ── Fichas diárias do mês vigente ───────────────────────────────────────
   const [fichasDiarias, setFichasDiarias] = useState<ApiFichaDiaria[]>([]);
@@ -36,37 +37,7 @@ const Relatorios: React.FC = () => {
       .finally(() => setLoadingFechamentos(false));
   }, []);
 
-  const filteredTransactions = useMemo(() => {
-    const now = new Date();
-    let startDate: Date;
-    let endDate = new Date();
-
-    switch (selectedPeriod) {
-      case 'current-month':
-        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-        break;
-      case 'last-month':
-        startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-        endDate = new Date(now.getFullYear(), now.getMonth(), 0);
-        break;
-      case 'current-year':
-        startDate = new Date(now.getFullYear(), 0, 1);
-        break;
-      case 'last-year':
-        startDate = new Date(now.getFullYear() - 1, 0, 1);
-        endDate = new Date(now.getFullYear() - 1, 11, 31);
-        break;
-      default:
-        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-    }
-
-    return transactions.filter(t => {
-      const transactionDate = new Date(t.date);
-      const matchesPeriod = transactionDate >= startDate && transactionDate <= endDate;
-      const matchesCategory = selectedCategory === 'all' || t.category === selectedCategory;
-      return matchesPeriod && matchesCategory;
-    });
-  }, [transactions, selectedPeriod, selectedCategory]);
+  const filteredTransactions = useMemo(() => transactions, [transactions]);
   
   // Carregar entradas diárias salvas
   const entradasSalvasRaw = localStorage.getItem('registrosDiarios') || '[]';
@@ -92,23 +63,54 @@ const Relatorios: React.FC = () => {
   }, [registrosDiarios]);
 
   const totalEntries = useMemo(() => {
-    const total = filteredTransactions
+    const total = transactions
       .filter(t => t.type === 'entrada')
       .reduce((sum, t) => sum + t.amount, 0);
     return total + totalEntradasDiarias;
-  }, [filteredTransactions, totalEntradasDiarias]);
+  }, [transactions, totalEntradasDiarias]);
 
   const totalExits = useMemo(() => {
-    return filteredTransactions
+    return transactions
       .filter(t => t.type === 'saida')
       .reduce((sum, t) => sum + t.amount, 0);
-  }, [filteredTransactions]);
+  }, [transactions]);
+
+  const totalDizimos = useMemo(() => {
+    const now = new Date();
+    return cashCounts
+      .filter((c) => {
+        const [ano, mes] = c.date.split('-').map(Number);
+        return ano === now.getFullYear() && mes === (now.getMonth() + 1) && c.tipo_coleta === 'dizimos';
+      })
+      .reduce((sum, c) => sum + Number(c.valor_dinheiro || 0) + Number(c.valor_pix || 0) + Number(c.valor_cartao || 0), 0);
+  }, [cashCounts]);
+
+  const totalOfertasMissionarias = useMemo(() => {
+    const now = new Date();
+    return cashCounts
+      .filter((c) => {
+        const [ano, mes] = c.date.split('-').map(Number);
+        return ano === now.getFullYear() && mes === (now.getMonth() + 1) && c.tipo_coleta === 'ofertas-missionarias';
+      })
+      .reduce((sum, c) => sum + Number(c.valor_dinheiro || 0) + Number(c.valor_pix || 0) + Number(c.valor_cartao || 0), 0);
+  }, [cashCounts]);
+
+  const totalOfertas = useMemo(() => {
+    const now = new Date();
+    return cashCounts
+      .filter((c) => {
+        const [ano, mes] = c.date.split('-').map(Number);
+        return ano === now.getFullYear() && mes === (now.getMonth() + 1) && c.tipo_coleta === 'ofertas';
+      })
+      .reduce((sum, c) => sum + Number(c.valor_dinheiro || 0) + Number(c.valor_pix || 0) + Number(c.valor_cartao || 0), 0);
+  }, [cashCounts]);
 
   const balance = useMemo(() => totalEntries - totalExits, [totalEntries, totalExits]);
+  const saldoPositivo = useMemo(() => balance, [balance]);
 
   const transactionsByCategory = useMemo(() => {
     return categories.map(category => {
-      const categoryTransactions = filteredTransactions.filter(t => t.category === category.name);
+      const categoryTransactions = transactions.filter(t => t.category === category.name);
       const categoryTotal = categoryTransactions.reduce((sum, t) => sum + t.amount, 0);
 
       return {
@@ -119,26 +121,72 @@ const Relatorios: React.FC = () => {
         transactions: categoryTransactions
       };
     }).filter(c => c.total > 0);
-  }, [categories, filteredTransactions]);
+  }, [categories, transactions]);
 
   const recentTransactions = useMemo(() => {
-    return [...filteredTransactions]
+    return [...transactions]
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
       .slice(0, 10);
-  }, [filteredTransactions]);
+  }, [transactions]);
 
-  const generatePDF = () => {
-    toast({
-      title: 'Em desenvolvimento',
-      description: 'A geração de PDF será implementada com bibliotecas como jsPDF ou pdfmake.'
-    });
-  };
+  const handleGerarDocumentoRelatorio = async () => {
+    setIsGeneratingDoc(true);
+    try {
+      const now = new Date();
+      const payload = {
+        origem: 'ipda-letter-creator',
+        tipo_documento: 'relatorio-financeiro-mensal',
+        gerado_em: now.toISOString(),
+        referencia: {
+          mes: now.getMonth() + 1,
+          ano: now.getFullYear(),
+        },
+        igreja: {
+          totvs_id: session?.totvs_id || usuario?.default_totvs_id || usuario?.totvs || null,
+          nome: session?.church_name || usuario?.church_name || usuario?.igreja_nome || null,
+          classificacao: session?.church_class || usuario?.church_class || null,
+        },
+        usuario: {
+          id: usuario?.id || null,
+          nome: usuario?.nome || usuario?.full_name || null,
+          role: usuario?.role || session?.role || null,
+        },
+        totais: {
+          total_entradas: totalEntries,
+          total_saidas: totalExits,
+          saldo: balance,
+          total_transacoes: transactions.length,
+        },
+        movimentos: {
+          transacoes: transactions,
+          contagens_caixa: cashCounts,
+          fichas_diarias: fichasDiarias,
+          fechamentos,
+        },
+      };
 
-  const sendByEmail = () => {
-    toast({
-      title: 'Em desenvolvimento',
-      description: 'O envio por email será implementado no backend.'
-    });
+      const response = await fetch('https://n8n-n8n.ynlng8.easypanel.host/webhook/financeiro', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (!response.ok) throw new Error(`Webhook retornou ${response.status}`);
+
+      setReportGenerated(true);
+      toast({
+        title: 'Documento gerado',
+        description: 'Relatório enviado ao n8n com sucesso.',
+      });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Erro desconhecido';
+      toast({
+        title: 'Erro ao gerar documento',
+        description: msg,
+        variant: 'destructive',
+      });
+    } finally {
+      setIsGeneratingDoc(false);
+    }
   };
 
   return (
@@ -156,134 +204,99 @@ const Relatorios: React.FC = () => {
         
         <div className="flex space-x-3 mt-4 sm:mt-0">
           <button
-            onClick={generatePDF}
-            className="flex items-center px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+            onClick={handleGerarDocumentoRelatorio}
+            disabled={isGeneratingDoc}
+            className="flex items-center px-4 py-2 bg-[#1A237E] text-white rounded-lg hover:bg-[#0D47A1] disabled:opacity-50 transition-colors"
           >
-            <Download className="w-4 h-4 mr-2" />
-            Gerar PDF
+            <FileText className="w-4 h-4 mr-2" />
+            {isGeneratingDoc ? 'Gerando...' : 'Gerar documento'}
           </button>
-          <button
-            onClick={sendByEmail}
-            className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-          >
-            <Mail className="w-4 h-4 mr-2" />
-            Enviar por Email
-          </button>
-        </div>
-      </div>
-
-      {/* Filters */}
-      <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-          <Filter className="w-5 h-5 mr-2" />
-          Filtros
-        </h2>
-        
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Período
-            </label>
-            <select
-              value={selectedPeriod}
-              onChange={(e) => setSelectedPeriod(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1A237E] focus:border-transparent outline-none transition-colors"
-            >
-              <option value="current-month">Mês Atual</option>
-              <option value="last-month">Mês Anterior</option>
-              <option value="current-year">Ano Atual</option>
-              <option value="last-year">Ano Anterior</option>
-            </select>
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Categoria
-            </label>
-            <select
-              value={selectedCategory}
-              onChange={(e) => setSelectedCategory(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1A237E] focus:border-transparent outline-none transition-colors"
-            >
-              <option value="all">Todas as Categorias</option>
-              {categories.map((category) => (
-                <option key={category.id} value={category.name}>
-                  {category.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Tipo de Relatório
-            </label>
-            <select
-              value={reportType}
-              onChange={(e) => setReportType(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1A237E] focus:border-transparent outline-none transition-colors"
-            >
-              <option value="summary">Resumo Geral</option>
-              <option value="detailed">Detalhado</option>
-              <option value="category">Por Categoria</option>
-            </select>
-          </div>
         </div>
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6 gap-6">
+        <div className="bg-gradient-to-br from-emerald-500 to-emerald-700 p-6 rounded-xl shadow-md border-0">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">Total Entradas</p>
-              <p className="text-2xl font-bold text-green-600">
+              <p className="text-sm font-medium text-white/90">Total Entradas</p>
+              <p className="text-2xl font-bold text-white">
                 R$ {totalEntries.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </p>
             </div>
-            <TrendingUp className="w-8 h-8 text-green-600" />
+            <div className="rounded-lg bg-white/20 p-2">
+              <TrendingUp className="w-6 h-6 text-white" />
+            </div>
           </div>
         </div>
         
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+        <div className="bg-gradient-to-br from-red-500 to-red-700 p-6 rounded-xl shadow-md border-0">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">Total Saídas</p>
-              <p className="text-2xl font-bold text-red-600">
+              <p className="text-sm font-medium text-white/90">Total Saídas</p>
+              <p className="text-2xl font-bold text-white">
                 R$ {totalExits.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </p>
             </div>
-            <TrendingDown className="w-8 h-8 text-red-600" />
-          </div>
-        </div>
-        
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Saldo</p>
-              <p className={`text-2xl font-bold ${balance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                R$ {balance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-              </p>
-            </div>
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-              balance >= 0 ? 'bg-green-100' : 'bg-red-100'
-            }`}>
-              <span className={`text-lg font-bold ${balance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                {balance >= 0 ? '+' : '-'}
-              </span>
+            <div className="rounded-lg bg-white/20 p-2">
+              <TrendingDown className="w-6 h-6 text-white" />
             </div>
           </div>
         </div>
         
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+        <div className="bg-gradient-to-br from-blue-500 to-blue-700 p-6 rounded-xl shadow-md border-0">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">Transações</p>
-              <p className="text-2xl font-bold text-[#1A237E]">
-                {filteredTransactions.length}
+              <p className="text-sm font-medium text-white/90">Dízimos</p>
+              <p className="text-2xl font-bold text-white">
+                R$ {totalDizimos.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </p>
             </div>
-            <FileText className="w-8 h-8 text-[#1A237E]" />
+            <div className="rounded-lg bg-white/20 p-2">
+              <FileText className="w-6 h-6 text-white" />
+            </div>
+          </div>
+        </div>
+        
+        <div className="bg-gradient-to-br from-orange-500 to-orange-700 p-6 rounded-xl shadow-md border-0">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-white/90">Total Ofertas Missionárias</p>
+              <p className="text-2xl font-bold text-white">
+                R$ {totalOfertasMissionarias.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </p>
+            </div>
+            <div className="rounded-lg bg-white/20 p-2">
+              <History className="w-6 h-6 text-white" />
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-gradient-to-br from-cyan-500 to-cyan-700 p-6 rounded-xl shadow-md border-0">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-white/90">Total Ofertas</p>
+              <p className="text-2xl font-bold text-white">
+                R$ {totalOfertas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </p>
+            </div>
+            <div className="rounded-lg bg-white/20 p-2">
+              <Wallet className="w-6 h-6 text-white" />
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-gradient-to-br from-indigo-500 to-indigo-700 p-6 rounded-xl shadow-md border-0">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-white/90">Saldo Positivo</p>
+              <p className="text-2xl font-bold text-white">
+                R$ {saldoPositivo.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </p>
+            </div>
+            <div className="rounded-lg bg-white/20 p-2">
+              <TrendingUp className="w-6 h-6 text-white" />
+            </div>
           </div>
         </div>
       </div>
@@ -293,10 +306,11 @@ const Relatorios: React.FC = () => {
         onBack={() => {}}
         transactions={filteredTransactions}
         cashCounts={cashCounts}
+        canPrint={reportGenerated}
       />
 
       {/* Charts and Analysis */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 gap-6">
         {/* Category Analysis */}
         <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Análise por Categoria</h3>
@@ -576,93 +590,6 @@ const Relatorios: React.FC = () => {
         )}
       </div>
 
-      {/* Detailed Report Table */}
-      {reportType === 'detailed' && (
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-          <div className="p-6 border-b border-gray-200">
-            <h2 className="text-lg font-semibold text-gray-900">Relatório Detalhado</h2>
-          </div>
-          
-          <div className="space-y-3 p-4 md:hidden">
-            {filteredTransactions.map((transaction) => (
-              <div key={`mobile-detail-${transaction.id}`} className="rounded-lg border border-gray-200 bg-white p-3">
-                <p className="text-sm font-semibold text-gray-900">{transaction.description}</p>
-                <div className="mt-1 space-y-1 text-xs text-gray-600">
-                  <p>Data: {new Date(transaction.date).toLocaleDateString('pt-BR')}</p>
-                  <p>Categoria: {transaction.category}</p>
-                  <p>
-                    Tipo:{" "}
-                    <span className={`inline-flex px-2 py-0.5 text-xs font-semibold rounded-full ${
-                      transaction.type === 'entrada' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                    }`}>
-                      {transaction.type === 'entrada' ? 'Entrada' : 'Saída'}
-                    </span>
-                  </p>
-                </div>
-                <p className={`mt-2 text-sm font-semibold ${transaction.type === 'entrada' ? 'text-green-600' : 'text-red-600'}`}>
-                  R$ {transaction.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                </p>
-              </div>
-            ))}
-          </div>
-          <div className="hidden overflow-x-auto md:block">
-            <table className="w-full">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Data
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Descrição
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Categoria
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Tipo
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Valor
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {filteredTransactions.map((transaction) => (
-                  <tr key={transaction.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {new Date(transaction.date).toLocaleDateString('pt-BR')}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">
-                        {transaction.description}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {transaction.category}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                        transaction.type === 'entrada' ? 
-                          'bg-green-100 text-green-800' : 
-                          'bg-red-100 text-red-800'
-                      }`}>
-                        {transaction.type === 'entrada' ? 'Entrada' : 'Saída'}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className={`text-sm font-semibold ${
-                        transaction.type === 'entrada' ? 'text-green-600' : 'text-red-600'
-                      }`}>
-                        R$ {transaction.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
     </div>
     </ManagementShell>
   );
