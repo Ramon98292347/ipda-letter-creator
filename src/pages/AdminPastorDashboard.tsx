@@ -40,7 +40,6 @@ export default function AdminPastorDashboard() {
     queryKey: ["pastor-panel-data", activeTotvsId],
     queryFn: () => getPastorPanelData(activeTotvsId || undefined),
     enabled: Boolean(activeTotvsId),
-    refetchInterval: 60 * 1000,
   });
 
   const fullScopeChurches = panelData?.churches || [];
@@ -58,7 +57,6 @@ export default function AdminPastorDashboard() {
     queryFn: () => getPastorMetrics(),
     enabled: Boolean(activeTotvsId),
     // Atualiza metricas automaticamente a cada 60 segundos
-    refetchInterval: 60 * 1000,
   });
 
   const { data: letters = [] } = useQuery({
@@ -78,7 +76,6 @@ export default function AdminPastorDashboard() {
     },
     enabled: effectiveScopeTotvsIds.length > 0,
     // Atualiza lista de cartas automaticamente a cada 60 segundos
-    refetchInterval: 60 * 1000,
   });
 
   // obreiros agora vem de panelData (busca unificada com getPastorPanelData).
@@ -105,14 +102,12 @@ export default function AdminPastorDashboard() {
     queryKey: ["admin-church-summary", effectiveScopeTotvsIds.join("|")],
     queryFn: () => listAdminChurchSummary(effectiveScopeTotvsIds),
     enabled: canManageChurches && effectiveScopeTotvsIds.length > 0,
-    refetchInterval: 10000,
   });
 
   const { data: churchesPaged } = useQuery({
     queryKey: ["churches-in-scope", churchPage, churchPageSize],
     queryFn: () => listChurchesInScopePaged(churchPage, churchPageSize),
     enabled: canManageChurches,
-    refetchInterval: 10000,
   });
   const churchesInScope = churchesPaged?.churches || [];
   const churchesTotal = churchesPaged?.total || churchesInScope.length;
@@ -123,7 +118,6 @@ export default function AdminPastorDashboard() {
     queryKey: ["notifications", 1, 50],
     queryFn: () => listNotifications(1, 50, false),
     enabled: Boolean((session?.totvs_id || session?.root_totvs_id) && token),
-    refetchInterval: 60 * 1000,
   });
   const notifications = notificationsData?.notifications || [];
   const unreadCount = notificationsData?.unread_count || 0;
@@ -395,3 +389,4 @@ export default function AdminPastorDashboard() {
     </div>
   );
 }
+

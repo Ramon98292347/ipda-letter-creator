@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useUser } from "@/context/UserContext";
@@ -132,7 +132,7 @@ export default function UsuarioDashboard() {
     marital_status: "",
     profession: "",
     birth_date: "",
-    // Comentario: data de batismo e data de separação/ordenação — exibidos para cooperador e acima
+    // Comentario: data de batismo e data de separaÃ§Ã£o/ordenaÃ§Ã£o â€” exibidos para cooperador e acima
     baptism_date: "",
     ordination_date: "",
     avatar_url: "",
@@ -155,9 +155,9 @@ export default function UsuarioDashboard() {
   const [destinationOptions, setDestinationOptions] = useState<DestinationOption[]>([]);
   const [searchingDestinations, setSearchingDestinations] = useState(false);
   const [creatingLetter, setCreatingLetter] = useState(false);
-  // Dados brutos das igrejas do escopo (com info do pastor) — para calcular signerChurch
+  // Dados brutos das igrejas do escopo (com info do pastor) â€” para calcular signerChurch
   const [rawScopeChurches, setRawScopeChurches] = useState<ChurchInScopeItem[]>([]);
-  // Ancestrais acima do scope root (para campo "Outros" — mae mais alta com pastor)
+  // Ancestrais acima do scope root (para campo "Outros" â€” mae mais alta com pastor)
   const [ancestorChain, setAncestorChain] = useState<AncestorChainItem[]>([]);
   // Debounce e busca publica para o campo "Outros"
   const [outrosDebounced, setOutrosDebounced] = useState("");
@@ -207,14 +207,12 @@ export default function UsuarioDashboard() {
     queryFn: () => workerDashboard(undefined, undefined, 1, 200),
     enabled: Boolean(userId),
     // Atualiza cartas e dados do obreiro automaticamente a cada 60 segundos
-    refetchInterval: 60 * 1000,
   });
 
   const { data: pastorFromUsers } = useQuery({
     queryKey: ["pastor-by-totvs", activeTotvs],
     queryFn: () => getPastorByTotvsPublic(activeTotvs),
     enabled: Boolean(activeTotvs),
-    refetchInterval: 10000,
   });
 
   // Verifica se o usuario tem ficha de membro gerada (necessaria para QR code nas cartas)
@@ -232,7 +230,7 @@ export default function UsuarioDashboard() {
     if (!fichaUrl) {
       setFichaAlertShown(true);
       toast.warning(
-        "Faça a sua ficha de membro para continuar emitindo cartas. Sem a ficha, suas cartas poderão ser bloqueadas.",
+        "FaÃ§a a sua ficha de membro para continuar emitindo cartas. Sem a ficha, suas cartas poderÃ£o ser bloqueadas.",
         { duration: 8000 },
       );
     }
@@ -260,7 +258,7 @@ export default function UsuarioDashboard() {
       marital_status: String(profileRaw?.marital_status || ""),
       profession: String(profileRaw?.profession || ""),
       birth_date: String(profile?.birth_date || ""),
-      // Comentario: preenche campos de batismo e separação vindos do perfil
+      // Comentario: preenche campos de batismo e separaÃ§Ã£o vindos do perfil
       baptism_date: String(profileRaw?.baptism_date || ""),
       ordination_date: String(profileRaw?.ordination_date || ""),
       avatar_url: String(profile?.avatar_url || ""),
@@ -407,7 +405,7 @@ async function openPdf(letter: PastorLetter) {
       if (!url) throw new Error("signed-url-empty");
       window.open(url, "_blank");
     } catch {
-      toast.error("PDF ainda não liberado. Use o botão Pedir liberação.");
+      toast.error("PDF ainda nÃ£o liberado. Use o botÃ£o Pedir liberaÃ§Ã£o.");
     }
   }
 
@@ -416,32 +414,32 @@ async function openPdf(letter: PastorLetter) {
     if (!isLetterReadyForView(letter)) return toast.error("Carta bloqueada para compartilhamento.");
     const directUrl = String(letter.url_carta || "").trim();
     if (directUrl.startsWith("http://") || directUrl.startsWith("https://")) {
-      window.open(`https://wa.me/?text=${encodeURIComponent(`Carta de pregação: ${directUrl}`)}`, "_blank");
+      window.open(`https://wa.me/?text=${encodeURIComponent(`Carta de pregaÃ§Ã£o: ${directUrl}`)}`, "_blank");
       return;
     }
     try {
       const url = await getSignedPdfUrl(letter.id);
       if (!url) throw new Error("share-url-empty");
-      window.open(`https://wa.me/?text=${encodeURIComponent(`Carta de pregação: ${url}`)}`, "_blank");
+      window.open(`https://wa.me/?text=${encodeURIComponent(`Carta de pregaÃ§Ã£o: ${url}`)}`, "_blank");
     } catch {
-      toast.error("PDF ainda não liberado para compartilhamento.");
+      toast.error("PDF ainda nÃ£o liberado para compartilhamento.");
     }
   }
 
   async function pedirLiberacao(letter: PastorLetter) {
     if (isCadastroPendente) return toast.error("Cadastro pendente. Procure a secretaria da igreja.");
-    if (hasDirectRelease) return toast.info("Sua liberação direta está ativa. Não é necessário pedir liberação.");
+    if (hasDirectRelease) return toast.info("Sua liberaÃ§Ã£o direta estÃ¡ ativa. NÃ£o Ã© necessÃ¡rio pedir liberaÃ§Ã£o.");
     try {
       await requestRelease(letter.id, userId, session?.totvs_id || "");
       toast.success("Pedido enviado.");
       await queryClient.invalidateQueries({ queryKey: ["worker-dashboard"] });
     } catch {
-      toast.error("Falha ao solicitar liberação.");
+      toast.error("Falha ao solicitar liberaÃ§Ã£o.");
     }
   }
 
   async function excluirCarta(letter: PastorLetter) {
-    // Confirmação antes de excluir
+    // ConfirmaÃ§Ã£o antes de excluir
     if (!window.confirm(`Excluir a carta para "${letter.church_destination || "destino"}"? Esta acao nao pode ser desfeita.`)) return;
     try {
       await softDeleteLetter(letter.id);
@@ -474,7 +472,7 @@ async function openPdf(letter: PastorLetter) {
       .then((churches) => {
         setRawScopeChurches(churches);
         // Comentario: ordena pela hierarquia (estadual > setorial > central > regional > local)
-        // e dentro de cada nível, pelo TOTVS numérico crescente.
+        // e dentro de cada nÃ­vel, pelo TOTVS numÃ©rico crescente.
         const classOrder: Record<string, number> = { estadual: 0, setorial: 1, central: 2, regional: 3, local: 4 };
         setDestinationOptions(
           [...churches]
@@ -498,8 +496,8 @@ async function openPdf(letter: PastorLetter) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [openLetterDialog]);
 
-  // ─── Igreja assinante (origem da carta) ─────────────────────────────────────
-  // Comentario: igual ao telas-cartas — regional/local NUNCA e a origem.
+  // â”€â”€â”€ Igreja assinante (origem da carta) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // Comentario: igual ao telas-cartas â€” regional/local NUNCA e a origem.
   // Percorre rawScopeChurches de baixo para cima a partir da propria igreja do obreiro
   // ate achar a primeira com pastor (mae direta). Para "Outros", usa highestSignerForOthers.
   const signerChurch = useMemo<ChurchInScopeItem | null>(() => {
@@ -516,13 +514,13 @@ async function openPdf(letter: PastorLetter) {
       const parentId = String(cur.parent_totvs_id || "");
       cur = byId.get(parentId) || null;
     }
-    // Fallback: raiz do escopo (sem pai no escopo) — provavelmente tem pastor
+    // Fallback: raiz do escopo (sem pai no escopo) â€” provavelmente tem pastor
     const allIds = new Set(rawScopeChurches.map((c) => String(c.totvs_id || "")));
     return rawScopeChurches.find((c) => !c.parent_totvs_id || !allIds.has(String(c.parent_totvs_id || ""))) || null;
   }, [rawScopeChurches, session?.totvs_id]);
 
   // Mae mais alta com pastor: percorre ancestorChain do final (mais alto) para o inicio.
-  // Usada no campo "Outros" — sempre pega estadual > setorial > central.
+  // Usada no campo "Outros" â€” sempre pega estadual > setorial > central.
   const highestSignerForOthers = useMemo<AncestorChainItem | null>(() => {
     for (let i = ancestorChain.length - 1; i >= 0; i--) {
       if (ancestorChain[i].pastor?.full_name) return ancestorChain[i];
@@ -555,7 +553,7 @@ async function openPdf(letter: PastorLetter) {
   // Comentario: calcula a origem correta baseada no destino selecionado.
   // Regra: se o destino esta na sub-arvore do signerChurch (mae), usa a mae.
   // Se nao, sobe pela ancestorChain ate achar um ancestral cuja sub-arvore inclua o destino.
-  // Exemplo: central X quer pregar em central Y (mae setorial B) → origem = estadual E (avo comum).
+  // Exemplo: central X quer pregar em central Y (mae setorial B) â†’ origem = estadual E (avo comum).
   const computedOrigin = useMemo(() => {
     const manualFilled = !!letterForm.igreja_destino_manual.trim();
     // Comentario: campo "Outros" sempre usa a mae mais alta (estadual/setorial)
@@ -565,7 +563,7 @@ async function openPdf(letter: PastorLetter) {
         totvs: highestSignerForOthers?.totvs_id || String(signerChurch?.totvs_id || "") || String(session?.totvs_id || ""),
       };
     }
-    // Comentario: destino selecionado da lista — verifica se esta no escopo da mae
+    // Comentario: destino selecionado da lista â€” verifica se esta no escopo da mae
     const destTotvs = String(letterForm.igreja_destino || "").trim();
     const destMatch = destinationOptions.find(
       (o) => o.totvs_id === destTotvs || `${o.totvs_id} - ${o.church_name}`.trim().toUpperCase() === destTotvs.toUpperCase()
@@ -585,7 +583,7 @@ async function openPdf(letter: PastorLetter) {
         totvs: String(signerChurch.totvs_id || "") || String(session?.totvs_id || ""),
       };
     }
-    // ─── REGRA DE IRMAS ────────────────────────────────────────────────────────
+    // â”€â”€â”€ REGRA DE IRMAS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     // Comentario: se a origem (signerChurch) e o destino compartilham a MESMA MAE
     // (mesmo parent_totvs_id), sao irmas na hierarquia.
     // Nesse caso, a carta sai com a propria igreja (signerChurch) como origem,
@@ -601,7 +599,7 @@ async function openPdf(letter: PastorLetter) {
         totvs: String(signerChurch.totvs_id || "") || String(session?.totvs_id || ""),
       };
     }
-    // ─── FIM REGRA DE IRMAS ────────────────────────────────────────────────────
+    // â”€â”€â”€ FIM REGRA DE IRMAS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     // Comentario: destino em ramo diferente (mae diferente). Sobe pela ancestorChain
     // ate achar o primeiro ancestral com pastor cuja sub-arvore inclua o destino.
     // Ex.: Central A (mae: Estadual X) para Central C (mae: Setorial Y) = origem Estadual X.
@@ -610,7 +608,7 @@ async function openPdf(letter: PastorLetter) {
         return { name: ancestor.church_name, totvs: ancestor.totvs_id };
       }
     }
-    // Comentario: fallback — mae mais alta com pastor
+    // Comentario: fallback â€” mae mais alta com pastor
     return {
       name: highestSignerForOthers?.church_name || signerChurch?.church_name || session?.church_name || "",
       totvs: highestSignerForOthers?.totvs_id || String(signerChurch?.totvs_id || "") || String(session?.totvs_id || ""),
@@ -621,7 +619,7 @@ async function openPdf(letter: PastorLetter) {
   const displayOriginName = computedOrigin.name;
   const displayOriginTotvs = computedOrigin.totvs;
 
-  // ─── Debounce e busca publica para o campo "Outros" ─────────────────────────
+  // â”€â”€â”€ Debounce e busca publica para o campo "Outros" â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   useEffect(() => {
     const t = setTimeout(() => setOutrosDebounced(letterForm.igreja_destino_manual), 300);
     return () => clearTimeout(t);
@@ -716,15 +714,15 @@ async function openPdf(letter: PastorLetter) {
       return;
     }
     if (!letterForm.dia_pregacao) {
-      toast.error("Informe a data da pregação.");
+      toast.error("Informe a data da pregaÃ§Ã£o.");
       return;
     }
     if (letterForm.dia_pregacao < todayIso || letterForm.dia_pregacao > maxPregacaoIso) {
-      toast.error("A data da pregação deve ficar entre hoje e os próximos 30 dias.");
+      toast.error("A data da pregaÃ§Ã£o deve ficar entre hoje e os prÃ³ximos 30 dias.");
       return;
     }
     if (!letterForm.preach_period) {
-      toast.error("Selecione o horário da pregação: Manhã, Tarde ou Noite.");
+      toast.error("Selecione o horÃ¡rio da pregaÃ§Ã£o: ManhÃ£, Tarde ou Noite.");
       return;
     }
 
@@ -746,14 +744,14 @@ async function openPdf(letter: PastorLetter) {
         email: String(profile?.email || "") || null,
       });
       if (Boolean((result as Record<string, unknown>)?.queued)) {
-        toast.success("Sem internet. Carta salva na fila e será enviada automaticamente.");
+        toast.success("Sem internet. Carta salva na fila e serÃ¡ enviada automaticamente.");
       } else {
         toast.success("Carta enviada com sucesso.");
       }
       setOpenLetterDialog(false);
       await queryClient.invalidateQueries({ queryKey: ["worker-dashboard"] });
     } catch (err) {
-      toast.error(String((err as Error)?.message || "Não foi possível enviar a carta."));
+      toast.error(String((err as Error)?.message || "NÃ£o foi possÃ­vel enviar a carta."));
     } finally {
       setCreatingLetter(false);
     }
@@ -773,9 +771,9 @@ async function openPdf(letter: PastorLetter) {
   }
 
   async function salvarPerfil() {
-    // Comentario: foto é obrigatória — verifica se já tem foto ou está enviando nova
+    // Comentario: foto Ã© obrigatÃ³ria â€” verifica se jÃ¡ tem foto ou estÃ¡ enviando nova
     if (!avatarFile && !profileForm.avatar_url) {
-      toast.error("A foto 3x4 é obrigatória. Tire uma foto ou envie da galeria.");
+      toast.error("A foto 3x4 Ã© obrigatÃ³ria. Tire uma foto ou envie da galeria.");
       return;
     }
     setSavingProfile(true);
@@ -804,7 +802,7 @@ async function openPdf(letter: PastorLetter) {
         marital_status: profileForm.marital_status || undefined,
         profession: profileForm.profession || undefined,
         birth_date: profileForm.birth_date || undefined,
-        // Comentario: envia campos de batismo e separação ao backend
+        // Comentario: envia campos de batismo e separaÃ§Ã£o ao backend
         baptism_date: profileForm.baptism_date || undefined,
         ordination_date: profileForm.ordination_date || undefined,
         avatar_url: avatarUrl,
@@ -842,7 +840,7 @@ async function openPdf(letter: PastorLetter) {
         <section className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
           {isCadastroPendente ? (
             <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-              Seu cadastro está pendente de liberação. Cartas e documentos ficam bloqueados até aprovação.
+              Seu cadastro estÃ¡ pendente de liberaÃ§Ã£o. Cartas e documentos ficam bloqueados atÃ© aprovaÃ§Ã£o.
             </div>
           ) : null}
           <div className="grid gap-2 md:grid-cols-3">
@@ -851,13 +849,13 @@ async function openPdf(letter: PastorLetter) {
             </Button>
             {!isObreiro ? (
               <Button variant="outline" onClick={pedirPrimeiraLiberacao} className="w-full" disabled={isCadastroPendente || hasDirectRelease}>
-                <Unlock className="mr-2 h-4 w-4" /> Pedir liberação de carta
+                <Unlock className="mr-2 h-4 w-4" /> Pedir liberaÃ§Ã£o de carta
               </Button>
             ) : null}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" className="w-full" disabled={isCadastroPendente}>
-                  <MoreHorizontal className="mr-2 h-4 w-4" /> Ações
+                  <MoreHorizontal className="mr-2 h-4 w-4" /> AÃ§Ãµes
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent className="w-64">
@@ -891,28 +889,28 @@ async function openPdf(letter: PastorLetter) {
         </section>
 
         <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          {/* Card azul — total de cartas */}
+          {/* Card azul â€” total de cartas */}
           <Card className="rounded-xl border-0 bg-gradient-to-br from-blue-500 to-blue-700 shadow-md">
             <CardContent className="p-5">
               <p className="text-sm font-semibold text-white/80">Total de cartas</p>
               <p className="text-4xl font-extrabold text-white">{stats.totalCartas}</p>
             </CardContent>
           </Card>
-          {/* Card ciano — cartas dos ultimos 7 dias */}
+          {/* Card ciano â€” cartas dos ultimos 7 dias */}
           <Card className="rounded-xl border-0 bg-gradient-to-br from-cyan-500 to-cyan-700 shadow-md">
             <CardContent className="p-5">
               <p className="text-sm font-semibold text-white/80">Total de cartas (7 dias)</p>
               <p className="text-4xl font-extrabold text-white">{stats.cartas7dias}</p>
             </CardContent>
           </Card>
-          {/* Card verde — cartas de hoje */}
+          {/* Card verde â€” cartas de hoje */}
           <Card className="rounded-xl border-0 bg-gradient-to-br from-emerald-500 to-emerald-700 shadow-md">
             <CardContent className="p-5">
               <p className="text-sm font-semibold text-white/80">Cartas hoje</p>
               <p className="text-4xl font-extrabold text-white">{stats.cartasHoje}</p>
             </CardContent>
           </Card>
-          {/* Card amarelo — cartas aguardando liberacao */}
+          {/* Card amarelo â€” cartas aguardando liberacao */}
           <Card className="rounded-xl border-0 bg-gradient-to-br from-amber-400 to-amber-600 shadow-md">
             <CardContent className="p-5">
               <p className="text-sm font-semibold text-white/80">Aguardando liberacao</p>
@@ -968,7 +966,7 @@ async function openPdf(letter: PastorLetter) {
                       <p className="text-xs text-slate-600">Origem: {letter.church_origin || "-"}</p>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="outline" className="w-full"><MoreHorizontal className="mr-2 h-4 w-4" /> Ações</Button>
+                          <Button variant="outline" className="w-full"><MoreHorizontal className="mr-2 h-4 w-4" /> AÃ§Ãµes</Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent>
                           <DropdownMenuItem disabled={!canOpen} onClick={() => openPdf(letter)}>
@@ -992,11 +990,11 @@ async function openPdf(letter: PastorLetter) {
               <div className="min-w-[840px]">
                 <div className="grid grid-cols-[120px_120px_180px_180px_180px_60px] border-b bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-600">
                   <span>Criada em</span>
-                  <span>Data pregação</span>
+                  <span>Data pregaÃ§Ã£o</span>
                   <span>Origem</span>
                   <span>Destino</span>
                   <span>Status</span>
-                  <span>Ações</span>
+                  <span>AÃ§Ãµes</span>
                 </div>
                 {visibleLetters.map((letter) => {
                   const canOpen = isLetterReadyForView(letter);
@@ -1051,15 +1049,15 @@ async function openPdf(letter: PastorLetter) {
       <Dialog open={openLetterDialog} onOpenChange={setOpenLetterDialog}>
         <DialogContent className="max-h-[90vh] w-[calc(100vw-1rem)] max-w-6xl overflow-y-auto p-3 sm:p-6">
           <DialogHeader>
-            <DialogTitle>Registro de Carta de Pregação</DialogTitle>
-            <DialogDescription>Preencha os dados para emissão da carta.</DialogDescription>
+            <DialogTitle>Registro de Carta de PregaÃ§Ã£o</DialogTitle>
+            <DialogDescription>Preencha os dados para emissÃ£o da carta.</DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 sm:gap-6 xl:grid-cols-[1.35fr_1fr]">
             {/* Form card */}
             <Card className="border-slate-200 shadow-sm">
               <CardHeader className="space-y-1">
                 <CardTitle className="flex items-start gap-2 text-xl text-slate-900 sm:items-center sm:text-2xl">
-                  <FileText className="h-6 w-6 text-blue-600" /> Registro de Carta de Pregação
+                  <FileText className="h-6 w-6 text-blue-600" /> Registro de Carta de PregaÃ§Ã£o
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-5">
@@ -1069,11 +1067,11 @@ async function openPdf(letter: PastorLetter) {
                 </div>
                 <div className="space-y-2">
                   <Label>Telefone</Label>
-                  <Input value={profile?.phone || usuario?.telefone || ""} disabled placeholder="Telefone não informado" />
+                  <Input value={profile?.phone || usuario?.telefone || ""} disabled placeholder="Telefone nÃ£o informado" />
                 </div>
                 <div className="space-y-2">
                   <Label>Igreja que faz a carta (origem)</Label>
-                  {/* Comentario: sempre mostra a mae com pastor — regional/local nunca e origem.
+                  {/* Comentario: sempre mostra a mae com pastor â€” regional/local nunca e origem.
                       Mesma regra do telas-cartas: mae direta para destino normal,
                       mae mais alta (estadual > setorial > central) para o campo "Outros". */}
                   <div className="relative">
@@ -1084,7 +1082,7 @@ async function openPdf(letter: PastorLetter) {
                       className="pl-10"
                     />
                   </div>
-                  {/* Aviso quando "Outros" esta preenchido — origem subiu para a mae mais alta */}
+                  {/* Aviso quando "Outros" esta preenchido â€” origem subiu para a mae mais alta */}
                   {!!letterForm.igreja_destino_manual.trim() && displayOriginName && (
                     <p className="text-xs text-amber-700">
                       Destino fora do escopo. A carta sera emitida pela: {displayOriginName}.
@@ -1167,7 +1165,7 @@ async function openPdf(letter: PastorLetter) {
                 <div className="space-y-2">
                   <Label>Outros (se nao encontrar)</Label>
                   {/* Comentario: busca qualquer igreja do banco com 2+ caracteres.
-                      Igual ao ChurchSearchInput do telas-cartas — publico, sem auth. */}
+                      Igual ao ChurchSearchInput do telas-cartas â€” publico, sem auth. */}
                   <div className="relative">
                     <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                     <Input
@@ -1224,13 +1222,13 @@ async function openPdf(letter: PastorLetter) {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>Horário da pregação</Label>
+                    <Label>HorÃ¡rio da pregaÃ§Ã£o</Label>
                     <Select value={letterForm.preach_period} onValueChange={(v) => setLetterForm((prev) => ({ ...prev, preach_period: v as "MANHA" | "TARDE" | "NOITE" }))}>
                       <SelectTrigger>
-                        <SelectValue placeholder="Selecione o horário" />
+                        <SelectValue placeholder="Selecione o horÃ¡rio" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="MANHA">Manhã</SelectItem>
+                        <SelectItem value="MANHA">ManhÃ£</SelectItem>
                         <SelectItem value="TARDE">Tarde</SelectItem>
                         <SelectItem value="NOITE">Noite</SelectItem>
                       </SelectContent>
@@ -1241,7 +1239,7 @@ async function openPdf(letter: PastorLetter) {
                     <Input value={formatDateBr(todayIso)} disabled />
                   </div>
                 </div>
-                <p className="text-xs text-slate-500">A data da pregação pode ser escolhida entre hoje e os próximos 30 dias.</p>
+                <p className="text-xs text-slate-500">A data da pregaÃ§Ã£o pode ser escolhida entre hoje e os prÃ³ximos 30 dias.</p>
               </CardContent>
             </Card>
 
@@ -1257,13 +1255,13 @@ async function openPdf(letter: PastorLetter) {
                   <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Pregador</p>
                   <div className="flex items-start gap-3 text-slate-900 sm:items-center">
                     <UserCircle2 className="h-5 w-5 text-emerald-600" />
-                    <span className="text-base font-semibold sm:text-lg">{profile?.full_name || usuario?.nome || "Não informado"}</span>
+                    <span className="text-base font-semibold sm:text-lg">{profile?.full_name || usuario?.nome || "NÃ£o informado"}</span>
                   </div>
                 </div>
                 <div className="rounded-2xl border border-slate-200 bg-white p-4">
                   <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Igreja de origem e destino</p>
                   <div className="space-y-2 text-slate-900">
-                    <div className="text-base font-semibold sm:text-lg">{session?.church_name || church?.church_name || "Não informada"}</div>
+                    <div className="text-base font-semibold sm:text-lg">{session?.church_name || church?.church_name || "NÃ£o informada"}</div>
                     <div className="flex items-center gap-2 text-slate-600">
                       <Building2 className="h-4 w-4 text-slate-400" />
                       <span>{(letterForm.igreja_destino || letterForm.igreja_destino_manual).trim() || "-"}</span>
@@ -1272,14 +1270,14 @@ async function openPdf(letter: PastorLetter) {
                 </div>
                 <div className="grid gap-3 sm:gap-4 md:grid-cols-2">
                   <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                    <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Data de emissão</p>
+                    <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Data de emissÃ£o</p>
                     <div className="flex items-center gap-2 text-base font-semibold text-slate-900 sm:text-lg">
                       <CalendarDays className="h-5 w-5 text-emerald-600" />
                       <span>{formatDateBr(todayIso)}</span>
                     </div>
                   </div>
                   <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                    <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Data da pregação</p>
+                    <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Data da pregaÃ§Ã£o</p>
                     <div className="flex items-center gap-2 text-base font-semibold text-slate-900 sm:text-lg">
                       <CalendarDays className="h-5 w-5 text-emerald-600" />
                       <span>{letterForm.dia_pregacao ? formatDateBr(letterForm.dia_pregacao) : "-"}</span>
@@ -1287,7 +1285,7 @@ async function openPdf(letter: PastorLetter) {
                   </div>
                 </div>
                 <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Assinatura responsável</p>
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Assinatura responsÃ¡vel</p>
                   <div className="space-y-2 text-slate-900">
                     <div className="text-base font-semibold sm:text-lg">{pastorFromUsers?.full_name || church?.pastor_name || "Resolvido pela hierarquia"}</div>
                     <div className="flex items-center gap-2 text-slate-600">
@@ -1320,7 +1318,7 @@ async function openPdf(letter: PastorLetter) {
             <DialogTitle>Meu Cadastro</DialogTitle>
             <DialogDescription>Seus dados e foto 3x4.</DialogDescription>
           </DialogHeader>
-          {/* Somente dados do usuario com foto — sem card do pastor */}
+          {/* Somente dados do usuario com foto â€” sem card do pastor */}
           <div className="space-y-4 text-sm">
             {/* Foto 3x4 centralizada */}
             <div className="flex justify-center">
@@ -1388,8 +1386,8 @@ async function openPdf(letter: PastorLetter) {
                 <option value="">Selecione</option>
                 <option value="Membro">Membro</option>
                 <option value="Cooperador">Cooperador</option>
-                <option value="Diácono">Diácono</option>
-                <option value="Presbítero">Presbítero</option>
+                <option value="DiÃ¡cono">DiÃ¡cono</option>
+                <option value="PresbÃ­tero">PresbÃ­tero</option>
                 <option value="Pastor">Pastor</option>
               </select>
             </div>
@@ -1406,7 +1404,7 @@ async function openPdf(letter: PastorLetter) {
                     />
                   </div>
                 )}
-                {/* AvatarCapture: inclui câmera/galeria, remoção de fundo por IA e preview 3x4 */}
+                {/* AvatarCapture: inclui cÃ¢mera/galeria, remoÃ§Ã£o de fundo por IA e preview 3x4 */}
                 <AvatarCapture
                   onFileReady={(file) => setAvatarFile(file)}
                   disabled={savingProfile}
@@ -1491,19 +1489,19 @@ async function openPdf(letter: PastorLetter) {
                   <option value="Solteiro(a)">Solteiro(a)</option>
                   <option value="Casado(a)">Casado(a)</option>
                   <option value="Divorciado(a)">Divorciado(a)</option>
-                  <option value="Viúvo(a)">Viúvo(a)</option>
-                  <option value="União estável">União estável</option>
+                  <option value="ViÃºvo(a)">ViÃºvo(a)</option>
+                  <option value="UniÃ£o estÃ¡vel">UniÃ£o estÃ¡vel</option>
                 </select>
               </div>
               <div className="space-y-1">
-                <Label>Profissão</Label>
+                <Label>ProfissÃ£o</Label>
                 <Input value={profileForm.profession} onChange={(e) => setProfileForm((p) => ({ ...p, profession: e.target.value }))} />
               </div>
             </div>
-            {/* Comentario: campos de batismo e separação — exibidos para cooperador e acima */}
+            {/* Comentario: campos de batismo e separaÃ§Ã£o â€” exibidos para cooperador e acima */}
             {(() => {
               const cargo = String(profileForm.minister_role || "").toLowerCase();
-              const cargosComSeparacao = ["cooperador", "obreiro", "diácono", "diacono", "presbítero", "presbitero", "evangelista", "missionário", "missionario", "pastor"];
+              const cargosComSeparacao = ["cooperador", "obreiro", "diÃ¡cono", "diacono", "presbÃ­tero", "presbitero", "evangelista", "missionÃ¡rio", "missionario", "pastor"];
               return cargosComSeparacao.some((c) => cargo.includes(c));
             })() && (
               <div className="grid gap-2 md:grid-cols-2">
@@ -1512,7 +1510,7 @@ async function openPdf(letter: PastorLetter) {
                   <Input type="date" value={profileForm.baptism_date} onChange={(e) => setProfileForm((p) => ({ ...p, baptism_date: e.target.value }))} />
                 </div>
                 <div className="space-y-1">
-                  <Label>Data de separação</Label>
+                  <Label>Data de separaÃ§Ã£o</Label>
                   <Input type="date" value={profileForm.ordination_date} onChange={(e) => setProfileForm((p) => ({ ...p, ordination_date: e.target.value }))} />
                 </div>
               </div>
@@ -1566,3 +1564,4 @@ async function openPdf(letter: PastorLetter) {
     </ManagementShell>
   );
 }
+

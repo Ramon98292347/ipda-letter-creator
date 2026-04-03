@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+﻿import { useState, useMemo, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ManagementShell } from "@/components/layout/ManagementShell";
 import { Button } from "@/components/ui/button";
@@ -89,7 +89,6 @@ export default function CaravanasPage() {
       });
       return result;
     },
-    refetchInterval: 30000,
   });
 
   const filteredCaravanas = useMemo(() => {
@@ -127,7 +126,7 @@ export default function CaravanasPage() {
     return new Date(max).toLocaleDateString("pt-BR");
   }, [caravanas]);
 
-  // Real-time subscription para atualizações da tabela caravanas
+  // Real-time subscription para atualizaÃ§Ãµes da tabela caravanas
   useEffect(() => {
     if (!supabase) return;
 
@@ -175,14 +174,14 @@ export default function CaravanasPage() {
     try {
       const result = await deleteCaravana(id);
       if (result?.ok) {
-        toast.success("Caravana deletada!");
+        toast.success("Caravana excluída!");
         queryClient.invalidateQueries({ queryKey: ["caravanas"] });
       } else {
-        toast.error("Erro ao deletar caravana");
+        toast.error("Erro ao excluir caravana");
       }
     } catch (error) {
       console.error(error);
-      toast.error("Erro ao deletar caravana");
+      toast.error("Erro ao excluir caravana");
     } finally {
       setLoadingId(null);
     }
@@ -280,7 +279,7 @@ export default function CaravanasPage() {
           </Card>
           <Card className="rounded-xl border-0 bg-gradient-to-br from-purple-500 to-purple-700 shadow-md flex flex-col justify-between p-4">
             <div className="flex items-center text-white/90 text-sm font-medium mb-3">
-              <Calendar className="h-4 w-4 mr-2" /> Última Atualização
+              <Calendar className="h-4 w-4 mr-2" /> Última atualização
             </div>
             <div className="text-2xl font-bold text-white">{ultimaAtualizacao}</div>
           </Card>
@@ -542,7 +541,7 @@ export default function CaravanasPage() {
               <div className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="eventTitle" className="text-sm font-medium">
-                    Título do Evento *
+                    Título do evento *
                   </Label>
                   <Input
                     id="eventTitle"
@@ -556,7 +555,7 @@ export default function CaravanasPage() {
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-2">
                     <Label htmlFor="eventStart" className="text-sm font-medium">
-                      Data de Início
+                      Data de início
                     </Label>
                     <Input
                       id="eventStart"
@@ -568,7 +567,7 @@ export default function CaravanasPage() {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="eventEnd" className="text-sm font-medium">
-                      Data de Término
+                      Data de término
                     </Label>
                     <Input
                       id="eventEnd"
@@ -640,3 +639,5 @@ export default function CaravanasPage() {
     </ManagementShell>
   );
 }
+
+

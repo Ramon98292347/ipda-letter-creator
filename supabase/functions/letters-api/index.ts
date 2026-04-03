@@ -23,8 +23,6 @@ import { insertNotification, sendInternalPushNotification } from "../_shared/pus
 // URL do webhook N8N que gera o PDF da carta de pregacao
 const N8N_WEBHOOK_URL = Deno.env.get("N8N_LETTER_WEBHOOK_URL")
   || Deno.env.get("N8N_WEBHOOK_CARTA_PREGACAO")
-  || Deno.env.get("N8N_CARTA_PREGACAO_WEBHOOK_URL")
-  || Deno.env.get("N8N_WEBHOOK_URL")
   || "";
 
 // ---------------------------------------------------------------------------
@@ -93,6 +91,15 @@ function normalizeClass(v: unknown): ChurchClass | null {
 function parseTotvsFromText(value: string): string {
   const m = String(value || "").trim().match(/^(\d{3,})\b/);
   return m ? m[1] : "";
+}
+
+function normalizeChurchMatchKey(value: string): string {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function isUuid(value: string | null | undefined): boolean {
@@ -721,6 +728,35 @@ async function handleCreate(session: SessionClaims, body: Record<string, unknown
     }
 
     // Aplica a decisão: se can_create_released_letter = true, libera automaticamente
+    if (session.role === "obreiro" && preacher_user_id) {
+      const { data: existingLetters, error: existingLettersErr } = await sb
+        .from("letters")
+        .select("id, church_destination")
+        .eq("preacher_user_id", preacher_user_id)
+        .eq("preach_date", preach_date_str)
+        .neq("status", "EXCLUIDA")
+        .limit(200);
+
+      if (existingLettersErr) {
+        return json({ ok: false, error: "db_error_existing_letters", details: existingLettersErr.message }, 500);
+      }
+
+      const sameDestinationExists = (existingLetters || []).some((row) => {
+        const existingDestination = String((row as Record<string, unknown>).church_destination || "").trim();
+        if (!existingDestination) return false;
+        if (destinationTotvs) return parseTotvsFromText(existingDestination) === destinationTotvs;
+        return normalizeChurchMatchKey(churchNameOnly(existingDestination)) === normalizeChurchMatchKey(churchNameOnly(church_destination));
+      });
+
+      if (sameDestinationExists) {
+        return json({
+          ok: false,
+          error: "obreiro_daily_same_destination_limit",
+          detail: "Obreiro pode emitir somente 1 carta por dia para a mesma igreja destino.",
+        }, 409);
+      }
+    }
+
     if (canDirectRelease) status = "LIBERADA";
 
     const { data: created, error: insErr } = await sb

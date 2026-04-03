@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
+import { Capacitor } from "@capacitor/core";
 import { supabase } from "@/lib/supabase";
 import { post } from "@/lib/api";
+import { getLocalNotificationPermissionStatus, requestLocalNotificationPermission } from "@/lib/native/localNotifications";
 
 // Chave pública VAPID gerada para este projeto.
 // A chave privada correspondente deve ser configurada como variável de ambiente
@@ -48,20 +50,32 @@ async function salvarUserNoSW(userData: { role?: string; scope_totvs_ids?: strin
 }
 
 export function usePushNotifications(userId?: string, userRole?: string, scopeTotvsIds?: string[]) {
+  const isNativeApp = Capacitor.isNativePlatform();
+  const nativeEnabledKey = "native_notifications_enabled";
   const supported =
-    typeof window !== "undefined" &&
-    "serviceWorker" in navigator &&
-    "PushManager" in window &&
-    "Notification" in window;
+    isNativeApp ||
+    (typeof window !== "undefined" &&
+      "serviceWorker" in navigator &&
+      "PushManager" in window &&
+      "Notification" in window);
 
   const [permission, setPermission] = useState<NotificationPermission>(
-    supported ? Notification.permission : "denied",
+    !supported ? "denied" : isNativeApp ? "default" : Notification.permission,
   );
   const [subscribed, setSubscribed] = useState(false);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (!supported) return;
+
+    if (isNativeApp) {
+      void getLocalNotificationPermissionStatus().then((perm) => {
+        setPermission(perm);
+        const enabled = localStorage.getItem(nativeEnabledKey) === "1";
+        setSubscribed(perm === "granted" && enabled);
+      });
+      return;
+    }
 
     // Comentario: verifica permissao e subscrição ao carregar
     const checkSubscription = async () => {
@@ -79,7 +93,7 @@ export function usePushNotifications(userId?: string, userRole?: string, scopeTo
     }, 500);
 
     return () => clearTimeout(timerId);
-  }, [supported]);
+  }, [supported, isNativeApp]);
 
   // Comentario: salva dados do usuario no SW para validar escopo de notificacoes
   useEffect(() => {
@@ -92,6 +106,19 @@ export function usePushNotifications(userId?: string, userRole?: string, scopeTo
     if (!supported) return;
     setLoading(true);
     try {
+      if (isNativeApp) {
+        const perm = await requestLocalNotificationPermission();
+        setPermission(perm);
+        if (perm === "granted") {
+          localStorage.setItem(nativeEnabledKey, "1");
+          setSubscribed(true);
+        } else {
+          localStorage.setItem(nativeEnabledKey, "0");
+          setSubscribed(false);
+        }
+        return;
+      }
+
       const perm = await Notification.requestPermission();
       setPermission(perm);
       if (perm !== "granted") {
@@ -138,12 +165,18 @@ export function usePushNotifications(userId?: string, userRole?: string, scopeTo
     } finally {
       setLoading(false);
     }
-  }, [supported, userId]);
+  }, [supported, userId, isNativeApp]);
 
   const unsubscribe = useCallback(async () => {
     if (!supported) return;
     setLoading(true);
     try {
+      if (isNativeApp) {
+        localStorage.setItem(nativeEnabledKey, "0");
+        setSubscribed(false);
+        return;
+      }
+
       const reg = await navigator.serviceWorker.ready;
       const sub = await reg.pushManager.getSubscription();
       if (sub) {
@@ -156,7 +189,7 @@ export function usePushNotifications(userId?: string, userRole?: string, scopeTo
     } finally {
       setLoading(false);
     }
-  }, [supported, userId]);
+  }, [supported, userId, isNativeApp]);
 
   return { supported, permission, subscribed, loading, subscribe, unsubscribe };
 }

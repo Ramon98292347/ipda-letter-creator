@@ -75,7 +75,6 @@ export default function AdminMembrosPage() {
     queryKey: ["admin-membros-churches", activeTotvsId],
     queryFn: () => listChurchesInScope(1, 400, activeTotvsId || undefined),
     enabled: Boolean(activeTotvsId),
-    refetchInterval: 10000,
   });
 
   // Comentario: filtra a lista de igrejas pelo texto digitado (2+ chars) para o combobox de busca.
@@ -116,43 +115,6 @@ export default function AdminMembrosPage() {
       }),
     // Comentario: enabled=true permite buscar mesmo sem igreja selecionada (todas as igrejas do escopo).
     enabled: true,
-    refetchInterval: 10000,
-  });
-
-  const { data: membersForCounters } = useQuery({
-    queryKey: ["admin-membros-counters-all", selectedChurchTotvs, filterCargo],
-    queryFn: async () => {
-      const requestedPageSize = 500;
-      let page = 1;
-      let total: number | null = null;
-      const all = [];
-
-      while (page <= 30) {
-        const chunk = await listMembers({
-          roles: filterCargo === "all"
-            ? ["pastor", "obreiro", "secretario", "financeiro"]
-            : filterCargo === "pastor"
-            ? ["pastor"]
-            : ["pastor", "obreiro"],
-          minister_role: filterCargo !== "all" && filterCargo !== "pastor" ? filterCargo : undefined,
-          church_totvs_id: selectedChurchTotvs || undefined,
-          page,
-          page_size: requestedPageSize,
-        });
-        const items = Array.isArray(chunk.workers) ? chunk.workers : [];
-        if (items.length === 0) break;
-        all.push(...items);
-        const chunkTotal = Number(chunk.total || 0);
-        if (chunkTotal > 0) total = chunkTotal;
-        const effectivePageSize = Number(chunk.page_size || requestedPageSize || items.length);
-        if ((total !== null && all.length >= total) || items.length < effectivePageSize) break;
-        page += 1;
-      }
-
-      return all;
-    },
-    enabled: true,
-    staleTime: 30_000,
   });
 
   // Comentario: busca contagem de membros inativos para exibir no card
@@ -177,17 +139,6 @@ export default function AdminMembrosPage() {
     (fetchingMembers && !membersRes && Boolean(selectedChurchTotvs));
 
   const counters = useMemo(() => {
-    if (Array.isArray(membersForCounters)) {
-      return {
-        total: membersForCounters.length,
-        pastor: membersForCounters.filter((w) => w.role === "pastor").length,
-        presbitero: membersForCounters.filter((w) => normalizeMinisterRole(w.minister_role) === "presbitero").length,
-        diacono: membersForCounters.filter((w) => normalizeMinisterRole(w.minister_role) === "diacono").length,
-        obreiro: membersForCounters.filter((w) => normalizeMinisterRole(w.minister_role) === "cooperador").length,
-        membrosAtivos: membersForCounters.filter((w) => normalizeMinisterRole(w.minister_role) === "membro" && w.is_active !== false).length,
-      };
-    }
-
     const metrics = membersRes?.metrics;
     if (metrics) {
       return {
@@ -209,7 +160,7 @@ export default function AdminMembrosPage() {
       obreiro: workers.filter((w) => normalizeMinisterRole(w.minister_role) === "cooperador").length,
       membrosAtivos: workers.filter((w) => normalizeMinisterRole(w.minister_role) === "membro" && w.is_active !== false).length,
     };
-  }, [membersForCounters, membersRes]);
+  }, [membersRes]);
 
   const memberTone = {
     total: "bg-gradient-to-br from-blue-600 to-blue-500",

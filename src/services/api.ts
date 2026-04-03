@@ -58,6 +58,9 @@ export function getFriendlyErrorMessage(err: unknown): string {
     if (code === "profile_incomplete_for_letter") {
       return detail || "Complete os seus dados (data de batismo, endereco e foto) para continuar emitindo cartas.";
     }
+    if (code === "obreiro_daily_same_destination_limit") {
+      return "Regra de obreiro: so e permitido emitir 1 carta por dia para a mesma igreja destino.";
+    }
     if (code === "member_profile_incomplete_for_ficha") {
       return detail || "Complete os dados do membro (data de batismo, endereco e foto) para emitir a ficha.";
     }

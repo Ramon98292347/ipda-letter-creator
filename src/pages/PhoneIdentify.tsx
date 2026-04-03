@@ -1,6 +1,7 @@
 ﻿import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Capacitor } from "@capacitor/core";
 import { toast } from "sonner";
 import { Building2, Eye, EyeOff, KeyRound, Loader2, UserPlus } from "lucide-react";
 
@@ -61,15 +62,22 @@ function routeByRole(role: string) {
   return "/obreiro";
 }
 
+const LS_SAVED_PASSWORD_ANDROID = "ipda_saved_password_android";
+
 export default function PhoneIdentify() {
   const nav = useNavigate();
   const { setUsuario, setTelefone, setToken, setSession, setPendingCpf, setAvailableChurches } = useUser();
   const queryClient = useQueryClient();
+  const isNativeAndroid = Capacitor.isNativePlatform() && Capacitor.getPlatform() === "android";
 
   // Comentario: le o CPF salvo no cache para pre-preencher o campo no proximo acesso.
   const cachedCpf = typeof window !== "undefined" ? localStorage.getItem("ipda_last_cpf") || "" : "";
   const [cpf, setCpf] = useState(cachedCpf);
-  const [senha, setSenha] = useState("");
+  const [senha, setSenha] = useState(() => {
+    if (typeof window === "undefined") return "";
+    if (!(Capacitor.isNativePlatform() && Capacitor.getPlatform() === "android")) return "";
+    return localStorage.getItem(LS_SAVED_PASSWORD_ANDROID) || "";
+  });
   const [showSenha, setShowSenha] = useState(false);
   const [loading, setLoading] = useState(false);
   const [openingCadastro, setOpeningCadastro] = useState(false);
@@ -114,7 +122,7 @@ export default function PhoneIdentify() {
   const { data: announcements = [] } = useQuery({
     queryKey: ["announcements-login", cpfLookup, announcementTotvs, announcementScope.join(",")],
     queryFn: () => {
-      // Prioridade 1: CPF salvo no cache → busca divulgacoes direto pelo CPF via edge function (sem JWT)
+      // Prioridade 1: CPF salvo no cache ? busca divulgacoes direto pelo CPF via edge function (sem JWT)
       if (cpfLookup.length === 11) return listAnnouncementsPublicByCpf(cpfLookup, 10);
       // Prioridade 2: admin com escopo de igrejas
       if (announcementScope.length) return listAnnouncementsPublicByScope(announcementScope, 30);
@@ -122,7 +130,6 @@ export default function PhoneIdentify() {
       return listAnnouncementsPublicByTotvs(announcementTotvs, 10);
     },
     enabled: cpfLookup.length === 11 || Boolean(announcementTotvs) || announcementScope.length > 0,
-    refetchInterval: 10000,
   });
 
   const { data: birthdays = [] } = useQuery({
@@ -136,7 +143,6 @@ export default function PhoneIdentify() {
           ? listBirthdaysTodayPublicByScope(birthdayTotvsScope, 20)
           : listBirthdaysTodayPublicByTotvs(birthdayTotvsScope[0] || announcementTotvs, 10),
     enabled: cpfLookup.length === 11 || birthdayTotvsScope.length > 0 || announcementScope.length > 0,
-    refetchInterval: 10000,
   });
 
   async function handleLogin() {
@@ -155,6 +161,40 @@ export default function PhoneIdentify() {
       return;
     }
 
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      const savedCpf = localStorage.getItem("ipda_last_cpf") || "";
+      const savedPassword = localStorage.getItem(LS_SAVED_PASSWORD_ANDROID) || "";
+      const cachedToken = localStorage.getItem("ipda_token") || "";
+      const cachedUserRaw = localStorage.getItem("ipda_user");
+      const cachedSessionRaw = localStorage.getItem("ipda_session");
+
+      if (!isNativeAndroid) {
+        toast.error("Login offline está disponível apenas no app Android.");
+        return;
+      }
+
+      if (savedCpf === cpfRaw && savedPassword === senha.trim() && cachedToken && cachedUserRaw && cachedSessionRaw) {
+        try {
+          const offlineUser = JSON.parse(cachedUserRaw);
+          const offlineSession = JSON.parse(cachedSessionRaw);
+          queryClient.clear();
+          setStoredToken(cachedToken);
+          setToken(cachedToken);
+          setSession(offlineSession);
+          setUsuario(offlineUser);
+          setTelefone(undefined);
+          toast.message("Entrando com dados salvos offline.");
+          nav(routeByRole(String(offlineUser?.role || "")));
+          return;
+        } catch {
+          toast.error("Não foi possível recuperar os dados offline deste aparelho.");
+          return;
+        }
+      }
+
+      toast.error("Sem internet. Faça um login online neste aparelho para liberar o acesso offline.");
+      return;
+    }
     setLoading(true);
     try {
       const result = await loginWithCpfPassword(cpfRaw, senha);
@@ -189,6 +229,7 @@ export default function PhoneIdentify() {
       if (fixedSession.root_totvs_id) localStorage.setItem("ipda_root_totvs", fixedSession.root_totvs_id);
       // Comentario: salva o CPF no cache para pre-preencher o campo e buscar divulgacoes na proxima abertura.
       localStorage.setItem("ipda_last_cpf", cpfRaw);
+      if (isNativeAndroid) localStorage.setItem(LS_SAVED_PASSWORD_ANDROID, senha.trim());
       setPendingCpf(undefined);
       setAvailableChurches([]);
 
@@ -430,4 +471,6 @@ export default function PhoneIdentify() {
     </div>
   );
 }
+
+
 

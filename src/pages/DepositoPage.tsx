@@ -1,4 +1,4 @@
-// Comentario: pagina principal do modulo Deposito — controle de estoque
+﻿// Comentario: pagina principal do modulo Deposito â€” controle de estoque
 // de materiais evangelisticos, livraria e mercadorias internas da igreja.
 
 import { useEffect, useMemo, useState } from "react";
@@ -29,6 +29,7 @@ import {
   type DepositProduct,
   type DepositMovement,
 } from "@/services/saasService";
+import { supabaseRealtime } from "@/lib/supabaseRealtime";
 import { getFriendlyError } from "@/lib/error-map";
 import {
   Archive,
@@ -52,15 +53,15 @@ import {
 
 // Comentario: grupos disponiveis para o cadastro de produtos
 const ALL_GROUPS = [
-  "VOTOS", "FOLHETOS", "FICHAS", "MANUAL", "CERTIFICADOS", "CARTÃO",
-  "CARTA", "CARNÊS", "LIVRO", "CDs", "BÍBLIAS", "HINÁRIO",
-  "REVISTAS", "VESTUÁRIO", "ACESSÓRIOS", "MANUAIS BÍBLICOS", "OUTROS",
+  "VOTOS", "FOLHETOS", "FICHAS", "MANUAL", "CERTIFICADOS", "CARTÃƒO",
+  "CARTA", "CARNÃŠS", "LIVRO", "CDs", "BÃBLIAS", "HINÃRIO",
+  "REVISTAS", "VESTUÃRIO", "ACESSÃ“RIOS", "MANUAIS BÃBLICOS", "OUTROS",
 ];
 
 // Comentario: tipos de movimentacao disponiveis
 const MOVEMENT_TYPES = [
   { value: "ENTRADA", label: "Entrada", color: "text-emerald-600" },
-  { value: "SAIDA", label: "Saída", color: "text-rose-600" },
+  { value: "SAIDA", label: "SaÃ­da", color: "text-rose-600" },
   { value: "AJUSTE", label: "Ajuste", color: "text-amber-600" },
   { value: "PERDA", label: "Perda / Extravio", color: "text-red-700" },
 ];
@@ -80,7 +81,7 @@ function formatNumber(value: number) {
   return value.toLocaleString("pt-BR");
 }
 
-// Máscara de moeda brasileira: 1.234,56
+// MÃ¡scara de moeda brasileira: 1.234,56
 function maskCurrency(raw: string): string {
   const digits = raw.replace(/\D/g, "");
   if (!digits) return "";
@@ -93,7 +94,7 @@ function unmaskCurrency(masked: string): number {
   return Number(clean) || 0;
 }
 
-// Máscara de quantidade: 1.000, 10.000
+// MÃ¡scara de quantidade: 1.000, 10.000
 function maskQuantity(raw: string): string {
   const digits = raw.replace(/\D/g, "");
   if (!digits) return "";
@@ -129,6 +130,7 @@ export default function DepositoPage() {
   const { session } = useUser();
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<TabKey>("estoque");
+  const [movementsPageSize, setMovementsPageSize] = useState(50);
 
   // Comentario: filtros compartilhados
   const [search, setSearch] = useState("");
@@ -146,7 +148,6 @@ export default function DepositoPage() {
   const { data: summary } = useQuery({
     queryKey: ["deposit-summary"],
     queryFn: depositGetSummary,
-    refetchInterval: 30_000,
   });
 
   // Comentario: query do estoque consolidado
@@ -158,23 +159,50 @@ export default function DepositoPage() {
       low_stock: filterLowStock || undefined,
       is_active: true,
     }),
-    refetchInterval: 15_000,
   });
 
   // Comentario: query dos produtos para selects e cadastro
   const { data: products } = useQuery({
     queryKey: ["deposit-products"],
     queryFn: () => depositListProducts(),
-    refetchInterval: 30_000,
   });
 
   // Comentario: query das movimentacoes
   const { data: movementsData, isLoading: loadingMovements } = useQuery({
-    queryKey: ["deposit-movements"],
-    queryFn: () => depositListMovements({ page: 1, page_size: 100 }),
-    refetchInterval: 15_000,
+    queryKey: ["deposit-movements", movementsPageSize],
+    queryFn: () => depositListMovements({ page: 1, page_size: movementsPageSize }),
     enabled: tab === "movimentacoes" || tab === "transferencias",
   });
+
+  useEffect(() => {
+    const channel = supabaseRealtime
+      .channel("deposit-realtime")
+      .on("postgres_changes", { event: "*", schema: "public", table: "deposit_products" }, () => {
+        void Promise.all([
+          queryClient.invalidateQueries({ queryKey: ["deposit-products"] }),
+          queryClient.invalidateQueries({ queryKey: ["deposit-stock"] }),
+          queryClient.invalidateQueries({ queryKey: ["deposit-summary"] }),
+        ]);
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "deposit_stock" }, () => {
+        void Promise.all([
+          queryClient.invalidateQueries({ queryKey: ["deposit-stock"] }),
+          queryClient.invalidateQueries({ queryKey: ["deposit-summary"] }),
+        ]);
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "deposit_movements" }, () => {
+        void Promise.all([
+          queryClient.invalidateQueries({ queryKey: ["deposit-movements"] }),
+          queryClient.invalidateQueries({ queryKey: ["deposit-stock"] }),
+          queryClient.invalidateQueries({ queryKey: ["deposit-summary"] }),
+        ]);
+      })
+      .subscribe();
+
+    return () => {
+      void supabaseRealtime.removeChannel(channel);
+    };
+  }, [queryClient]);
 
   // Comentario: query das igrejas para nomes nos recibos
   const { data: churchesData } = useQuery({
@@ -201,6 +229,8 @@ export default function DepositoPage() {
 
   const stock = stockData?.stock || [];
   const movements = movementsData?.movements || [];
+  const movementTotal = Number(movementsData?.total || 0);
+  const canLoadMoreMovements = movementTotal > movements.length;
   const transfers = movements.filter((m) => m.type === "TRANSFERENCIA");
 
   // Comentario: lista de grupos existentes nos produtos (para filtro dinamico)
@@ -216,7 +246,7 @@ export default function DepositoPage() {
   return (
     <ManagementShell roleMode={roleMode as "admin" | "pastor"}>
       <div className="space-y-5 bg-[#F6F8FC] px-2 py-2 sm:px-4 sm:py-3">
-        {/* ── Header ──────────────────────────────────────────────────── */}
+        {/* â”€â”€ Header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
         <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
@@ -228,7 +258,7 @@ export default function DepositoPage() {
                 <PackagePlus className="mr-2 h-4 w-4" /> Novo produto
               </Button>
               <Button size="sm" variant="outline" onClick={() => { setSelectedProductId(""); setMovementModal(true); }}>
-                <ArrowDownCircle className="mr-2 h-4 w-4 text-emerald-600" /> Entrada / Saída
+                <ArrowDownCircle className="mr-2 h-4 w-4 text-emerald-600" /> Entrada / saída
               </Button>
               <Button size="sm" variant="outline" onClick={() => setTransferModal(true)}>
                 <ArrowRightLeft className="mr-2 h-4 w-4 text-blue-600" /> Transferência
@@ -237,7 +267,7 @@ export default function DepositoPage() {
           </div>
         </section>
 
-        {/* ── Cards de resumo ─────────────────────────────────────────── */}
+        {/* â”€â”€ Cards de resumo â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
         <section className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-7">
           <SummaryCard title="Itens cadastrados" value={formatNumber(summary?.total_products ?? 0)} icon={Package} gradient="from-blue-600 to-blue-500" />
           <SummaryCard title="Total em estoque" value={formatNumber(summary?.total_stock ?? 0)} icon={Box} gradient="from-indigo-600 to-indigo-500" />
@@ -248,7 +278,7 @@ export default function DepositoPage() {
           <SummaryCard title="Valor estoque" value={formatCurrency(summary?.total_value ?? 0)} icon={DollarSign} gradient="from-violet-600 to-violet-500" />
         </section>
 
-        {/* ── Abas ────────────────────────────────────────────────────── */}
+        {/* â”€â”€ Abas â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
         <section className="rounded-xl border border-slate-200 bg-white shadow-sm">
           <div className="flex gap-1 overflow-x-auto border-b border-slate-200 px-4 pt-3">
             {([
@@ -289,10 +319,21 @@ export default function DepositoPage() {
               />
             )}
             {tab === "movimentacoes" && (
-              <MovimentacoesTab movements={movements} loading={loadingMovements} />
+              <MovimentacoesTab
+                movements={movements}
+                loading={loadingMovements}
+                canLoadMore={canLoadMoreMovements}
+                onLoadMore={() => setMovementsPageSize((prev) => prev + 50)}
+              />
             )}
             {tab === "transferencias" && (
-              <TransferenciasTab transfers={transfers} loading={loadingMovements} churchNameMap={churchNameMap} />
+              <TransferenciasTab
+                transfers={transfers}
+                loading={loadingMovements}
+                churchNameMap={churchNameMap}
+                canLoadMore={canLoadMoreMovements}
+                onLoadMore={() => setMovementsPageSize((prev) => prev + 50)}
+              />
             )}
             {tab === "cadastro" && (
               <CadastroTab
@@ -316,7 +357,7 @@ export default function DepositoPage() {
         </section>
       </div>
 
-      {/* ── Modal: Novo/Editar Produto ────────────────────────────── */}
+      {/* â”€â”€ Modal: Novo/Editar Produto â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       <ProductModal
         open={productModal}
         onClose={() => { setProductModal(false); setEditingProduct(null); }}
@@ -324,7 +365,7 @@ export default function DepositoPage() {
         onSaved={refresh}
       />
 
-      {/* ── Modal: Entrada / Saída ────────────────────────────────── */}
+      {/* â”€â”€ Modal: Entrada / saída â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       <MovementModal
         open={movementModal}
         onClose={() => { setMovementModal(false); setSelectedProductId(""); }}
@@ -334,7 +375,7 @@ export default function DepositoPage() {
         onSaved={refresh}
       />
 
-      {/* ── Modal: Transferência ──────────────────────────────────── */}
+      {/* â”€â”€ Modal: Transferência â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       <TransferModal
         open={transferModal}
         onClose={() => setTransferModal(false)}
@@ -435,7 +476,7 @@ function EstoqueTab({
                 <th className="px-3 py-3">Descrição</th>
                 <th className="px-3 py-3">Grupo</th>
                 <th className="px-3 py-3 text-right">Estoque</th>
-                <th className="px-3 py-3 text-right">Mínimo</th>
+                <th className="px-3 py-3 text-right">MÃ­nimo</th>
                 <th className="px-3 py-3 text-right">Valor un.</th>
                 <th className="px-3 py-3 text-right">Valor total</th>
                 <th className="px-3 py-3">Status</th>
@@ -474,11 +515,11 @@ function EstoqueTab({
             </tbody>
           </table>
         </div>
-        {/* Paginação */}
+        {/* PaginaÃ§Ã£o */}
         {totalPages > 1 && (
           <div className="flex items-center justify-between pt-2">
             <p className="text-xs text-slate-500">
-              Mostrando {((page - 1) * ESTOQUE_PAGE_SIZE) + 1}–{Math.min(page * ESTOQUE_PAGE_SIZE, stock.length)} de {formatNumber(stock.length)}
+              Mostrando {((page - 1) * ESTOQUE_PAGE_SIZE) + 1}â€“{Math.min(page * ESTOQUE_PAGE_SIZE, stock.length)} de {formatNumber(stock.length)}
             </p>
             <div className="flex items-center gap-1">
               <Button size="sm" variant="outline" disabled={page <= 1} onClick={() => setPage(page - 1)} className="h-8 px-3 text-xs">
@@ -507,7 +548,7 @@ function EstoqueTab({
                   )
                 )}
               <Button size="sm" variant="outline" disabled={page >= totalPages} onClick={() => setPage(page + 1)} className="h-8 px-3 text-xs">
-                Próximo
+                PrÃ³ximo
               </Button>
             </div>
           </div>
@@ -521,7 +562,17 @@ function EstoqueTab({
 // ============================================================================
 // ABA: MOVIMENTACOES
 // ============================================================================
-function MovimentacoesTab({ movements, loading }: { movements: DepositMovement[]; loading: boolean }) {
+function MovimentacoesTab({
+  movements,
+  loading,
+  canLoadMore,
+  onLoadMore,
+}: {
+  movements: DepositMovement[];
+  loading: boolean;
+  canLoadMore: boolean;
+  onLoadMore: () => void;
+}) {
   // Comentario: filtra apenas movimentacoes que nao sao transferencias (tem aba propria)
   const filtered = movements.filter((m) => m.type !== "TRANSFERENCIA");
   return (
@@ -529,36 +580,45 @@ function MovimentacoesTab({ movements, loading }: { movements: DepositMovement[]
       {loading ? (
         <div className="flex items-center justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-blue-500" /></div>
       ) : filtered.length === 0 ? (
-        <p className="py-8 text-center text-sm text-slate-500">Nenhuma movimentação registrada.</p>
+        <p className="py-8 text-center text-sm text-slate-500">Nenhuma movimentacao registrada.</p>
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-slate-200">
-          <table className="w-full text-sm">
-            <thead className="bg-slate-50 text-left text-xs font-semibold text-slate-600">
-              <tr>
-                <th className="px-3 py-3">Data</th>
-                <th className="px-3 py-3">Tipo</th>
-                <th className="px-3 py-3">Código</th>
-                <th className="px-3 py-3">Produto</th>
-                <th className="px-3 py-3 text-right">Qtd</th>
-                <th className="px-3 py-3">Responsável</th>
-                <th className="px-3 py-3">Observação</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {filtered.map((m) => (
-                <tr key={m.id} className="hover:bg-slate-50/50">
-                  <td className="px-3 py-2.5 text-xs">{formatDate(m.created_at)}</td>
-                  <td className="px-3 py-2.5"><Badge variant="outline" className={`text-xs ${movementBadge(m.type)}`}>{m.type}</Badge></td>
-                  <td className="px-3 py-2.5 font-mono text-xs">{m.deposit_products?.code || "-"}</td>
-                  <td className="px-3 py-2.5">{m.deposit_products?.description || "-"}</td>
-                  <td className="px-3 py-2.5 text-right font-semibold">{formatNumber(m.quantity)}</td>
-                  <td className="px-3 py-2.5 text-xs">{m.responsible_name || "-"}</td>
-                  <td className="px-3 py-2.5 text-xs text-slate-500 truncate max-w-[200px]">{m.notes || "-"}</td>
+        <>
+          <div className="overflow-x-auto rounded-lg border border-slate-200">
+            <table className="w-full text-sm">
+              <thead className="bg-slate-50 text-left text-xs font-semibold text-slate-600">
+                <tr>
+                  <th className="px-3 py-3">Data</th>
+                  <th className="px-3 py-3">Tipo</th>
+                  <th className="px-3 py-3">Codigo</th>
+                  <th className="px-3 py-3">Produto</th>
+                  <th className="px-3 py-3 text-right">Qtd</th>
+                  <th className="px-3 py-3">Responsavel</th>
+                  <th className="px-3 py-3">Observacao</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {filtered.map((m) => (
+                  <tr key={m.id} className="hover:bg-slate-50/50">
+                    <td className="px-3 py-2.5 text-xs">{formatDate(m.created_at)}</td>
+                    <td className="px-3 py-2.5"><Badge variant="outline" className={`text-xs ${movementBadge(m.type)}`}>{m.type}</Badge></td>
+                    <td className="px-3 py-2.5 font-mono text-xs">{m.deposit_products?.code || "-"}</td>
+                    <td className="px-3 py-2.5">{m.deposit_products?.description || "-"}</td>
+                    <td className="px-3 py-2.5 text-right font-semibold">{formatNumber(m.quantity)}</td>
+                    <td className="px-3 py-2.5 text-xs">{m.responsible_name || "-"}</td>
+                    <td className="px-3 py-2.5 text-xs text-slate-500 truncate max-w-[200px]">{m.notes || "-"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {canLoadMore && (
+            <div className="flex justify-center pt-2">
+              <Button size="sm" variant="outline" onClick={onLoadMore}>
+                Carregar mais movimentacoes
+              </Button>
+            </div>
+          )}
+        </>
       )}
     </div>
   );
@@ -574,8 +634,8 @@ function printTransferReceipt(m: DepositMovement, churchNameMap: Map<string, str
   const destinoTotvs = m.church_destination_totvs || "-";
   const origemNome = churchNameMap.get(origemTotvs) || "";
   const destinoNome = churchNameMap.get(destinoTotvs) || "";
-  const origemLabel = origemNome ? `${origemTotvs} — ${origemNome}` : origemTotvs;
-  const destinoLabel = destinoNome ? `${destinoTotvs} — ${destinoNome}` : destinoTotvs;
+  const origemLabel = origemNome ? `${origemTotvs} â€” ${origemNome}` : origemTotvs;
+  const destinoLabel = destinoNome ? `${destinoTotvs} â€” ${destinoNome}` : destinoTotvs;
 
   const html = `<!DOCTYPE html>
 <html lang="pt-BR">
@@ -610,13 +670,13 @@ function printTransferReceipt(m: DepositMovement, churchNameMap: Map<string, str
   <div class="header">
     <h1>Comprovante de Transferência</h1>
     <h2>${produtoNome}</h2>
-    <p>Igreja Pentecostal Deus é Amor</p>
+    <p>Igreja Pentecostal Deus Ã© Amor</p>
   </div>
 
   <div class="section">
     <div class="section-title">Dados da Transferência</div>
     <div class="row"><span class="label">Data:</span><span class="value">${dataFormatada}</span></div>
-    <div class="row"><span class="label">Responsável:</span><span class="value">${m.responsible_name || "-"}</span></div>
+    <div class="row"><span class="label">ResponsÃ¡vel:</span><span class="value">${m.responsible_name || "-"}</span></div>
     <div class="row"><span class="label">Observação:</span><span class="value">${m.notes || "-"}</span></div>
   </div>
 
@@ -638,12 +698,12 @@ function printTransferReceipt(m: DepositMovement, churchNameMap: Map<string, str
   </div>
 
   <div class="signatures">
-    <div class="sig-line"><div class="line">Responsável pela entrega</div></div>
-    <div class="sig-line"><div class="line">Responsável pelo recebimento</div></div>
+    <div class="sig-line"><div class="line">ResponsÃ¡vel pela entrega</div></div>
+    <div class="sig-line"><div class="line">ResponsÃ¡vel pelo recebimento</div></div>
   </div>
 
   <div class="footer">
-    <p>Documento gerado em ${new Date().toLocaleDateString("pt-BR")} às ${new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</p>
+    <p>Documento gerado em ${new Date().toLocaleDateString("pt-BR")} Ã s ${new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</p>
     <p class="id-ref">Ref: ${m.id.slice(0, 8).toUpperCase()}</p>
   </div>
 </body>
@@ -659,7 +719,19 @@ function printTransferReceipt(m: DepositMovement, churchNameMap: Map<string, str
 // ============================================================================
 // ABA: TRANSFERENCIAS
 // ============================================================================
-function TransferenciasTab({ transfers, loading, churchNameMap }: { transfers: DepositMovement[]; loading: boolean; churchNameMap: Map<string, string> }) {
+function TransferenciasTab({
+  transfers,
+  loading,
+  churchNameMap,
+  canLoadMore,
+  onLoadMore,
+}: {
+  transfers: DepositMovement[];
+  loading: boolean;
+  churchNameMap: Map<string, string>;
+  canLoadMore: boolean;
+  onLoadMore: () => void;
+}) {
   return (
     <div className="space-y-4">
       {loading ? (
@@ -667,42 +739,51 @@ function TransferenciasTab({ transfers, loading, churchNameMap }: { transfers: D
       ) : transfers.length === 0 ? (
         <p className="py-8 text-center text-sm text-slate-500">Nenhuma transferência registrada.</p>
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-slate-200">
-          <table className="w-full text-sm">
-            <thead className="bg-slate-50 text-left text-xs font-semibold text-slate-600">
-              <tr>
-                <th className="px-3 py-3">Data</th>
-                <th className="px-3 py-3">Código</th>
-                <th className="px-3 py-3">Produto</th>
-                <th className="px-3 py-3 text-right">Qtd</th>
-                <th className="px-3 py-3">Origem</th>
-                <th className="px-3 py-3">Destino</th>
-                <th className="px-3 py-3">Responsável</th>
-                <th className="px-3 py-3">Observação</th>
-                <th className="px-3 py-3">Recibo</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {transfers.map((m) => (
-                <tr key={m.id} className="hover:bg-slate-50/50">
-                  <td className="px-3 py-2.5 text-xs">{formatDate(m.created_at)}</td>
-                  <td className="px-3 py-2.5 font-mono text-xs">{m.deposit_products?.code || "-"}</td>
-                  <td className="px-3 py-2.5">{m.deposit_products?.description || "-"}</td>
-                  <td className="px-3 py-2.5 text-right font-semibold">{formatNumber(m.quantity)}</td>
-                  <td className="px-3 py-2.5 text-xs">{m.church_origin_totvs || "-"}{churchNameMap.get(m.church_origin_totvs || "") ? ` — ${churchNameMap.get(m.church_origin_totvs || "")}` : ""}</td>
-                  <td className="px-3 py-2.5 text-xs">{m.church_destination_totvs || "-"}{churchNameMap.get(m.church_destination_totvs || "") ? ` — ${churchNameMap.get(m.church_destination_totvs || "")}` : ""}</td>
-                  <td className="px-3 py-2.5 text-xs">{m.responsible_name || "-"}</td>
-                  <td className="px-3 py-2.5 text-xs text-slate-500 truncate max-w-[200px]">{m.notes || "-"}</td>
-                  <td className="px-3 py-2.5">
-                    <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => printTransferReceipt(m, churchNameMap)} title="Imprimir recibo">
-                      <Printer className="h-3.5 w-3.5 text-blue-600" />
-                    </Button>
-                  </td>
+        <>
+          <div className="overflow-x-auto rounded-lg border border-slate-200">
+            <table className="w-full text-sm">
+              <thead className="bg-slate-50 text-left text-xs font-semibold text-slate-600">
+                <tr>
+                  <th className="px-3 py-3">Data</th>
+                  <th className="px-3 py-3">Código</th>
+                  <th className="px-3 py-3">Produto</th>
+                  <th className="px-3 py-3 text-right">Qtd</th>
+                  <th className="px-3 py-3">Origem</th>
+                  <th className="px-3 py-3">Destino</th>
+                  <th className="px-3 py-3">Responsável</th>
+                  <th className="px-3 py-3">Observação</th>
+                  <th className="px-3 py-3">Recibo</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {transfers.map((m) => (
+                  <tr key={m.id} className="hover:bg-slate-50/50">
+                    <td className="px-3 py-2.5 text-xs">{formatDate(m.created_at)}</td>
+                    <td className="px-3 py-2.5 font-mono text-xs">{m.deposit_products?.code || "-"}</td>
+                    <td className="px-3 py-2.5">{m.deposit_products?.description || "-"}</td>
+                    <td className="px-3 py-2.5 text-right font-semibold">{formatNumber(m.quantity)}</td>
+                    <td className="px-3 py-2.5 text-xs">{m.church_origin_totvs || "-"}{churchNameMap.get(m.church_origin_totvs || "") ? ` - ${churchNameMap.get(m.church_origin_totvs || "")}` : ""}</td>
+                    <td className="px-3 py-2.5 text-xs">{m.church_destination_totvs || "-"}{churchNameMap.get(m.church_destination_totvs || "") ? ` - ${churchNameMap.get(m.church_destination_totvs || "")}` : ""}</td>
+                    <td className="px-3 py-2.5 text-xs">{m.responsible_name || "-"}</td>
+                    <td className="px-3 py-2.5 text-xs text-slate-500 truncate max-w-[200px]">{m.notes || "-"}</td>
+                    <td className="px-3 py-2.5">
+                      <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => printTransferReceipt(m, churchNameMap)} title="Imprimir recibo">
+                        <Printer className="h-3.5 w-3.5 text-blue-600" />
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {canLoadMore && (
+            <div className="flex justify-center pt-2">
+              <Button size="sm" variant="outline" onClick={onLoadMore}>
+                Carregar mais transferências
+              </Button>
+            </div>
+          )}
+        </>
       )}
     </div>
   );
@@ -864,7 +945,7 @@ function ProductModal({ open, onClose, product, onSaved }: {
           </div>
           <div>
             <Label>Descrição</Label>
-            <Input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Ex: VOTO DO DÍZIMO" />
+            <Input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Ex: VOTO DO DÃZIMO" />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -974,7 +1055,7 @@ function MovementModal({ open, onClose, products, initialProductId, activeTotvs,
               <SelectTrigger><SelectValue placeholder="Selecione o produto" /></SelectTrigger>
               <SelectContent>
                 {products.filter((p) => p.is_active).map((p) => (
-                  <SelectItem key={p.id} value={p.id}>{p.code} — {p.description}</SelectItem>
+                  <SelectItem key={p.id} value={p.id}>{p.code} â€” {p.description}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -1067,7 +1148,7 @@ function TransferModal({ open, onClose, products, activeTotvs, onSaved }: {
               <SelectTrigger><SelectValue placeholder="Selecione o produto" /></SelectTrigger>
               <SelectContent>
                 {products.filter((p) => p.is_active).map((p) => (
-                  <SelectItem key={p.id} value={p.id}>{p.code} — {p.description}</SelectItem>
+                  <SelectItem key={p.id} value={p.id}>{p.code} â€” {p.description}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -1099,3 +1180,7 @@ function TransferModal({ open, onClose, products, activeTotvs, onSaved }: {
     </Dialog>
   );
 }
+
+
+
+
