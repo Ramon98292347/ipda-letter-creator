@@ -22,6 +22,7 @@ import {
   depositCreateMovement,
   depositCreateTransfer,
   depositListMovements,
+  listChurchesInScope,
   type DepositStockItem,
   type DepositSummary,
   type DepositProduct,
@@ -169,6 +170,19 @@ export default function DepositoPage() {
     enabled: tab === "movimentacoes" || tab === "transferencias",
   });
 
+  // Comentario: query das igrejas para nomes nos recibos
+  const { data: churchesData } = useQuery({
+    queryKey: ["deposit-churches"],
+    queryFn: () => listChurchesInScope(1, 5000),
+  });
+  const churchNameMap = useMemo(() => {
+    const map = new Map<string, string>();
+    (churchesData || []).forEach((c: { totvs_id?: string; church_name?: string }) => {
+      if (c.totvs_id) map.set(String(c.totvs_id), String(c.church_name || ""));
+    });
+    return map;
+  }, [churchesData]);
+
   // Comentario: funcao para invalidar todas as queries do deposito
   async function refresh() {
     await Promise.all([
@@ -272,7 +286,7 @@ export default function DepositoPage() {
               <MovimentacoesTab movements={movements} loading={loadingMovements} />
             )}
             {tab === "transferencias" && (
-              <TransferenciasTab transfers={transfers} loading={loadingMovements} />
+              <TransferenciasTab transfers={transfers} loading={loadingMovements} churchNameMap={churchNameMap} />
             )}
             {tab === "cadastro" && (
               <CadastroTab
@@ -536,38 +550,49 @@ function MovimentacoesTab({ movements, loading }: { movements: DepositMovement[]
 // ============================================================================
 // RECIBO DE TRANSFERENCIA (impressao)
 // ============================================================================
-function printTransferReceipt(m: DepositMovement) {
+function printTransferReceipt(m: DepositMovement, churchNameMap: Map<string, string>) {
   const dataFormatada = formatDate(m.created_at);
+  const produtoNome = m.deposit_products?.description || "Mercadoria";
+  const origemTotvs = m.church_origin_totvs || "-";
+  const destinoTotvs = m.church_destination_totvs || "-";
+  const origemNome = churchNameMap.get(origemTotvs) || "";
+  const destinoNome = churchNameMap.get(destinoTotvs) || "";
+  const origemLabel = origemNome ? `${origemTotvs} — ${origemNome}` : origemTotvs;
+  const destinoLabel = destinoNome ? `${destinoTotvs} — ${destinoNome}` : destinoTotvs;
+
   const html = `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8" />
-<title>Recibo de Transferência</title>
+<title>Comprovante de Transferência</title>
 <style>
+  @page { size: A5 portrait; margin: 15mm; }
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: Arial, Helvetica, sans-serif; padding: 30px; color: #1a1a1a; font-size: 13px; }
-  .header { text-align: center; border-bottom: 2px solid #1e40af; padding-bottom: 16px; margin-bottom: 20px; }
-  .header h1 { font-size: 18px; color: #1e40af; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 1px; }
-  .header p { font-size: 11px; color: #64748b; }
-  .section { margin-bottom: 18px; }
-  .section-title { font-size: 12px; font-weight: bold; color: #1e40af; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px; }
-  .row { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px dotted #e2e8f0; }
-  .row .label { font-weight: 600; color: #475569; min-width: 140px; }
-  .row .value { text-align: right; flex: 1; }
-  .highlight { background: #f0f4ff; padding: 12px; border-radius: 6px; border: 1px solid #dbeafe; margin: 16px 0; }
+  body { font-family: Arial, Helvetica, sans-serif; padding: 24px; color: #1a1a1a; font-size: 12px; max-width: 148mm; margin: 0 auto; }
+  .header { text-align: center; border-bottom: 2px solid #1e40af; padding-bottom: 12px; margin-bottom: 16px; }
+  .header h1 { font-size: 14px; color: #1e40af; margin-bottom: 2px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .header h2 { font-size: 12px; color: #334155; font-weight: 600; margin-bottom: 4px; }
+  .header p { font-size: 10px; color: #64748b; }
+  .section { margin-bottom: 14px; }
+  .section-title { font-size: 11px; font-weight: bold; color: #1e40af; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; border-bottom: 1px solid #e2e8f0; padding-bottom: 3px; }
+  .row { display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px dotted #e2e8f0; }
+  .row .label { font-weight: 600; color: #475569; min-width: 120px; font-size: 11px; }
+  .row .value { text-align: right; flex: 1; font-size: 11px; }
+  .highlight { background: #f0f4ff; padding: 10px; border-radius: 5px; border: 1px solid #dbeafe; margin: 12px 0; }
   .highlight .row { border-bottom: none; }
-  .highlight .value { font-weight: 700; font-size: 15px; color: #1e40af; }
-  .signatures { display: flex; justify-content: space-between; margin-top: 60px; padding-top: 10px; }
-  .sig-line { width: 45%; text-align: center; }
-  .sig-line .line { border-top: 1px solid #1a1a1a; padding-top: 6px; font-size: 11px; color: #475569; }
-  .footer { text-align: center; margin-top: 40px; font-size: 10px; color: #94a3b8; border-top: 1px solid #e2e8f0; padding-top: 10px; }
-  .id-ref { font-family: monospace; font-size: 10px; color: #94a3b8; }
-  @media print { body { padding: 20px; } }
+  .highlight .value { font-weight: 700; font-size: 14px; color: #1e40af; }
+  .signatures { display: flex; justify-content: space-between; margin-top: 50px; padding-top: 8px; }
+  .sig-line { width: 44%; text-align: center; }
+  .sig-line .line { border-top: 1px solid #1a1a1a; padding-top: 5px; font-size: 10px; color: #475569; }
+  .footer { text-align: center; margin-top: 30px; font-size: 9px; color: #94a3b8; border-top: 1px solid #e2e8f0; padding-top: 8px; }
+  .id-ref { font-family: monospace; font-size: 9px; color: #94a3b8; }
+  @media print { body { padding: 15px; max-width: none; } }
 </style>
 </head>
 <body>
   <div class="header">
-    <h1>Comprovante de Transferência de Mercadoria</h1>
+    <h1>Comprovante de Transferência</h1>
+    <h2>${produtoNome}</h2>
     <p>Igreja Pentecostal Deus é Amor</p>
   </div>
 
@@ -581,7 +606,7 @@ function printTransferReceipt(m: DepositMovement) {
   <div class="section">
     <div class="section-title">Mercadoria</div>
     <div class="row"><span class="label">Código:</span><span class="value">${m.deposit_products?.code || "-"}</span></div>
-    <div class="row"><span class="label">Descrição:</span><span class="value">${m.deposit_products?.description || "-"}</span></div>
+    <div class="row"><span class="label">Descrição:</span><span class="value">${produtoNome}</span></div>
     <div class="row"><span class="label">Grupo:</span><span class="value">${m.deposit_products?.group_name || "-"}</span></div>
   </div>
 
@@ -591,8 +616,8 @@ function printTransferReceipt(m: DepositMovement) {
 
   <div class="section">
     <div class="section-title">Igrejas</div>
-    <div class="row"><span class="label">Igreja de Origem (TOTVS):</span><span class="value">${m.church_origin_totvs || "-"}</span></div>
-    <div class="row"><span class="label">Igreja de Destino (TOTVS):</span><span class="value">${m.church_destination_totvs || "-"}</span></div>
+    <div class="row"><span class="label">Igreja de Origem:</span><span class="value">${origemLabel}</span></div>
+    <div class="row"><span class="label">Igreja de Destino:</span><span class="value">${destinoLabel}</span></div>
   </div>
 
   <div class="signatures">
@@ -617,7 +642,7 @@ function printTransferReceipt(m: DepositMovement) {
 // ============================================================================
 // ABA: TRANSFERENCIAS
 // ============================================================================
-function TransferenciasTab({ transfers, loading }: { transfers: DepositMovement[]; loading: boolean }) {
+function TransferenciasTab({ transfers, loading, churchNameMap }: { transfers: DepositMovement[]; loading: boolean; churchNameMap: Map<string, string> }) {
   return (
     <div className="space-y-4">
       {loading ? (
@@ -647,12 +672,12 @@ function TransferenciasTab({ transfers, loading }: { transfers: DepositMovement[
                   <td className="px-3 py-2.5 font-mono text-xs">{m.deposit_products?.code || "-"}</td>
                   <td className="px-3 py-2.5">{m.deposit_products?.description || "-"}</td>
                   <td className="px-3 py-2.5 text-right font-semibold">{formatNumber(m.quantity)}</td>
-                  <td className="px-3 py-2.5 text-xs">{m.church_origin_totvs || "-"}</td>
-                  <td className="px-3 py-2.5 text-xs">{m.church_destination_totvs || "-"}</td>
+                  <td className="px-3 py-2.5 text-xs">{m.church_origin_totvs || "-"}{churchNameMap.get(m.church_origin_totvs || "") ? ` — ${churchNameMap.get(m.church_origin_totvs || "")}` : ""}</td>
+                  <td className="px-3 py-2.5 text-xs">{m.church_destination_totvs || "-"}{churchNameMap.get(m.church_destination_totvs || "") ? ` — ${churchNameMap.get(m.church_destination_totvs || "")}` : ""}</td>
                   <td className="px-3 py-2.5 text-xs">{m.responsible_name || "-"}</td>
                   <td className="px-3 py-2.5 text-xs text-slate-500 truncate max-w-[200px]">{m.notes || "-"}</td>
                   <td className="px-3 py-2.5">
-                    <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => printTransferReceipt(m)} title="Imprimir recibo">
+                    <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => printTransferReceipt(m, churchNameMap)} title="Imprimir recibo">
                       <Printer className="h-3.5 w-3.5 text-blue-600" />
                     </Button>
                   </td>
