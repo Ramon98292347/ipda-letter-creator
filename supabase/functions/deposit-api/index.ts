@@ -184,6 +184,23 @@ async function handleUpdateProduct(session: SessionClaims, body: Record<string, 
 }
 
 // ---------------------------------------------------------------------------
+// HANDLER: delete-product — exclui um produto do deposito
+// ---------------------------------------------------------------------------
+async function handleDeleteProduct(session: SessionClaims, body: Record<string, unknown>): Promise<Response> {
+  if (session.role !== "admin" && session.role !== "pastor") {
+    return json({ ok: false, error: "forbidden" }, 403);
+  }
+
+  const id = String(body.id || "").trim();
+  if (!id) return json({ ok: false, error: "missing_id" }, 400);
+
+  const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+  const { error } = await sb.from("deposit_products").delete().eq("id", id);
+  if (error) return json({ ok: false, error: "db_error", details: error.message }, 500);
+  return json({ ok: true });
+}
+
+// ---------------------------------------------------------------------------
 // HANDLER: list-stock — estoque consolidado com dados do produto
 // ---------------------------------------------------------------------------
 async function handleListStock(session: SessionClaims, body: Record<string, unknown>): Promise<Response> {
@@ -548,6 +565,8 @@ Deno.serve(async (req: Request) => {
         return await handleCreateTransfer(session, body);
       case "list-movements":
         return await handleListMovements(session, body);
+      case "delete-product":
+        return await handleDeleteProduct(session, body);
       default:
         return json({ ok: false, error: "unknown_action", detail: `Action '${action}' nao reconhecida.` }, 400);
     }

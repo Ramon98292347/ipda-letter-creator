@@ -3635,6 +3635,11 @@ export async function depositUpdateProduct(payload: Partial<DepositProduct> & { 
   return await api.depositUpdateProduct(payload as Record<string, unknown>);
 }
 
+// Comentario: exclui um produto do deposito
+export async function depositDeleteProduct(id: string) {
+  return await api.depositDeleteProduct({ id });
+}
+
 // Comentario: lista estoque consolidado com filtros
 export async function depositListStock(filters?: {
   search?: string;

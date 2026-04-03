@@ -19,6 +19,7 @@ import {
   depositListProducts,
   depositCreateProduct,
   depositUpdateProduct,
+  depositDeleteProduct,
   depositCreateMovement,
   depositCreateTransfer,
   depositListMovements,
@@ -46,6 +47,7 @@ import {
   Loader2,
   Plus,
   Pencil,
+  Trash2,
 } from "lucide-react";
 
 // Comentario: grupos disponiveis para o cadastro de produtos
@@ -297,6 +299,17 @@ export default function DepositoPage() {
                 products={products || []}
                 onEdit={(p) => { setEditingProduct(p); setProductModal(true); }}
                 onNew={() => { setEditingProduct(null); setProductModal(true); }}
+                onDelete={async (p) => {
+                  if (!confirm(`Excluir o produto "${p.description}"?`)) return;
+                  try {
+                    await depositDeleteProduct(p.id);
+                    queryClient.invalidateQueries({ queryKey: ["deposit-products"] });
+                    queryClient.invalidateQueries({ queryKey: ["deposit-stock"] });
+                    queryClient.invalidateQueries({ queryKey: ["deposit-summary"] });
+                  } catch {
+                    alert("Erro ao excluir produto.");
+                  }
+                }}
               />
             )}
           </div>
@@ -698,10 +711,11 @@ function TransferenciasTab({ transfers, loading, churchNameMap }: { transfers: D
 // ============================================================================
 // ABA: CADASTRO DE MERCADORIAS
 // ============================================================================
-function CadastroTab({ products, onEdit, onNew }: {
+function CadastroTab({ products, onEdit, onNew, onDelete }: {
   products: DepositProduct[];
   onEdit: (p: DepositProduct) => void;
   onNew: () => void;
+  onDelete: (p: DepositProduct) => void;
 }) {
   const [searchCadastro, setSearchCadastro] = useState("");
   const filtered = products.filter((p) => {
@@ -746,9 +760,12 @@ function CadastroTab({ products, onEdit, onNew }: {
                     {p.is_active ? "Ativo" : "Inativo"}
                   </Badge>
                 </td>
-                <td className="px-3 py-2.5">
+                <td className="px-3 py-2.5 flex gap-1">
                   <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => onEdit(p)}>
                     <Pencil className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button size="sm" variant="ghost" className="h-7 px-2 text-red-500 hover:text-red-700 hover:bg-red-50" onClick={() => onDelete(p)}>
+                    <Trash2 className="h-3.5 w-3.5" />
                   </Button>
                 </td>
               </tr>

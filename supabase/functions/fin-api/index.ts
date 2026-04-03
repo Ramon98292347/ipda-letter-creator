@@ -94,12 +94,12 @@ async function handleDashboard(
 ) {
   const churchId = getChurchFilter(session, body);
 
-  // Comentario: calcula o primeiro e ultimo dia do mes atual
+  // Comentario: aceita mes e ano opcionais; se não vier, usa o mês atual
   const now = new Date();
-  const anoAtual = now.getFullYear();
-  const mesAtual = now.getMonth() + 1; // getMonth() retorna 0-11
+  const mesAtual = body.mes ? Number(body.mes) : now.getMonth() + 1;
+  const anoAtual = body.ano ? Number(body.ano) : now.getFullYear();
   const inicioMes = `${anoAtual}-${String(mesAtual).padStart(2, "0")}-01`;
-  const fimMes = new Date(anoAtual, mesAtual, 0); // dia 0 do proximo mes = ultimo dia do mes atual
+  const fimMes = new Date(anoAtual, mesAtual, 0);
   const fimMesStr = `${anoAtual}-${String(mesAtual).padStart(2, "0")}-${String(fimMes.getDate()).padStart(2, "0")}`;
 
   // Comentario: busca todas as transacoes do mes atual para essa igreja
@@ -146,6 +146,21 @@ async function handleListTransacoes(
   body: Record<string, unknown>,
 ) {
   const churchId = getChurchFilter(session, body);
+  const listAll = body.all === true || String(body.all || "").toLowerCase() === "true";
+
+  // Comentario: quando all=true, retorna todas as transacoes da igreja (mais recentes primeiro)
+  if (listAll) {
+    const { data, error } = await sb
+      .from("fin_transacoes")
+      .select("id, descricao, valor, tipo, data_transacao, categoria_id, observacoes, church_totvs_id, created_at")
+      .eq("church_totvs_id", churchId)
+      .order("data_transacao", { ascending: false })
+      .order("created_at", { ascending: false })
+      .limit(200);
+
+    if (error) return json({ ok: false, error: "db_error", details: error.message }, 500);
+    return json({ ok: true, data: data || [] });
+  }
 
   // Comentario: mes e ano sao opcionais — se nao passados, usa o mes atual
   const now = new Date();

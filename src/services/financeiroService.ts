@@ -76,9 +76,11 @@ export type DadosDashboard = {
  * Busca os totais do mês atual: receitas, despesas, saldo e total de transações.
  * Usado na página principal do módulo financeiro.
  */
-export async function getDashboard(): Promise<DadosDashboard> {
+export async function getDashboard(mes?: number, ano?: number): Promise<DadosDashboard> {
   const res = await post<{ ok: boolean; data: DadosDashboard }>("fin-api", {
     action: "dashboard",
+    ...(mes !== undefined && { mes }),
+    ...(ano !== undefined && { ano }),
   });
   return res.data;
 }
@@ -88,9 +90,10 @@ export async function getDashboard(): Promise<DadosDashboard> {
  * Lista as transações de um mês/ano específico.
  * Se não passar mes e ano, a Edge Function usa o mês atual.
  */
-export async function listTransacoes(mes?: number, ano?: number): Promise<Transacao[]> {
+export async function listTransacoes(mes?: number, ano?: number, all = false): Promise<Transacao[]> {
   const res = await post<{ ok: boolean; data: Transacao[] }>("fin-api", {
     action: "list-transacoes",
+    ...(all ? { all: true } : {}),
     ...(mes !== undefined && { mes }),
     ...(ano !== undefined && { ano }),
   });

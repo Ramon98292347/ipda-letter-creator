@@ -849,9 +849,11 @@ async function openPdf(letter: PastorLetter) {
             <Button onClick={openLetterCreationDialog} className="w-full bg-blue-600 hover:bg-blue-700" disabled={isCadastroPendente}>
               Pedir carta
             </Button>
-            <Button variant="outline" onClick={pedirPrimeiraLiberacao} className="w-full" disabled={isCadastroPendente || hasDirectRelease}>
-              <Unlock className="mr-2 h-4 w-4" /> Pedir liberação de carta
-            </Button>
+            {!isObreiro ? (
+              <Button variant="outline" onClick={pedirPrimeiraLiberacao} className="w-full" disabled={isCadastroPendente || hasDirectRelease}>
+                <Unlock className="mr-2 h-4 w-4" /> Pedir liberação de carta
+              </Button>
+            ) : null}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" className="w-full" disabled={isCadastroPendente}>

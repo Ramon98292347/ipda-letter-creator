@@ -193,6 +193,7 @@ export const api = {
   depositListProducts: (body: Record<string, unknown>) => post("deposit-api", { action: "list-products", ...body }),
   depositCreateProduct: (body: Record<string, unknown>) => post("deposit-api", { action: "create-product", ...body }),
   depositUpdateProduct: (body: Record<string, unknown>) => post("deposit-api", { action: "update-product", ...body }),
+  depositDeleteProduct: (body: Record<string, unknown>) => post("deposit-api", { action: "delete-product", ...body }),
   depositListStock: (body: Record<string, unknown>) => post("deposit-api", { action: "list-stock", ...body }),
   depositGetSummary: () => post("deposit-api", { action: "get-summary" }),
   depositCreateMovement: (body: Record<string, unknown>) => post("deposit-api", { action: "create-movement", ...body }),

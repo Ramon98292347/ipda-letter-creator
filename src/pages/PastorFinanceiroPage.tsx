@@ -39,44 +39,92 @@ function formatarData(dataIso: string): string {
 
 export default function PastorFinanceiroPage() {
   const { usuario } = useUser();
-  // Determina o roleMode com base no role do usuário logado
   const roleMode = usuario?.role === "secretario" ? "secretario" : "pastor";
 
-  // Comentario: busca o resumo do mês atual
-  const { data: dashboard, isLoading: loadingDash, isError: errDash } = useQuery({
-    queryKey: ["pastor-financeiro-dashboard"],
-    queryFn: getDashboard,
-  });
-
-  // Comentario: busca as últimas transações do mês atual
   const agora = new Date();
-  const { data: transacoes, isLoading: loadingTrans } = useQuery({
-    queryKey: ["pastor-financeiro-transacoes", agora.getMonth() + 1, agora.getFullYear()],
-    queryFn: () => listTransacoes(agora.getMonth() + 1, agora.getFullYear()),
+  // Comentario: filtro de mês — "all" mostra todos, ou "MM-AAAA" filtra um mês específico
+  const [filtroMes, setFiltroMes] = useState(() => `${agora.getMonth() + 1}-${agora.getFullYear()}`);
+
+  const mesSelecionado = useMemo(() => {
+    if (filtroMes === "all") return null;
+    const [m, a] = filtroMes.split("-").map(Number);
+    return { mes: m, ano: a };
+  }, [filtroMes]);
+
+  // Comentario: gera opções dos últimos 12 meses para o select
+  const opcoesMeses = useMemo(() => {
+    const opcoes: { value: string; label: string }[] = [];
+    for (let i = 0; i < 12; i++) {
+      const d = new Date(agora.getFullYear(), agora.getMonth() - i, 1);
+      const m = d.getMonth() + 1;
+      const a = d.getFullYear();
+      opcoes.push({ value: `${m}-${a}`, label: `${NOMES_MESES[m - 1]} de ${a}` });
+    }
+    return opcoes;
+  }, []);
+
+  // Comentario: busca o resumo do mês selecionado
+  const { data: dashboard, isLoading: loadingDash, isError: errDash } = useQuery({
+    queryKey: ["pastor-financeiro-dashboard", mesSelecionado?.mes, mesSelecionado?.ano],
+    queryFn: () => getDashboard(mesSelecionado?.mes, mesSelecionado?.ano),
   });
 
-  // Comentario: busca as últimas contagens de caixa
+  // Comentario: busca transações do mês selecionado (desabilita quando "todos")
+  const { data: transacoes, isLoading: loadingTrans } = useQuery({
+    queryKey: ["pastor-financeiro-transacoes", mesSelecionado?.mes, mesSelecionado?.ano],
+    queryFn: () => (
+      mesSelecionado
+        ? listTransacoes(mesSelecionado.mes, mesSelecionado.ano)
+        : listTransacoes(undefined, undefined, true)
+    ),
+  });
+
+  // Comentario: busca todas as contagens de caixa
   const { data: contagens, isLoading: loadingContagens } = useQuery({
     queryKey: ["pastor-financeiro-contagens"],
     queryFn: listContagens,
   });
 
-  const labelMes = dashboard
-    ? `${NOMES_MESES[(dashboard.mes ?? 1) - 1]} de ${dashboard.ano}`
-    : "";
+  // Comentario: filtra contagens pelo mês selecionado
+  const contagensFiltradas = useMemo(() => {
+    if (!contagens) return [];
+    if (!mesSelecionado) return contagens;
+    const prefix = `${mesSelecionado.ano}-${String(mesSelecionado.mes).padStart(2, "0")}`;
+    return contagens.filter((c) => c.data_contagem?.startsWith(prefix));
+  }, [contagens, mesSelecionado]);
 
-  // Comentario: Total Entradas = soma de todos os saldo_contado das contagens de caixa do mes
+  const labelMes = mesSelecionado
+    ? `${NOMES_MESES[mesSelecionado.mes - 1]} de ${mesSelecionado.ano}`
+    : "Todos os meses";
+
+  // Comentario: Total Entradas = soma dos saldo_contado das contagens filtradas
   const totalEntradas = useMemo(() => {
-    if (!contagens || contagens.length === 0) return 0;
-    return contagens.reduce((soma, c) => soma + Number(c.saldo_contado || 0), 0);
-  }, [contagens]);
+    if (contagensFiltradas.length === 0) return 0;
+    return contagensFiltradas.reduce((soma, c) => soma + Number(c.saldo_contado || 0), 0);
+  }, [contagensFiltradas]);
 
-  // Comentario: busca fechamentos para os graficos anuais
+  // Comentario: busca fechamentos para os graficos anuais e resumo geral
   const { data: fechamentos = [] } = useQuery({
     queryKey: ["pastor-financeiro-fechamentos"],
     queryFn: listFechamentos,
     staleTime: 2 * 60 * 1000,
   });
+
+  // Comentario: resumo geral (todos os meses) calculado a partir dos fechamentos
+  const totalSaidas = useMemo(() => {
+    if (mesSelecionado) return Number(dashboard?.total_despesas ?? 0);
+    return fechamentos.reduce((s, f) => s + Number(f.total_despesas || 0), 0);
+  }, [mesSelecionado, dashboard, fechamentos]);
+
+  const saldoGeral = useMemo(() => {
+    if (mesSelecionado) return Number(dashboard?.saldo ?? 0);
+    return totalEntradas - totalSaidas;
+  }, [mesSelecionado, dashboard, totalEntradas, totalSaidas]);
+
+  const totalTransacoes = useMemo(() => {
+    if (mesSelecionado) return dashboard?.total_transacoes ?? 0;
+    return fechamentos.reduce((s, f) => s + Number(f.total_receitas || 0) + Number(f.total_despesas || 0), 0);
+  }, [mesSelecionado, dashboard, fechamentos]);
 
   // Comentario: ano selecionado para os graficos
   const [anoGrafico, setAnoGrafico] = useState(agora.getFullYear());
@@ -109,12 +157,25 @@ export default function PastorFinanceiroPage() {
   return (
     <ManagementShell roleMode={roleMode}>
       <div className="space-y-6">
-        {/* Cabeçalho */}
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">Financeiro</h1>
-          <p className="text-slate-500">
-            {isLoading ? "Carregando..." : labelMes ? `Resumo de ${labelMes} — somente leitura` : "Dados financeiros da sua igreja"}
-          </p>
+        {/* Cabeçalho com filtro de mês */}
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-slate-900">Financeiro</h1>
+            <p className="text-slate-500">
+              {isLoading ? "Carregando..." : `Resumo de ${labelMes} — somente leitura`}
+            </p>
+          </div>
+          <Select value={filtroMes} onValueChange={setFiltroMes}>
+            <SelectTrigger className="w-[200px]">
+              <SelectValue placeholder="Selecione o mês" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os meses</SelectItem>
+              {opcoesMeses.map((o) => (
+                <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         {/* Comentario: exibe erro se não conseguir carregar */}
@@ -158,7 +219,7 @@ export default function PastorFinanceiroPage() {
                   <Loader2 className="mt-1 h-5 w-5 animate-spin text-white/80" />
                 ) : (
                   <p className="truncate text-xl font-bold text-white">
-                    {formatarMoeda(dashboard?.total_despesas ?? "0")}
+                    {formatarMoeda(totalSaidas)}
                   </p>
                 )}
               </div>
@@ -176,7 +237,7 @@ export default function PastorFinanceiroPage() {
                   <Loader2 className="mt-1 h-5 w-5 animate-spin text-white/80" />
                 ) : (
                   <p className="truncate text-xl font-bold text-white">
-                    {formatarMoeda(dashboard?.saldo ?? "0")}
+                    {formatarMoeda(saldoGeral)}
                   </p>
                 )}
               </div>
@@ -194,7 +255,7 @@ export default function PastorFinanceiroPage() {
                   <Loader2 className="mt-1 h-5 w-5 animate-spin text-white/80" />
                 ) : (
                   <p className="truncate text-xl font-bold text-white">
-                    {dashboard?.total_transacoes ?? 0}
+                    {totalTransacoes}
                   </p>
                 )}
               </div>
@@ -207,13 +268,19 @@ export default function PastorFinanceiroPage() {
 
           {/* Transações recentes */}
           <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-            <h2 className="mb-4 text-base font-semibold text-slate-900">Transações do Mês</h2>
+            <h2 className="mb-4 text-base font-semibold text-slate-900">
+              {mesSelecionado ? "Transações do Mês" : "Transações Recentes"}
+            </h2>
             {loadingTrans ? (
               <div className="flex justify-center py-8">
                 <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
               </div>
             ) : !transacoes || transacoes.length === 0 ? (
-              <p className="py-6 text-center text-sm text-slate-500">Nenhuma transação registrada este mês.</p>
+              <p className="py-6 text-center text-sm text-slate-500">
+                {mesSelecionado
+                  ? "Nenhuma transação registrada este mês."
+                  : "Nenhuma transação registrada até o momento."}
+              </p>
             ) : (
               <div className="divide-y divide-slate-100">
                 {transacoes.slice(0, 8).map((t) => (
@@ -238,11 +305,11 @@ export default function PastorFinanceiroPage() {
               <div className="flex justify-center py-8">
                 <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
               </div>
-            ) : !contagens || contagens.length === 0 ? (
+            ) : !contagensFiltradas || contagensFiltradas.length === 0 ? (
               <p className="py-6 text-center text-sm text-slate-500">Nenhuma contagem registrada.</p>
             ) : (
               <div className="divide-y divide-slate-100">
-                {contagens.slice(0, 8).map((c) => (
+                {contagensFiltradas.slice(0, 8).map((c) => (
                   <div key={c.id} className="flex items-center justify-between py-2">
                     <div className="flex items-center gap-2">
                       <Calendar className="h-4 w-4 text-slate-400" />
