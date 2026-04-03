@@ -254,19 +254,19 @@ const Dashboard: React.FC = () => {
   }, [filteredTransactions]);
 
   const handleContagemDia = () => {
-    navigate('/contagem-dia');
+    navigate('/financeiro/contagem');
   };
 
-  const handleNovaEntrada = () => {
-    navigate('/contagem-dia');
+  const handleFichaDiaria = () => {
+    navigate('/financeiro/ficha');
   };
 
   const handleNovaSaida = () => {
-    navigate('/saidas');
+    navigate('/financeiro/saidas');
   };
 
   const handleRelatorios = () => {
-    navigate('/relatorios');
+    navigate('/financeiro/relatorios');
   };
 
   return (
@@ -608,11 +608,11 @@ const Dashboard: React.FC = () => {
               <span className="text-sm font-medium">Contagem do Dia</span>
             </button>
             <button 
-              onClick={handleNovaEntrada}
+              onClick={handleFichaDiaria}
               className="p-4 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
             >
               <TrendingUp className="w-6 h-6 mx-auto mb-2" />
-              <span className="text-sm font-medium">Nova Entrada</span>
+              <span className="text-sm font-medium">Ficha Diária</span>
             </button>
             <button 
               onClick={handleNovaSaida}
