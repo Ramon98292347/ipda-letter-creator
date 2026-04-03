@@ -1,5 +1,6 @@
 import {
   addSyncQueue,
+  clearStore,
   getAllFromStore,
   listSyncQueueByStatus,
   updateSyncQueueItem,
@@ -60,6 +61,14 @@ export async function getLettersCache(churchTotvsId?: string) {
   return rows.filter((row) => String(row.church_totvs_id || "") === churchTotvsId);
 }
 
+export async function clearEntityCaches() {
+  await Promise.all([
+    clearStore("letters_cache"),
+    clearStore("members_cache"),
+    clearStore("churches_cache"),
+  ]);
+}
+
 export async function enqueueOfflineOperation(
   entity: string,
   operation: SyncQueueItem["operation"],
@@ -98,4 +107,3 @@ export async function markOperationError(id: number, errorMessage: string) {
     last_error: errorMessage,
   });
 }
-

@@ -130,3 +130,10 @@ export async function getAllFromStore<T = Record<string, unknown>>(storeName: Of
   return rows as T[];
 }
 
+export async function clearStore(storeName: OfflineStoreName): Promise<void> {
+  const db = await getOfflineDb();
+  const tx = db.transaction(storeName, "readwrite");
+  const store = tx.objectStore(storeName);
+  store.clear();
+  await transactionDone(tx);
+}

@@ -22,6 +22,7 @@ import { UserProvider, useUser } from "./context/UserContext";
 import { FinanceProvider } from "./contexts/FinanceContext";
 import { registerDefaultOfflineHandlers } from "@/lib/offline/registerDefaultHandlers";
 import { startOfflineSyncLoop } from "@/lib/offline/syncEngine";
+import { clearEntityCaches } from "@/lib/offline/repository";
 import { DATA_MUTATED_EVENT } from "@/lib/api";
 
 const queryClient = new QueryClient({
@@ -558,6 +559,12 @@ function AppBootstrap() {
           localStorage.removeItem("ipda_rq_cache_v1");
         } catch {
           // Falha de storage nao deve bloquear a sincronizacao.
+        }
+        try {
+          // Comentario: limpa cache offline (IndexedDB) para evitar exibir registros antigos.
+          await clearEntityCaches();
+        } catch {
+          // Falha de limpeza offline nao deve bloquear o refetch.
         }
 
         await queryClient.cancelQueries();
