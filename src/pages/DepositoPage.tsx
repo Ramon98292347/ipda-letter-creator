@@ -760,13 +760,16 @@ function CadastroTab({ products, onEdit, onNew, onDelete }: {
                     {p.is_active ? "Ativo" : "Inativo"}
                   </Badge>
                 </td>
-                <td className="px-3 py-2.5 flex gap-1">
+                <td className="px-3 py-2.5">
+                  <div className="flex items-center gap-2">
                   <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => onEdit(p)}>
                     <Pencil className="h-3.5 w-3.5" />
                   </Button>
-                  <Button size="sm" variant="ghost" className="h-7 px-2 text-red-500 hover:text-red-700 hover:bg-red-50" onClick={() => onDelete(p)}>
-                    <Trash2 className="h-3.5 w-3.5" />
+                  <Button size="sm" variant="outline" className="h-7 px-2 text-red-600 border-red-200 hover:text-red-700 hover:bg-red-50" onClick={() => onDelete(p)}>
+                    <Trash2 className="mr-1 h-3.5 w-3.5" />
+                    Excluir
                   </Button>
+                  </div>
                 </td>
               </tr>
             ))}

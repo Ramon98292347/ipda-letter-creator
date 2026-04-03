@@ -51,6 +51,11 @@ export default function PastorFinanceiroPage() {
     return { mes: m, ano: a };
   }, [filtroMes]);
 
+  const monthInputValue = useMemo(() => {
+    if (!mesSelecionado) return "";
+    return `${mesSelecionado.ano}-${String(mesSelecionado.mes).padStart(2, "0")}`;
+  }, [mesSelecionado]);
+
   // Comentario: gera opções dos últimos 12 meses para o select
   const opcoesMeses = useMemo(() => {
     const opcoes: { value: string; label: string }[] = [];
@@ -165,17 +170,28 @@ export default function PastorFinanceiroPage() {
               {isLoading ? "Carregando..." : `Resumo de ${labelMes} — somente leitura`}
             </p>
           </div>
-          <Select value={filtroMes} onValueChange={setFiltroMes}>
-            <SelectTrigger className="w-[200px]">
-              <SelectValue placeholder="Selecione o mês" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos os meses</SelectItem>
-              {opcoesMeses.map((o) => (
-                <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="flex items-center gap-2">
+            <input
+              type="month"
+              value={monthInputValue}
+              onChange={(e) => {
+                const [anoStr, mesStr] = e.target.value.split("-");
+                const ano = Number(anoStr);
+                const mes = Number(mesStr);
+                if (!Number.isNaN(ano) && !Number.isNaN(mes)) {
+                  setFiltroMes(`${mes}-${ano}`);
+                }
+              }}
+              className="w-[200px] rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+            />
+            <button
+              type="button"
+              onClick={() => setFiltroMes("all")}
+              className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+            >
+              Todos
+            </button>
+          </div>
         </div>
 
         {/* Comentario: exibe erro se não conseguir carregar */}
