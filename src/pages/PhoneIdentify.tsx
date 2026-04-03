@@ -114,7 +114,7 @@ export default function PhoneIdentify() {
   const { data: announcements = [] } = useQuery({
     queryKey: ["announcements-login", cpfLookup, announcementTotvs, announcementScope.join(",")],
     queryFn: () => {
-      // Prioridade 1: CPF salvo no cache → busca divulgacoes direto pelo CPF via edge function (sem JWT)
+      // Prioridade 1: CPF salvo no cache ? busca divulgacoes direto pelo CPF via edge function (sem JWT)
       if (cpfLookup.length === 11) return listAnnouncementsPublicByCpf(cpfLookup, 10);
       // Prioridade 2: admin com escopo de igrejas
       if (announcementScope.length) return listAnnouncementsPublicByScope(announcementScope, 30);
@@ -122,7 +122,6 @@ export default function PhoneIdentify() {
       return listAnnouncementsPublicByTotvs(announcementTotvs, 10);
     },
     enabled: cpfLookup.length === 11 || Boolean(announcementTotvs) || announcementScope.length > 0,
-    refetchInterval: 10000,
   });
 
   const { data: birthdays = [] } = useQuery({
@@ -136,7 +135,6 @@ export default function PhoneIdentify() {
           ? listBirthdaysTodayPublicByScope(birthdayTotvsScope, 20)
           : listBirthdaysTodayPublicByTotvs(birthdayTotvsScope[0] || announcementTotvs, 10),
     enabled: cpfLookup.length === 11 || birthdayTotvsScope.length > 0 || announcementScope.length > 0,
-    refetchInterval: 10000,
   });
 
   async function handleLogin() {
@@ -430,4 +428,5 @@ export default function PhoneIdentify() {
     </div>
   );
 }
+
 

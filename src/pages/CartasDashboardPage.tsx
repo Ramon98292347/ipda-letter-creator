@@ -45,6 +45,7 @@ export default function CartasDashboardPage() {
   // Comentario: debounce de 600ms aguarda o usuario terminar de digitar antes de filtrar
   const debouncedFilterTotvs = useDebounce(filterChurchTotvsInput, 600);
   const [showFiltersMobile, setShowFiltersMobile] = useState(false);
+  const [lettersPageSize, setLettersPageSize] = useState(100);
 
   const role = String(usuario?.role || "").toLowerCase();
   if (role === "obreiro") {
@@ -64,7 +65,6 @@ export default function CartasDashboardPage() {
     queryKey: ["cartas-dashboard-scope", activeTotvsId, roleMode],
     queryFn: () => (roleMode === "admin" ? listChurchesInScope(1, 1000) : listChurchesInScope(1, 1000, activeTotvsId || undefined)),
     enabled: Boolean(activeTotvsId) || roleMode === "admin",
-    refetchInterval: 10000,
   });
 
   const effectiveScopeTotvsIds = useMemo(() => {
@@ -100,21 +100,25 @@ export default function CartasDashboardPage() {
     return effectiveScopeTotvsIds;
   }, [roleMode, selectedChurchTotvs, filteredChurchesInScope, effectiveScopeTotvsIds]);
 
+  useEffect(() => {
+    setLettersPageSize(100);
+  }, [selectedChurchTotvs, roleMode, selectedScopeForLetters.join("|")]);
+
   const { data: metrics, isLoading: loadingMetrics, isFetching: fetchingMetrics } = useQuery({
     queryKey: ["cartas-dashboard-metrics", selectedScopeForLetters.join("|")],
     queryFn: () => getPastorMetrics(),
     enabled: selectedScopeForLetters.length > 0,
-    refetchInterval: 60 * 1000,
   });
 
   const { data: letters = [], isLoading: loadingLetters, isFetching: fetchingLetters } = useQuery({
-    queryKey: ["cartas-dashboard-letters", selectedScopeForLetters.join("|"), roleMode, selectedChurchTotvs],
+    queryKey: ["cartas-dashboard-letters", selectedScopeForLetters.join("|"), roleMode, selectedChurchTotvs, lettersPageSize],
     queryFn: async () => {
       // Comentario: para pastor, uma consulta unica ja traz escopo + cartas proprias (preacher_user_id).
       if (roleMode === "pastor") {
         return listPastorLetters("", {
           period: "custom",
-          pageSize: 500,
+          pageSize: lettersPageSize,
+          onlyNewSinceCache: true,
         });
       }
 
@@ -122,7 +126,8 @@ export default function CartasDashboardPage() {
         selectedScopeForLetters.map((totvs) =>
           listPastorLetters(totvs, {
             period: "custom",
-            pageSize: 500,
+            pageSize: lettersPageSize,
+            onlyNewSinceCache: true,
           }),
         ),
       );
@@ -131,7 +136,6 @@ export default function CartasDashboardPage() {
       return Array.from(map.values());
     },
     enabled: selectedScopeForLetters.length > 0,
-    refetchInterval: 60 * 1000,
   });
 
   const { data: membrosRes, isLoading: loadingMembers, isFetching: fetchingMembers } = useQuery({
@@ -144,7 +148,6 @@ export default function CartasDashboardPage() {
         church_totvs_id: roleMode === "admin" && selectedChurchTotvs !== "all" ? selectedChurchTotvs : undefined,
       }),
     enabled: selectedScopeForLetters.length > 0,
-    refetchInterval: 10000,
   });
 
   const loadingPage =
@@ -160,6 +163,59 @@ export default function CartasDashboardPage() {
     if (!selectedScopeForLetters.length) return;
 
     const scopeSet = new Set(selectedScopeForLetters.map(String));
+    const lettersKey = ["cartas-dashboard-letters", selectedScopeForLetters.join("|"), roleMode, selectedChurchTotvs, lettersPageSize] as const;
+    const metricsKey = ["cartas-dashboard-metrics", selectedScopeForLetters.join("|")] as const;
+    const membersKey = ["cartas-dashboard-members", selectedScopeForLetters.join("|"), selectedChurchTotvs] as const;
+    const scopeKey = ["cartas-dashboard-scope", activeTotvsId, roleMode] as const;
+
+    function isInScope(churchTotvsId: string) {
+      return churchTotvsId ? scopeSet.has(churchTotvsId) : false;
+    }
+
+    function toRealtimeLetter(row: Record<string, unknown>) {
+      return {
+        id: String(row.id || ""),
+        church_totvs_id: row.church_totvs_id ? String(row.church_totvs_id) : null,
+        created_at: String(row.created_at || new Date().toISOString()),
+        preacher_name: String(row.preacher_name || ""),
+        preach_date: row.preach_date ? String(row.preach_date) : null,
+        church_origin: row.church_origin ? String(row.church_origin) : null,
+        church_destination: row.church_destination ? String(row.church_destination) : null,
+        minister_role: row.minister_role ? String(row.minister_role) : null,
+        status: String(row.status || ""),
+        storage_path: row.storage_path ? String(row.storage_path) : null,
+        url_carta: row.url_carta ? String(row.url_carta) : null,
+        url_pronta: typeof row.url_pronta === "boolean" ? row.url_pronta : null,
+        phone: row.phone ? String(row.phone) : null,
+        block_reason: row.block_reason ? String(row.block_reason) : null,
+        preacher_user_id: row.preacher_user_id ? String(row.preacher_user_id) : null,
+      };
+    }
+
+    function upsertLetterCache(row: Record<string, unknown>) {
+      const incoming = toRealtimeLetter(row);
+      if (!incoming.id) return;
+      queryClient.setQueryData(lettersKey, (current: unknown) => {
+        const list = Array.isArray(current) ? [...current] : [];
+        const idx = list.findIndex((item) => String((item as Record<string, unknown>)?.id || "") === incoming.id);
+        if (idx >= 0) {
+          list[idx] = { ...(list[idx] as Record<string, unknown>), ...incoming };
+        } else {
+          list.unshift(incoming);
+        }
+        list.sort((a, b) => String((b as Record<string, unknown>)?.created_at || "").localeCompare(String((a as Record<string, unknown>)?.created_at || "")));
+        return list;
+      });
+    }
+
+    function removeLetterCache(id: string) {
+      if (!id) return;
+      queryClient.setQueryData(lettersKey, (current: unknown) => {
+        const list = Array.isArray(current) ? current : [];
+        return list.filter((item) => String((item as Record<string, unknown>)?.id || "") !== id);
+      });
+    }
+
     const channel = supabaseRealtime
       .channel(`cartas-dashboard-letters-${roleMode}-${selectedScopeForLetters.join("-")}`)
       .on(
@@ -169,13 +225,41 @@ export default function CartasDashboardPage() {
           const row = ((payload.new || payload.old || {}) as Record<string, unknown>);
           const churchTotvsId = String(row.church_totvs_id || "").trim();
           const preacherUserId = String(row.preacher_user_id || "").trim();
-          const inScope = scopeSet.has(churchTotvsId);
+          const inScope = isInScope(churchTotvsId);
           const isOwnPastorLetter = roleMode === "pastor" && preacherUserId === String(usuario?.id || "");
           if (!inScope && !isOwnPastorLetter) return;
 
+          if (payload.eventType === "DELETE") {
+            removeLetterCache(String(row.id || ""));
+          } else {
+            upsertLetterCache(row);
+          }
+          void queryClient.invalidateQueries({ queryKey: metricsKey });
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "users" },
+        (payload) => {
+          const row = ((payload.new || payload.old || {}) as Record<string, unknown>);
+          const churchTotvsId = String(row.default_totvs_id || "").trim();
+          if (!churchTotvsId || (!isInScope(churchTotvsId) && roleMode !== "admin")) return;
           void Promise.all([
-            queryClient.invalidateQueries({ queryKey: ["cartas-dashboard-letters"] }),
-            queryClient.invalidateQueries({ queryKey: ["cartas-dashboard-metrics"] }),
+            queryClient.invalidateQueries({ queryKey: membersKey }),
+            queryClient.invalidateQueries({ queryKey: metricsKey }),
+          ]);
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "churches" },
+        (payload) => {
+          const row = ((payload.new || payload.old || {}) as Record<string, unknown>);
+          const churchTotvsId = String(row.totvs_id || "").trim();
+          if (churchTotvsId && !isInScope(churchTotvsId) && roleMode !== "admin") return;
+          void Promise.all([
+            queryClient.invalidateQueries({ queryKey: scopeKey }),
+            queryClient.invalidateQueries({ queryKey: membersKey }),
           ]);
         },
       )
@@ -184,7 +268,7 @@ export default function CartasDashboardPage() {
     return () => {
       void supabaseRealtime.removeChannel(channel);
     };
-  }, [queryClient, roleMode, selectedScopeForLetters, usuario?.id]);
+  }, [queryClient, roleMode, selectedScopeForLetters, selectedChurchTotvs, lettersPageSize, activeTotvsId, usuario?.id]);
 
   const obreiros = membrosRes?.workers || [];
   const phonesByUserId = useMemo(() => {
@@ -253,6 +337,7 @@ export default function CartasDashboardPage() {
 
     return { total, today, last7 };
   }, [letters]);
+  const canLoadMoreLetters = letters.length >= lettersPageSize;
   const statusStats = useMemo(() => {
     let liberadas = 0;
     let bloqueadas = 0;
@@ -395,6 +480,17 @@ export default function CartasDashboardPage() {
           allowScopeView={allowScopeView}
           autoReleaseByUserId={autoReleaseByUserId}
         />
+        {canLoadMoreLetters ? (
+          <div className="mt-4 flex justify-center">
+            <Button
+              variant="outline"
+              disabled={fetchingLetters}
+              onClick={() => setLettersPageSize((prev) => prev + 100)}
+            >
+              {fetchingLetters ? "Carregando..." : "Carregar mais cartas"}
+            </Button>
+          </div>
+        ) : null}
       </div>
     </ManagementShell>
   );

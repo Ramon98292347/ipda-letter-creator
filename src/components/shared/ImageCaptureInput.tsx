@@ -1,7 +1,9 @@
 import { useRef, useState } from "react";
-import { Camera, Upload } from "lucide-react";
+import { Camera, Loader2, Upload } from "lucide-react";
+import { Capacitor } from "@capacitor/core";
 import { Button } from "@/components/ui/button";
 import { ImageEditorModal } from "@/components/shared/ImageEditorModal";
+import { captureNativeImage, pickNativeImage } from "@/lib/native/camera";
 
 interface ImageCaptureInputProps {
   onChange: (file: File | null) => void;
@@ -31,11 +33,13 @@ export function ImageCaptureInput({
   defaultRatio = 3 / 4,
   editorTitle = "Editar foto",
 }: ImageCaptureInputProps) {
+  const isNativeApp = Capacitor.isNativePlatform();
   const cameraRef = useRef<HTMLInputElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const [editorOpen, setEditorOpen] = useState(false);
   const [pendingSrc, setPendingSrc] = useState<string>("");
+  const [capturingNative, setCapturingNative] = useState(false);
 
   function openEditor(file: File) {
     const url = URL.createObjectURL(file);
@@ -60,6 +64,26 @@ export function ImageCaptureInput({
     setEditorOpen(false);
     URL.revokeObjectURL(pendingSrc);
     setPendingSrc("");
+  }
+
+  async function handleNativeCamera() {
+    setCapturingNative(true);
+    try {
+      const file = await captureNativeImage();
+      if (file) openEditor(file);
+    } finally {
+      setCapturingNative(false);
+    }
+  }
+
+  async function handleNativeGallery() {
+    setCapturingNative(true);
+    try {
+      const file = await pickNativeImage();
+      if (file) openEditor(file);
+    } finally {
+      setCapturingNative(false);
+    }
   }
 
   return (
@@ -88,10 +112,16 @@ export function ImageCaptureInput({
           variant="outline"
           size="sm"
           className="flex-1"
-          disabled={disabled}
-          onClick={() => cameraRef.current?.click()}
+          disabled={disabled || capturingNative}
+          onClick={() => {
+            if (isNativeApp) {
+              void handleNativeCamera();
+              return;
+            }
+            cameraRef.current?.click();
+          }}
         >
-          <Camera className="mr-2 h-4 w-4" />
+          {capturingNative ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Camera className="mr-2 h-4 w-4" />}
           Tirar Foto
         </Button>
         <Button
@@ -99,8 +129,14 @@ export function ImageCaptureInput({
           variant="outline"
           size="sm"
           className="flex-1"
-          disabled={disabled}
-          onClick={() => fileRef.current?.click()}
+          disabled={disabled || capturingNative}
+          onClick={() => {
+            if (isNativeApp) {
+              void handleNativeGallery();
+              return;
+            }
+            fileRef.current?.click();
+          }}
         >
           <Upload className="mr-2 h-4 w-4" />
           Arquivo

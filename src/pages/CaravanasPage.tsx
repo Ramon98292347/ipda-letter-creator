@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+﻿import { useState, useMemo, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ManagementShell } from "@/components/layout/ManagementShell";
 import { Button } from "@/components/ui/button";
@@ -89,7 +89,6 @@ export default function CaravanasPage() {
       });
       return result;
     },
-    refetchInterval: 30000,
   });
 
   const filteredCaravanas = useMemo(() => {
@@ -127,7 +126,7 @@ export default function CaravanasPage() {
     return new Date(max).toLocaleDateString("pt-BR");
   }, [caravanas]);
 
-  // Real-time subscription para atualizações da tabela caravanas
+  // Real-time subscription para atualizaÃ§Ãµes da tabela caravanas
   useEffect(() => {
     if (!supabase) return;
 
@@ -190,7 +189,7 @@ export default function CaravanasPage() {
 
   const handleCreateEvent = async () => {
     if (!eventTitle.trim()) {
-      toast.error("Informe o título do evento");
+      toast.error("Informe o tÃ­tulo do evento");
       return;
     }
 
@@ -242,11 +241,11 @@ export default function CaravanasPage() {
             <p className="text-sm text-slate-500">
               {isAdmin
                 ? "Visualize e gerencie todas as caravanas cadastradas"
-                : "Visualize e gerencie as caravanas da sua jurisdição"}
+                : "Visualize e gerencie as caravanas da sua jurisdiÃ§Ã£o"}
             </p>
           </div>
           <div className="flex gap-2">
-            {/* Botão de agendamento restaurado para todos */}
+            {/* BotÃ£o de agendamento restaurado para todos */}
             <Button onClick={() => setOpenScheduleEvent(true)} variant="outline" className="border-slate-300 text-slate-700 hover:bg-slate-50 shadow-sm">
               <Calendar className="h-4 w-4 mr-2" />
               Agendar Evento
@@ -280,7 +279,7 @@ export default function CaravanasPage() {
           </Card>
           <Card className="rounded-xl border-0 bg-gradient-to-br from-purple-500 to-purple-700 shadow-md flex flex-col justify-between p-4">
             <div className="flex items-center text-white/90 text-sm font-medium mb-3">
-              <Calendar className="h-4 w-4 mr-2" /> Última Atualização
+              <Calendar className="h-4 w-4 mr-2" /> Ãšltima AtualizaÃ§Ã£o
             </div>
             <div className="text-2xl font-bold text-white">{ultimaAtualizacao}</div>
           </Card>
@@ -291,7 +290,7 @@ export default function CaravanasPage() {
           <div className="relative flex-1 w-full">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
             <Input
-              placeholder="Buscar por igreja, pastor ou líder..."
+              placeholder="Buscar por igreja, pastor ou lÃ­der..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-9 w-full shadow-sm bg-white border-slate-200"
@@ -338,7 +337,7 @@ export default function CaravanasPage() {
           </div>
         ) : (
           <div className="space-y-10">
-            {/* Seção Recebidas */}
+            {/* SeÃ§Ã£o Recebidas */}
             {recebidas.length > 0 && (
               <div>
                 <h2 className="text-xl font-bold text-slate-700 mb-4 tracking-tight">Recebidas</h2>
@@ -384,7 +383,7 @@ export default function CaravanasPage() {
                       <div className="space-y-3 text-sm text-slate-700 mb-5">
                         <div className="flex items-center"><Users className="h-4 w-4 mr-3 text-orange-600/70" /> Pastor: {caravan.pastor_name}</div>
                         <div className="flex items-center"><Bus className="h-4 w-4 mr-3 text-orange-600/70" /> Placa: {caravan.vehicle_plate}</div>
-                        <div className="flex items-center"><Users className="h-4 w-4 mr-3 text-orange-600/70" /> Líder: {caravan.leader_name}</div>
+                        <div className="flex items-center"><Users className="h-4 w-4 mr-3 text-orange-600/70" /> LÃ­der: {caravan.leader_name}</div>
                         <div className="flex items-center"><Phone className="h-4 w-4 mr-3 text-orange-600/70" /> {caravan.leader_whatsapp}</div>
                       </div>
 
@@ -409,7 +408,7 @@ export default function CaravanasPage() {
               </div>
             )}
 
-            {/* Seção Confirmadas */}
+            {/* SeÃ§Ã£o Confirmadas */}
             {confirmadas.length > 0 && (
               <div>
                 <h2 className="text-xl font-bold text-slate-700 mb-4 tracking-tight">Confirmadas</h2>
@@ -455,7 +454,7 @@ export default function CaravanasPage() {
                       <div className="space-y-3 text-sm text-green-900/90 mb-5">
                         <div className="flex items-center"><Users className="h-4 w-4 mr-3 text-green-700/80" /> Pastor: {caravan.pastor_name}</div>
                         <div className="flex items-center"><Bus className="h-4 w-4 mr-3 text-green-700/80" /> Placa: {caravan.vehicle_plate}</div>
-                        <div className="flex items-center"><Users className="h-4 w-4 mr-3 text-green-700/80" /> Líder: {caravan.leader_name}</div>
+                        <div className="flex items-center"><Users className="h-4 w-4 mr-3 text-green-700/80" /> LÃ­der: {caravan.leader_name}</div>
                         <div className="flex items-center"><Phone className="h-4 w-4 mr-3 text-green-700/80" /> {caravan.leader_whatsapp}</div>
                       </div>
 
@@ -542,13 +541,13 @@ export default function CaravanasPage() {
               <div className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="eventTitle" className="text-sm font-medium">
-                    Título do Evento *
+                    TÃ­tulo do Evento *
                   </Label>
                   <Input
                     id="eventTitle"
                     value={eventTitle}
                     onChange={(e) => setEventTitle(e.target.value)}
-                    placeholder="Ex: Conferência de Caravanas 2026"
+                    placeholder="Ex: ConferÃªncia de Caravanas 2026"
                     className="text-sm"
                   />
                 </div>
@@ -556,7 +555,7 @@ export default function CaravanasPage() {
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-2">
                     <Label htmlFor="eventStart" className="text-sm font-medium">
-                      Data de Início
+                      Data de InÃ­cio
                     </Label>
                     <Input
                       id="eventStart"
@@ -568,7 +567,7 @@ export default function CaravanasPage() {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="eventEnd" className="text-sm font-medium">
-                      Data de Término
+                      Data de TÃ©rmino
                     </Label>
                     <Input
                       id="eventEnd"
@@ -640,3 +639,4 @@ export default function CaravanasPage() {
     </ManagementShell>
   );
 }
+

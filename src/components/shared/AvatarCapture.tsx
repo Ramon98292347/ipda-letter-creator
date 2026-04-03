@@ -16,8 +16,10 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import * as faceapi from "face-api.js";
+import { Capacitor } from "@capacitor/core";
 import { Camera, CheckCircle, FlipHorizontal, Loader2, RefreshCw, Upload, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { captureNativeImage, pickNativeImage } from "@/lib/native/camera";
 
 // Tamanho final da foto (proporção 3x4)
 const FOTO_WIDTH = 300;
@@ -36,6 +38,7 @@ interface AvatarCaptureProps {
 }
 
 export function AvatarCapture({ onFileReady, disabled = false, currentUrl }: AvatarCaptureProps) {
+  const isNativeApp = Capacitor.isNativePlatform();
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
@@ -60,6 +63,7 @@ export function AvatarCapture({ onFileReady, disabled = false, currentUrl }: Ava
 
   // ── Carregar modelos ao montar ──────────────────────────────────────────────
   useEffect(() => {
+    if (isNativeApp) return;
     async function carregarModelos() {
       setLoadingModels(true);
       setStatusMsg("Carregando detecção de rosto...");
@@ -75,7 +79,7 @@ export function AvatarCapture({ onFileReady, disabled = false, currentUrl }: Ava
     }
     void carregarModelos();
     return () => pararCamera();
-  }, []);
+  }, [isNativeApp]);
 
   useEffect(() => {
     return () => {
@@ -411,6 +415,25 @@ export function AvatarCapture({ onFileReady, disabled = false, currentUrl }: Ava
     }
   }
 
+  async function selecionarFotoNativa(origem: "camera" | "galeria") {
+    setProcessing(true);
+    setStatusMsg(origem === "camera" ? "Abrindo camera..." : "Abrindo galeria...");
+    setProgress(20);
+    try {
+      const file = origem === "camera" ? await captureNativeImage() : await pickNativeImage();
+      if (!file) {
+        setProcessing(false);
+        setStatusMsg("");
+        setProgress(0);
+        return;
+      }
+      await processarFoto(file);
+    } catch {
+      setProcessing(false);
+      setStatusMsg("Erro ao abrir camera/galeria.");
+    }
+  }
+
   function carregarImagem(file: File): Promise<HTMLImageElement> {
     return new Promise((resolve, reject) => {
       const img = new Image();
@@ -451,7 +474,14 @@ export function AvatarCapture({ onFileReady, disabled = false, currentUrl }: Ava
               type="button"
               variant="outline"
               size="sm"
-              onClick={() => { removerFoto(); void iniciarCamera("user"); }}
+              onClick={() => {
+                removerFoto();
+                if (isNativeApp) {
+                  void selecionarFotoNativa("camera");
+                  return;
+                }
+                void iniciarCamera("user");
+              }}
               disabled={disabled}
             >
               <RefreshCw className="h-4 w-4 mr-1" />
@@ -538,7 +568,13 @@ export function AvatarCapture({ onFileReady, disabled = false, currentUrl }: Ava
               type="button"
               variant="outline"
               size="sm"
-              onClick={() => void iniciarCamera("user")}
+              onClick={() => {
+                if (isNativeApp) {
+                  void selecionarFotoNativa("camera");
+                  return;
+                }
+                void iniciarCamera("user");
+              }}
               disabled={disabled || processing || loadingModels}
             >
               {loadingModels
@@ -551,7 +587,13 @@ export function AvatarCapture({ onFileReady, disabled = false, currentUrl }: Ava
               type="button"
               variant="outline"
               size="sm"
-              onClick={() => galleryInputRef.current?.click()}
+              onClick={() => {
+                if (isNativeApp) {
+                  void selecionarFotoNativa("galeria");
+                  return;
+                }
+                galleryInputRef.current?.click();
+              }}
               disabled={disabled || processing}
             >
               <Upload className="h-4 w-4 mr-1" />

@@ -8,12 +8,20 @@
     "build": "vite build",
     "vercel-build": "vite build",
     "build:dev": "vite build --mode development",
+    "cap:sync": "npx cap sync android",
+    "cap:open": "npx cap open android",
+    "android:dev": "npm run build && npx cap sync android && npx cap open android",
     "lint": "eslint .",
     "preview": "vite preview",
     "test:e2e": "playwright test",
     "deploy:functions": "supabase functions deploy notifications-api set-user-registration-status"
   },
   "dependencies": {
+    "@capacitor/android": "^8.3.0",
+    "@capacitor/camera": "^8.0.2",
+    "@capacitor/core": "^8.3.0",
+    "@capacitor/local-notifications": "^8.0.2",
+    "@capacitor/network": "^8.0.1",
     "@hookform/resolvers": "^3.10.0",
     "@imgly/background-removal": "^1.7.0",
     "@radix-ui/react-accordion": "^1.2.11",
@@ -44,7 +52,9 @@
     "@radix-ui/react-toggle-group": "^1.1.10",
     "@radix-ui/react-tooltip": "^1.2.7",
     "@supabase/supabase-js": "^2.46.1",
+    "@tanstack/query-sync-storage-persister": "^5.96.2",
     "@tanstack/react-query": "^5.83.0",
+    "@tanstack/react-query-persist-client": "^5.96.2",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
@@ -70,6 +80,7 @@
     "zod": "^3.25.76"
   },
   "devDependencies": {
+    "@capacitor/cli": "^8.3.0",
     "@eslint/js": "^9.32.0",
     "@playwright/test": "^1.58.2",
     "@tailwindcss/typography": "^0.5.16",

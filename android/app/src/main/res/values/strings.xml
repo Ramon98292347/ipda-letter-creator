@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">SGE IPDA</string>
+    <string name="title_activity_main">SGE IPDA</string>
+    <string name="package_name">com.ipda.sistema</string>
+    <string name="custom_url_scheme">com.ipda.sistema</string>
+</resources>

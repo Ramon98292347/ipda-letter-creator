@@ -4,7 +4,7 @@ import { supabase, supabaseAnon } from "@/lib/supabase";
 import { apiFetch } from "@/services/api";
 import type { AppSession, PendingChurch } from "@/context/UserContext";
 import { isValidCpf } from "@/lib/cpf";
-import { enqueueOfflineOperation, getChurchesCache, getMembersCache, saveChurchesCache, saveMembersCache } from "@/lib/offline/repository";
+import { enqueueOfflineOperation, getChurchesCache, getLettersCache, getMembersCache, saveChurchesCache, saveLettersCache, saveMembersCache } from "@/lib/offline/repository";
 
 function isRetryableOfflineError(error: unknown) {
   return error instanceof ApiError && (error.code === "network_error" || error.code === "request_timeout" || error.status === 0 || error.status === 408);
@@ -64,6 +64,7 @@ export type PastorFilters = {
   q?: string;
   page?: number;
   pageSize?: number;
+  onlyNewSinceCache?: boolean;
 };
 
 export type PastorLetter = {
@@ -858,6 +859,75 @@ export async function listPastorLetters(_activeTotvsId: string, filters: PastorF
   }
 
   if (!isMockMode()) {
+    const isDefaultListing =
+      filters.period === "custom" &&
+      !filters.dateStart &&
+      !filters.dateEnd &&
+      (!filters.status || filters.status === "all") &&
+      (!filters.role || filters.role === "all") &&
+      !String(filters.q || "").trim();
+
+    const shouldUseDelta = Boolean(filters.onlyNewSinceCache) && isDefaultListing;
+    const cacheScopeTotvs = String(_activeTotvsId || "").trim();
+    const cachedRowsRaw = await getLettersCache(cacheScopeTotvs || undefined);
+    const cachedRows = (cachedRowsRaw || []) as Record<string, unknown>[];
+
+    const applyLocalFilters = (rows: Record<string, unknown>[]) => {
+      const q = String(filters.q || "").trim().toLowerCase();
+      const status = String(filters.status || "").trim();
+      const role = String(filters.role || "").trim();
+      const start = String(filters.dateStart || "").trim();
+      const end = String(filters.dateEnd || "").trim();
+
+      return rows
+        .filter((row) => String(row.status || "").toUpperCase() !== "EXCLUIDA")
+        .filter((row) => {
+          if (cacheScopeTotvs && String(row.church_totvs_id || "") !== cacheScopeTotvs) return false;
+          if (status && status !== "all" && String(row.status || "") !== status) return false;
+          if (role && role !== "all" && String(row.minister_role || "") !== role) return false;
+
+          const createdAt = String(row.created_at || "");
+          const createdDate = createdAt.slice(0, 10);
+          if (start && createdDate < start) return false;
+          if (end && createdDate > end) return false;
+
+          if (q) {
+            const haystack = `${String(row.preacher_name || "")} ${String(row.church_origin || "")} ${String(row.church_destination || "")}`.toLowerCase();
+            if (!haystack.includes(q)) return false;
+          }
+          return true;
+        })
+        .sort((a, b) => String(b.created_at || "").localeCompare(String(a.created_at || "")));
+    };
+
+    const mergeRowsById = (baseRows: Record<string, unknown>[], deltaRows: Record<string, unknown>[]) => {
+      const byId = new Map<string, Record<string, unknown>>();
+      for (const row of baseRows) {
+        const id = String(row.id || "");
+        if (!id) continue;
+        byId.set(id, row);
+      }
+      for (const row of deltaRows) {
+        const id = String(row.id || "");
+        if (!id) continue;
+        byId.set(id, { ...(byId.get(id) || {}), ...row });
+      }
+      return Array.from(byId.values()).sort((a, b) => String(b.created_at || "").localeCompare(String(a.created_at || "")));
+    };
+
+    const persistRowsByChurch = async (rows: Record<string, unknown>[]) => {
+      const byChurch = new Map<string, Record<string, unknown>[]>();
+      for (const row of rows) {
+        const churchTotvs = String(row.church_totvs_id || "").trim();
+        if (!churchTotvs) continue;
+        if (!byChurch.has(churchTotvs)) byChurch.set(churchTotvs, []);
+        byChurch.get(churchTotvs)!.push(row);
+      }
+      await Promise.all(
+        [...byChurch.entries()].map(([churchTotvs, churchRows]) => saveLettersCache(churchTotvs, churchRows)),
+      );
+    };
+
     const payload: Record<string, unknown> = {
       page: filters.page || 1,
       page_size: filters.pageSize || 500,
@@ -872,9 +942,34 @@ export async function listPastorLetters(_activeTotvsId: string, filters: PastorF
     if (filters.role && filters.role !== "all") payload.minister_role = filters.role;
     if (filters.q) payload.search = filters.q;
 
-    const data = await api.listLetters(payload);
-    const rows = Array.isArray(data?.letters) ? data.letters : Array.isArray(data?.items) ? data.items : Array.isArray(data) ? data : [];
-    return rows.map(mapLetterLike);
+    if (shouldUseDelta && cachedRows.length > 0) {
+      const latestCreatedAt = cachedRows
+        .map((row) => String(row.created_at || "").trim())
+        .filter(Boolean)
+        .sort((a, b) => b.localeCompare(a))[0];
+      if (latestCreatedAt) {
+        payload.date_start = latestCreatedAt.slice(0, 10);
+      }
+    }
+
+    try {
+      const data = await api.listLetters(payload);
+      const rows = (Array.isArray(data?.letters) ? data.letters : Array.isArray(data?.items) ? data.items : Array.isArray(data) ? data : []) as Record<string, unknown>[];
+
+      if (shouldUseDelta && cachedRows.length > 0) {
+        const merged = mergeRowsById(cachedRows, rows);
+        await persistRowsByChurch(merged);
+        return applyLocalFilters(merged).map(mapLetterLike);
+      }
+
+      await persistRowsByChurch(rows);
+      return rows.map(mapLetterLike);
+    } catch (error) {
+      if (isRetryableOfflineError(error)) {
+        return applyLocalFilters(cachedRows).map(mapLetterLike);
+      }
+      throw error;
+    }
   }
 
   return MOCK_LETTERS.filter((l) => {

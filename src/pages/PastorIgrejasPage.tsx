@@ -52,7 +52,6 @@ export default function PastorIgrejasPage() {
     queryKey: ["pastor-igrejas-options", activeTotvsId],
     queryFn: () => listChurchesInScope(1, 5000, activeTotvsId || undefined),
     enabled: Boolean(activeTotvsId),
-    refetchInterval: 10000,
   });
 
   const { data: pageData, isLoading, isFetching } = useQuery({
@@ -60,7 +59,6 @@ export default function PastorIgrejasPage() {
     queryFn: () => listChurchesInScopePaged(page, pageSize, activeTotvsId || undefined),
     enabled: Boolean(activeTotvsId),
     staleTime: 30_000,
-    refetchInterval: 10000,
   });
 
   const rows = pageData?.churches || [];

@@ -1,8 +1,11 @@
 import { useEffect } from "react";
 import { toast } from "sonner";
+import { Capacitor } from "@capacitor/core";
 
 export function PwaUpdater() {
   useEffect(() => {
+    if (Capacitor.isNativePlatform()) return;
+
     // Apenas com suporte a SW
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker.ready.then((reg) => {

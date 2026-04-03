@@ -1,6 +1,7 @@
 import { useEffect, useState, type ComponentType, type ReactNode } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { BarChart2, Building2, Bell, Bus, Calculator, Church, ClipboardList, DollarSign, Download, FileText, Loader2, LogOut, Megaphone, MoreHorizontal, Package, Settings, TrendingDown, Users } from "lucide-react";
+import { Capacitor } from "@capacitor/core";
 import { useUser } from "@/context/UserContext";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -11,6 +12,7 @@ import { listNotifications, markAllNotificationsRead, markNotificationRead } fro
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { useOfflineStatus } from "@/hooks/useOfflineStatus";
 import { AvatarImage } from "@/components/shared/AvatarImage";
+import { showNativeLocalNotification } from "@/lib/native/localNotifications";
 
 type RoleMode = "admin" | "pastor" | "obreiro" | "secretario" | "financeiro";
 
@@ -108,6 +110,7 @@ export function ManagementShell({
   roleMode: RoleMode;
   children: ReactNode;
 }) {
+  const isNativeApp = Capacitor.isNativePlatform();
   const nav = useNavigate();
   const location = useLocation();
   const { usuario, session, clearAuth } = useUser();
@@ -152,6 +155,30 @@ export function ManagementShell({
   });
   const notifications = notificationsData?.notifications || [];
   const unreadCount = notificationsData?.unread_count || 0;
+
+  useEffect(() => {
+    if (!isNativeApp || !pushSubscribed) return;
+    const key = `ipda_notified_${usuario?.id || "anon"}`;
+    const knownIds = new Set<string>(JSON.parse(localStorage.getItem(key) || "[]") as string[]);
+    const incomingUnread = notifications.filter((item) => !item.is_read);
+
+    if (knownIds.size === 0) {
+      const bootstrap = incomingUnread.map((item) => item.id).slice(-200);
+      localStorage.setItem(key, JSON.stringify(bootstrap));
+      return;
+    }
+
+    const newItems = incomingUnread.filter((item) => !knownIds.has(item.id));
+    if (!newItems.length) return;
+
+    for (const item of newItems) {
+      void showNativeLocalNotification(item.title || "Nova notificacao", item.message || "Atualizacao do sistema.", item.id);
+      knownIds.add(item.id);
+    }
+
+    const updated = [...knownIds].slice(-300);
+    localStorage.setItem(key, JSON.stringify(updated));
+  }, [isNativeApp, notifications, pushSubscribed, usuario?.id]);
 
   useEffect(() => {
     if (!canInstall || isInstalled || !usuario?.id) return;

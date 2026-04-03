@@ -61,13 +61,11 @@ export default function PastorDashboardPage() {
         exact_church: true,
       }),
     enabled: Boolean(activeTotvsId),
-    refetchInterval: 10000,
   });
 
   const { data: churchesRes } = useQuery({
     queryKey: ["pastor-dashboard-churches"],
     queryFn: () => listChurchesInScopePaged(1, 500),
-    refetchInterval: 10000,
   });
 
   const members = membersRes?.workers || [];
@@ -139,3 +137,4 @@ export default function PastorDashboardPage() {
     </ManagementShell>
   );
 }
+
