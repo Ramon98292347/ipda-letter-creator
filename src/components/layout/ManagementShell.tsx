@@ -141,10 +141,12 @@ export function ManagementShell({
 
   // Comentario: tenta ativar push automaticamente ao carregar se o navegador suporta e usuario ainda nao assinou
   useEffect(() => {
-    if (pushSupported && !pushSubscribed && usuario?.id && Notification.permission === "granted") {
+    const hasBrowserNotification = typeof Notification !== "undefined";
+    const browserPermissionGranted = hasBrowserNotification && Notification.permission === "granted";
+    if (pushSupported && !pushSubscribed && usuario?.id && browserPermissionGranted) {
       void subscribePush();
     }
-  }, [pushSupported, pushSubscribed, usuario?.id]);
+  }, [pushSupported, pushSubscribed, usuario?.id, subscribePush]);
 
   const { data: notificationsData } = useQuery({
     queryKey: ["topbar-notifications", 1, 30],

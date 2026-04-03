@@ -74,7 +74,7 @@ function formatCurrency(value: number) {
 }
 
 function formatPrice(value: number) {
-  return value === 0 ? "GrÃ¡tis" : formatCurrency(value);
+  return value === 0 ? "Grátis" : formatCurrency(value);
 }
 
 function formatNumber(value: number) {
@@ -250,18 +250,18 @@ export default function DepositoPage() {
         <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h2 className="text-2xl font-extrabold tracking-tight text-slate-900 sm:text-3xl">DepÃ³sito</h2>
-              <p className="mt-1 text-sm text-slate-600">Controle de estoque, movimentaÃ§Ãµes, transferÃªncias e relatÃ³rios</p>
+              <h2 className="text-2xl font-extrabold tracking-tight text-slate-900 sm:text-3xl">Depósito</h2>
+              <p className="mt-1 text-sm text-slate-600">Controle de estoque, movimentações, transferências e relatórios</p>
             </div>
             <div className="flex flex-wrap gap-2">
               <Button size="sm" onClick={() => { setEditingProduct(null); setProductModal(true); }}>
                 <PackagePlus className="mr-2 h-4 w-4" /> Novo produto
               </Button>
               <Button size="sm" variant="outline" onClick={() => { setSelectedProductId(""); setMovementModal(true); }}>
-                <ArrowDownCircle className="mr-2 h-4 w-4 text-emerald-600" /> Entrada / SaÃ­da
+                <ArrowDownCircle className="mr-2 h-4 w-4 text-emerald-600" /> Entrada / saída
               </Button>
               <Button size="sm" variant="outline" onClick={() => setTransferModal(true)}>
-                <ArrowRightLeft className="mr-2 h-4 w-4 text-blue-600" /> TransferÃªncia
+                <ArrowRightLeft className="mr-2 h-4 w-4 text-blue-600" /> Transferência
               </Button>
             </div>
           </div>
@@ -272,9 +272,9 @@ export default function DepositoPage() {
           <SummaryCard title="Itens cadastrados" value={formatNumber(summary?.total_products ?? 0)} icon={Package} gradient="from-blue-600 to-blue-500" />
           <SummaryCard title="Total em estoque" value={formatNumber(summary?.total_stock ?? 0)} icon={Box} gradient="from-indigo-600 to-indigo-500" />
           <SummaryCard title="Estoque baixo" value={formatNumber(summary?.low_stock_count ?? 0)} icon={AlertTriangle} gradient="from-rose-600 to-rose-500" />
-          <SummaryCard title="Entradas (mÃªs)" value={formatNumber(summary?.entries_month ?? 0)} icon={ArrowUpCircle} gradient="from-emerald-600 to-emerald-500" />
-          <SummaryCard title="SaÃ­das (mÃªs)" value={formatNumber(summary?.exits_month ?? 0)} icon={TrendingDown} gradient="from-amber-600 to-amber-500" />
-          <SummaryCard title="TransferÃªncias" value={formatNumber(summary?.transfers_month ?? 0)} icon={ArrowRightLeft} gradient="from-sky-600 to-sky-500" />
+          <SummaryCard title="Entradas (mês)" value={formatNumber(summary?.entries_month ?? 0)} icon={ArrowUpCircle} gradient="from-emerald-600 to-emerald-500" />
+          <SummaryCard title="Saídas (mês)" value={formatNumber(summary?.exits_month ?? 0)} icon={TrendingDown} gradient="from-amber-600 to-amber-500" />
+          <SummaryCard title="Transferências" value={formatNumber(summary?.transfers_month ?? 0)} icon={ArrowRightLeft} gradient="from-sky-600 to-sky-500" />
           <SummaryCard title="Valor estoque" value={formatCurrency(summary?.total_value ?? 0)} icon={DollarSign} gradient="from-violet-600 to-violet-500" />
         </section>
 
@@ -283,8 +283,8 @@ export default function DepositoPage() {
           <div className="flex gap-1 overflow-x-auto border-b border-slate-200 px-4 pt-3">
             {([
               { key: "estoque", label: "Estoque Atual", icon: Archive },
-              { key: "movimentacoes", label: "MovimentaÃ§Ãµes", icon: ClipboardList },
-              { key: "transferencias", label: "TransferÃªncias", icon: ArrowRightLeft },
+              { key: "movimentacoes", label: "Movimentações", icon: ClipboardList },
+              { key: "transferencias", label: "Transferências", icon: ArrowRightLeft },
               { key: "cadastro", label: "Cadastro", icon: Package },
             ] as { key: TabKey; label: string; icon: typeof Archive }[]).map((t) => (
               <button
@@ -365,7 +365,7 @@ export default function DepositoPage() {
         onSaved={refresh}
       />
 
-      {/* â”€â”€ Modal: Entrada / SaÃ­da â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      {/* â”€â”€ Modal: Entrada / saída â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       <MovementModal
         open={movementModal}
         onClose={() => { setMovementModal(false); setSelectedProductId(""); }}
@@ -375,7 +375,7 @@ export default function DepositoPage() {
         onSaved={refresh}
       />
 
-      {/* â”€â”€ Modal: TransferÃªncia â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      {/* â”€â”€ Modal: Transferência â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       <TransferModal
         open={transferModal}
         onClose={() => setTransferModal(false)}
@@ -443,7 +443,7 @@ function EstoqueTab({
       <div className="flex flex-wrap items-end gap-3">
         <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-          <Input placeholder="Buscar por cÃ³digo ou descriÃ§Ã£o..." value={search} onChange={(e) => onSearchChange(e.target.value)} className="pl-9" />
+          <Input placeholder="Buscar por código ou descrição..." value={search} onChange={(e) => onSearchChange(e.target.value)} className="pl-9" />
         </div>
         <Select value={filterGroup} onValueChange={onFilterGroupChange}>
           <SelectTrigger className="w-[180px]"><SelectValue placeholder="Grupo" /></SelectTrigger>
@@ -472,15 +472,15 @@ function EstoqueTab({
           <table className="w-full text-sm">
             <thead className="bg-slate-50 text-left text-xs font-semibold text-slate-600">
               <tr>
-                <th className="px-3 py-3">CÃ³digo</th>
-                <th className="px-3 py-3">DescriÃ§Ã£o</th>
+                <th className="px-3 py-3">Código</th>
+                <th className="px-3 py-3">Descrição</th>
                 <th className="px-3 py-3">Grupo</th>
                 <th className="px-3 py-3 text-right">Estoque</th>
                 <th className="px-3 py-3 text-right">MÃ­nimo</th>
                 <th className="px-3 py-3 text-right">Valor un.</th>
                 <th className="px-3 py-3 text-right">Valor total</th>
                 <th className="px-3 py-3">Status</th>
-                <th className="px-3 py-3">AÃ§Ãµes</th>
+                <th className="px-3 py-3">Ações</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -492,7 +492,7 @@ function EstoqueTab({
                   <td className="px-3 py-2.5 text-right font-semibold">{formatNumber(item.total_quantity)}</td>
                   <td className="px-3 py-2.5 text-right text-slate-500">{formatNumber(item.min_stock)}</td>
                   <td className="px-3 py-2.5 text-right">{formatPrice(item.unit_price)}</td>
-                  <td className="px-3 py-2.5 text-right font-semibold">{item.unit_price === 0 ? "GrÃ¡tis" : formatCurrency(item.total_quantity * item.unit_price)}</td>
+                  <td className="px-3 py-2.5 text-right font-semibold">{item.unit_price === 0 ? "Grátis" : formatCurrency(item.total_quantity * item.unit_price)}</td>
                   <td className="px-3 py-2.5">
                     {item.is_low_stock ? (
                       <Badge className="bg-rose-100 text-rose-700 border-rose-200 text-xs">Baixo</Badge>
@@ -641,7 +641,7 @@ function printTransferReceipt(m: DepositMovement, churchNameMap: Map<string, str
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8" />
-<title>Comprovante de TransferÃªncia</title>
+<title>Comprovante de Transferência</title>
 <style>
   @page { size: A5 portrait; margin: 15mm; }
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -668,22 +668,22 @@ function printTransferReceipt(m: DepositMovement, churchNameMap: Map<string, str
 </head>
 <body>
   <div class="header">
-    <h1>Comprovante de TransferÃªncia</h1>
+    <h1>Comprovante de Transferência</h1>
     <h2>${produtoNome}</h2>
     <p>Igreja Pentecostal Deus Ã© Amor</p>
   </div>
 
   <div class="section">
-    <div class="section-title">Dados da TransferÃªncia</div>
+    <div class="section-title">Dados da Transferência</div>
     <div class="row"><span class="label">Data:</span><span class="value">${dataFormatada}</span></div>
     <div class="row"><span class="label">ResponsÃ¡vel:</span><span class="value">${m.responsible_name || "-"}</span></div>
-    <div class="row"><span class="label">ObservaÃ§Ã£o:</span><span class="value">${m.notes || "-"}</span></div>
+    <div class="row"><span class="label">Observação:</span><span class="value">${m.notes || "-"}</span></div>
   </div>
 
   <div class="section">
     <div class="section-title">Mercadoria</div>
-    <div class="row"><span class="label">CÃ³digo:</span><span class="value">${m.deposit_products?.code || "-"}</span></div>
-    <div class="row"><span class="label">DescriÃ§Ã£o:</span><span class="value">${produtoNome}</span></div>
+    <div class="row"><span class="label">Código:</span><span class="value">${m.deposit_products?.code || "-"}</span></div>
+    <div class="row"><span class="label">Descrição:</span><span class="value">${produtoNome}</span></div>
     <div class="row"><span class="label">Grupo:</span><span class="value">${m.deposit_products?.group_name || "-"}</span></div>
   </div>
 
@@ -737,7 +737,7 @@ function TransferenciasTab({
       {loading ? (
         <div className="flex items-center justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-blue-500" /></div>
       ) : transfers.length === 0 ? (
-        <p className="py-8 text-center text-sm text-slate-500">Nenhuma transferencia registrada.</p>
+        <p className="py-8 text-center text-sm text-slate-500">Nenhuma transferência registrada.</p>
       ) : (
         <>
           <div className="overflow-x-auto rounded-lg border border-slate-200">
@@ -745,13 +745,13 @@ function TransferenciasTab({
               <thead className="bg-slate-50 text-left text-xs font-semibold text-slate-600">
                 <tr>
                   <th className="px-3 py-3">Data</th>
-                  <th className="px-3 py-3">Codigo</th>
+                  <th className="px-3 py-3">Código</th>
                   <th className="px-3 py-3">Produto</th>
                   <th className="px-3 py-3 text-right">Qtd</th>
                   <th className="px-3 py-3">Origem</th>
                   <th className="px-3 py-3">Destino</th>
-                  <th className="px-3 py-3">Responsavel</th>
-                  <th className="px-3 py-3">Observacao</th>
+                  <th className="px-3 py-3">Responsável</th>
+                  <th className="px-3 py-3">Observação</th>
                   <th className="px-3 py-3">Recibo</th>
                 </tr>
               </thead>
@@ -762,8 +762,8 @@ function TransferenciasTab({
                     <td className="px-3 py-2.5 font-mono text-xs">{m.deposit_products?.code || "-"}</td>
                     <td className="px-3 py-2.5">{m.deposit_products?.description || "-"}</td>
                     <td className="px-3 py-2.5 text-right font-semibold">{formatNumber(m.quantity)}</td>
-                    <td className="px-3 py-2.5 text-xs">{m.church_origin_totvs || "-"}{churchNameMap.get(m.church_origin_totvs || "") ? ` â€” ${churchNameMap.get(m.church_origin_totvs || "")}` : ""}</td>
-                    <td className="px-3 py-2.5 text-xs">{m.church_destination_totvs || "-"}{churchNameMap.get(m.church_destination_totvs || "") ? ` â€” ${churchNameMap.get(m.church_destination_totvs || "")}` : ""}</td>
+                    <td className="px-3 py-2.5 text-xs">{m.church_origin_totvs || "-"}{churchNameMap.get(m.church_origin_totvs || "") ? ` - ${churchNameMap.get(m.church_origin_totvs || "")}` : ""}</td>
+                    <td className="px-3 py-2.5 text-xs">{m.church_destination_totvs || "-"}{churchNameMap.get(m.church_destination_totvs || "") ? ` - ${churchNameMap.get(m.church_destination_totvs || "")}` : ""}</td>
                     <td className="px-3 py-2.5 text-xs">{m.responsible_name || "-"}</td>
                     <td className="px-3 py-2.5 text-xs text-slate-500 truncate max-w-[200px]">{m.notes || "-"}</td>
                     <td className="px-3 py-2.5">
@@ -779,7 +779,7 @@ function TransferenciasTab({
           {canLoadMore && (
             <div className="flex justify-center pt-2">
               <Button size="sm" variant="outline" onClick={onLoadMore}>
-                Carregar mais transferencias
+                Carregar mais transferências
               </Button>
             </div>
           )}
@@ -819,13 +819,13 @@ function CadastroTab({ products, onEdit, onNew, onDelete }: {
         <table className="w-full text-sm">
           <thead className="bg-slate-50 text-left text-xs font-semibold text-slate-600">
             <tr>
-              <th className="px-3 py-3">CÃ³digo</th>
-              <th className="px-3 py-3">DescriÃ§Ã£o</th>
+              <th className="px-3 py-3">Código</th>
+              <th className="px-3 py-3">Descrição</th>
               <th className="px-3 py-3">Grupo</th>
               <th className="px-3 py-3">Unidade</th>
               <th className="px-3 py-3 text-right">Valor un.</th>
               <th className="px-3 py-3">Status</th>
-              <th className="px-3 py-3">AÃ§Ãµes</th>
+              <th className="px-3 py-3">Ações</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -892,8 +892,8 @@ function ProductModal({ open, onClose, product, onSaved }: {
   }, [product, open]);
 
   async function save() {
-    if (!form.code.trim()) { toast.error("Informe o cÃ³digo."); return; }
-    if (!form.description.trim()) { toast.error("Informe a descriÃ§Ã£o."); return; }
+    if (!form.code.trim()) { toast.error("Informe o código."); return; }
+    if (!form.description.trim()) { toast.error("Informe a descrição."); return; }
     if (!form.group_name.trim()) { toast.error("Selecione o grupo."); return; }
     setSaving(true);
     try {
@@ -940,11 +940,11 @@ function ProductModal({ open, onClose, product, onSaved }: {
         </DialogHeader>
         <div className="space-y-3">
           <div>
-            <Label>CÃ³digo</Label>
+            <Label>Código</Label>
             <Input value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} disabled={!!product} placeholder="Ex: 3560" />
           </div>
           <div>
-            <Label>DescriÃ§Ã£o</Label>
+            <Label>Descrição</Label>
             <Input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Ex: VOTO DO DÃZIMO" />
           </div>
           <div className="grid grid-cols-2 gap-3">
@@ -968,17 +968,17 @@ function ProductModal({ open, onClose, product, onSaved }: {
               <Input value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} placeholder="UN" />
             </div>
             <div>
-              <Label>Valor unitÃ¡rio (R$)</Label>
+              <Label>Valor unitário (R$)</Label>
               <Input
                 inputMode="numeric"
                 value={form.unit_price}
                 onChange={(e) => setForm({ ...form, unit_price: maskCurrency(e.target.value) })}
-                placeholder="0,00 = GrÃ¡tis"
+                placeholder="0,00 = Grátis"
               />
-              {unmaskCurrency(form.unit_price) === 0 && <p className="text-xs text-slate-500 mt-1">GrÃ¡tis</p>}
+              {unmaskCurrency(form.unit_price) === 0 && <p className="text-xs text-slate-500 mt-1">Grátis</p>}
             </div>
             <div>
-              <Label>Estoque mÃ­nimo</Label>
+              <Label>Estoque mínimo</Label>
               <Input
                 inputMode="numeric"
                 value={form.min_stock}
@@ -988,12 +988,12 @@ function ProductModal({ open, onClose, product, onSaved }: {
             </div>
           </div>
           <div>
-            <Label>ObservaÃ§Ã£o</Label>
+            <Label>Observação</Label>
             <Input value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Opcional" />
           </div>
           <Button className="w-full" onClick={save} disabled={saving}>
             {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-            {product ? "Salvar alteraÃ§Ãµes" : "Cadastrar produto"}
+            {product ? "Salvar alterações" : "Cadastrar produto"}
           </Button>
         </div>
       </DialogContent>
@@ -1031,7 +1031,7 @@ function MovementModal({ open, onClose, products, initialProductId, activeTotvs,
         church_totvs_id: form.church_totvs_id || activeTotvs,
         notes: form.notes || undefined,
       });
-      toast.success("MovimentaÃ§Ã£o registrada.");
+      toast.success("Movimentação registrada.");
       onSaved();
       onClose();
     } catch (err) {
@@ -1045,8 +1045,8 @@ function MovementModal({ open, onClose, products, initialProductId, activeTotvs,
     <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Registrar movimentaÃ§Ã£o</DialogTitle>
-          <DialogDescription>Entrada, saÃ­da, ajuste ou perda de estoque.</DialogDescription>
+          <DialogTitle>Registrar movimentação</DialogTitle>
+          <DialogDescription>Entrada, saída, ajuste ou perda de estoque.</DialogDescription>
         </DialogHeader>
         <div className="space-y-3">
           <div>
@@ -1080,7 +1080,7 @@ function MovementModal({ open, onClose, products, initialProductId, activeTotvs,
             </div>
           </div>
           <div>
-            <Label>ObservaÃ§Ã£o</Label>
+            <Label>Observação</Label>
             <Input value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Opcional" />
           </div>
           <Button className="w-full" onClick={save} disabled={saving}>
@@ -1124,7 +1124,7 @@ function TransferModal({ open, onClose, products, activeTotvs, onSaved }: {
         church_destination_totvs: form.destination,
         notes: form.notes || undefined,
       });
-      toast.success("TransferÃªncia realizada.");
+      toast.success("Transferência realizada.");
       onSaved();
       onClose();
     } catch (err) {
@@ -1138,7 +1138,7 @@ function TransferModal({ open, onClose, products, activeTotvs, onSaved }: {
     <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>TransferÃªncia entre igrejas</DialogTitle>
+          <DialogTitle>Transferência entre igrejas</DialogTitle>
           <DialogDescription>Transfira mercadoria de uma igreja para outra.</DialogDescription>
         </DialogHeader>
         <div className="space-y-3">
@@ -1168,18 +1168,19 @@ function TransferModal({ open, onClose, products, activeTotvs, onSaved }: {
             </div>
           </div>
           <div>
-            <Label>ObservaÃ§Ã£o</Label>
+            <Label>Observação</Label>
             <Input value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Opcional" />
           </div>
           <Button className="w-full" onClick={save} disabled={saving}>
             {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-            Confirmar transferÃªncia
+            Confirmar transferência
           </Button>
         </div>
       </DialogContent>
     </Dialog>
   );
 }
+
 
 
 

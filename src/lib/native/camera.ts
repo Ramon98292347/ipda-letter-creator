@@ -9,6 +9,7 @@ async function fileFromWebPath(webPath: string, filenamePrefix: string): Promise
 }
 
 export async function captureNativeImage() {
+  await Camera.requestPermissions({ permissions: ["camera", "photos"] });
   const photo = await Camera.getPhoto({
     source: CameraSource.Camera,
     resultType: CameraResultType.Uri,
@@ -21,6 +22,7 @@ export async function captureNativeImage() {
 }
 
 export async function pickNativeImage() {
+  await Camera.requestPermissions({ permissions: ["photos"] });
   const photo = await Camera.getPhoto({
     source: CameraSource.Photos,
     resultType: CameraResultType.Uri,
@@ -30,4 +32,11 @@ export async function pickNativeImage() {
 
   if (!photo.webPath) return null;
   return fileFromWebPath(photo.webPath, "gallery");
+}
+
+export async function ensureNativeCameraPermission() {
+  const current = await Camera.checkPermissions();
+  if (current.camera === "granted") return true;
+  const next = await Camera.requestPermissions({ permissions: ["camera"] });
+  return next.camera === "granted";
 }
