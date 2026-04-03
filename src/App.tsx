@@ -1,7 +1,7 @@
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { PageLoading } from "@/components/shared/PageLoading";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
 import { createSyncStoragePersister } from "@tanstack/query-sync-storage-persister";
 import {
@@ -22,6 +22,7 @@ import { UserProvider, useUser } from "./context/UserContext";
 import { FinanceProvider } from "./contexts/FinanceContext";
 import { registerDefaultOfflineHandlers } from "@/lib/offline/registerDefaultHandlers";
 import { startOfflineSyncLoop } from "@/lib/offline/syncEngine";
+import { DATA_MUTATED_EVENT } from "@/lib/api";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -536,11 +537,41 @@ import { PwaUpdater } from "@/components/shared/PwaUpdater";
 import { PwaOnboarding } from "@/components/shared/PwaOnboarding";
 
 function AppBootstrap() {
+  const queryClient = useQueryClient();
+
   useEffect(() => {
     registerDefaultOfflineHandlers();
     const stop = startOfflineSyncLoop();
     return () => stop();
   }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    let timer: number | null = null;
+    const handleDataMutation = () => {
+      // Comentario: consolida mutacoes em lote para evitar cascata de refetch.
+      if (timer) window.clearTimeout(timer);
+      timer = window.setTimeout(async () => {
+        try {
+          // Comentario: remove snapshot persistido para garantir cache novo apos mutacao.
+          localStorage.removeItem("ipda_rq_cache_v1");
+        } catch {
+          // Falha de storage nao deve bloquear a sincronizacao.
+        }
+
+        await queryClient.cancelQueries();
+        await queryClient.invalidateQueries({}, { cancelRefetch: false });
+        queryClient.removeQueries({ predicate: (q) => q.getObserversCount() === 0 });
+      }, 120);
+    };
+
+    window.addEventListener(DATA_MUTATED_EVENT, handleDataMutation as EventListener);
+    return () => {
+      if (timer) window.clearTimeout(timer);
+      window.removeEventListener(DATA_MUTATED_EVENT, handleDataMutation as EventListener);
+    };
+  }, [queryClient]);
 
   return (
     <>

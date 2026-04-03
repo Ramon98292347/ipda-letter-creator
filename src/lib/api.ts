@@ -20,6 +20,7 @@ const FUNCTIONS_BASE = `${SUPABASE_URL?.replace(/\/$/, "")}/functions/v1`;
 
 const TOKEN_KEY = "ipda_token";
 const RLS_TOKEN_KEY = "ipda_rls_token";
+export const DATA_MUTATED_EVENT = "ipda-data-mutated";
 
 // Flag de sessao: quando o rls_token recebe 401, marca como quebrado para que
 // todas as queries concorrentes ja caiam no fallback sem disparar mais requests invalidos.
@@ -153,6 +154,70 @@ export class ApiError extends Error {
   }
 }
 
+const READONLY_ACTIONS = new Set([
+  "list",
+  "list-public",
+  "list-admin",
+  "list-events",
+  "list-events-public",
+  "list-banners",
+  "list-banners-public",
+  "list-workers",
+  "list-members",
+  "list-in-scope",
+  "list-pastors",
+  "list-stock",
+  "list-products",
+  "list-movements",
+  "list-release-requests",
+  "list-ready",
+  "list-print-batches",
+  "get-summary",
+  "get-profile",
+  "get-registration-status",
+  "get-public",
+  "get-pdf-url",
+  "status",
+  "dashboard",
+  "stats",
+  "login",
+  "select-church",
+  "forgot-password",
+  "reset-password",
+]);
+
+const READONLY_FUNCTIONS = new Set([
+  "dashboard-stats",
+  "worker-dashboard",
+  "birthdays-today",
+  "public-verify-letter",
+  "list-orders",
+  "list-products-public",
+  "list-product-sizes-public",
+  "list-churches-public",
+]);
+
+function shouldBroadcastDataMutation(fnName: string, body: Record<string, unknown>): boolean {
+  const fn = String(fnName || "").trim().toLowerCase();
+  if (READONLY_FUNCTIONS.has(fn)) return false;
+
+  const action = String(body?.action || "").trim().toLowerCase();
+  if (action) return !READONLY_ACTIONS.has(action);
+
+  // Endpoints sem "action" geralmente representam mutacoes (create/update/delete/toggle).
+  return true;
+}
+
+function broadcastDataMutation(fnName: string, body: Record<string, unknown>) {
+  if (typeof window === "undefined") return;
+  const action = String(body?.action || "").trim().toLowerCase() || null;
+  window.dispatchEvent(
+    new CustomEvent(DATA_MUTATED_EVENT, {
+      detail: { fnName, action, ts: Date.now() },
+    }),
+  );
+}
+
 async function parseJsonSafe(res: Response): Promise<Record<string, unknown>> {
   const txt = await res.text();
   try {
@@ -240,6 +305,10 @@ export async function post<T = unknown>(
     }
 
     throw new ApiError(msg, res.status, code, data);
+  }
+
+  if (shouldBroadcastDataMutation(fnName, body)) {
+    broadcastDataMutation(fnName, body);
   }
 
   return data as T;
