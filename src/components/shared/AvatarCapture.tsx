@@ -12,6 +12,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import * as faceapi from "face-api.js";
+import { Capacitor } from "@capacitor/core";
 import { Camera, CheckCircle, FlipHorizontal, Loader2, RefreshCw, Upload, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -43,6 +44,7 @@ export function AvatarCapture({ onFileReady, disabled = false, currentUrl }: Ava
   const [statusMsg, setStatusMsg] = useState("");
   const [previewUrl, setPreviewUrl] = useState("");
   const [progress, setProgress] = useState(0);
+  const useCanvasPreview = Capacitor.isNativePlatform() && Capacitor.getPlatform() === "android";
 
   const [facingMode, setFacingMode] = useState<"user" | "environment">("user");
   const facingModeRef = useRef<"user" | "environment">("user");
@@ -58,7 +60,7 @@ export function AvatarCapture({ onFileReady, disabled = false, currentUrl }: Ava
         await faceapi.nets.tinyFaceDetector.loadFromUri("/models");
         if (!cancelled) { setModelsLoaded(true); setStatusMsg(""); }
       } catch {
-        if (!cancelled) setStatusMsg("DetecÃ§Ã£o indisponÃ­vel");
+        if (!cancelled) setStatusMsg("Deteccao indisponivel");
       } finally {
         if (!cancelled) setLoadingModels(false);
       }
@@ -91,7 +93,7 @@ export function AvatarCapture({ onFileReady, disabled = false, currentUrl }: Ava
           video.srcObject = stream;
           const handlePlaying = () => {
             video.removeEventListener("playing", handlePlaying);
-            if (modelsLoaded) iniciarDeteccao();
+            if (modelsLoaded || useCanvasPreview) iniciarDeteccao();
           };
           video.addEventListener("playing", handlePlaying);
           void video.play();
@@ -99,7 +101,7 @@ export function AvatarCapture({ onFileReady, disabled = false, currentUrl }: Ava
       }, 0);
     } catch (err) {
       console.error("getUserMedia erro:", err);
-      setStatusMsg("CÃ¢mera indisponÃ­vel. Verifique as permissÃµes.");
+      setStatusMsg("Camera indisponivel. Verifique as permissoes.");
     }
   }
 
@@ -125,13 +127,13 @@ export function AvatarCapture({ onFileReady, disabled = false, currentUrl }: Ava
         video.srcObject = stream;
         const handlePlaying = () => {
           video.removeEventListener("playing", handlePlaying);
-          if (modelsLoaded) iniciarDeteccao();
+          if (modelsLoaded || useCanvasPreview) iniciarDeteccao();
         };
         video.addEventListener("playing", handlePlaying);
         void video.play();
       }
     } catch {
-      setStatusMsg("CÃ¢mera traseira indisponÃ­vel.");
+      setStatusMsg("Camera traseira indisponivel.");
     }
   }
 
@@ -157,14 +159,32 @@ export function AvatarCapture({ onFileReady, disabled = false, currentUrl }: Ava
 
     async function detectar() {
       if (!video || !canvas) return;
-      const detections = await faceapi.detectAllFaces(
-        video,
-        new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.5 })
-      );
       const ctx = canvas.getContext("2d");
       if (!ctx) return;
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      if (useCanvasPreview) {
+        // Android WebView can place <video> in a layer above DOM overlays.
+        // Rendering preview inside canvas guarantees guide visibility.
+        ctx.save();
+        if (facingModeRef.current === "user") {
+          ctx.translate(DISPLAY_WIDTH, 0);
+          ctx.scale(-1, 1);
+        }
+        ctx.drawImage(video, 0, 0, DISPLAY_WIDTH, DISPLAY_HEIGHT);
+        ctx.restore();
+      } else {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+      }
+
       desenharMarcadores3x4(ctx);
+
+      let detections: Awaited<ReturnType<typeof faceapi.detectAllFaces>> = [];
+      if (modelsLoaded) {
+        detections = await faceapi.detectAllFaces(
+          video,
+          new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.5 })
+        );
+      }
 
       if (detections.length > 0) {
         const scaleX = DISPLAY_WIDTH / (video.videoWidth || DISPLAY_WIDTH);
@@ -190,13 +210,13 @@ export function AvatarCapture({ onFileReady, disabled = false, currentUrl }: Ava
       detectionLoopRef.current = requestAnimationFrame(detectar);
     }
     detectionLoopRef.current = requestAnimationFrame(detectar);
-  }, []);
+  }, [modelsLoaded, useCanvasPreview]);
 
   useEffect(() => {
-    if (cameraActive && modelsLoaded && detectionLoopRef.current === null) {
+    if (cameraActive && (modelsLoaded || useCanvasPreview) && detectionLoopRef.current === null) {
       iniciarDeteccao();
     }
-  }, [cameraActive, modelsLoaded, iniciarDeteccao]);
+  }, [cameraActive, modelsLoaded, useCanvasPreview, iniciarDeteccao]);
 
   // â”€â”€ Marcadores visuais 3x4 no canvas â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   function desenharMarcadores3x4(ctx: CanvasRenderingContext2D) {
@@ -341,7 +361,7 @@ export function AvatarCapture({ onFileReady, disabled = false, currentUrl }: Ava
           return;
         }
         if (detections.length === 0) {
-          setStatusMsg("Rosto nÃ£o detectado. Envie uma foto 3x4 (rosto, pescoÃ§o e ombros).");
+          setStatusMsg("Rosto nao detectado. Envie uma foto 3x4 (rosto, pescoco e ombros).");
           setProcessing(false);
           return;
         }
@@ -497,14 +517,18 @@ export function AvatarCapture({ onFileReady, disabled = false, currentUrl }: Ava
         </div>
       )}
 
-      {/* â”€â”€ CÃ‚MERA COM MARCADORES 3x4 â”€â”€ */}
+      {/* CAMERA COM MARCADORES 3x4 */}
       {cameraActive && (
         <div className="space-y-2">
           <div className="relative rounded-md overflow-hidden border border-slate-300" style={{ width: DISPLAY_WIDTH, height: DISPLAY_HEIGHT }}>
             <video
               ref={videoRef}
               className="absolute inset-0 w-full h-full object-cover"
-              style={{ transform: facingMode === "user" ? "scaleX(-1)" : "none" }}
+              style={{
+                transform: facingMode === "user" ? "scaleX(-1)" : "none",
+                opacity: useCanvasPreview ? 0 : 1,
+                pointerEvents: "none",
+              }}
               muted
               playsInline
             />
@@ -513,6 +537,9 @@ export function AvatarCapture({ onFileReady, disabled = false, currentUrl }: Ava
               className="absolute inset-0 z-10 pointer-events-none"
               style={{ width: DISPLAY_WIDTH, height: DISPLAY_HEIGHT }}
             />
+            <div className="absolute inset-0 z-20 pointer-events-none">
+              <GuideOverlay />
+            </div>
           </div>
 
           <div className="text-xs">
@@ -587,7 +614,7 @@ export function AvatarCapture({ onFileReady, disabled = false, currentUrl }: Ava
             ) : statusMsg ? (
               <p className="text-xs text-amber-600">{statusMsg}</p>
             ) : (
-              <p className="text-xs text-slate-500">Foto 3x4 individual (rosto, pescoço e ombros).</p>
+              <p className="text-xs text-slate-500">Foto 3x4 individual (rosto, pescoco e ombros).</p>
             )}
           </div>
 
