@@ -20,6 +20,7 @@ import { verifySessionJWT } from "../_shared/jwt.ts";
 type ChurchRow = { totvs_id: string; parent_totvs_id: string | null };
 type PushSubscriptionKeys = { p256dh: string; auth: string };
 type PushSubscriptionJSON = { endpoint: string; keys: PushSubscriptionKeys };
+type NativePushPlatform = "android" | "ios";
 
 // ─── helpers de hierarquia ───────────────────────────────────────────────────
 
@@ -179,6 +180,47 @@ async function actionSubscribePush(
   return json({ ok: true });
 }
 
+async function actionSubscribeNativePush(
+  sb: ReturnType<typeof createClient>,
+  session: Awaited<ReturnType<typeof verifySessionJWT>>,
+  body: Record<string, unknown>,
+) {
+  const token = String(body.token || "").trim();
+  const platformRaw = String(body.platform || "android").trim().toLowerCase();
+  const platform: NativePushPlatform = platformRaw === "ios" ? "ios" : "android";
+  if (!token) return json({ ok: false, error: "invalid_native_token" }, 400);
+
+  const { error } = await sb.from("native_push_tokens").upsert(
+    {
+      user_id: session!.user_id,
+      totvs_id: session!.active_totvs_id,
+      token,
+      platform,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "token" },
+  );
+  if (error) return json({ ok: false, error: "db_error_native_push_subscription" }, 500);
+  return json({ ok: true });
+}
+
+async function actionUnsubscribeNativePush(
+  sb: ReturnType<typeof createClient>,
+  session: Awaited<ReturnType<typeof verifySessionJWT>>,
+  body: Record<string, unknown>,
+) {
+  const token = String(body.token || "").trim();
+  if (!token) return json({ ok: false, error: "invalid_native_token" }, 400);
+
+  const { error } = await sb
+    .from("native_push_tokens")
+    .delete()
+    .eq("user_id", session!.user_id)
+    .eq("token", token);
+  if (error) return json({ ok: false, error: "db_error_native_push_unsubscribe" }, 500);
+  return json({ ok: true });
+}
+
 async function sendPush(
   sub: { endpoint: string; p256dh: string; auth: string },
   payload: string,
@@ -206,6 +248,56 @@ async function sendPush(
   }
 }
 
+async function sendNativePush(
+  token: string,
+  title: string,
+  body: string,
+  url: string,
+  data: Record<string, unknown>,
+): Promise<{ ok: boolean; expired: boolean }> {
+  const fcmServerKey = String(Deno.env.get("FCM_SERVER_KEY") || "").trim();
+  if (!fcmServerKey) return { ok: false, expired: false };
+
+  const payloadData: Record<string, string> = {
+    url,
+  };
+  for (const [k, v] of Object.entries(data || {})) {
+    payloadData[k] = typeof v === "string" ? v : JSON.stringify(v);
+  }
+
+  try {
+    const resp = await fetch("https://fcm.googleapis.com/fcm/send", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `key=${fcmServerKey}`,
+      },
+      body: JSON.stringify({
+        to: token,
+        priority: "high",
+        notification: {
+          title,
+          body,
+          sound: "default",
+        },
+        data: payloadData,
+      }),
+    });
+
+    if (!resp.ok) return { ok: false, expired: false };
+    const bodyJson = await resp.json().catch(() => ({}));
+    if (bodyJson && typeof bodyJson === "object" && Number((bodyJson as Record<string, unknown>).failure || 0) > 0) {
+      const results = ((bodyJson as Record<string, unknown>).results as Array<Record<string, unknown>> | undefined) || [];
+      const err = String((results[0] || {}).error || "");
+      const expired = err === "NotRegistered" || err === "InvalidRegistration";
+      return { ok: false, expired };
+    }
+    return { ok: true, expired: false };
+  } catch {
+    return { ok: false, expired: false };
+  }
+}
+
 async function actionNotify(sb: ReturnType<typeof createClient>, req: Request, body: Record<string, unknown>) {
   const providedKey = String(req.headers.get("x-internal-key") || "").trim();
   const expectedKey = String(Deno.env.get("INTERNAL_KEY") || "").trim();
@@ -226,27 +318,27 @@ async function actionNotify(sb: ReturnType<typeof createClient>, req: Request, b
   const vapidPublic = String(Deno.env.get("VAPID_PUBLIC_KEY") || "").trim();
   const vapidPrivate = String(Deno.env.get("VAPID_PRIVATE_KEY") || "").trim();
   const vapidSubject = String(Deno.env.get("VAPID_SUBJECT") || "mailto:admin@ipda.org.br").trim();
-  if (!vapidPublic || !vapidPrivate) {
-    return json({ ok: false, error: "vapid_keys_not_configured" }, 500);
-  }
 
   let subscriptionsQuery = sb.from("push_subscriptions").select("endpoint,p256dh,auth,user_id,totvs_id");
+  let nativeTokensQuery = sb.from("native_push_tokens").select("token,user_id,totvs_id");
   if (userIds.length > 0 && totvsIds.length > 0) {
     subscriptionsQuery = subscriptionsQuery.or(`user_id.in.(${userIds.join(",")}),totvs_id.in.(${totvsIds.join(",")})`);
+    nativeTokensQuery = nativeTokensQuery.or(`user_id.in.(${userIds.join(",")}),totvs_id.in.(${totvsIds.join(",")})`);
   } else if (userIds.length > 0) {
     subscriptionsQuery = subscriptionsQuery.in("user_id", userIds);
+    nativeTokensQuery = nativeTokensQuery.in("user_id", userIds);
   } else {
     subscriptionsQuery = subscriptionsQuery.in("totvs_id", totvsIds);
+    nativeTokensQuery = nativeTokensQuery.in("totvs_id", totvsIds);
   }
 
   const { data: subscriptions, error: subErr } = await subscriptionsQuery;
   if (subErr) return json({ ok: false, error: "db_error_push_subscriptions" }, 500);
-  if (!subscriptions || subscriptions.length === 0) {
-    return json({ ok: true, sent: 0, failed: 0, message: "Nenhuma assinatura encontrada." });
-  }
+  const { data: nativeTokens, error: nativeErr } = await nativeTokensQuery;
+  if (nativeErr) return json({ ok: false, error: "db_error_native_push_tokens" }, 500);
 
   const uniq = new Map<string, { endpoint: string; p256dh: string; auth: string }>();
-  for (const raw of subscriptions) {
+  for (const raw of (subscriptions || [])) {
     const endpoint = String((raw as Record<string, unknown>).endpoint || "").trim();
     const p256dh = String((raw as Record<string, unknown>).p256dh || "").trim();
     const authKey = String((raw as Record<string, unknown>).auth || "").trim();
@@ -255,17 +347,39 @@ async function actionNotify(sb: ReturnType<typeof createClient>, req: Request, b
   }
 
   const payload = JSON.stringify({ title, body: message, url, data });
-  let sent = 0;
-  let failed = 0;
+  let sentWeb = 0;
+  let failedWeb = 0;
+  let sentNative = 0;
+  let failedNative = 0;
   const expiredEndpoints: string[] = [];
+  const expiredNativeTokens: string[] = [];
+
+  if (vapidPublic && vapidPrivate) {
+    await Promise.all(
+      [...uniq.values()].map(async (sub) => {
+        const ok = await sendPush(sub, payload, vapidPublic, vapidPrivate, vapidSubject);
+        if (ok) sentWeb += 1;
+        else {
+          failedWeb += 1;
+          expiredEndpoints.push(sub.endpoint);
+        }
+      }),
+    );
+  }
+
+  const nativeUniq = new Set<string>();
+  for (const row of nativeTokens || []) {
+    const token = String((row as Record<string, unknown>).token || "").trim();
+    if (token) nativeUniq.add(token);
+  }
 
   await Promise.all(
-    [...uniq.values()].map(async (sub) => {
-      const ok = await sendPush(sub, payload, vapidPublic, vapidPrivate, vapidSubject);
-      if (ok) sent += 1;
+    [...nativeUniq.values()].map(async (token) => {
+      const result = await sendNativePush(token, title, message, url, data);
+      if (result.ok) sentNative += 1;
       else {
-        failed += 1;
-        expiredEndpoints.push(sub.endpoint);
+        failedNative += 1;
+        if (result.expired) expiredNativeTokens.push(token);
       }
     }),
   );
@@ -273,8 +387,17 @@ async function actionNotify(sb: ReturnType<typeof createClient>, req: Request, b
   if (expiredEndpoints.length > 0) {
     await sb.from("push_subscriptions").delete().in("endpoint", expiredEndpoints);
   }
+  if (expiredNativeTokens.length > 0) {
+    await sb.from("native_push_tokens").delete().in("token", expiredNativeTokens);
+  }
 
-  return json({ ok: true, sent, failed });
+  const sent = sentWeb + sentNative;
+  const failed = failedWeb + failedNative;
+  if (sent === 0 && failed === 0) {
+    return json({ ok: true, sent: 0, failed: 0, message: "Nenhuma assinatura/token encontrado." });
+  }
+
+  return json({ ok: true, sent, failed, sent_web: sentWeb, sent_native: sentNative, failed_web: failedWeb, failed_native: failedNative });
 }
 
 // ─── action birthday — cron diário de aniversariantes ────────────────────────
@@ -446,6 +569,22 @@ async function actionBirthday(sb: ReturnType<typeof createClient>, req: Request)
           }
         }
       }
+
+      const { data: nativeRows } = await sb
+        .from("native_push_tokens")
+        .select("token,user_id")
+        .in("user_id", pushRecipients);
+
+      for (const raw of (nativeRows || [])) {
+        const token = String((raw as Record<string, unknown>).token || "").trim();
+        const tokenUserId = String((raw as Record<string, unknown>).user_id || "").trim();
+        if (!token) continue;
+        const isSelf = birthdays.some((b) => b.id === tokenUserId);
+        const personalTitle = isSelf ? "Feliz Aniversario!" : title;
+        const personalBody = isSelf ? "O SGE IPDA te deseja muitas bencaos. Parabens!" : message;
+        const personalUrl = isSelf ? "/" : "/pastor/membros";
+        await sendNativePush(token, personalTitle, personalBody, personalUrl, {});
+      }
     }
   }
 
@@ -479,8 +618,10 @@ Deno.serve(async (req) => {
     if (action === "mark-read") return await actionMarkRead(sb, session, body);
     if (action === "mark-all-read") return await actionMarkAllRead(sb, session);
     if (action === "subscribe-push") return await actionSubscribePush(sb, session, body);
+    if (action === "subscribe-native-push") return await actionSubscribeNativePush(sb, session, body);
+    if (action === "unsubscribe-native-push") return await actionUnsubscribeNativePush(sb, session, body);
 
-    return json({ ok: false, error: "invalid_action", message: `Ação desconhecida: "${action}". Use: list, mark-read, mark-all-read, subscribe-push, notify, birthday` }, 400);
+    return json({ ok: false, error: "invalid_action", message: `Acao desconhecida: "${action}". Use: list, mark-read, mark-all-read, subscribe-push, subscribe-native-push, unsubscribe-native-push, notify, birthday` }, 400);
   } catch (err) {
     return json({ ok: false, error: "exception" }, 500);
   }

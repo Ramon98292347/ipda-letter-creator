@@ -110,25 +110,6 @@ function findObreiroScopeRoot(activeTotvs: string, churches: ChurchRow[]): strin
   return parentId;
 }
 
-async function resolveScopeRootTotvs(
-  sb: ReturnType<typeof createClient>,
-  session: SessionClaims,
-): Promise<string> {
-  if (session.role !== "pastor") return session.active_totvs_id;
-
-  const { data, error } = await sb
-    .from("churches")
-    .select("totvs_id")
-    .eq("pastor_user_id", session.user_id)
-    .eq("is_active", true);
-
-  if (error || !data || data.length === 0) return session.active_totvs_id;
-
-  const pastorChurches = data.map((row: Record<string, unknown>) => String(row.totvs_id || "")).filter(Boolean);
-  if (pastorChurches.includes(session.active_totvs_id)) return session.active_totvs_id;
-  return pastorChurches[0];
-}
-
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders() });
   if (req.method !== "POST") return json({ ok: false, error: "method_not_allowed" }, 405);
@@ -186,8 +167,10 @@ Deno.serve(async (req) => {
       scopeList = [...computeScope(obreiroScopeRoot, allRows)];
       // Comentario: ancestorIds sera preenchido pelo bloco compartilhado abaixo usando effectiveRootForAncestors.
     } else {
-      // Comentario: pastor (e outros roles) — usa resolveScopeRootTotvs para pegar a igreja certa.
-      const scopeRootTotvs = await resolveScopeRootTotvs(sb, session);
+      // Comentario: pastor (e outros roles) sempre partem da igreja ativa da sessao.
+      // Isso evita reduzir escopo quando o pastor e vinculado a outras igrejas
+      // (pastor_user_id), o que antes podia trocar a raiz de forma inesperada.
+      const scopeRootTotvs = session.active_totvs_id;
       const baseScope = computeScope(scopeRootTotvs, allRows);
       if (requestedRoot && !baseScope.has(requestedRoot)) {
         return json({ ok: false, error: "forbidden_church_out_of_scope" }, 403);

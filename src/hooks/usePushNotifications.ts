@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { Capacitor } from "@capacitor/core";
+import { PushNotifications } from "@capacitor/push-notifications";
 import { supabase } from "@/lib/supabase";
 import { post } from "@/lib/api";
 import { getLocalNotificationPermissionStatus, requestLocalNotificationPermission } from "@/lib/native/localNotifications";
@@ -52,6 +53,7 @@ async function salvarUserNoSW(userData: { role?: string; scope_totvs_ids?: strin
 export function usePushNotifications(userId?: string, userRole?: string, scopeTotvsIds?: string[]) {
   const isNativeApp = Capacitor.isNativePlatform();
   const nativeEnabledKey = "native_notifications_enabled";
+  const nativeTokenKey = "native_push_token";
   const supported =
     isNativeApp ||
     (typeof window !== "undefined" &&
@@ -72,7 +74,8 @@ export function usePushNotifications(userId?: string, userRole?: string, scopeTo
       void getLocalNotificationPermissionStatus().then((perm) => {
         setPermission(perm);
         const enabled = localStorage.getItem(nativeEnabledKey) === "1";
-        setSubscribed(perm === "granted" && enabled);
+        const hasToken = Boolean(localStorage.getItem(nativeTokenKey));
+        setSubscribed(perm === "granted" && enabled && hasToken);
       });
       return;
     }
@@ -95,6 +98,40 @@ export function usePushNotifications(userId?: string, userRole?: string, scopeTo
     return () => clearTimeout(timerId);
   }, [supported, isNativeApp]);
 
+  useEffect(() => {
+    if (!supported || !isNativeApp) return;
+
+    const onRegistration = PushNotifications.addListener("registration", (token) => {
+      const fcmToken = String(token?.value || "").trim();
+      if (!fcmToken) return;
+      localStorage.setItem(nativeTokenKey, fcmToken);
+      if (userId) {
+        post("notifications-api", {
+          action: "subscribe-native-push",
+          token: fcmToken,
+          platform: "android",
+        }).catch((err) => console.warn("[push-native] erro ao salvar token:", err));
+      }
+      setSubscribed(true);
+    });
+
+    const onRegistrationError = PushNotifications.addListener("registrationError", (err) => {
+      console.warn("[push-native] registrationError:", err);
+    });
+
+    return () => {
+      void onRegistration.then((h) => h.remove());
+      void onRegistrationError.then((h) => h.remove());
+    };
+  }, [supported, isNativeApp, userId]);
+
+  useEffect(() => {
+    if (!supported || !isNativeApp) return;
+    const enabled = localStorage.getItem(nativeEnabledKey) === "1";
+    if (!enabled) return;
+    void PushNotifications.register().catch(() => undefined);
+  }, [supported, isNativeApp]);
+
   // Comentario: salva dados do usuario no SW para validar escopo de notificacoes
   useEffect(() => {
     if (userRole && scopeTotvsIds) {
@@ -107,11 +144,14 @@ export function usePushNotifications(userId?: string, userRole?: string, scopeTo
     setLoading(true);
     try {
       if (isNativeApp) {
-        const perm = await requestLocalNotificationPermission();
-        setPermission(perm);
-        if (perm === "granted") {
+        // Android 13+ precisa desta permissao para exibir notificacoes.
+        const localPerm = await requestLocalNotificationPermission();
+        const pushPerm = await PushNotifications.requestPermissions();
+        const granted = localPerm === "granted" && pushPerm.receive === "granted";
+        setPermission(granted ? "granted" : "denied");
+        if (granted) {
           localStorage.setItem(nativeEnabledKey, "1");
-          setSubscribed(true);
+          await PushNotifications.register();
         } else {
           localStorage.setItem(nativeEnabledKey, "0");
           setSubscribed(false);
@@ -172,7 +212,15 @@ export function usePushNotifications(userId?: string, userRole?: string, scopeTo
     setLoading(true);
     try {
       if (isNativeApp) {
+        const token = localStorage.getItem(nativeTokenKey) || "";
+        if (token && userId) {
+          await post("notifications-api", {
+            action: "unsubscribe-native-push",
+            token,
+          }).catch(() => undefined);
+        }
         localStorage.setItem(nativeEnabledKey, "0");
+        localStorage.removeItem(nativeTokenKey);
         setSubscribed(false);
         return;
       }
