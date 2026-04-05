@@ -569,6 +569,7 @@ function AppBootstrap() {
 
         await queryClient.cancelQueries();
         await queryClient.invalidateQueries({}, { cancelRefetch: false });
+        await queryClient.refetchQueries({ type: "active" });
         queryClient.removeQueries({ predicate: (q) => q.getObserversCount() === 0 });
       }, 120);
     };
