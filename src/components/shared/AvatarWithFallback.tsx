@@ -1,8 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { User } from "lucide-react";
 
 const FAILED_AVATAR_URLS = new Set<string>();
-const URL_PROBE_CACHE = new Map<string, boolean>();
 
 function resolveAvatarUrl(src?: string | null) {
   const url = String(src || "").trim();
@@ -22,51 +21,9 @@ export function AvatarWithFallback({
   className: string;
 }) {
   const [failed, setFailed] = useState(false);
-  const [checked, setChecked] = useState(false);
-  const [canRender, setCanRender] = useState(false);
   const resolved = useMemo(() => resolveAvatarUrl(src), [src]);
 
-  useEffect(() => {
-    setFailed(false);
-    if (!resolved) {
-      setCanRender(false);
-      setChecked(true);
-      return;
-    }
-
-    const cached = URL_PROBE_CACHE.get(resolved);
-    if (typeof cached === "boolean") {
-      setCanRender(cached);
-      setChecked(true);
-      return;
-    }
-
-    let cancelled = false;
-    setChecked(false);
-    fetch(resolved, { method: "HEAD", cache: "force-cache" })
-      .then((resp) => {
-        if (cancelled) return;
-        const ok = resp.ok;
-        URL_PROBE_CACHE.set(resolved, ok);
-        if (!ok) FAILED_AVATAR_URLS.add(resolved);
-        setCanRender(ok);
-      })
-      .catch(() => {
-        if (cancelled) return;
-        URL_PROBE_CACHE.set(resolved, false);
-        FAILED_AVATAR_URLS.add(resolved);
-        setCanRender(false);
-      })
-      .finally(() => {
-        if (!cancelled) setChecked(true);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [resolved]);
-
-  if (resolved && !failed && checked && canRender) {
+  if (resolved && !failed) {
     return (
       <img
         src={resolved}
@@ -74,7 +31,6 @@ export function AvatarWithFallback({
         className={className}
         onError={() => {
           FAILED_AVATAR_URLS.add(resolved);
-          URL_PROBE_CACHE.set(resolved, false);
           setFailed(true);
         }}
       />
