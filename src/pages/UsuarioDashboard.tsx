@@ -106,12 +106,13 @@ export default function UsuarioDashboard() {
   const [dateEnd, setDateEnd] = useState("");
   const [quickRange, setQuickRange] = useState<QuickRange>("7");
   const [openUpdateModal, setOpenUpdateModal] = useState(false);
-  const openedFromConfiguracoes = searchParams.get("return_to") === "configuracoes";
+  const returnTo = String(searchParams.get("return_to") || "").toLowerCase();
+  const openedFromConfiguracoes = returnTo === "config" || returnTo === "configuracoes";
 
   function closeUpdateModal() {
     setOpenUpdateModal(false);
     if (openedFromConfiguracoes) {
-      nav("/configuracoes", { replace: true });
+      nav("/config", { replace: true });
     }
   }
 

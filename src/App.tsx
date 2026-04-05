@@ -286,6 +286,16 @@ const router = createBrowserRouter(
         }
       />
       <Route
+        path="/pastor/perfil"
+        element={
+          <RequireAnyRole roles={["pastor", "secretario"]}>
+            <Suspense fallback={pageFallback}>
+              <UsuarioDashboardPage />
+            </Suspense>
+          </RequireAnyRole>
+        }
+      />
+      <Route
         path="/pastor/igrejas"
         element={
           <RequireAnyRole roles={["pastor", "secretario"]}>
@@ -355,6 +365,16 @@ const router = createBrowserRouter(
         }
       />
       <Route
+        path="/financeiro/perfil"
+        element={
+          <RequireRole role="financeiro">
+            <Suspense fallback={pageFallback}>
+              <UsuarioDashboardPage />
+            </Suspense>
+          </RequireRole>
+        }
+      />
+      <Route
         path="/financeiro/contagem"
         element={
           <RequireRole role="financeiro">
@@ -420,6 +440,16 @@ const router = createBrowserRouter(
           <RequireRole role="admin">
             <Suspense fallback={pageFallback}>
               <AdminDashboardPage />
+            </Suspense>
+          </RequireRole>
+        }
+      />
+      <Route
+        path="/admin/perfil"
+        element={
+          <RequireRole role="admin">
+            <Suspense fallback={pageFallback}>
+              <UsuarioDashboardPage />
             </Suspense>
           </RequireRole>
         }

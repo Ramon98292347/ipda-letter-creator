@@ -17,10 +17,11 @@ import { AvatarImage } from "@/components/shared/AvatarImage";
 type ExportRole = "todos" | "pastor" | "obreiro";
 
 function profileEditRouteByRole(role?: string | null) {
-  // Comentario: o modal de edicao de cadastro e tratado em UsuarioDashboard (/obreiro).
-  // Essa rota aceita todos os roles permitidos e garante abertura via ?editar=1.
-  void role;
-  return "/obreiro?editar=1&return_to=configuracoes";
+  const normalized = String(role || "").toLowerCase();
+  if (normalized === "pastor" || normalized === "secretario") return "/pastor/perfil?editar=1&return_to=config";
+  if (normalized === "admin") return "/admin/perfil?editar=1&return_to=config";
+  if (normalized === "financeiro") return "/financeiro/perfil?editar=1&return_to=config";
+  return "/obreiro?editar=1&return_to=config";
 }
 
 function csvEscape(value: unknown) {
