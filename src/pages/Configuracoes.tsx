@@ -18,10 +18,10 @@ type ExportRole = "todos" | "pastor" | "obreiro";
 
 function profileEditRouteByRole(role?: string | null) {
   const normalized = String(role || "").toLowerCase();
-  if (normalized === "pastor" || normalized === "secretario") return "/pastor/dashboard?editar=1";
-  if (normalized === "admin") return "/admin/dashboard?editar=1";
-  if (normalized === "financeiro") return "/financeiro/dashboard?editar=1";
-  return "/obreiro?editar=1";
+  if (normalized === "pastor" || normalized === "secretario") return "/pastor/dashboard?editar=1&return_to=configuracoes";
+  if (normalized === "admin") return "/admin/dashboard?editar=1&return_to=configuracoes";
+  if (normalized === "financeiro") return "/financeiro/dashboard?editar=1&return_to=configuracoes";
+  return "/obreiro?editar=1&return_to=configuracoes";
 }
 
 function csvEscape(value: unknown) {

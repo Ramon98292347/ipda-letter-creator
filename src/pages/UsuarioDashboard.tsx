@@ -106,13 +106,22 @@ export default function UsuarioDashboard() {
   const [dateEnd, setDateEnd] = useState("");
   const [quickRange, setQuickRange] = useState<QuickRange>("7");
   const [openUpdateModal, setOpenUpdateModal] = useState(false);
+  const openedFromConfiguracoes = searchParams.get("return_to") === "configuracoes";
+
+  function closeUpdateModal() {
+    setOpenUpdateModal(false);
+    if (openedFromConfiguracoes) {
+      nav("/configuracoes", { replace: true });
+    }
+  }
 
   // Comentario: abre o modal de editar cadastro automaticamente se ?editar=1 na URL
   useEffect(() => {
     if (searchParams.get("editar") === "1") {
       setOpenUpdateModal(true);
-      searchParams.delete("editar");
-      setSearchParams(searchParams, { replace: true });
+      const nextParams = new URLSearchParams(searchParams);
+      nextParams.delete("editar");
+      setSearchParams(nextParams, { replace: true });
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -802,7 +811,7 @@ async function openPdf(letter: PastorLetter) {
         setUsuario({ ...usuario!, avatar_url: avatarUrl });
       }
       toast.success("Perfil atualizado.");
-      setOpenUpdateModal(false);
+      closeUpdateModal();
       setAvatarFile(null);
       await queryClient.invalidateQueries({ queryKey: ["worker-dashboard"] });
     } catch {
@@ -1339,7 +1348,7 @@ async function openPdf(letter: PastorLetter) {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={openUpdateModal} onOpenChange={setOpenUpdateModal}>
+      <Dialog open={openUpdateModal} onOpenChange={(open) => (open ? setOpenUpdateModal(true) : closeUpdateModal())}>
         <DialogContent className="max-h-[90vh] max-w-4xl overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Atualizar cadastro</DialogTitle>
