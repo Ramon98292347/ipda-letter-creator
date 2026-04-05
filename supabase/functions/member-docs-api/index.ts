@@ -377,6 +377,48 @@ async function handleListPrintBatches(body: Record<string, unknown>, req: Reques
   return json({ ok: true, items: data || [] });
 }
 
+// Comentario: exclui registros de ficha e/ou carteirinha de um membro para permitir regerar
+async function handleDeleteDocs(body: Record<string, unknown>, req: Request) {
+  const user = await getUserFromJwt(req);
+  if (!user) return json({ ok: false, error: "unauthorized" }, 401);
+  if (!["admin", "pastor", "secretario", "obreiro"].includes(user.role)) {
+    return json({ ok: false, error: "forbidden" }, 403);
+  }
+
+  const memberId = String(body.member_id || "").trim();
+  const churchTotvsId = String(body.church_totvs_id || "").trim();
+  const docType = String(body.doc_type || "all").trim().toLowerCase(); // "ficha", "carteirinha", "all"
+
+  if (!memberId) return json({ ok: false, error: "member_id_required" }, 400);
+
+  // Obreiro so pode excluir os proprios documentos
+  if (user.role === "obreiro" && memberId !== user.id) {
+    return json({ ok: false, error: "forbidden" }, 403);
+  }
+
+  const sb = getAdminClient();
+  let deletedFicha = false;
+  let deletedCarteirinha = false;
+
+  if (docType === "ficha" || docType === "all") {
+    let q = sb.from("member_ficha_documents").delete().eq("member_id", memberId);
+    if (churchTotvsId) q = q.eq("church_totvs_id", churchTotvsId);
+    const { error } = await q;
+    if (error) return json({ ok: false, error: "db_error_ficha", details: error.message }, 500);
+    deletedFicha = true;
+  }
+
+  if (docType === "carteirinha" || docType === "all") {
+    let q = sb.from("member_carteirinha_documents").delete().eq("member_id", memberId);
+    if (churchTotvsId) q = q.eq("church_totvs_id", churchTotvsId);
+    const { error } = await q;
+    if (error) return json({ ok: false, error: "db_error_carteirinha", details: error.message }, 500);
+    deletedCarteirinha = true;
+  }
+
+  return json({ ok: true, deleted_ficha: deletedFicha, deleted_carteirinha: deletedCarteirinha });
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders() });
   if (req.method !== "POST") return json({ ok: false, error: "method_not_allowed" }, 405);
@@ -390,6 +432,7 @@ Deno.serve(async (req) => {
     if (action === "mark-printed") return await handleMarkPrinted(body, req);
     if (action === "generate-print-batch") return await handleGeneratePrintBatch(body, req);
     if (action === "list-print-batches") return await handleListPrintBatches(body, req);
+    if (action === "delete-docs") return await handleDeleteDocs(body, req);
 
     const slug = ACTION_TO_SLUG[action];
     if (!slug) {
@@ -397,7 +440,7 @@ Deno.serve(async (req) => {
         {
           ok: false,
           error: "invalid_action",
-          message: 'Use uma action valida: "generate", "status", "finish", "list-ready", "mark-printed", "generate-print-batch", "list-print-batches".',
+          message: 'Use uma action valida: "generate", "status", "finish", "list-ready", "mark-printed", "generate-print-batch", "list-print-batches", "delete-docs".',
         },
         400,
       );

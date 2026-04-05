@@ -41,6 +41,25 @@ type Body = {
   church_totvs_id?: string;
   dados?: Record<string, unknown>;
 };
+type ChurchRow = {
+  totvs_id: string;
+  parent_totvs_id: string | null;
+  church_name?: string | null;
+  pastor_user_id?: string | null;
+  stamp_church_url?: string | null;
+  address_street?: string | null;
+  address_number?: string | null;
+  address_neighborhood?: string | null;
+  address_city?: string | null;
+  address_state?: string | null;
+  cep?: string | null;
+};
+type PastorRow = {
+  signature_url?: string | null;
+  full_name?: string | null;
+  phone?: string | null;
+  email?: string | null;
+};
 
 async function verifySessionJWT(req: Request): Promise<SessionClaims | null> {
   const auth = req.headers.get("authorization") || "";
@@ -76,6 +95,71 @@ function toText(value: unknown) {
 
 function hasValue(value: unknown) {
   return String(value || "").trim().length > 0;
+}
+
+async function getChurchByTotvs(
+  sb: ReturnType<typeof createClient>,
+  totvsId: string,
+): Promise<ChurchRow | null> {
+  const { data, error } = await sb
+    .from("churches")
+    .select("totvs_id, parent_totvs_id, church_name, pastor_user_id, stamp_church_url, address_street, address_number, address_neighborhood, address_city, address_state, cep")
+    .eq("totvs_id", totvsId)
+    .maybeSingle();
+  if (error) throw new Error(`db_error_church_lookup:${error.message}`);
+  return (data as ChurchRow | null) || null;
+}
+
+async function getPastorById(
+  sb: ReturnType<typeof createClient>,
+  pastorUserId: string,
+): Promise<PastorRow | null> {
+  const { data, error } = await sb
+    .from("users")
+    .select("signature_url, full_name, phone, email")
+    .eq("id", pastorUserId)
+    .maybeSingle();
+  if (error) throw new Error(`db_error_pastor_signature:${error.message}`);
+  return (data as PastorRow | null) || null;
+}
+
+async function resolveSignatureFromChurchHierarchy(
+  sb: ReturnType<typeof createClient>,
+  baseChurch: ChurchRow,
+) {
+  const chain: ChurchRow[] = [baseChurch];
+  let current = baseChurch;
+  for (let depth = 0; depth < 2; depth += 1) {
+    const parentId = String(current.parent_totvs_id || "").trim();
+    if (!parentId) break;
+    const parentChurch = await getChurchByTotvs(sb, parentId);
+    if (!parentChurch) break;
+    chain.push(parentChurch);
+    current = parentChurch;
+  }
+
+  for (const church of chain) {
+    const pastorId = String(church.pastor_user_id || "").trim();
+    if (!pastorId) continue;
+    const pastor = await getPastorById(sb, pastorId);
+    const signatureUrl = String(pastor?.signature_url || "").trim();
+    if (!signatureUrl) continue;
+    return {
+      signature_url: signatureUrl,
+      pastor_name: String(pastor?.full_name || "").trim(),
+      pastor_phone: String(pastor?.phone || "").trim(),
+      pastor_email: String(pastor?.email || "").trim(),
+      source_totvs_id: String(church.totvs_id || "").trim(),
+    };
+  }
+
+  return {
+    signature_url: "",
+    pastor_name: "",
+    pastor_phone: "",
+    pastor_email: "",
+    source_totvs_id: "",
+  };
 }
 
 function collectMissingFieldsForFicha(
@@ -188,29 +272,35 @@ Deno.serve(async (req) => {
       return json({ ok: false, error: "forbidden_only_own_member" }, 403);
     }
 
-    const { data: church, error: churchErr } = await sb
-      .from("churches")
-      .select("church_name, pastor_user_id, stamp_church_url, address_street, address_number, address_neighborhood, address_city, address_state, cep")
-      .eq("totvs_id", churchTotvsId)
-      .maybeSingle();
-    if (churchErr) return json({ ok: false, error: "db_error_church", details: churchErr.message }, 500);
+    let church: ChurchRow | null = null;
+    try {
+      church = await getChurchByTotvs(sb, churchTotvsId);
+    } catch (err) {
+      return json({ ok: false, error: "db_error_church", details: String(err) }, 500);
+    }
 
     let pastorSignatureUrl = "";
-    if (church?.pastor_user_id) {
-      const { data: pastor, error: pastorErr } = await sb
-        .from("users")
-        .select("signature_url, full_name, phone, email")
-        .eq("id", String(church.pastor_user_id))
-        .maybeSingle();
-      if (pastorErr) return json({ ok: false, error: "db_error_pastor_signature", details: pastorErr.message }, 500);
-      pastorSignatureUrl = String(pastor?.signature_url || "");
-      // Comentario: sempre força assinatura e dados do pastor da igreja do membro.
-      // Isso evita reaproveitar URL antiga enviada pelo front de outro pastor/igreja.
-      dados.assinatura_pastor_url = pastorSignatureUrl;
-      dados.pastor_responsavel_nome = String(pastor?.full_name || "");
-      dados.pastor_responsavel_telefone = String(pastor?.phone || "");
-      dados.pastor_responsavel_email = String(pastor?.email || "");
+    let pastorResponsavelNome = "";
+    let pastorResponsavelTelefone = "";
+    let pastorResponsavelEmail = "";
+    let assinaturaOrigemTotvs = "";
+    try {
+      if (church) {
+        const resolved = await resolveSignatureFromChurchHierarchy(sb, church);
+        pastorSignatureUrl = resolved.signature_url;
+        pastorResponsavelNome = resolved.pastor_name;
+        pastorResponsavelTelefone = resolved.pastor_phone;
+        pastorResponsavelEmail = resolved.pastor_email;
+        assinaturaOrigemTotvs = resolved.source_totvs_id;
+      }
+    } catch (err) {
+      return json({ ok: false, error: "db_error_pastor_signature", details: String(err) }, 500);
     }
+
+    dados.assinatura_pastor_url = pastorSignatureUrl;
+    dados.pastor_responsavel_nome = pastorResponsavelNome;
+    dados.pastor_responsavel_telefone = pastorResponsavelTelefone;
+    dados.pastor_responsavel_email = pastorResponsavelEmail;
 
     let fichaFinalUrl = "";
     const { data: fichaSaved, error: fichaSavedErr } = await sb
@@ -230,6 +320,17 @@ Deno.serve(async (req) => {
           ok: false,
           error: "ficha_required_before_carteirinha",
           detail: "A carteirinha so pode ser gerada depois que a ficha estiver pronta.",
+        },
+        409,
+      );
+    }
+    const requiresSignatureForCard = documentType === "carteirinha" || documentType === "ficha_carteirinha";
+    if (requiresSignatureForCard && !String(pastorSignatureUrl || "").trim()) {
+      return json(
+        {
+          ok: false,
+          error: "missing_signature_for_carteirinha",
+          detail: "Nao foi encontrada assinatura do pastor da igreja do membro, nem da mae/avo. A carteirinha nao pode ser enviada sem assinatura.",
         },
         409,
       );
@@ -301,6 +402,7 @@ Deno.serve(async (req) => {
       profissao: toText(dados.profissao) || toText(dados.profession),
       carimbo_igreja_url: toText(dados.carimbo_igreja_url) || String(church?.stamp_church_url || ""),
       assinatura_pastor_url: toText(dados.assinatura_pastor_url) || pastorSignatureUrl,
+      assinatura_origem_totvs_id: assinaturaOrigemTotvs,
       member_id: memberId,
     };
 

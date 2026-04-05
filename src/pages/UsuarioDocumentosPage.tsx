@@ -1,12 +1,12 @@
 ﻿import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useUser } from "@/context/UserContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, IdCard, Send } from "lucide-react";
-import { generateMemberDocs, getMemberDocsStatus, getPastorByTotvsPublic, workerDashboard } from "@/services/saasService";
+import { ArrowLeft, IdCard, Loader2, Send, Trash2 } from "lucide-react";
+import { deleteMemberDocs, generateMemberDocs, getMemberDocsStatus, getPastorByTotvsPublic, workerDashboard } from "@/services/saasService";
 import { formatCepBr, formatCpfBr, formatDateBr, formatPhoneBr } from "@/lib/br-format";
 
 type DocTab = "carteirinha" | "ficha";
@@ -163,10 +163,12 @@ function buildFichaMembroHtml(params: {
 
 export default function UsuarioDocumentosPage() {
   const nav = useNavigate();
+  const queryClient = useQueryClient();
   const { usuario, session } = useUser();
   const isCadastroPendente = usuario?.registration_status === "PENDENTE";
   const [docTab, setDocTab] = useState<DocTab>("carteirinha");
   const [sendingDoc, setSendingDoc] = useState(false);
+  const [deletingDoc, setDeletingDoc] = useState(false);
 
   const userId = String(usuario?.id || "");
   const { data } = useQuery({
@@ -312,6 +314,32 @@ export default function UsuarioDocumentosPage() {
     }
   }
 
+  async function excluirMeusDocumentos() {
+    if (!userId || !activeTotvs) {
+      toast.error("Dados de sessão inválidos.");
+      return;
+    }
+    const confirmed = window.confirm("Deseja excluir sua ficha e sua carteirinha? Você poderá gerar novamente quando quiser.");
+    if (!confirmed) return;
+
+    setDeletingDoc(true);
+    try {
+      await deleteMemberDocs({
+        member_id: userId,
+        church_totvs_id: activeTotvs,
+        doc_type: "all",
+      });
+      await refetchDocsStatus();
+      await queryClient.invalidateQueries({ queryKey: ["worker-docs-status", userId, activeTotvs] });
+      toast.success("Ficha e carteirinha excluídas com sucesso.");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Falha ao excluir documentos.";
+      toast.error(message || "Falha ao excluir documentos.");
+    } finally {
+      setDeletingDoc(false);
+    }
+  }
+
   return (
     <div className="min-h-screen bg-slate-100">
       <main className="mx-auto w-full max-w-[1200px] space-y-4 px-4 py-4">
@@ -356,15 +384,23 @@ export default function UsuarioDocumentosPage() {
                   >
                     Baixar carteirinha
                   </Button>
+                  <Button size="sm" variant="destructive" onClick={excluirMeusDocumentos} disabled={deletingDoc}>
+                    {deletingDoc ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
+                    Excluir ficha e carteirinha
+                  </Button>
                 </div>
               </div>
             ) : null}
             {docTab === "ficha" && fichaPronta ? (
               <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
                 <p className="text-sm font-semibold text-emerald-700">Ficha pronta.</p>
-                <div className="mt-3">
+                <div className="mt-3 flex flex-wrap gap-2">
                   <Button size="sm" onClick={() => window.open(String(docsStatus?.ficha?.final_url || ""), "_blank", "noopener,noreferrer")}>
                     Abrir ficha final
+                  </Button>
+                  <Button size="sm" variant="destructive" onClick={excluirMeusDocumentos} disabled={deletingDoc}>
+                    {deletingDoc ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
+                    Excluir ficha e carteirinha
                   </Button>
                 </div>
               </div>

@@ -1,6 +1,6 @@
 ﻿import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { CheckSquare, FileText, Grid2X2, IdCard, List, Loader2, MoreVertical, Printer, Save, Send, Square, Users } from "lucide-react";
+import { CheckSquare, FileText, Grid2X2, IdCard, List, Loader2, MoreVertical, Printer, Save, Send, Square, Trash2, Users } from "lucide-react";
 import { supabaseRealtime } from "@/lib/supabaseRealtime";
 import { AvatarCapture } from "@/components/shared/AvatarCapture";
 import { AvatarImage } from "@/components/shared/AvatarImage";
@@ -17,7 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { listChurchesInScope, listMembers, type UserListItem, generateMemberDocs, getMemberDocsStatus, deleteUserPermanently, listReadyCarteirinhas, markCarteirinhasPrinted, generatePrintBatchCarteirinhas, listPrintBatchCarteirinhas, type PrintBatchCarteirinhaItem, type ReadyCarteirinhaItem } from "@/services/saasService";
+import { listChurchesInScope, listMembers, type UserListItem, generateMemberDocs, getMemberDocsStatus, deleteMemberDocs, deleteUserPermanently, listReadyCarteirinhas, markCarteirinhasPrinted, generatePrintBatchCarteirinhas, listPrintBatchCarteirinhas, type PrintBatchCarteirinhaItem, type ReadyCarteirinhaItem } from "@/services/saasService";
 import { useUser } from "@/context/UserContext";
 import { useDebounce } from "@/hooks/useDebounce";
 import { fetchAddressByCep, maskCep, onlyDigits } from "@/lib/cep";
@@ -703,6 +703,7 @@ export default function PastorMembrosPage() {
   const [showChurchList, setShowChurchList] = useState(false);
   const [savingDraft, setSavingDraft] = useState(false);
   const [sending, setSending] = useState(false);
+  const [deletingDocs, setDeletingDocs] = useState(false);
   // Comentario: arquivo de foto capturado pela camera, aguardando upload.
   const [pendingFotoFile, setPendingFotoFile] = useState<File | null>(null);
   // Comentario: true enquanto o upload da foto esta em andamento.
@@ -1300,6 +1301,32 @@ export default function PastorMembrosPage() {
       toast.error(`Falha ao gerar ficha: ${String((err as Error)?.message || err)}`);
     } finally {
       setSending(false);
+    }
+  }
+
+  async function excluirDocumentosMembro() {
+    if (!selectedMemberId) {
+      toast.error("Selecione um membro.");
+      return;
+    }
+    const confirmed = window.confirm("Deseja excluir a ficha e a carteirinha deste membro? Esta ação permite gerar novamente depois.");
+    if (!confirmed) return;
+
+    setDeletingDocs(true);
+    try {
+      await deleteMemberDocs({
+        member_id: selectedMemberId,
+        church_totvs_id: memberChurchTotvsId,
+        doc_type: "all",
+      });
+      await refetchDocsStatus();
+      await queryClient.invalidateQueries({ queryKey: ["ready-carteirinhas", activeTotvsId] });
+      toast.success("Ficha e carteirinha excluídas com sucesso.");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Falha ao excluir documentos.";
+      toast.error(message || "Falha ao excluir documentos.");
+    } finally {
+      setDeletingDocs(false);
     }
   }
 
@@ -2110,6 +2137,15 @@ export default function PastorMembrosPage() {
                       >
                         Baixar carteirinha
                       </Button>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        onClick={excluirDocumentosMembro}
+                        disabled={deletingDocs}
+                      >
+                        {deletingDocs ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
+                        Excluir ficha e carteirinha
+                      </Button>
                     </div>
                   </div>
                 ) : null}
@@ -2162,6 +2198,15 @@ export default function PastorMembrosPage() {
                         onClick={() => window.open(String(docsStatus?.ficha?.final_url || ""), "_blank", "noopener,noreferrer")}
                       >
                         Baixar ficha
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        onClick={excluirDocumentosMembro}
+                        disabled={deletingDocs}
+                      >
+                        {deletingDocs ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
+                        Excluir ficha e carteirinha
                       </Button>
                     </div>
                   </div>

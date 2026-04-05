@@ -3540,6 +3540,17 @@ export async function getMemberDocsStatus(payload: { member_id?: string; church_
   } as MemberDocsStatusResponse;
 }
 
+export async function deleteMemberDocs(payload: {
+  member_id: string;
+  church_totvs_id?: string;
+  doc_type?: "ficha" | "carteirinha" | "all";
+}) {
+  if (!isMockMode()) {
+    return await api.deleteMemberDocs(payload);
+  }
+  return { ok: true };
+}
+
 // Comentario: tipo de item da listagem de carteirinhas prontas para impressao em lote
 export type ReadyCarteirinhaItem = {
   id: string;

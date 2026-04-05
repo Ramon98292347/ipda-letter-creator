@@ -188,6 +188,8 @@ export const api = {
     post("member-docs-api", { action: "generate-print-batch", ...body }),
   listPrintBatchCarteirinhas: (body: { church_totvs_id: string }) =>
     post("member-docs-api", { action: "list-print-batches", ...body }),
+  deleteMemberDocs: (body: { member_id: string; church_totvs_id?: string; doc_type?: "ficha" | "carteirinha" | "all" }) =>
+    post("member-docs-api", { action: "delete-docs", ...body }),
 
   // Comentario: endpoints do modulo Deposito — controle de estoque
   depositListProducts: (body: Record<string, unknown>) => post("deposit-api", { action: "list-products", ...body }),
