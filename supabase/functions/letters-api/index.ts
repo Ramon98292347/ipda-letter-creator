@@ -174,6 +174,67 @@ function collectAncestors(startTotvs: string, churches: ChurchNode[]): Set<strin
   return out;
 }
 
+function isInSubtree(destinoTotvs: string, raizTotvs: string, churches: ChurchNode[]): boolean {
+  if (!destinoTotvs || !raizTotvs) return false;
+  if (destinoTotvs === raizTotvs) return true;
+  const byId = mapById(churches);
+  const visited = new Set<string>();
+  let current: string | null = destinoTotvs;
+  while (current && !visited.has(current)) {
+    visited.add(current);
+    if (current === raizTotvs) return true;
+    const row = byId.get(current);
+    if (!row) break;
+    current = row.parent_totvs_id ? String(row.parent_totvs_id) : null;
+  }
+  return false;
+}
+
+function collectAncestorChain(startTotvs: string, churches: ChurchNode[]): ChurchNode[] {
+  const byId = mapById(churches);
+  const chain: ChurchNode[] = [];
+  const visited = new Set<string>();
+  let current = byId.get(startTotvs)?.parent_totvs_id || null;
+  while (current && !visited.has(current)) {
+    visited.add(current);
+    const row = byId.get(current);
+    if (!row) break;
+    chain.push(row);
+    current = row.parent_totvs_id || null;
+  }
+  return chain;
+}
+
+function resolveOriginFromDestination(
+  signerTotvsId: string,
+  destinationTotvs: string | null,
+  churches: ChurchNode[],
+  manualDestination: boolean,
+): string {
+  const signer = mapById(churches).get(signerTotvsId);
+  if (!signer) return signerTotvsId;
+
+  const chain = collectAncestorChain(signerTotvsId, churches);
+  const ancestorsWithPastor = chain.filter((row) => String(row.pastor_user_id || "").trim());
+  const topWithPastor = ancestorsWithPastor.length ? ancestorsWithPastor[ancestorsWithPastor.length - 1] : null;
+
+  if (manualDestination) {
+    return topWithPastor?.totvs_id || signerTotvsId;
+  }
+
+  if (!destinationTotvs) return signerTotvsId;
+  if (isInSubtree(destinationTotvs, signerTotvsId, churches)) return signerTotvsId;
+
+  for (const ancestor of chain) {
+    if (!String(ancestor.pastor_user_id || "").trim()) continue;
+    if (isInSubtree(destinationTotvs, ancestor.totvs_id, churches)) {
+      return ancestor.totvs_id;
+    }
+  }
+
+  return topWithPastor?.totvs_id || signerTotvsId;
+}
+
 function findTopAncestorTotvs(startTotvs: string, churches: ChurchNode[]): string {
   const byId = mapById(churches);
   let cur: string | null = startTotvs;
@@ -517,39 +578,19 @@ async function handleCreate(session: SessionClaims, body: Record<string, unknown
     if (!activeChurch) return json({ ok: false, error: "church_not_found" }, 404);
 
     // Comentario: origem permitida segue regra de classe por hierarquia.
-    const originTotvs = parseTotvsFromText(church_origin) || session.active_totvs_id;
-    let church_totvs_id = originTotvs;
-
-    if (!byId.has(church_totvs_id)) {
+    const requestedOriginTotvs = parseTotvsFromText(church_origin) || session.active_totvs_id;
+    if (requestedOriginTotvs && !byId.has(requestedOriginTotvs)) {
       return json({ ok: false, error: "origin_church_not_found" }, 404);
     }
 
-    // Regra: se o destino for manual, a origem sempre sobe para o topo da hierarquia (avó).
-    if (manual_destination) {
-      const topTotvs = findTopAncestorTotvs(church_totvs_id, churches);
-      if (topTotvs && topTotvs !== church_totvs_id) {
-        church_totvs_id = topTotvs;
-        const topChurch = byId.get(topTotvs) || null;
-        const topName = String(topChurch?.church_name || "").trim();
-        if (topName) church_origin = `${topTotvs} - ${topName}`;
-      }
-    }
+    const scopeSignerChurch = resolveSignerChurch(session.active_totvs_id, churches);
+    if (!scopeSignerChurch) return json({ ok: false, error: "signer_not_found_for_class_rule" }, 409);
+    const scopeSignerTotvs = String(scopeSignerChurch.totvs_id || "");
+    if (!scopeSignerTotvs) return json({ ok: false, error: "signer_not_found_for_class_rule" }, 409);
 
-    const allowedOrigins = resolveAllowedOriginTotvs(session, activeChurch, churches);
-    if (!allowedOrigins.has(church_totvs_id)) {
-      // Removido: campo allowed_origins que expunha a hierarquia de igrejas do usuario.
-      // Um atacante podia usar esse erro para mapear quais igrejas pertencem ao escopo.
-      return json({
-        ok: false,
-        error: "origin_out_of_allowed",
-        detail: "Origem invalida para sua hierarquia. Use sua igreja ou a igreja mae permitida.",
-      }, 403);
-    }
-
-    // Destino permitido = escopo (filhas) + ancestrais (mãe, avó, bisavó...)
-    let scope = computeScope(church_totvs_id, churches);
-    let ancestors = collectAncestors(church_totvs_id, churches);
-    let allowedDestinations = new Set<string>([...scope, ...ancestors]);
+    const scope = computeScope(scopeSignerTotvs, churches);
+    const ancestors = collectAncestors(scopeSignerTotvs, churches);
+    const allowedDestinations = new Set<string>([...scope, ...ancestors]);
 
     const destinationTotvsExplicit = String(body.destination_totvs_id || "").trim();
     const destinationTotvs = destinationTotvsExplicit || parseTotvsFromText(church_destination);
@@ -566,19 +607,35 @@ async function handleCreate(session: SessionClaims, body: Record<string, unknown
     }
 
     if (destinationTotvs && !allowedDestinations.has(destinationTotvs) && !manual_destination) {
-      // Regra: se a igreja destino está acima, sobe a origem para a mãe/avó (topo da hierarquia).
-      const topTotvs = findTopAncestorTotvs(church_totvs_id, churches);
-      if (topTotvs && topTotvs !== church_totvs_id) {
-        church_totvs_id = topTotvs;
-        const topChurch = byId.get(topTotvs) || null;
-        const topName = String(topChurch?.church_name || "").trim();
-        if (topName) church_origin = `${topTotvs} - ${topName}`;
-        scope = computeScope(church_totvs_id, churches);
-        ancestors = collectAncestors(church_totvs_id, churches);
-        allowedDestinations = new Set<string>([...scope, ...ancestors]);
-      }
+      return json({
+        ok: false,
+        error: "destination_out_of_scope_use_parent",
+        detail: "Destino fora do escopo permitido. Use a igreja mae/avo para emitir.",
+      }, 403);
     }
 
+    let church_totvs_id = resolveOriginFromDestination(
+      scopeSignerTotvs,
+      destinationTotvs || null,
+      churches,
+      manual_destination,
+    );
+
+    const resolvedOriginChurch = byId.get(church_totvs_id) || scopeSignerChurch;
+    const resolvedOriginName =
+      String(resolvedOriginChurch?.church_name || "").trim()
+      || churchNameOnly(church_origin)
+      || church_totvs_id;
+    church_origin = `${church_totvs_id} - ${resolvedOriginName}`;
+
+    const allowedOrigins = resolveAllowedOriginTotvs(session, activeChurch, churches);
+    if (!allowedOrigins.has(church_totvs_id)) {
+      return json({
+        ok: false,
+        error: "origin_out_of_allowed",
+        detail: "Origem invalida para sua hierarquia. Use a origem calculada pela igreja mae/avo.",
+      }, 403);
+    }
     // Resolve assinante pela regra fixa de classe
     const signerChurch = resolveSignerChurch(church_totvs_id, churches);
     if (!signerChurch) return json({ ok: false, error: "signer_not_found_for_class_rule" }, 409);
