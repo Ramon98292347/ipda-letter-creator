@@ -94,6 +94,8 @@ type WorkerForm = {
   id?: string;
   cpf: string;
   full_name: string;
+  rg: string;
+  marital_status: string;
   minister_role: string;
   profession: string;
   phone: string;
@@ -115,6 +117,8 @@ type WorkerForm = {
 const initialForm: WorkerForm = {
   cpf: "",
   full_name: "",
+  rg: "",
+  marital_status: "",
   minister_role: "",
   profession: "",
   phone: "",
@@ -273,6 +277,8 @@ export function ObreirosTab({
       id: String(worker.id),
       cpf: worker.cpf || "",
       full_name: worker.full_name,
+      rg: worker.rg || "",
+      marital_status: worker.marital_status || "",
       minister_role: worker.minister_role || "",
       profession: worker.profession || "",
       phone: worker.phone || "",
@@ -413,6 +419,8 @@ export function ObreirosTab({
         active_totvs_id: activeTotvsId,
         cpf: form.cpf,
         full_name: form.full_name,
+        rg: form.rg || undefined,
+        marital_status: form.marital_status || undefined,
         minister_role: form.minister_role,
         profession: form.profession || undefined,
         phone: form.phone || undefined,
@@ -942,6 +950,14 @@ export function ObreirosTab({
               <div className="space-y-1">
                 <Label>Profissao</Label>
                 <Input value={form.profession} onChange={(e) => setForm((p) => ({ ...p, profession: e.target.value }))} />
+              </div>
+              <div className="space-y-1">
+                <Label>RG</Label>
+                <Input value={form.rg} onChange={(e) => setForm((p) => ({ ...p, rg: e.target.value }))} />
+              </div>
+              <div className="space-y-1">
+                <Label>Estado civil</Label>
+                <Input value={form.marital_status} onChange={(e) => setForm((p) => ({ ...p, marital_status: e.target.value }))} />
               </div>
             </div>
 

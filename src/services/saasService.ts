@@ -2874,6 +2874,8 @@ export async function upsertWorkerByPastor(payload: {
   active_totvs_id: string;
   cpf: string;
   full_name: string;
+  rg?: string;
+  marital_status?: string;
   minister_role: string;
   profession?: string;
   phone?: string;
@@ -2908,6 +2910,8 @@ export async function upsertWorkerByPastor(payload: {
     role,
     totvs_access: [{ totvs_id: payload.active_totvs_id, role }],
     default_totvs_id: payload.active_totvs_id,
+    rg: payload.rg || null,
+    marital_status: payload.marital_status || null,
     phone: payload.phone || null,
     email: payload.email || null,
     birth_date: payload.birth_date || null,
@@ -2940,6 +2944,8 @@ export async function upsertWorkerByPastor(payload: {
         full_name: body.full_name,
         role: body.role,
         cpf: body.cpf,
+        rg: body.rg,
+        marital_status: body.marital_status,
         minister_role: body.minister_role,
         profession: body.profession,
         phone: body.phone,
