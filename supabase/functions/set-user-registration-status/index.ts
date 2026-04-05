@@ -219,30 +219,29 @@ Deno.serve(async (req) => {
       ? "Parabéns! Seu cadastro foi aprovado. Você agora pode usar todas as funcionalidades do sistema."
       : "Seu cadastro está aguardando aprovação. Um administrador revisará em breve.";
 
-    // Inserir notificação interna no banco
-    await sb.from("notifications").insert({
-      user_id: userId,
-      church_totvs_id: targetTotvs,
-      type: "registration_status",
-      title: notificationTitle,
-      message: notificationMsg,
-      read_at: null,
-    }).catch((err) => {
+    // Comentario: notificações são fire-and-forget — nunca devem causar erro no front
+    try {
+      await sb.from("notifications").insert({
+        user_id: userId,
+        church_totvs_id: targetTotvs,
+        type: "registration_status",
+        title: notificationTitle,
+        message: notificationMsg,
+        read_at: null,
+      });
+    } catch (err) {
       console.warn("[set-user-registration-status] Erro ao criar notificação interna:", err);
-    });
+    }
 
-    // Comentario: envia push notification usando função centralizada
-    const pushSent = await sendInternalPushNotification({
-      title: notificationTitle,
-      body: notificationMsg,
-      url: "/",
-      user_ids: [userId],
-    });
-
-    if (pushSent) {
-      console.log(`[set-user-registration-status] Push enviado para ${userId} (status: ${status})`);
-    } else {
-      console.warn(`[set-user-registration-status] Falha ao enviar push para ${userId}`);
+    try {
+      await sendInternalPushNotification({
+        title: notificationTitle,
+        body: notificationMsg,
+        url: "/",
+        user_ids: [userId],
+      });
+    } catch (err) {
+      console.warn("[set-user-registration-status] Erro ao enviar push:", err);
     }
 
     return json({ ok: true, user_id: userId, registration_status: status }, 200);

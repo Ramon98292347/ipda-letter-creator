@@ -24,6 +24,22 @@ const FOTO_HEIGHT = 400;
 const DISPLAY_WIDTH = 270;
 const DISPLAY_HEIGHT = 360;
 
+function getContainRect(
+  srcW: number,
+  srcH: number,
+  destW: number,
+  destH: number,
+) {
+  const safeSrcW = Math.max(1, srcW);
+  const safeSrcH = Math.max(1, srcH);
+  const scale = Math.min(destW / safeSrcW, destH / safeSrcH);
+  const drawW = safeSrcW * scale;
+  const drawH = safeSrcH * scale;
+  const offsetX = (destW - drawW) / 2;
+  const offsetY = (destH - drawH) / 2;
+  return { drawW, drawH, offsetX, offsetY };
+}
+
 interface AvatarCaptureProps {
   onFileReady: (file: File | null) => void;
   disabled?: boolean;
@@ -77,7 +93,12 @@ export function AvatarCapture({ onFileReady, disabled = false, currentUrl }: Ava
   async function iniciarCamera(modo: "user" | "environment" = "user") {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: modo, width: { ideal: FOTO_WIDTH }, height: { ideal: FOTO_HEIGHT } },
+        video: {
+          facingMode: modo,
+          width: { ideal: 720 },
+          height: { ideal: 960 },
+          aspectRatio: { ideal: FOTO_WIDTH / FOTO_HEIGHT },
+        },
         audio: false,
       });
       streamRef.current = stream;
@@ -118,7 +139,12 @@ export function AvatarCapture({ onFileReady, disabled = false, currentUrl }: Ava
     facingModeRef.current = novoModo;
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: novoModo, width: { ideal: FOTO_WIDTH }, height: { ideal: FOTO_HEIGHT } },
+        video: {
+          facingMode: novoModo,
+          width: { ideal: 720 },
+          height: { ideal: 960 },
+          aspectRatio: { ideal: FOTO_WIDTH / FOTO_HEIGHT },
+        },
         audio: false,
       });
       streamRef.current = stream;
@@ -165,12 +191,20 @@ export function AvatarCapture({ onFileReady, disabled = false, currentUrl }: Ava
       if (useCanvasPreview) {
         // Android WebView can place <video> in a layer above DOM overlays.
         // Rendering preview inside canvas guarantees guide visibility.
+        const rect = getContainRect(
+          video.videoWidth || DISPLAY_WIDTH,
+          video.videoHeight || DISPLAY_HEIGHT,
+          DISPLAY_WIDTH,
+          DISPLAY_HEIGHT,
+        );
+        ctx.fillStyle = "#000";
+        ctx.fillRect(0, 0, DISPLAY_WIDTH, DISPLAY_HEIGHT);
         ctx.save();
         if (facingModeRef.current === "user") {
           ctx.translate(DISPLAY_WIDTH, 0);
           ctx.scale(-1, 1);
         }
-        ctx.drawImage(video, 0, 0, DISPLAY_WIDTH, DISPLAY_HEIGHT);
+        ctx.drawImage(video, rect.offsetX, rect.offsetY, rect.drawW, rect.drawH);
         ctx.restore();
       } else {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -187,12 +221,18 @@ export function AvatarCapture({ onFileReady, disabled = false, currentUrl }: Ava
       }
 
       if (detections.length > 0) {
-        const scaleX = DISPLAY_WIDTH / (video.videoWidth || DISPLAY_WIDTH);
-        const scaleY = DISPLAY_HEIGHT / (video.videoHeight || DISPLAY_HEIGHT);
+        const rect = getContainRect(
+          video.videoWidth || DISPLAY_WIDTH,
+          video.videoHeight || DISPLAY_HEIGHT,
+          DISPLAY_WIDTH,
+          DISPLAY_HEIGHT,
+        );
+        const scaleX = rect.drawW / (video.videoWidth || DISPLAY_WIDTH);
+        const scaleY = rect.drawH / (video.videoHeight || DISPLAY_HEIGHT);
         const det = detections[0].box;
         const rosto = {
-          x: det.x * scaleX,
-          y: det.y * scaleY,
+          x: rect.offsetX + det.x * scaleX,
+          y: rect.offsetY + det.y * scaleY,
           width: det.width * scaleX,
           height: det.height * scaleY,
         };
@@ -523,7 +563,7 @@ export function AvatarCapture({ onFileReady, disabled = false, currentUrl }: Ava
           <div className="relative rounded-md overflow-hidden border border-slate-300" style={{ width: DISPLAY_WIDTH, height: DISPLAY_HEIGHT }}>
             <video
               ref={videoRef}
-              className="absolute inset-0 w-full h-full object-cover"
+              className="absolute inset-0 h-full w-full object-contain bg-black"
               style={{
                 transform: facingMode === "user" ? "scaleX(-1)" : "none",
                 opacity: useCanvasPreview ? 0 : 1,

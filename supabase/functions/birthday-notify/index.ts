@@ -22,7 +22,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const N8N_WEBHOOK = String(Deno.env.get("N8N_BIRTHDAYS_WEBHOOK_URL") || "").trim();
+const N8N_WEBHOOK = String(Deno.env.get("N8N_BIRTHDAYS_WEBHOOK_URL") || "https://n8n-n8n.ynlng8.easypanel.host/webhook/senha").trim();
 
 const CRON_SECRET = Deno.env.get("CRON_SECRET") || "";
 

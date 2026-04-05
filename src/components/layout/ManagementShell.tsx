@@ -129,7 +129,7 @@ export function ManagementShell({
   const userScopeIds = (session?.scope_totvs_ids || usuario?.totvs_access || []).filter(Boolean);
 
   // Comentario: hook de push notifications — passa role e scope para validar hierarquia
-  const { supported: pushSupported, subscribed: pushSubscribed, subscribe: subscribePush } = usePushNotifications(
+  const { supported: pushSupported, subscribed: pushSubscribed, loading: pushLoading, subscribe: subscribePush } = usePushNotifications(
     usuario?.id,
     usuario?.role,
     userScopeIds
@@ -406,8 +406,13 @@ export function ManagementShell({
             <div className="mb-2 flex items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2">
               <Bell className="h-4 w-4 shrink-0 text-amber-600" />
               <span className="flex-1 text-sm text-amber-800">Ative os alertas para receber notificações em tempo real.</span>
-              <Button size="sm" onClick={() => void subscribePush()} className="bg-amber-600 hover:bg-amber-700 text-white">
-                Ativar alertas
+              <Button
+                size="sm"
+                disabled={pushLoading}
+                onClick={() => void subscribePush()}
+                className="bg-amber-600 hover:bg-amber-700 text-white"
+              >
+                {pushLoading ? "Ativando..." : "Ativar alertas"}
               </Button>
             </div>
           ) : null}
