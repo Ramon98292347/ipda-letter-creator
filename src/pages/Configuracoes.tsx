@@ -17,10 +17,9 @@ import { AvatarImage } from "@/components/shared/AvatarImage";
 type ExportRole = "todos" | "pastor" | "obreiro";
 
 function profileEditRouteByRole(role?: string | null) {
-  const normalized = String(role || "").toLowerCase();
-  if (normalized === "pastor" || normalized === "secretario") return "/pastor/dashboard?editar=1&return_to=configuracoes";
-  if (normalized === "admin") return "/admin/dashboard?editar=1&return_to=configuracoes";
-  if (normalized === "financeiro") return "/financeiro/dashboard?editar=1&return_to=configuracoes";
+  // Comentario: o modal de edicao de cadastro e tratado em UsuarioDashboard (/obreiro).
+  // Essa rota aceita todos os roles permitidos e garante abertura via ?editar=1.
+  void role;
   return "/obreiro?editar=1&return_to=configuracoes";
 }
 
