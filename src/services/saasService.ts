@@ -1370,12 +1370,23 @@ export type ChurchDetails = {
 
 export async function searchChurchesPublic(query: string, limit = 8): Promise<ChurchSearchResult[]> {
   const { post } = await import("@/lib/api");
-  const result = await post<{ ok?: boolean; churches?: ChurchSearchResult[] }>(
-    "search-churches-public",
-    { query, limit },
-    { skipAuth: true },
-  );
-  return result?.churches ?? [];
+  try {
+    // Comentario: endpoint oficial em producao (Vercel/Supabase).
+    const result = await post<{ ok?: boolean; churches?: ChurchSearchResult[] }>(
+      "list-churches-public",
+      { query, limit },
+      { skipAuth: true },
+    );
+    return result?.churches ?? [];
+  } catch {
+    // Comentario: fallback legado para ambientes antigos.
+    const legacy = await post<{ ok?: boolean; churches?: ChurchSearchResult[] }>(
+      "search-churches-public",
+      { query, limit },
+      { skipAuth: true },
+    );
+    return legacy?.churches ?? [];
+  }
 }
 
 export async function getChurchDetails(totvsId: string): Promise<ChurchDetails | null> {
