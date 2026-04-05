@@ -16,6 +16,14 @@ import { AvatarImage } from "@/components/shared/AvatarImage";
 
 type ExportRole = "todos" | "pastor" | "obreiro";
 
+function profileEditRouteByRole(role?: string | null) {
+  const normalized = String(role || "").toLowerCase();
+  if (normalized === "pastor" || normalized === "secretario") return "/pastor/dashboard?editar=1";
+  if (normalized === "admin") return "/admin/dashboard?editar=1";
+  if (normalized === "financeiro") return "/financeiro/dashboard?editar=1";
+  return "/obreiro?editar=1";
+}
+
 function csvEscape(value: unknown) {
   const text = String(value ?? "");
   if (!text.includes(",") && !text.includes("\"") && !text.includes("\n")) return text;
@@ -247,7 +255,11 @@ export default function ConfiguracoesPage() {
               <p><b>Igreja ativa:</b> {isAdmin ? "Admin global (sem igreja fixa)" : (session?.church_name || "-")}</p>
               <p><b>TOTVS:</b> {isAdmin ? "-" : (session?.totvs_id || "-")}</p>
               {/* Comentario: botao para editar o cadastro do usuario logado */}
-              <Button variant="outline" onClick={() => nav("/obreiro?editar=1")} className="mt-2 w-full border-blue-300 text-blue-700 hover:bg-blue-50">
+              <Button
+                variant="outline"
+                onClick={() => nav(profileEditRouteByRole(usuario?.role))}
+                className="mt-2 w-full border-blue-300 text-blue-700 hover:bg-blue-50"
+              >
                 <UserCircle2 className="mr-2 h-4 w-4" /> Editar meu cadastro
               </Button>
             </CardContent>
