@@ -5,6 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -23,6 +24,7 @@ import {
   upsertChurchLaudo,
   upsertChurchRemanejamento,
 } from "@/services/saasService";
+import { BRAZIL_UF_OPTIONS } from "@/lib/brazil-ufs";
 
 type TabValue = "remanejamento" | "contrato" | "laudo";
 
@@ -254,7 +256,7 @@ export function ChurchDocsDialog({
                   <div className="space-y-1"><Label>Telefone</Label><Input value={textValue(remanejamento.estadual_telefone)} onChange={(e) => updateRem("estadual_telefone", e.target.value)} /></div>
                   <div className="space-y-1"><Label>Email</Label><Input value={textValue(remanejamento.estadual_email)} onChange={(e) => updateRem("estadual_email", e.target.value)} /></div>
                   <div className="space-y-1"><Label>Cidade</Label><Input value={textValue(remanejamento.estadual_cidade)} onChange={(e) => updateRem("estadual_cidade", e.target.value)} /></div>
-                  <div className="space-y-1"><Label>UF</Label><Input value={textValue(remanejamento.estadual_uf)} onChange={(e) => updateRem("estadual_uf", e.target.value)} /></div>
+                  <div className="space-y-1"><Label>UF</Label><Select value={textValue(remanejamento.estadual_uf)} onValueChange={(value) => updateRem("estadual_uf", value)}><SelectTrigger><SelectValue placeholder="Selecione a UF" /></SelectTrigger><SelectContent>{BRAZIL_UF_OPTIONS.map((uf) => (<SelectItem key={uf} value={uf}>{uf}</SelectItem>))}</SelectContent></Select></div>
                 </CardContent>
               </Card>
 
@@ -266,7 +268,7 @@ export function ChurchDocsDialog({
                   <div className="space-y-1"><Label>Telefone</Label><Input value={textValue(remanejamento.setorial_telefone)} onChange={(e) => updateRem("setorial_telefone", e.target.value)} /></div>
                   <div className="space-y-1"><Label>Email</Label><Input value={textValue(remanejamento.setorial_email)} onChange={(e) => updateRem("setorial_email", e.target.value)} /></div>
                   <div className="space-y-1"><Label>Cidade</Label><Input value={textValue(remanejamento.setorial_cidade)} onChange={(e) => updateRem("setorial_cidade", e.target.value)} /></div>
-                  <div className="space-y-1"><Label>UF</Label><Input value={textValue(remanejamento.setorial_uf)} onChange={(e) => updateRem("setorial_uf", e.target.value)} /></div>
+                  <div className="space-y-1"><Label>UF</Label><Select value={textValue(remanejamento.setorial_uf)} onValueChange={(value) => updateRem("setorial_uf", value)}><SelectTrigger><SelectValue placeholder="Selecione a UF" /></SelectTrigger><SelectContent>{BRAZIL_UF_OPTIONS.map((uf) => (<SelectItem key={uf} value={uf}>{uf}</SelectItem>))}</SelectContent></Select></div>
                 </CardContent>
               </Card>
 
@@ -277,7 +279,7 @@ export function ChurchDocsDialog({
                   <div className="space-y-1"><Label>Numero</Label><Input value={textValue(remanejamento.igreja_numero)} onChange={(e) => updateRem("igreja_numero", e.target.value)} /></div>
                   <div className="space-y-1"><Label>Bairro</Label><Input value={textValue(remanejamento.igreja_bairro)} onChange={(e) => updateRem("igreja_bairro", e.target.value)} /></div>
                   <div className="space-y-1"><Label>Cidade</Label><Input value={textValue(remanejamento.igreja_cidade)} onChange={(e) => updateRem("igreja_cidade", e.target.value)} /></div>
-                  <div className="space-y-1"><Label>UF</Label><Input value={textValue(remanejamento.igreja_uf)} onChange={(e) => updateRem("igreja_uf", e.target.value)} /></div>
+                  <div className="space-y-1"><Label>UF</Label><Select value={textValue(remanejamento.igreja_uf)} onValueChange={(value) => updateRem("igreja_uf", value)}><SelectTrigger><SelectValue placeholder="Selecione a UF" /></SelectTrigger><SelectContent>{BRAZIL_UF_OPTIONS.map((uf) => (<SelectItem key={uf} value={uf}>{uf}</SelectItem>))}</SelectContent></Select></div>
                   <div className="space-y-1"><Label>Porte da Igreja</Label><Input value={textValue(remanejamento.porte_igreja)} onChange={(e) => updateRem("porte_igreja", e.target.value)} /></div>
                   <div className="space-y-1"><Label>Valor Aluguel</Label><Input value={textValue(remanejamento.valor_aluguel)} onChange={(e) => updateRem("valor_aluguel", e.target.value)} /></div>
                   <div className="space-y-1"><Label>Entradas Atuais</Label><Input value={textValue(remanejamento.entradas_atuais)} onChange={(e) => updateRem("entradas_atuais", e.target.value)} /></div>
@@ -307,7 +309,7 @@ export function ChurchDocsDialog({
                   <div className="space-y-1"><Label>Numero</Label><Input value={textValue(contrato.igreja_numero)} onChange={(e) => updateContrato("igreja_numero", e.target.value)} /></div>
                   <div className="space-y-1"><Label>Bairro</Label><Input value={textValue(contrato.igreja_bairro)} onChange={(e) => updateContrato("igreja_bairro", e.target.value)} /></div>
                   <div className="space-y-1"><Label>Cidade</Label><Input value={textValue(contrato.igreja_cidade)} onChange={(e) => updateContrato("igreja_cidade", e.target.value)} /></div>
-                  <div className="space-y-1"><Label>UF</Label><Input value={textValue(contrato.igreja_uf)} onChange={(e) => updateContrato("igreja_uf", e.target.value)} /></div>
+                  <div className="space-y-1"><Label>UF</Label><Select value={textValue(contrato.igreja_uf)} onValueChange={(value) => updateContrato("igreja_uf", value)}><SelectTrigger><SelectValue placeholder="Selecione a UF" /></SelectTrigger><SelectContent>{BRAZIL_UF_OPTIONS.map((uf) => (<SelectItem key={uf} value={uf}>{uf}</SelectItem>))}</SelectContent></Select></div>
                   <div className="space-y-1"><Label>Central</Label><Input value={textValue(contrato.igreja_central)} onChange={(e) => updateContrato("igreja_central", e.target.value)} /></div>
                 </CardContent>
               </Card>
@@ -324,7 +326,7 @@ export function ChurchDocsDialog({
                   <div className="space-y-1"><Label>Complemento</Label><Input value={textValue(contrato.locador_complemento)} onChange={(e) => updateContrato("locador_complemento", e.target.value)} /></div>
                   <div className="space-y-1"><Label>Bairro</Label><Input value={textValue(contrato.locador_bairro)} onChange={(e) => updateContrato("locador_bairro", e.target.value)} /></div>
                   <div className="space-y-1"><Label>Cidade</Label><Input value={textValue(contrato.locador_cidade)} onChange={(e) => updateContrato("locador_cidade", e.target.value)} /></div>
-                  <div className="space-y-1"><Label>UF</Label><Input value={textValue(contrato.locador_uf)} onChange={(e) => updateContrato("locador_uf", e.target.value)} /></div>
+                  <div className="space-y-1"><Label>UF</Label><Select value={textValue(contrato.locador_uf)} onValueChange={(value) => updateContrato("locador_uf", value)}><SelectTrigger><SelectValue placeholder="Selecione a UF" /></SelectTrigger><SelectContent>{BRAZIL_UF_OPTIONS.map((uf) => (<SelectItem key={uf} value={uf}>{uf}</SelectItem>))}</SelectContent></Select></div>
                   <div className="space-y-1">
                     <Label>CEP</Label>
                     <Input

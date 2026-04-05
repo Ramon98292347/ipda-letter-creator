@@ -8,12 +8,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/lib/supabase";
 import { publicRegisterMember, searchChurchesPublic, type ChurchSearchResult } from "@/services/saasService";
 import { getFriendlyError } from "@/lib/error-map";
 import { fetchAddressByCep, maskCep, onlyDigits } from "@/lib/cep";
 import { formatPhoneBr } from "@/lib/br-format";
 import { isValidCpf } from "@/lib/cpf";
+import { BRAZIL_UF_OPTIONS } from "@/lib/brazil-ufs";
 
 function normalizeCpf(value: string) {
   return String(value || "").replace(/\D/g, "").slice(0, 11);
@@ -474,7 +476,16 @@ export default function CadastroRapido() {
 
               <div className="space-y-2">
                 <Label>UF *</Label>
-                <Input value={addressState} onChange={(e) => setAddressState(e.target.value.toUpperCase().slice(0, 2))} placeholder="UF" />
+                <Select value={addressState || ""} onValueChange={(value) => setAddressState(value)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione a UF" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {BRAZIL_UF_OPTIONS.map((uf) => (
+                      <SelectItem key={uf} value={uf}>{uf}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               {/* Campo A: Buscar estadual ou setorial com autocomplete via edge function */}

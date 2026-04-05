@@ -33,6 +33,7 @@ import { addAuditLog } from "@/lib/audit";
 import { supabase } from "@/lib/supabase";
 import { fetchAddressByCep, maskCep, onlyDigits } from "@/lib/cep";
 import { isValidCpf } from "@/lib/cpf";
+import { BRAZIL_UF_OPTIONS } from "@/lib/brazil-ufs";
 
 function normalizeCpf(v: string) {
   return (v || "").replace(/\D/g, "").slice(0, 11);
@@ -144,6 +145,15 @@ const ministerRoleOptions = [
   { value: "Diácono",    label: "Diácono" },
   { value: "Obreiro",    label: "Obreiro" },
   { value: "Membro",     label: "Membro" },
+];
+
+const maritalStatusOptions = [
+  { value: "Solteiro", label: "Solteiro" },
+  { value: "Casado", label: "Casado" },
+  { value: "Viuvo", label: "Viuvo" },
+  { value: "Divorciado", label: "Divorciado" },
+  { value: "Separado", label: "Separado" },
+  { value: "Uniao estavel", label: "Uniao estavel" },
 ];
 
 export function ObreirosTab({
@@ -516,11 +526,9 @@ export function ObreirosTab({
 
     try {
       await setUserRegistrationStatus(String(worker.id), next);
-      // Comentario: ao liberar o cadastro, ativa o usuario para que ele possa entrar no sistema
-      if (next === "APROVADO" && worker.is_active === false) {
-        await setWorkerActive(String(worker.id), true);
-      }
-      toast.success(next === "APROVADO" ? "Cadastro liberado e usuário ativado." : "Cadastro marcado como pendente.");
+      // Comentario: set-user-registration-status ja atualiza is_active no backend.
+      // Evitamos chamada duplicada para nao gerar falso erro no front.
+      toast.success(next === "APROVADO" ? "Cadastro liberado com sucesso." : "Cadastro marcado como pendente.");
       await refresh();
     } catch (err: unknown) {
       toast.error(getFriendlyError(err, "workers"));
@@ -957,7 +965,16 @@ export function ObreirosTab({
               </div>
               <div className="space-y-1">
                 <Label>Estado civil</Label>
-                <Input value={form.marital_status} onChange={(e) => setForm((p) => ({ ...p, marital_status: e.target.value }))} />
+                <Select value={form.marital_status || ""} onValueChange={(v) => setForm((p) => ({ ...p, marital_status: v }))}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione o estado civil" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {maritalStatusOptions.map((status) => (
+                      <SelectItem key={status.value} value={status.value}>{status.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 
@@ -1012,7 +1029,19 @@ export function ObreirosTab({
             </div>
             <div className="grid gap-3 md:grid-cols-2">
               <div className="space-y-1"><Label>Cidade</Label><Input value={form.address_city} onChange={(e) => setForm((p) => ({ ...p, address_city: e.target.value }))} /></div>
-              <div className="space-y-1"><Label>UF</Label><Input value={form.address_state} onChange={(e) => setForm((p) => ({ ...p, address_state: e.target.value }))} /></div>
+              <div className="space-y-1">
+                <Label>UF</Label>
+                <Select value={form.address_state || ""} onValueChange={(value) => setForm((p) => ({ ...p, address_state: value }))}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione a UF" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {BRAZIL_UF_OPTIONS.map((uf) => (
+                      <SelectItem key={uf} value={uf}>{uf}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             <div className="flex items-center gap-2">
@@ -1415,5 +1444,7 @@ export function ObreirosTab({
     </div>
   );
 }
+
+
 
 

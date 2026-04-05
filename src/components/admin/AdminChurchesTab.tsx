@@ -20,6 +20,7 @@ import { addAuditLog } from "@/lib/audit";
 import { fetchAddressByCep, maskCep, onlyDigits } from "@/lib/cep";
 import { formatCepBr, formatPhoneBr } from "@/lib/br-format";
 import { supabase } from "@/lib/supabase";
+import { BRAZIL_UF_OPTIONS } from "@/lib/brazil-ufs";
 
 type ChurchClass = "estadual" | "setorial" | "central" | "regional" | "local";
 
@@ -898,7 +899,16 @@ export function AdminChurchesTab({
               </div>
               <div className="space-y-1">
                 <Label>UF</Label>
-                <Input value={newForm.address_state} onChange={(e) => setNewForm((p) => ({ ...p, address_state: e.target.value }))} />
+                <Select value={newForm.address_state || ""} onValueChange={(value) => setNewForm((p) => ({ ...p, address_state: value }))}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione a UF" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {BRAZIL_UF_OPTIONS.map((uf) => (
+                      <SelectItem key={uf} value={uf}>{uf}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 
@@ -1063,7 +1073,16 @@ export function AdminChurchesTab({
               </div>
               <div className="space-y-1">
                 <Label>UF</Label>
-                <Input value={editForm.address_state} onChange={(e) => setEditForm((p) => ({ ...p, address_state: e.target.value }))} />
+                <Select value={editForm.address_state || ""} onValueChange={(value) => setEditForm((p) => ({ ...p, address_state: value }))}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione a UF" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {BRAZIL_UF_OPTIONS.map((uf) => (
+                      <SelectItem key={uf} value={uf}>{uf}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 

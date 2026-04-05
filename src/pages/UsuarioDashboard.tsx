@@ -37,6 +37,7 @@ import { ImageCaptureInput } from "@/components/shared/ImageCaptureInput";
 import { AvatarCapture } from "@/components/shared/AvatarCapture";
 import { AvatarImage } from "@/components/shared/AvatarImage";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
+import { BRAZIL_UF_OPTIONS } from "@/lib/brazil-ufs";
 
 type DestinationOption = {
   totvs_id: string;
@@ -1545,7 +1546,16 @@ async function openPdf(letter: PastorLetter) {
               </div>
               <div className="space-y-1">
                 <Label>UF</Label>
-                <Input value={profileForm.address_state} onChange={(e) => setProfileForm((p) => ({ ...p, address_state: e.target.value }))} />
+                <Select value={profileForm.address_state || ""} onValueChange={(value) => setProfileForm((p) => ({ ...p, address_state: value }))}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione a UF" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {BRAZIL_UF_OPTIONS.map((uf) => (
+                      <SelectItem key={uf} value={uf}>{uf}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
             <Button className="w-full" onClick={salvarPerfil} disabled={savingProfile}>

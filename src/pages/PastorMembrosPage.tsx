@@ -24,6 +24,7 @@ import { fetchAddressByCep, maskCep, onlyDigits } from "@/lib/cep";
 import { PageLoading } from "@/components/shared/PageLoading";
 import { MobileFiltersCard } from "@/components/shared/MobileFiltersCard";
 import { formatCepBr, formatCpfBr, formatDateBr as formatDateBrValue, formatPhoneBr as formatPhoneBrValue } from "@/lib/br-format";
+import { BRAZIL_UF_OPTIONS } from "@/lib/brazil-ufs";
 
 type MemberTab = "lista" | "ficha_membro" | "carteirinha" | "ficha_obreiro" | "presenca" | "impressao";
 type MemberView = "lista" | "grid";
@@ -1993,8 +1994,52 @@ export default function PastorMembrosPage() {
 
             <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
               <div className="space-y-1"><Label>Cidade</Label><Input value={form.cidade} onChange={(e) => setForm((prev) => ({ ...prev, cidade: e.target.value }))} /></div>
-              <div className="space-y-1"><Label>Estado</Label><Input value={form.estado} onChange={(e) => setForm((prev) => ({ ...prev, estado: e.target.value }))} /></div>
-              <div className="space-y-1"><Label>Estado civil</Label><Input value={form.estado_civil} onChange={(e) => setForm((prev) => ({ ...prev, estado_civil: e.target.value }))} /></div>
+              <div className="space-y-1">
+                <Label>Estado</Label>
+                <Select value={form.estado || ""} onValueChange={(value) => setForm((prev) => ({ ...prev, estado: value }))}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione a UF" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {BRAZIL_UF_OPTIONS.map((uf) => (
+                      <SelectItem key={uf} value={uf}>{uf}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1"><Label>Cidade de nascimento</Label><Input value={form.cidade_nascimento} onChange={(e) => setForm((prev) => ({ ...prev, cidade_nascimento: e.target.value }))} /></div>
+              <div className="space-y-1">
+                <Label>Estado de nascimento</Label>
+                <Select value={form.uf_nascimento || ""} onValueChange={(value) => setForm((prev) => ({ ...prev, uf_nascimento: value }))}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione a UF" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {BRAZIL_UF_OPTIONS.map((uf) => (
+                      <SelectItem key={uf} value={uf}>{uf}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+              <div className="space-y-1">
+                <Label>Estado civil</Label>
+                <Select value={form.estado_civil || ""} onValueChange={(value) => setForm((prev) => ({ ...prev, estado_civil: value }))}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione o estado civil" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Solteiro">Solteiro</SelectItem>
+                    <SelectItem value="Casado">Casado</SelectItem>
+                    <SelectItem value="Viuvo">Viuvo</SelectItem>
+                    <SelectItem value="Divorciado">Divorciado</SelectItem>
+                    <SelectItem value="Separado">Separado</SelectItem>
+                    <SelectItem value="Uniao estavel">Uniao estavel</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
               <div className="space-y-1"><Label>Data de batismo</Label><Input type="date" value={form.data_batismo} onChange={(e) => setForm((prev) => ({ ...prev, data_batismo: e.target.value }))} /></div>
             </div>
 
@@ -2002,6 +2047,18 @@ export default function PastorMembrosPage() {
               <div className="space-y-1"><Label>CPF</Label><Input value={form.cpf} onChange={(e) => setForm((prev) => ({ ...prev, cpf: e.target.value }))} /></div>
               <div className="space-y-1"><Label>RG</Label><Input value={form.rg} onChange={(e) => setForm((prev) => ({ ...prev, rg: e.target.value }))} /></div>
               <div className="space-y-1"><Label>Telefone</Label><Input value={form.telefone} onChange={(e) => setForm((prev) => ({ ...prev, telefone: e.target.value }))} /></div>
+              <div className="space-y-1"><Label>Profissão</Label><Input value={form.profissao} onChange={(e) => setForm((prev) => ({ ...prev, profissao: e.target.value }))} /></div>
+            </div>
+
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+              <div className="space-y-1">
+                <Label>Data da ordenação</Label>
+                <Input
+                  type="date"
+                  value={form.ordenacao_presbitero}
+                  onChange={(e) => setForm((prev) => ({ ...prev, ordenacao_presbitero: e.target.value }))}
+                />
+              </div>
             </div>
 
             {/* Comentario: captura de foto 3x4 pela camera ou galeria */}
@@ -2169,7 +2226,19 @@ export default function PastorMembrosPage() {
                 <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
                   <div className="space-y-1"><Label>Nacionalidade</Label><Input value={form.nacionalidade} onChange={(e) => setForm((prev) => ({ ...prev, nacionalidade: e.target.value }))} /></div>
                   <div className="space-y-1"><Label>Cidade de nascimento</Label><Input value={form.cidade_nascimento} onChange={(e) => setForm((prev) => ({ ...prev, cidade_nascimento: e.target.value }))} /></div>
-                  <div className="space-y-1"><Label>UF de nascimento</Label><Input value={form.uf_nascimento} onChange={(e) => setForm((prev) => ({ ...prev, uf_nascimento: e.target.value }))} /></div>
+                  <div className="space-y-1">
+                    <Label>UF de nascimento</Label>
+                    <Select value={form.uf_nascimento || ""} onValueChange={(value) => setForm((prev) => ({ ...prev, uf_nascimento: value }))}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione a UF" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {BRAZIL_UF_OPTIONS.map((uf) => (
+                          <SelectItem key={uf} value={uf}>{uf}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                   <div className="space-y-1"><Label>Data de casamento</Label><Input type="date" value={form.data_casamento} onChange={(e) => setForm((prev) => ({ ...prev, data_casamento: e.target.value }))} /></div>
                   <div className="space-y-1 xl:col-span-2"><Label>Passaporte</Label><Input value={form.passaporte} onChange={(e) => setForm((prev) => ({ ...prev, passaporte: e.target.value }))} /></div>
                   <div className="space-y-1"><Label>Profissão</Label><Input value={form.profissao} onChange={(e) => setForm((prev) => ({ ...prev, profissao: e.target.value }))} /></div>
@@ -2218,7 +2287,19 @@ export default function PastorMembrosPage() {
                   <div className="space-y-1 xl:col-span-2"><Label>Endereço da atual congregação</Label><Input value={form.endereco_atual_congregacao} onChange={(e) => setForm((prev) => ({ ...prev, endereco_atual_congregacao: e.target.value }))} /></div>
                   <div className="space-y-1"><Label>Bairro</Label><Input value={form.bairro_congregacao} onChange={(e) => setForm((prev) => ({ ...prev, bairro_congregacao: e.target.value }))} /></div>
                   <div className="space-y-1"><Label>Cidade</Label><Input value={form.cidade_congregacao} onChange={(e) => setForm((prev) => ({ ...prev, cidade_congregacao: e.target.value }))} /></div>
-                  <div className="space-y-1"><Label>UF</Label><Input value={form.uf_congregacao} onChange={(e) => setForm((prev) => ({ ...prev, uf_congregacao: e.target.value }))} /></div>
+                  <div className="space-y-1">
+                    <Label>UF</Label>
+                    <Select value={form.uf_congregacao || ""} onValueChange={(value) => setForm((prev) => ({ ...prev, uf_congregacao: value }))}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione a UF" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {BRAZIL_UF_OPTIONS.map((uf) => (
+                          <SelectItem key={uf} value={uf}>{uf}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                   <div className="space-y-1">
                     <Label>CEP</Label>
                     <Input
