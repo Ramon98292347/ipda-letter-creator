@@ -518,6 +518,7 @@ async function actionBirthday(sb: ReturnType<typeof createClient>, req: Request)
           nome: b.full_name,
           telefone: b.phone,
           email: b.email,
+          birth_date: b.birth_date,
           church_totvs_id: churchTotvsId,
         };
 
