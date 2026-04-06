@@ -2251,7 +2251,6 @@ export default function PastorMembrosPage() {
                         <SelectItem value="Presbítero">Presbítero</SelectItem>
                         <SelectItem value="Diácono">Diácono</SelectItem>
                         <SelectItem value="Cooperador">Cooperador</SelectItem>
-                        <SelectItem value="Obreiro">Obreiro</SelectItem>
                         <SelectItem value="Membro">Membro</SelectItem>
                         <SelectItem value="Voluntario Financeiro">Voluntário Financeiro</SelectItem>
                         <SelectItem value="Dirigente">Dirigente</SelectItem>

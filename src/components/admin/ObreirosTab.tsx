@@ -143,7 +143,7 @@ const ministerRoleOptions = [
   { value: "Pastor",     label: "Pastor" },
   { value: "Presbítero", label: "Presbítero" },
   { value: "Diácono",    label: "Diácono" },
-  { value: "Obreiro",    label: "Obreiro" },
+  { value: "Cooperador", label: "Cooperador" },
   { value: "Membro",     label: "Membro" },
 ];
 
@@ -283,13 +283,15 @@ export function ObreirosTab({
   }
 
   function openEdit(worker: UserListItem) {
+    const ministerRole = String(worker.minister_role || "");
+    const ministerRoleNormalized = ministerRole.toLowerCase() === "obreiro" ? "Cooperador" : ministerRole;
     setForm({
       id: String(worker.id),
       cpf: worker.cpf || "",
       full_name: worker.full_name,
       rg: worker.rg || "",
       marital_status: worker.marital_status || "",
-      minister_role: worker.minister_role || "",
+      minister_role: ministerRoleNormalized,
       profession: worker.profession || "",
       phone: worker.phone || "",
       email: worker.email || "",
