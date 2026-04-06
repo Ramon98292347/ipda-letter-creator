@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ipda-cartas-v3';
+const CACHE_NAME = 'ipda-cartas-v4';
 const OFFLINE_URLS = ['/', '/index.html'];
 
 self.addEventListener('install', (event) => {
