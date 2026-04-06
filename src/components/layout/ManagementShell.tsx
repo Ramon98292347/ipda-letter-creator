@@ -31,7 +31,6 @@ const pastorMenu: MenuItem[] = [
   { to: "/pastor/deposito", label: "Depósito", icon: Package },
   { to: "/caravanas", label: "Caravanas", icon: Bus },
   { to: "/divulgacao", label: "Divulgação", icon: Megaphone },
-  { to: "/feedback", label: "Feedback", icon: MessageSquare },
   { to: "/config", label: "Configurações", icon: Settings },
 ];
 
@@ -50,7 +49,6 @@ const adminMenu: MenuItem[] = [
 const obreiroMenu: MenuItem[] = [
   { to: "/obreiro", label: "Dashboard", icon: FileText },
   { to: "/usuario/documentos", label: "Documentos", icon: Users },
-  { to: "/feedback", label: "Feedback", icon: MessageSquare },
 ];
 
 // Secretario tem o mesmo menu do pastor (incluindo financeiro)
@@ -62,7 +60,6 @@ const secretarioMenu: MenuItem[] = [
   { to: "/pastor/financeiro", label: "Financeiro", icon: DollarSign },
   { to: "/caravanas", label: "Caravanas", icon: Bus },
   { to: "/divulgacao", label: "Divulgação", icon: Megaphone },
-  { to: "/feedback", label: "Feedback", icon: MessageSquare },
   { to: "/config", label: "Configurações", icon: Settings },
 ];
 

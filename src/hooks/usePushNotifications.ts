@@ -63,6 +63,22 @@ export function usePushNotifications(userId?: string, userRole?: string, scopeTo
   const [subscribed, setSubscribed] = useState(false);
   const [loading, setLoading] = useState(false);
 
+  const persistSubscription = useCallback(async (sub: PushSubscription) => {
+    if (!userId) return;
+    const p256dh = sub.getKey("p256dh");
+    const auth = sub.getKey("auth");
+    await post("notifications-api", {
+      action: "subscribe-push",
+      subscription: {
+        endpoint: sub.endpoint,
+        keys: {
+          p256dh: p256dh ? btoa(String.fromCharCode(...new Uint8Array(p256dh))) : "",
+          auth: auth ? btoa(String.fromCharCode(...new Uint8Array(auth))) : "",
+        },
+      },
+    }).catch((err) => console.warn("[push] falha ao sincronizar assinatura no backend:", err));
+  }, [userId]);
+
   useEffect(() => {
     if (!supported) return;
 
@@ -81,6 +97,11 @@ export function usePushNotifications(userId?: string, userRole?: string, scopeTo
       const reg = await navigator.serviceWorker.ready;
       const sub = await reg.pushManager.getSubscription();
       setSubscribed(!!sub);
+      // Comentario: garante que a assinatura existente no navegador esteja salva no backend.
+      // Isso recupera push com app fechado quando a linha foi removida da tabela por limpeza.
+      if (sub) {
+        await persistSubscription(sub);
+      }
     };
 
     void checkSubscription();
@@ -90,7 +111,7 @@ export function usePushNotifications(userId?: string, userRole?: string, scopeTo
     }, 500);
 
     return () => clearTimeout(timerId);
-  }, [supported, isNativeApp]);
+  }, [supported, isNativeApp, persistSubscription]);
 
   // Comentario: salva dados do usuario no SW para validar escopo de notificacoes
   useEffect(() => {
@@ -139,27 +160,14 @@ export function usePushNotifications(userId?: string, userRole?: string, scopeTo
 
       setSubscribed(true);
 
-      if (userId) {
-        const p256dh = sub.getKey("p256dh");
-        const auth = sub.getKey("auth");
-        post("notifications-api", {
-          action: "subscribe-push",
-          subscription: {
-            endpoint: sub.endpoint,
-            keys: {
-              p256dh: p256dh ? btoa(String.fromCharCode(...new Uint8Array(p256dh))) : "",
-              auth: auth ? btoa(String.fromCharCode(...new Uint8Array(auth))) : "",
-            },
-          },
-        }).catch((err) => console.warn("[push] falha ao salvar no backend:", err));
-      }
+      await persistSubscription(sub);
     } catch (err) {
       console.warn("[push] subscribe error:", err);
       toast.error("Não foi possível ativar as notificações.");
     } finally {
       setLoading(false);
     }
-  }, [supported, userId, isNativeApp]);
+  }, [supported, isNativeApp, persistSubscription]);
 
   const unsubscribe = useCallback(async () => {
     if (!supported) return;

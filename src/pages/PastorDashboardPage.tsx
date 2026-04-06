@@ -1,10 +1,11 @@
 ﻿import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { Building2, Church, UserRound, Users } from "lucide-react";
+import { Building2, Church, MessageSquare, UserRound, Users } from "lucide-react";
 import { ManagementShell } from "@/components/layout/ManagementShell";
 import { listChurchesInScopePaged, listMembers } from "@/services/saasService";
 import { useUser } from "@/context/UserContext";
+import { Button } from "@/components/ui/button";
 
 function normalizeMinisterRole(value: string | null | undefined): string {
   return String(value || "")
@@ -99,6 +100,12 @@ export default function PastorDashboardPage() {
         <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
           <h2 className="text-2xl font-extrabold tracking-tight text-slate-900 sm:text-4xl">Dashboard</h2>
           <p className="mt-1 text-sm text-slate-600 sm:text-base">Visao geral dos membros e igrejas</p>
+          <div className="mt-4">
+            <Button variant="outline" onClick={() => navigate("/feedback?open=1&from=pastor-dashboard")}>
+              <MessageSquare className="mr-2 h-4 w-4" />
+              Feedback
+            </Button>
+          </div>
         </section>
 
         <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">

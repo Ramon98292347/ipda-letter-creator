@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ipda-cartas-v4';
+const CACHE_NAME = 'ipda-cartas-v5';
 const OFFLINE_URLS = ['/', '/index.html'];
 
 self.addEventListener('install', (event) => {
@@ -62,7 +62,7 @@ async function validarEscopoNotificacao(data) {
 
     const userRole = String(user.role || '').toLowerCase();
     const notifChurchClass = String(data.churchClass || '').toLowerCase();
-    const notifScope = Array.isArray(data.scopeTotvsIds) ? data.scopeTotvsIds : [];
+    const notifScope = Array.isArray(data.scopeTotvsIds) ? data.scopeTotvsIds.map(id => String(id || "").trim()).filter(Boolean) : [];
 
     // Comentario: admin ve todas as notificacoes
     if (userRole === 'admin') {
@@ -70,8 +70,8 @@ async function validarEscopoNotificacao(data) {
     }
 
     // Comentario: pastor ve notificacoes de seu escopo (hierarquia)
-    const userScope = Array.isArray(user.scope_totvs_ids) ? user.scope_totvs_ids : [];
-    const temInteseccao = notifScope.some(id => userScope.includes(id));
+    const userScope = Array.isArray(user.scope_totvs_ids) ? user.scope_totvs_ids.map(id => String(id || "").trim()).filter(Boolean) : [];
+    const temInteseccao = notifScope.some(id => userScope.includes(String(id)));
 
     return temInteseccao;
   } catch (err) {

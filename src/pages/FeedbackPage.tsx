@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { MessageSquare, Send } from "lucide-react";
 import { toast } from "sonner";
@@ -83,6 +84,7 @@ function formatDateTime(value: string | null | undefined) {
 }
 
 export default function FeedbackPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
   const { usuario } = useUser();
   const roleMode = parseRoleMode(usuario?.role);
@@ -97,6 +99,14 @@ export default function FeedbackPage() {
   const [churchTotvsFilter, setChurchTotvsFilter] = useState("");
   const [churchClassFilter, setChurchClassFilter] = useState("all");
   const [selectedChurches, setSelectedChurches] = useState<ChurchInScopeItem[]>([]);
+
+  useEffect(() => {
+    if (searchParams.get("open") !== "1") return;
+    setOpenForm(true);
+    const next = new URLSearchParams(searchParams);
+    next.delete("open");
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams]);
 
   const feedbackQuery = useQuery({
     queryKey: ["admin-feedback", statusFilter, search],

@@ -842,7 +842,7 @@ async function openPdf(letter: PastorLetter) {
               Seu cadastro está pendente de liberação. Cartas e documentos ficam bloqueados até aprovação.
             </div>
           ) : null}
-          <div className="grid gap-2 md:grid-cols-3">
+          <div className="grid gap-2 md:grid-cols-4">
             <Button onClick={openLetterCreationDialog} className="w-full bg-blue-600 hover:bg-blue-700" disabled={isCadastroPendente}>
               Pedir carta
             </Button>
@@ -851,6 +851,9 @@ async function openPdf(letter: PastorLetter) {
                 <Unlock className="mr-2 h-4 w-4" /> Pedir liberação de carta
               </Button>
             ) : null}
+            <Button variant="outline" onClick={() => nav("/feedback?open=1&from=usuario-dashboard")} className="w-full">
+              <FileText className="mr-2 h-4 w-4" /> Feedback
+            </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" className="w-full" disabled={isCadastroPendente}>
