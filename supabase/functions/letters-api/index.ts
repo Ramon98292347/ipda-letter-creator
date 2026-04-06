@@ -228,10 +228,7 @@ function resolveOriginFromDestination(
 
   // Comentario: excecao de irmas — se origem e destino tem a MESMA mae,
   // mantem a origem na igreja logada (nao sobe para a mae).
-  const destinationChurch = byId.get(destinationTotvs);
-  const signerParentTotvs = String(signer.parent_totvs_id || "").trim();
-  const destinationParentTotvs = String(destinationChurch?.parent_totvs_id || "").trim();
-  if (signerParentTotvs && destinationParentTotvs && signerParentTotvs === destinationParentTotvs) {
+  if (isDestinationInSiblingCentralSubtree(signerTotvsId, destinationTotvs, churches)) {
     return signerTotvsId;
   }
 
@@ -276,6 +273,25 @@ function findFirstAncestorByClass(startTotvs: string, churches: ChurchNode[], ta
     cur = row.parent_totvs_id || null;
   }
   return null;
+}
+
+function findSelfOrAncestorByClass(startTotvs: string, churches: ChurchNode[], targetClass: ChurchClass): ChurchNode | null {
+  const byId = mapById(churches);
+  const self = byId.get(startTotvs) || null;
+  if (!self) return null;
+  if (self.class === targetClass) return self;
+  return findFirstAncestorByClass(startTotvs, churches, targetClass);
+}
+
+function isDestinationInSiblingCentralSubtree(originTotvs: string, destinationTotvs: string, churches: ChurchNode[]): boolean {
+  if (!originTotvs || !destinationTotvs) return false;
+  const originCentral = findSelfOrAncestorByClass(originTotvs, churches, "central");
+  const destinationCentral = findSelfOrAncestorByClass(destinationTotvs, churches, "central");
+  if (!originCentral || !destinationCentral) return false;
+  if (originCentral.totvs_id === destinationCentral.totvs_id) return true;
+  const originCentralParent = String(originCentral.parent_totvs_id || "").trim();
+  const destinationCentralParent = String(destinationCentral.parent_totvs_id || "").trim();
+  return Boolean(originCentralParent && originCentralParent === destinationCentralParent);
 }
 
 function resolveAllowedOriginTotvs(session: SessionClaims, activeChurch: ChurchNode, churches: ChurchNode[]): Set<string> {
@@ -640,10 +656,14 @@ async function handleCreate(session: SessionClaims, body: Record<string, unknown
     let signerChurch = resolveSignerChurch(church_totvs_id, churches);
     if (!signerChurch) return json({ ok: false, error: "signer_not_found_for_class_rule" }, 409);
 
-    const resolvedScope = computeScope(String(signerChurch.totvs_id || ""), churches);
+    const signerTotvsForScope = String(signerChurch.totvs_id || "");
+    const resolvedScope = computeScope(signerTotvsForScope, churches);
     const resolvedAncestors = collectAncestors(String(signerChurch.totvs_id || ""), churches);
     const resolvedAllowedDestinations = new Set<string>([...resolvedScope, ...resolvedAncestors]);
-    if (destinationTotvs && !resolvedAllowedDestinations.has(destinationTotvs) && !manual_destination) {
+    const destinationAllowedBySiblingRule = destinationTotvs
+      ? isDestinationInSiblingCentralSubtree(signerTotvsForScope, destinationTotvs, churches)
+      : false;
+    if (destinationTotvs && !resolvedAllowedDestinations.has(destinationTotvs) && !destinationAllowedBySiblingRule && !manual_destination) {
       // Comentario: fallback automatico — nunca bloqueia criacao por escopo.
       // Reposiciona origem para a mae/avo mais alta com pastor.
       const fallbackOriginTotvs = resolveOriginFromDestination(
