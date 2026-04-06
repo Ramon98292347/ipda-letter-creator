@@ -194,6 +194,7 @@ export const api = {
   listFeedback: (body: JsonBody = {}) => post("feedback-api", { action: "list", ...body }),
   updateFeedbackStatus: (body: { id: string; status: "NOVO" | "EM_ANALISE" | "CONCLUIDO" | "ARQUIVADO"; admin_notes?: string }) =>
     post("feedback-api", { action: "update-status", ...body }),
+  adminNotifyUsers: (body: JsonBody) => post("admin-comms-api", { action: "notify", ...body }),
 
   // Comentario: endpoints do modulo Deposito — controle de estoque
   depositListProducts: (body: Record<string, unknown>) => post("deposit-api", { action: "list-products", ...body }),

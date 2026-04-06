@@ -12,9 +12,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { useUser } from "@/context/UserContext";
 import {
+  listMembers,
   listUserFeedback,
+  sendAdminCommunication,
   submitUserFeedback,
   updateUserFeedbackStatus,
+  type UserListItem,
   type UserFeedbackStatus,
 } from "@/services/saasService";
 
@@ -31,6 +34,13 @@ type FeedbackFormState = {
   contact_allowed: boolean;
 };
 
+type CommFormState = {
+  title: string;
+  body: string;
+  url: string;
+  totvs_ids_text: string;
+};
+
 const emptyForm: FeedbackFormState = {
   usability_rating: "",
   speed_rating: "",
@@ -40,6 +50,13 @@ const emptyForm: FeedbackFormState = {
   primary_need: "",
   improvement_notes: "",
   contact_allowed: false,
+};
+
+const emptyCommForm: CommFormState = {
+  title: "",
+  body: "",
+  url: "/",
+  totvs_ids_text: "",
 };
 
 const statusOptions: Array<{ value: UserFeedbackStatus; label: string }> = [
@@ -65,6 +82,17 @@ function formatDateTime(value: string | null | undefined) {
   return dt.toLocaleString("pt-BR");
 }
 
+function parseTotvsIds(text: string) {
+  return Array.from(
+    new Set(
+      String(text || "")
+        .split(/[\s,;]+/)
+        .map((v) => v.trim())
+        .filter(Boolean),
+    ),
+  );
+}
+
 export default function FeedbackPage() {
   const queryClient = useQueryClient();
   const { usuario } = useUser();
@@ -74,6 +102,9 @@ export default function FeedbackPage() {
   const [form, setForm] = useState<FeedbackFormState>(emptyForm);
   const [statusFilter, setStatusFilter] = useState<"ALL" | UserFeedbackStatus>("ALL");
   const [search, setSearch] = useState("");
+  const [commForm, setCommForm] = useState<CommFormState>(emptyCommForm);
+  const [userSearch, setUserSearch] = useState("");
+  const [selectedUsers, setSelectedUsers] = useState<UserListItem[]>([]);
 
   const feedbackQuery = useQuery({
     queryKey: ["admin-feedback", statusFilter, search],
@@ -85,6 +116,15 @@ export default function FeedbackPage() {
         search: search.trim() || undefined,
       }),
     enabled: isAdmin,
+  });
+
+  const userSuggestionsQuery = useQuery({
+    queryKey: ["admin-feedback-user-suggestions", userSearch],
+    queryFn: async () => {
+      const data = await listMembers({ page: 1, page_size: 15, search: userSearch.trim() });
+      return data.workers || [];
+    },
+    enabled: isAdmin && userSearch.trim().length >= 2,
   });
 
   const submitMutation = useMutation({
@@ -109,12 +149,25 @@ export default function FeedbackPage() {
     onError: () => toast.error("Nao foi possivel atualizar o status."),
   });
 
+  const sendCommMutation = useMutation({
+    mutationFn: sendAdminCommunication,
+    onSuccess: (res) => {
+      toast.success(`Comunicado enviado. Entregues: ${Number(res.sent || 0)} | Falhas: ${Number(res.failed || 0)}`);
+      setCommForm(emptyCommForm);
+      setSelectedUsers([]);
+      setUserSearch("");
+    },
+    onError: (err) => toast.error(String((err as Error)?.message || "Nao foi possivel enviar a comunicacao.")),
+  });
+
   const averageRating = useMemo(() => {
     const items = feedbackQuery.data?.feedback || [];
     if (!items.length) return 0;
     const total = items.reduce((acc, item) => acc + Number(item.overall_rating || 0), 0);
     return Math.round((total / items.length) * 10) / 10;
   }, [feedbackQuery.data?.feedback]);
+
+  const selectedUserIds = useMemo(() => selectedUsers.map((u) => String(u.id || "")).filter(Boolean), [selectedUsers]);
 
   function submitForm() {
     if (!form.usability_rating || !form.speed_rating || !form.stability_rating || !form.overall_rating || !form.recommend_level) {
@@ -130,6 +183,40 @@ export default function FeedbackPage() {
       primary_need: form.primary_need.trim() || undefined,
       improvement_notes: form.improvement_notes.trim() || undefined,
       contact_allowed: form.contact_allowed,
+    });
+  }
+
+  function addSelectedUser(user: UserListItem) {
+    const id = String(user.id || "").trim();
+    if (!id) return;
+    setSelectedUsers((prev) => (prev.some((item) => String(item.id) === id) ? prev : [...prev, user]));
+  }
+
+  function removeSelectedUser(id: string) {
+    setSelectedUsers((prev) => prev.filter((item) => String(item.id) !== String(id)));
+  }
+
+  function submitCommunication() {
+    const title = commForm.title.trim();
+    const body = commForm.body.trim();
+    const totvs_ids = parseTotvsIds(commForm.totvs_ids_text);
+
+    if (!title || !body) {
+      toast.error("Informe titulo e mensagem do comunicado.");
+      return;
+    }
+    if (selectedUserIds.length === 0 && totvs_ids.length === 0) {
+      toast.error("Selecione usuarios ou informe igrejas (TOTVS) para enviar.");
+      return;
+    }
+
+    sendCommMutation.mutate({
+      title,
+      body,
+      url: commForm.url.trim() || "/",
+      user_ids: selectedUserIds,
+      totvs_ids,
+      data: { source: "feedback-page-admin" },
     });
   }
 
@@ -242,6 +329,104 @@ export default function FeedbackPage() {
             </p>
           </CardContent>
         </Card>
+
+        {isAdmin ? (
+          <Card className="border-slate-200 shadow-sm">
+            <CardHeader>
+              <CardTitle className="text-lg">Comunicado aos Usuarios</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="grid gap-3 md:grid-cols-2">
+                <div className="space-y-1 md:col-span-2">
+                  <Label>Titulo do comunicado</Label>
+                  <Input
+                    value={commForm.title}
+                    onChange={(e) => setCommForm((p) => ({ ...p, title: e.target.value }))}
+                    placeholder="Ex.: Nova atualizacao do sistema"
+                  />
+                </div>
+                <div className="space-y-1 md:col-span-2">
+                  <Label>Mensagem</Label>
+                  <Textarea
+                    rows={4}
+                    value={commForm.body}
+                    onChange={(e) => setCommForm((p) => ({ ...p, body: e.target.value }))}
+                    placeholder="Mensagem que o usuario recebera na notificacao."
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label>URL ao clicar</Label>
+                  <Input
+                    value={commForm.url}
+                    onChange={(e) => setCommForm((p) => ({ ...p, url: e.target.value }))}
+                    placeholder="/"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label>Igrejas destino (TOTVS)</Label>
+                  <Input
+                    value={commForm.totvs_ids_text}
+                    onChange={(e) => setCommForm((p) => ({ ...p, totvs_ids_text: e.target.value }))}
+                    placeholder="Ex.: 9530,9535,9540"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Buscar usuarios por sugestao</Label>
+                <Input
+                  value={userSearch}
+                  onChange={(e) => setUserSearch(e.target.value)}
+                  placeholder="Digite nome, cpf ou telefone"
+                />
+                {userSearch.trim().length >= 2 ? (
+                  <div className="max-h-48 overflow-auto rounded-md border">
+                    {(userSuggestionsQuery.data || []).map((user) => (
+                      <button
+                        key={String(user.id)}
+                        type="button"
+                        className="flex w-full items-center justify-between border-b px-3 py-2 text-left hover:bg-slate-50"
+                        onClick={() => addSelectedUser(user)}
+                      >
+                        <span className="text-sm">
+                          {user.full_name} {user.cpf ? `- ${user.cpf}` : ""}
+                        </span>
+                        <span className="text-xs text-slate-500">{user.default_totvs_id || "-"}</span>
+                      </button>
+                    ))}
+                    {!userSuggestionsQuery.isLoading && (userSuggestionsQuery.data || []).length === 0 ? (
+                      <p className="px-3 py-2 text-sm text-slate-500">Nenhum usuario encontrado.</p>
+                    ) : null}
+                  </div>
+                ) : null}
+              </div>
+
+              {selectedUsers.length > 0 ? (
+                <div className="rounded-md border p-2">
+                  <p className="mb-2 text-xs font-semibold uppercase text-slate-500">Usuarios selecionados</p>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedUsers.map((user) => (
+                      <Button
+                        key={`sel-${user.id}`}
+                        variant="outline"
+                        size="sm"
+                        onClick={() => removeSelectedUser(String(user.id))}
+                      >
+                        {user.full_name}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+
+              <div className="flex justify-end">
+                <Button onClick={submitCommunication} disabled={sendCommMutation.isPending}>
+                  {sendCommMutation.isPending ? "Enviando..." : "Enviar Comunicado"}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        ) : null}
 
         {isAdmin ? (
           <Card className="border-slate-200 shadow-sm">

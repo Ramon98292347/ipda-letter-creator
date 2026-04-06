@@ -2078,6 +2078,33 @@ export async function updateUserFeedbackStatus(payload: { id: string; status: Us
   return data as { ok: boolean };
 }
 
+export async function sendAdminCommunication(payload: {
+  title: string;
+  body: string;
+  url?: string;
+  user_ids?: string[];
+  totvs_ids?: string[];
+  data?: Record<string, unknown>;
+}) {
+  const data = await api.adminNotifyUsers({
+    title: payload.title,
+    body: payload.body,
+    url: payload.url || "/",
+    user_ids: payload.user_ids || [],
+    totvs_ids: payload.totvs_ids || [],
+    data: payload.data || { source: "admin-feedback-page" },
+  });
+  return data as {
+    ok: boolean;
+    sent?: number;
+    failed?: number;
+    sent_web?: number;
+    sent_native?: number;
+    failed_web?: number;
+    failed_native?: number;
+  };
+}
+
 export async function listAnnouncements(limit = 10): Promise<AnnouncementItem[]> {
   if (!isMockMode() && false && supabase && getRlsToken()) {
     const nowIso = new Date().toISOString();
