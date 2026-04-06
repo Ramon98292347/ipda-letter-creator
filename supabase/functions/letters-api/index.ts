@@ -211,7 +211,8 @@ function resolveOriginFromDestination(
   churches: ChurchNode[],
   manualDestination: boolean,
 ): string {
-  const signer = mapById(churches).get(signerTotvsId);
+  const byId = mapById(churches);
+  const signer = byId.get(signerTotvsId);
   if (!signer) return signerTotvsId;
 
   const chain = collectAncestorChain(signerTotvsId, churches);
@@ -223,6 +224,17 @@ function resolveOriginFromDestination(
   }
 
   if (!destinationTotvs) return signerTotvsId;
+  if (destinationTotvs === signerTotvsId) return signerTotvsId;
+
+  // Comentario: excecao de irmas — se origem e destino tem a MESMA mae,
+  // mantem a origem na igreja logada (nao sobe para a mae).
+  const destinationChurch = byId.get(destinationTotvs);
+  const signerParentTotvs = String(signer.parent_totvs_id || "").trim();
+  const destinationParentTotvs = String(destinationChurch?.parent_totvs_id || "").trim();
+  if (signerParentTotvs && destinationParentTotvs && signerParentTotvs === destinationParentTotvs) {
+    return signerTotvsId;
+  }
+
   if (isInSubtree(destinationTotvs, signerTotvsId, churches)) return signerTotvsId;
 
   for (const ancestor of chain) {
