@@ -223,11 +223,26 @@ function findFirstAncestorByClassWithPastor(startTotvs: string, churches: Church
   return null;
 }
 
+function findFirstAncestorWithPastor(startTotvs: string, churches: ChurchNode[]): ChurchNode | null {
+  const byId = mapById(churches);
+  let cur = byId.get(startTotvs)?.parent_totvs_id || null;
+  const seen = new Set<string>();
+
+  while (cur && !seen.has(cur)) {
+    seen.add(cur);
+    const row = byId.get(cur);
+    if (!row) return null;
+    if (String(row.pastor_user_id || "").trim()) return row;
+    cur = row.parent_totvs_id || null;
+  }
+  return null;
+}
+
 // Regras de assinatura:
 // estadual -> pastor estadual
 // setorial -> pastor setorial
 // central -> pastor central
-// regional/local -> pastor central
+// regional/local -> pastor central (fallback automatico para mae/avo com pastor)
 function resolveSignerChurch(activeTotvsId: string, churches: ChurchNode[]): ChurchNode | null {
   const byId = mapById(churches);
   const active = byId.get(activeTotvsId) || null;
@@ -236,7 +251,14 @@ function resolveSignerChurch(activeTotvsId: string, churches: ChurchNode[]): Chu
   const cls = active.class;
 
   if (cls === "regional" || cls === "local") {
-    return findFirstAncestorByClassWithPastor(activeTotvsId, churches, "central");
+    const centralAncestor = findFirstAncestorByClass(activeTotvsId, churches, "central");
+    if (centralAncestor && String(centralAncestor.pastor_user_id || "").trim()) {
+      return centralAncestor;
+    }
+    if (centralAncestor) {
+      return findFirstAncestorWithPastor(centralAncestor.totvs_id, churches);
+    }
+    return findFirstAncestorWithPastor(activeTotvsId, churches);
   }
 
   if (String(active.pastor_user_id || "").trim()) return active;
@@ -252,7 +274,7 @@ function resolveSignerChurch(activeTotvsId: string, churches: ChurchNode[]): Chu
     cur = row.parent_totvs_id || null;
   }
 
-  return null;
+  return findFirstAncestorWithPastor(activeTotvsId, churches);
 }
 
 async function verifySessionJWT(req: Request): Promise<SessionClaims | null> {
