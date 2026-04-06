@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { MessageSquare, Send } from "lucide-react";
 import { toast } from "sonner";
@@ -83,7 +83,16 @@ function formatDateTime(value: string | null | undefined) {
   return dt.toLocaleString("pt-BR");
 }
 
+function dashboardRouteByRole(role: string | null | undefined) {
+  const value = String(role || "").toLowerCase();
+  if (value === "admin") return "/admin/dashboard";
+  if (value === "pastor" || value === "secretario") return "/pastor/dashboard";
+  if (value === "financeiro") return "/financeiro/dashboard";
+  return "/obreiro";
+}
+
 export default function FeedbackPage() {
+  const nav = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
   const { usuario } = useUser();
@@ -142,6 +151,7 @@ export default function FeedbackPage() {
       setForm(emptyForm);
       setOpenForm(false);
       void queryClient.invalidateQueries({ queryKey: ["admin-feedback"] });
+      nav(dashboardRouteByRole(usuario?.role), { replace: true });
     },
     onError: (err) => {
       toast.error(String((err as Error)?.message || "Nao foi possivel enviar seu feedback."));
