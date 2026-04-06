@@ -29,6 +29,11 @@ function extractTotvs(text?: string | null) {
 
 function formatDate(value?: string | null) {
   if (!value) return "-";
+  const raw = String(value).trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+    const [year, month, day] = raw.split("-");
+    return `${day}/${month}/${year}`;
+  }
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return value;
   return d.toLocaleDateString("pt-BR");
