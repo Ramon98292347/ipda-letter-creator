@@ -1,6 +1,6 @@
 import { useEffect, useState, type ComponentType, type ReactNode } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
-import { BarChart2, Building2, Bell, Bus, Calculator, Church, ClipboardList, DollarSign, Download, FileText, Loader2, LogOut, Megaphone, MoreHorizontal, Package, Settings, TrendingDown, Users } from "lucide-react";
+import { BarChart2, Building2, Bell, Bus, Calculator, Church, ClipboardList, DollarSign, Download, FileText, Loader2, LogOut, Megaphone, MessageSquare, MoreHorizontal, Package, Settings, TrendingDown, Users } from "lucide-react";
 import { Capacitor } from "@capacitor/core";
 import { useUser } from "@/context/UserContext";
 import { Button } from "@/components/ui/button";
@@ -31,6 +31,7 @@ const pastorMenu: MenuItem[] = [
   { to: "/pastor/deposito", label: "Depósito", icon: Package },
   { to: "/caravanas", label: "Caravanas", icon: Bus },
   { to: "/divulgacao", label: "Divulgação", icon: Megaphone },
+  { to: "/feedback", label: "Feedback", icon: MessageSquare },
   { to: "/config", label: "Configurações", icon: Settings },
 ];
 
@@ -42,12 +43,14 @@ const adminMenu: MenuItem[] = [
   { to: "/admin/deposito", label: "Depósito", icon: Package },
   { to: "/caravanas", label: "Caravanas", icon: Bus },
   { to: "/divulgacao", label: "Divulgação", icon: Megaphone },
+  { to: "/feedback", label: "Feedback", icon: MessageSquare },
   { to: "/config", label: "Configurações", icon: Settings },
 ];
 
 const obreiroMenu: MenuItem[] = [
   { to: "/obreiro", label: "Dashboard", icon: FileText },
   { to: "/usuario/documentos", label: "Documentos", icon: Users },
+  { to: "/feedback", label: "Feedback", icon: MessageSquare },
 ];
 
 // Secretario tem o mesmo menu do pastor (incluindo financeiro)
@@ -59,6 +62,7 @@ const secretarioMenu: MenuItem[] = [
   { to: "/pastor/financeiro", label: "Financeiro", icon: DollarSign },
   { to: "/caravanas", label: "Caravanas", icon: Bus },
   { to: "/divulgacao", label: "Divulgação", icon: Megaphone },
+  { to: "/feedback", label: "Feedback", icon: MessageSquare },
   { to: "/config", label: "Configurações", icon: Settings },
 ];
 
@@ -69,6 +73,7 @@ const financeiroMenu: MenuItem[] = [
   { to: "/financeiro/saidas", label: "Saídas", icon: TrendingDown },
   { to: "/financeiro/ficha", label: "Ficha Diária", icon: ClipboardList },
   { to: "/financeiro/relatorios", label: "Relatórios", icon: BarChart2 },
+  { to: "/feedback", label: "Feedback", icon: MessageSquare },
   { to: "/financeiro/config", label: "Configurações", icon: Settings },
 ];
 

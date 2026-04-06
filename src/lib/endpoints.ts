@@ -190,6 +190,10 @@ export const api = {
     post("member-docs-api", { action: "list-print-batches", ...body }),
   deleteMemberDocs: (body: { member_id: string; church_totvs_id?: string; doc_type?: "ficha" | "carteirinha" | "all" }) =>
     post("member-docs-api", { action: "delete-docs", ...body }),
+  submitFeedback: (body: JsonBody) => post("feedback-api", { action: "submit", ...body }),
+  listFeedback: (body: JsonBody = {}) => post("feedback-api", { action: "list", ...body }),
+  updateFeedbackStatus: (body: { id: string; status: "NOVO" | "EM_ANALISE" | "CONCLUIDO" | "ARQUIVADO"; admin_notes?: string }) =>
+    post("feedback-api", { action: "update-status", ...body }),
 
   // Comentario: endpoints do modulo Deposito — controle de estoque
   depositListProducts: (body: Record<string, unknown>) => post("deposit-api", { action: "list-products", ...body }),

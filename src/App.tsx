@@ -69,6 +69,7 @@ const SelectChurchPage = lazy(() => import("./pages/SelectChurch"));
 const ResetSenhaPage = lazy(() => import("./pages/ResetSenhaPage"));
 const ConfiguracoesPage = lazy(() => import("./pages/Configuracoes"));
 const DivulgacaoPage = lazy(() => import("./pages/Divulgacao"));
+const FeedbackPage = lazy(() => import("./pages/FeedbackPage"));
 const PresencaPublicaPage = lazy(() => import("./pages/PresencaPublica"));
 const FinanceiroDashboardPage = lazy(() => import("./pages/FinanceiroDashboardPage"));
 const FinanceiroContagemPage = lazy(() => import("./pages/FinanceiroContagemPage"));
@@ -523,6 +524,16 @@ const router = createBrowserRouter(
               <DivulgacaoPage />
             </Suspense>
           </RequireAnyRole>
+        }
+      />
+      <Route
+        path="/feedback"
+        element={
+          <RequireAuth>
+            <Suspense fallback={pageFallback}>
+              <FeedbackPage />
+            </Suspense>
+          </RequireAuth>
         }
       />
       <Route

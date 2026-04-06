@@ -213,6 +213,30 @@ export type AdminChurchSummary = {
   pendentes_liberacao: number;
 };
 
+export type UserFeedbackStatus = "NOVO" | "EM_ANALISE" | "CONCLUIDO" | "ARQUIVADO";
+
+export type UserFeedbackItem = {
+  id: string;
+  user_id: string | null;
+  user_name: string | null;
+  user_role: string | null;
+  church_totvs_id: string | null;
+  usability_rating: number;
+  speed_rating: number;
+  stability_rating: number;
+  overall_rating: number;
+  recommend_level: "SIM" | "TALVEZ" | "NAO";
+  primary_need: string | null;
+  improvement_notes: string | null;
+  contact_allowed: boolean;
+  status: UserFeedbackStatus;
+  admin_notes: string | null;
+  reviewed_by_user_id: string | null;
+  reviewed_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 export type ChurchInScopeItem = {
   totvs_id: string;
   church_name: string;
@@ -1977,6 +2001,81 @@ export async function markAllNotificationsRead() {
     }
   }
   return;
+}
+
+export async function submitUserFeedback(payload: {
+  usability_rating: number;
+  speed_rating: number;
+  stability_rating: number;
+  overall_rating: number;
+  recommend_level: "SIM" | "TALVEZ" | "NAO";
+  primary_need?: string;
+  improvement_notes?: string;
+  contact_allowed?: boolean;
+}) {
+  const data = await api.submitFeedback({
+    usability_rating: payload.usability_rating,
+    speed_rating: payload.speed_rating,
+    stability_rating: payload.stability_rating,
+    overall_rating: payload.overall_rating,
+    recommend_level: payload.recommend_level,
+    primary_need: payload.primary_need || null,
+    improvement_notes: payload.improvement_notes || null,
+    contact_allowed: Boolean(payload.contact_allowed),
+  });
+  return data as { ok: boolean; feedback?: { id: string; created_at: string } };
+}
+
+export async function listUserFeedback(params: {
+  page?: number;
+  page_size?: number;
+  status?: UserFeedbackStatus | "ALL";
+  search?: string;
+} = {}): Promise<{ feedback: UserFeedbackItem[]; total: number; page: number; page_size: number }> {
+  const status = params.status && params.status !== "ALL" ? params.status : undefined;
+  const data = await api.listFeedback({
+    page: params.page || 1,
+    page_size: params.page_size || 20,
+    status,
+    search: params.search || undefined,
+  });
+  const raw = data as Record<string, unknown>;
+  const rows = Array.isArray(raw.feedback) ? (raw.feedback as Record<string, unknown>[]) : [];
+  return {
+    feedback: rows.map((row) => ({
+      id: String(row.id || ""),
+      user_id: row.user_id ? String(row.user_id) : null,
+      user_name: row.user_name ? String(row.user_name) : null,
+      user_role: row.user_role ? String(row.user_role) : null,
+      church_totvs_id: row.church_totvs_id ? String(row.church_totvs_id) : null,
+      usability_rating: Number(row.usability_rating || 0),
+      speed_rating: Number(row.speed_rating || 0),
+      stability_rating: Number(row.stability_rating || 0),
+      overall_rating: Number(row.overall_rating || 0),
+      recommend_level: (String(row.recommend_level || "TALVEZ").toUpperCase() as "SIM" | "TALVEZ" | "NAO"),
+      primary_need: row.primary_need ? String(row.primary_need) : null,
+      improvement_notes: row.improvement_notes ? String(row.improvement_notes) : null,
+      contact_allowed: Boolean(row.contact_allowed),
+      status: (String(row.status || "NOVO").toUpperCase() as UserFeedbackStatus),
+      admin_notes: row.admin_notes ? String(row.admin_notes) : null,
+      reviewed_by_user_id: row.reviewed_by_user_id ? String(row.reviewed_by_user_id) : null,
+      reviewed_at: row.reviewed_at ? String(row.reviewed_at) : null,
+      created_at: String(row.created_at || ""),
+      updated_at: String(row.updated_at || ""),
+    })),
+    total: Number(raw.total || 0),
+    page: Number(raw.page || params.page || 1),
+    page_size: Number(raw.page_size || params.page_size || 20),
+  };
+}
+
+export async function updateUserFeedbackStatus(payload: { id: string; status: UserFeedbackStatus; admin_notes?: string }) {
+  const data = await api.updateFeedbackStatus({
+    id: payload.id,
+    status: payload.status,
+    admin_notes: payload.admin_notes || "",
+  });
+  return data as { ok: boolean };
 }
 
 export async function listAnnouncements(limit = 10): Promise<AnnouncementItem[]> {
