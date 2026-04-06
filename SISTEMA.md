@@ -84,6 +84,16 @@ A função `post()` em `src/lib/api.ts`:
 
 ---
 
+## 4.0 Padrão de Comunicação Operacional
+
+Regra de trabalho para suporte e implantação:
+- sempre informar os códigos/comandos exatos (`git`, `npx`, `sql`)
+- sempre explicar em uma linha para que cada comando serve
+- sempre separar os blocos por finalidade: `git`, `deploy`, `migração`, `teste`
+- sempre registrar no documento do sistema quando uma nova regra de operação for definida
+
+---
+
 ## 4.1 Grouped APIs
 
 O sistema está sendo consolidado por grupos para facilitar manutenção e reduzir functions soltas.
