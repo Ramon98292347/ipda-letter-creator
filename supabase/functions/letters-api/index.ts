@@ -237,11 +237,11 @@ function resolveOriginFromDestination(
 
   if (isInSubtree(destinationTotvs, signerTotvsId, churches)) return signerTotvsId;
 
+  // Comentario: fora da propria/subarvore/sibling, sobe primeiro para a mae com pastor.
+  // Isso evita subir direto para avo/estadual em caso de centrais primas.
   for (const ancestor of chain) {
     if (!String(ancestor.pastor_user_id || "").trim()) continue;
-    if (isInSubtree(destinationTotvs, ancestor.totvs_id, churches)) {
-      return ancestor.totvs_id;
-    }
+    return ancestor.totvs_id;
   }
 
   return topWithPastor?.totvs_id || signerTotvsId;
