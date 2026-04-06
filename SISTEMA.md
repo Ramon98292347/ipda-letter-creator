@@ -238,7 +238,8 @@ verify_jwt = false
 - para obreiro, a tela pode subir a origem para a igreja mãe conforme a hierarquia
 - a validação considera sempre a igreja do usuário logado como base da decisão
 - carta nunca sai de igreja `LOCAL` ou `REGIONAL`; nesses casos a origem sobe para a `CENTRAL` do usuário
-- se o destino for igreja irmã (mesma mãe da central do usuário), a origem permanece na central do usuário logado
+- se o destino for igreja irmã (central com a mesma mãe da central do usuário), a origem permanece na central do usuário logado
+- se o destino for `LOCAL`/`REGIONAL` filha de central irmã, também permanece a origem na central do usuário logado
 - se o destino for igreja prima (fora da mesma mãe), a origem sobe para a mãe; se necessário, usa fallback para avó
 - quando o destino sair do escopo direto, a API tenta reposicionar origem para mãe/avó automaticamente antes de bloquear
 - para compatibilidade com os dois frontends, `letters-api` também aceita `action: "manage"` com `manage_action`
