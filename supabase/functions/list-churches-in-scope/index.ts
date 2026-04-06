@@ -178,12 +178,20 @@ Deno.serve(async (req) => {
         scopeList = allRows.map((c) => String(c.totvs_id)).filter(Boolean);
       }
     } else if (session.role === "obreiro") {
-      // Comentario: obreiro nao tem escopo proprio â€” sobe para a mae (ou avo se mae for "central")
-      // usando findObreiroScopeRoot, igual ao telas-cartas. Nao pode usar requestedRoot.
+      // Comentario: obreiro nao tem escopo proprio — sobe para a mae (ou avo se mae for "central")
+      // usando findObreiroScopeRoot, igual ao telas-cartas.
       const obreiroScopeRoot = findObreiroScopeRoot(session.active_totvs_id, allRows);
-      effectiveRootForAncestors = obreiroScopeRoot;
-      scopeList = [...computeScope(obreiroScopeRoot, allRows)];
-      // Comentario: ancestorIds sera preenchido pelo bloco compartilhado abaixo usando effectiveRootForAncestors.
+      const baseScope = computeScope(obreiroScopeRoot, allRows);
+      if (requestedRoot && !baseScope.has(requestedRoot)) {
+        // Comentario: permite subir para mae/avo da igreja ativa (necessario para regional/local).
+        const isAncestorRoot = isAncestorOf(obreiroScopeRoot, requestedRoot, allRows);
+        if (!isAncestorRoot) {
+          return json({ ok: false, error: "forbidden_church_out_of_scope" }, 403);
+        }
+      }
+      const effectiveRoot = requestedRoot || obreiroScopeRoot;
+      effectiveRootForAncestors = effectiveRoot;
+      scopeList = [...computeScope(effectiveRoot, allRows)];
     } else {
       // Comentario: pastor (e outros roles) sempre partem da igreja ativa da sessao.
       // Isso evita reduzir escopo quando o pastor e vinculado a outras igrejas
