@@ -637,18 +637,27 @@ async function handleCreate(session: SessionClaims, body: Record<string, unknown
       }, 403);
     }
     // Resolve assinante pela regra fixa de classe
-    const signerChurch = resolveSignerChurch(church_totvs_id, churches);
+    let signerChurch = resolveSignerChurch(church_totvs_id, churches);
     if (!signerChurch) return json({ ok: false, error: "signer_not_found_for_class_rule" }, 409);
 
     const resolvedScope = computeScope(String(signerChurch.totvs_id || ""), churches);
     const resolvedAncestors = collectAncestors(String(signerChurch.totvs_id || ""), churches);
     const resolvedAllowedDestinations = new Set<string>([...resolvedScope, ...resolvedAncestors]);
     if (destinationTotvs && !resolvedAllowedDestinations.has(destinationTotvs) && !manual_destination) {
-      return json({
-        ok: false,
-        error: "destination_out_of_scope_use_parent",
-        detail: "Destino fora do escopo permitido. Use a igreja mae/avo para emitir.",
-      }, 403);
+      // Comentario: fallback automatico — nunca bloqueia criacao por escopo.
+      // Reposiciona origem para a mae/avo mais alta com pastor.
+      const fallbackOriginTotvs = resolveOriginFromDestination(
+        String(scopeSignerChurch.totvs_id || ""),
+        destinationTotvs,
+        churches,
+        true,
+      );
+      const fallbackOriginChurch = byId.get(fallbackOriginTotvs) || null;
+      if (fallbackOriginChurch) {
+        church_totvs_id = fallbackOriginTotvs;
+        church_origin = `${fallbackOriginTotvs} - ${String(fallbackOriginChurch.church_name || fallbackOriginTotvs).trim()}`;
+        signerChurch = resolveSignerChurch(church_totvs_id, churches) || signerChurch;
+      }
     }
 
     const signerPastorId = String(signerChurch.pastor_user_id || "").trim();
