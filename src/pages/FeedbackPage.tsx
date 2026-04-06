@@ -12,11 +12,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { useUser } from "@/context/UserContext";
 import {
+  listChurchesInScope,
   listMembers,
   listUserFeedback,
   sendAdminCommunication,
   submitUserFeedback,
   updateUserFeedbackStatus,
+  type ChurchInScopeItem,
   type UserListItem,
   type UserFeedbackStatus,
 } from "@/services/saasService";
@@ -38,7 +40,6 @@ type CommFormState = {
   title: string;
   body: string;
   url: string;
-  totvs_ids_text: string;
 };
 
 const emptyForm: FeedbackFormState = {
@@ -56,7 +57,6 @@ const emptyCommForm: CommFormState = {
   title: "",
   body: "",
   url: "/",
-  totvs_ids_text: "",
 };
 
 const statusOptions: Array<{ value: UserFeedbackStatus; label: string }> = [
@@ -82,17 +82,6 @@ function formatDateTime(value: string | null | undefined) {
   return dt.toLocaleString("pt-BR");
 }
 
-function parseTotvsIds(text: string) {
-  return Array.from(
-    new Set(
-      String(text || "")
-        .split(/[\s,;]+/)
-        .map((v) => v.trim())
-        .filter(Boolean),
-    ),
-  );
-}
-
 export default function FeedbackPage() {
   const queryClient = useQueryClient();
   const { usuario } = useUser();
@@ -105,6 +94,9 @@ export default function FeedbackPage() {
   const [commForm, setCommForm] = useState<CommFormState>(emptyCommForm);
   const [userSearch, setUserSearch] = useState("");
   const [selectedUsers, setSelectedUsers] = useState<UserListItem[]>([]);
+  const [churchTotvsFilter, setChurchTotvsFilter] = useState("");
+  const [churchClassFilter, setChurchClassFilter] = useState("all");
+  const [selectedChurches, setSelectedChurches] = useState<ChurchInScopeItem[]>([]);
 
   const feedbackQuery = useQuery({
     queryKey: ["admin-feedback", statusFilter, search],
@@ -125,6 +117,12 @@ export default function FeedbackPage() {
       return data.workers || [];
     },
     enabled: isAdmin && userSearch.trim().length >= 2,
+  });
+
+  const churchesQuery = useQuery({
+    queryKey: ["admin-feedback-churches"],
+    queryFn: () => listChurchesInScope(1, 3000),
+    enabled: isAdmin,
   });
 
   const submitMutation = useMutation({
@@ -155,6 +153,7 @@ export default function FeedbackPage() {
       toast.success(`Comunicado enviado. Entregues: ${Number(res.sent || 0)} | Falhas: ${Number(res.failed || 0)}`);
       setCommForm(emptyCommForm);
       setSelectedUsers([]);
+      setSelectedChurches([]);
       setUserSearch("");
     },
     onError: (err) => toast.error(String((err as Error)?.message || "Nao foi possivel enviar a comunicacao.")),
@@ -168,6 +167,25 @@ export default function FeedbackPage() {
   }, [feedbackQuery.data?.feedback]);
 
   const selectedUserIds = useMemo(() => selectedUsers.map((u) => String(u.id || "")).filter(Boolean), [selectedUsers]);
+  const selectedChurchIds = useMemo(() => selectedChurches.map((c) => String(c.totvs_id || "")).filter(Boolean), [selectedChurches]);
+  const churchClassOptions = useMemo(() => {
+    const set = new Set<string>();
+    for (const church of churchesQuery.data || []) {
+      const value = String(church.church_class || "").trim().toLowerCase();
+      if (value) set.add(value);
+    }
+    return Array.from(set.values()).sort();
+  }, [churchesQuery.data]);
+  const filteredChurches = useMemo(() => {
+    const q = churchTotvsFilter.trim().toLowerCase();
+    return (churchesQuery.data || []).filter((church) => {
+      const totvs = String(church.totvs_id || "").toLowerCase();
+      const cls = String(church.church_class || "").toLowerCase();
+      if (churchClassFilter !== "all" && cls !== churchClassFilter) return false;
+      if (q && !totvs.includes(q)) return false;
+      return true;
+    });
+  }, [churchesQuery.data, churchTotvsFilter, churchClassFilter]);
 
   function submitForm() {
     if (!form.usability_rating || !form.speed_rating || !form.stability_rating || !form.overall_rating || !form.recommend_level) {
@@ -196,17 +214,27 @@ export default function FeedbackPage() {
     setSelectedUsers((prev) => prev.filter((item) => String(item.id) !== String(id)));
   }
 
+  function addSelectedChurch(church: ChurchInScopeItem) {
+    const id = String(church.totvs_id || "").trim();
+    if (!id) return;
+    setSelectedChurches((prev) => (prev.some((item) => String(item.totvs_id) === id) ? prev : [...prev, church]));
+  }
+
+  function removeSelectedChurch(totvsId: string) {
+    setSelectedChurches((prev) => prev.filter((item) => String(item.totvs_id) !== String(totvsId)));
+  }
+
   function submitCommunication() {
     const title = commForm.title.trim();
     const body = commForm.body.trim();
-    const totvs_ids = parseTotvsIds(commForm.totvs_ids_text);
+    const totvs_ids = selectedChurchIds;
 
     if (!title || !body) {
       toast.error("Informe titulo e mensagem do comunicado.");
       return;
     }
     if (selectedUserIds.length === 0 && totvs_ids.length === 0) {
-      toast.error("Selecione usuarios ou informe igrejas (TOTVS) para enviar.");
+      toast.error("Selecione usuarios ou igrejas para enviar.");
       return;
     }
 
@@ -363,12 +391,41 @@ export default function FeedbackPage() {
                   />
                 </div>
                 <div className="space-y-1">
-                  <Label>Igrejas destino (TOTVS)</Label>
-                  <Input
-                    value={commForm.totvs_ids_text}
-                    onChange={(e) => setCommForm((p) => ({ ...p, totvs_ids_text: e.target.value }))}
-                    placeholder="Ex.: 9530,9535,9540"
-                  />
+                  <Label>Classificacao da igreja</Label>
+                  <Select value={churchClassFilter} onValueChange={setChurchClassFilter}>
+                    <SelectTrigger><SelectValue placeholder="Todas" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todas</SelectItem>
+                      {churchClassOptions.map((opt) => (
+                        <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Buscar igrejas destino por TOTVS</Label>
+                <Input
+                  value={churchTotvsFilter}
+                  onChange={(e) => setChurchTotvsFilter(e.target.value)}
+                  placeholder="Digite o codigo TOTVS"
+                />
+                <div className="max-h-48 overflow-auto rounded-md border">
+                  {filteredChurches.map((church) => (
+                    <button
+                      key={`church-${church.totvs_id}`}
+                      type="button"
+                      className="flex w-full items-center justify-between border-b px-3 py-2 text-left hover:bg-slate-50"
+                      onClick={() => addSelectedChurch(church)}
+                    >
+                      <span className="text-sm">{church.totvs_id} - {church.church_name}</span>
+                      <span className="text-xs text-slate-500">{church.church_class || "-"}</span>
+                    </button>
+                  ))}
+                  {!churchesQuery.isLoading && filteredChurches.length === 0 ? (
+                    <p className="px-3 py-2 text-sm text-slate-500">Nenhuma igreja encontrada.</p>
+                  ) : null}
                 </div>
               </div>
 
@@ -413,6 +470,24 @@ export default function FeedbackPage() {
                         onClick={() => removeSelectedUser(String(user.id))}
                       >
                         {user.full_name}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+
+              {selectedChurches.length > 0 ? (
+                <div className="rounded-md border p-2">
+                  <p className="mb-2 text-xs font-semibold uppercase text-slate-500">Igrejas selecionadas</p>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedChurches.map((church) => (
+                      <Button
+                        key={`sel-church-${church.totvs_id}`}
+                        variant="outline"
+                        size="sm"
+                        onClick={() => removeSelectedChurch(String(church.totvs_id))}
+                      >
+                        {church.totvs_id} - {church.church_name}
                       </Button>
                     ))}
                   </div>
