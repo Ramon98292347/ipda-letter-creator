@@ -178,15 +178,29 @@ const Index = () => {
     staleTime: 60_000,
   });
 
+  const grandParentTotvsId = useMemo(() => {
+    if (!parentTotvsId) return "";
+    const parentFromScope = parentScopeChurches.find((c) => String(c.codigoTotvs || "") === parentTotvsId);
+    return String(parentFromScope?.parentTotvsId || "").trim();
+  }, [parentScopeChurches, parentTotvsId]);
+
+  const { data: rawGrandParentChurches = [] } = useQuery({
+    queryKey: ["churches-letter-form-grandparent", grandParentTotvsId],
+    queryFn: () => listChurchesInScope(1, 1000, grandParentTotvsId || undefined),
+    enabled: (role === "admin" || Boolean(activeTotvsForPastor)) && Boolean(grandParentTotvsId),
+    staleTime: 60_000,
+  });
+  const grandParentScopeChurches = useMemo(() => rawGrandParentChurches.map(apiToChurch), [rawGrandParentChurches]);
+
   // Mapa totvs_id -> pastor_user_id montado a partir dos dados brutos ja carregados
   const pastorUserIdByTotvs = useMemo(() => {
     const map: Record<string, string> = {};
-    [...rawOwnChurches, ...rawParentChurches].forEach((c) => {
+    [...rawOwnChurches, ...rawParentChurches, ...rawGrandParentChurches].forEach((c) => {
       const pid = String(c.pastor_user_id || "").trim();
       if (pid) map[String(c.totvs_id || "")] = pid;
     });
     return map;
-  }, [rawOwnChurches, rawParentChurches]);
+  }, [rawOwnChurches, rawParentChurches, rawGrandParentChurches]);
 
   // Busca dinamica no campo Outros usando a edge function search-churches-public
   const { data: outrosSuggestions = [] } = useQuery({
@@ -196,10 +210,10 @@ const Index = () => {
     staleTime: 30_000,
   });
 
-  // Fonte de igrejas para o campo destino: escopo da mae (se carregado) ou escopo proprio
+  // Fonte de igrejas para o campo destino: escopo da avo > mae > proprio.
   const destinationSourceChurches = useMemo(
-    () => (parentScopeChurches.length ? parentScopeChurches : churches),
-    [parentScopeChurches, churches],
+    () => (grandParentScopeChurches.length ? grandParentScopeChurches : parentScopeChurches.length ? parentScopeChurches : churches),
+    [grandParentScopeChurches, parentScopeChurches, churches],
   );
 
   // Sets para detectar se o destino esta fora do escopo proprio
@@ -208,8 +222,12 @@ const Index = () => {
     [churches],
   );
   const parentScopeSet = useMemo(
-    () => new Set(destinationSourceChurches.map((c) => c.codigoTotvs).filter(Boolean)),
-    [destinationSourceChurches],
+    () => new Set(parentScopeChurches.map((c) => c.codigoTotvs).filter(Boolean)),
+    [parentScopeChurches],
+  );
+  const grandParentScopeSet = useMemo(
+    () => new Set(grandParentScopeChurches.map((c) => c.codigoTotvs).filter(Boolean)),
+    [grandParentScopeChurches],
   );
 
   // Igreja mae do usuario logado
@@ -221,6 +239,13 @@ const Index = () => {
           null
         : null,
     [destinationSourceChurches, parentTotvsId, parentChurchPublic],
+  );
+  const grandParentChurch = useMemo(
+    () =>
+      grandParentTotvsId
+        ? destinationSourceChurches.find((c) => c.codigoTotvs === grandParentTotvsId) || null
+        : null,
+    [destinationSourceChurches, grandParentTotvsId],
   );
   const { data: preachersInScope = [] } = useQuery({
     queryKey: ["letter-preachers-in-scope", session?.totvs_id, role],
@@ -273,30 +298,43 @@ const Index = () => {
     pastorPorId?.phone || pastorPorTotvs?.phone || pastorResponsavelData?.phone || "",
   );
 
-  // Origens permitidas: apenas [propria, mae] — igual ao sistema de cartas
+  // Origens permitidas: propria + mae + avo (quando existir).
   const allowedOriginChurches = useMemo(() => {
     const list: Church[] = [];
     if (activeChurch) list.push(activeChurch);
     if (parentChurch && parentChurch.codigoTotvs !== activeChurch?.codigoTotvs) list.push(parentChurch);
+    if (grandParentChurch && !list.some((c) => c.codigoTotvs === grandParentChurch.codigoTotvs)) list.push(grandParentChurch);
     return list.length ? list : churches.slice(0, 3);
-  }, [activeChurch, parentChurch, churches]);
+  }, [activeChurch, parentChurch, grandParentChurch, churches]);
 
-  // Destino esta fora do escopo proprio mas dentro do escopo da mae ? ajusta origem para a mae
+  const shouldUseGrandParentOrigin = useMemo(() => {
+    if (!igrejaDestino || !grandParentChurch) return false;
+    const d = String(igrejaDestino.codigoTotvs || "");
+    return grandParentScopeSet.has(d) && !parentScopeSet.has(d) && !ownScopeSet.has(d);
+  }, [igrejaDestino, grandParentChurch, grandParentScopeSet, parentScopeSet, ownScopeSet]);
+
   const shouldUseParentOrigin = useMemo(() => {
-    if (!igrejaDestino || !parentChurch || !activeChurch) return false;
+    if (!igrejaDestino || !parentChurch) return false;
     const d = String(igrejaDestino.codigoTotvs || "");
     return parentScopeSet.has(d) && !ownScopeSet.has(d);
-  }, [igrejaDestino, parentChurch, activeChurch, parentScopeSet, ownScopeSet]);
+  }, [igrejaDestino, parentChurch, parentScopeSet, ownScopeSet]);
 
-  // Para campo Outros: qualquer texto digitado la ? origem vai para a mae mais alta
-  const shouldUseParentOriginForOthers = Boolean(destinoOutros.trim() && parentChurch);
+  // Para campo Outros: sempre sobe para a mae/avo mais alta conhecida.
+  const shouldUseUpperOriginForOthers = Boolean(destinoOutros.trim() && (grandParentChurch || parentChurch));
 
   const effectiveOrigin = useMemo(() => {
-    if (shouldUseParentOrigin || shouldUseParentOriginForOthers) {
-      return parentChurch || igrejaOrigem;
+    if (shouldUseGrandParentOrigin) return grandParentChurch || parentChurch || igrejaOrigem;
+    if (shouldUseParentOrigin) return parentChurch || igrejaOrigem;
+    if (shouldUseUpperOriginForOthers) {
+      return grandParentChurch || parentChurch || igrejaOrigem;
     }
     return igrejaOrigem;
-  }, [shouldUseParentOrigin, shouldUseParentOriginForOthers, parentChurch, igrejaOrigem]);
+  }, [shouldUseGrandParentOrigin, shouldUseParentOrigin, shouldUseUpperOriginForOthers, grandParentChurch, parentChurch, igrejaOrigem]);
+  const originAutoAdjusted = Boolean(
+    effectiveOrigin?.codigoTotvs &&
+    activeChurch?.codigoTotvs &&
+    effectiveOrigin.codigoTotvs !== activeChurch.codigoTotvs,
+  );
 
   const preachersMap = useMemo(() => {
     const map = new Map<string, UserListItem>();
@@ -464,21 +502,13 @@ const Index = () => {
     setValue("origemId", fallback.id, { shouldValidate: true });
   }, [allowedOriginChurches, igrejaOrigem?.codigoTotvs, setValue]);
 
-  // Ajuste automatico de origem: se destino esta fora do escopo proprio ? usa a mae
+  // Ajuste automatico da origem no campo: fora do escopo sobe para mae/avo.
   useEffect(() => {
-    if (shouldUseParentOrigin || shouldUseParentOriginForOthers) {
-      const parent = parentChurch;
-      if (parent && igrejaOrigem?.codigoTotvs !== parent.codigoTotvs) {
-        setIgrejaOrigem(parent);
-        setValue("origemId", parent.id, { shouldValidate: true });
-      }
-    } else if (activeChurch && !allowedOriginChurches.some((c) => c.codigoTotvs === igrejaOrigem?.codigoTotvs)) {
-      // Volta para a propria quando o destino volta ao escopo proprio
-      setIgrejaOrigem(activeChurch);
-      setValue("origemId", activeChurch.id, { shouldValidate: true });
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [shouldUseParentOrigin, shouldUseParentOriginForOthers]);
+    if (!effectiveOrigin) return;
+    if (igrejaOrigem?.codigoTotvs === effectiveOrigin.codigoTotvs) return;
+    setIgrejaOrigem(effectiveOrigin);
+    setValue("origemId", effectiveOrigin.id, { shouldValidate: true });
+  }, [effectiveOrigin, igrejaOrigem?.codigoTotvs, setValue]);
 
   const onSubmit = async (values: FormData) => {
     if (!preachPeriod) {
@@ -491,10 +521,10 @@ const Index = () => {
       return;
     }
 
-    const origemText = igrejaOrigem
-      ? igrejaOrigem.codigoTotvs
-        ? `${igrejaOrigem.codigoTotvs} - ${igrejaOrigem.nome}`
-        : igrejaOrigem.nome
+    const origemText = effectiveOrigin
+      ? effectiveOrigin.codigoTotvs
+        ? `${effectiveOrigin.codigoTotvs} - ${effectiveOrigin.nome}`
+        : effectiveOrigin.nome
       : (usuario?.igreja_nome ?? "");
 
     // Comentario: validacao do campo "Outros" — deve comecal com numero (codigo TOTVS)
@@ -513,7 +543,7 @@ const Index = () => {
       const selectedPreacher = selectedPreacherUserId ? preachersMap.get(selectedPreacherUserId) : undefined;
 
       const result = (await createLetterByPastor({
-        church_totvs_id: String(igrejaOrigem?.codigoTotvs || (usuario as LegacyUsuarioExtra | null)?.totvs || (usuario as LegacyUsuarioExtra | null)?.default_totvs_id || ""),
+        church_totvs_id: String(effectiveOrigin?.codigoTotvs || (usuario as LegacyUsuarioExtra | null)?.totvs || (usuario as LegacyUsuarioExtra | null)?.default_totvs_id || ""),
         preacher_name: values.pregadorNome,
         preacher_user_id: selectedPreacherUserId || undefined,
         minister_role: usuarioMinisterial || selectedPreacher?.minister_role || (usuario as LegacyUsuarioExtra | null)?.ministerial || "Obreiro",
@@ -668,11 +698,11 @@ const Index = () => {
                   onDisabledClickMessage="Digite seu telefone"
                   inputId="church-origem"
                 />
-                {/* Aviso quando a origem foi ajustada automaticamente para a mae */}
-                {(shouldUseParentOrigin || shouldUseParentOriginForOthers) && (
+                {/* Aviso quando a origem foi ajustada automaticamente para a mae/avo */}
+                {originAutoAdjusted && (
                   <p className="text-xs text-amber-700">
-                    {parentChurch
-                      ? `Destino fora do seu escopo. A origem foi ajustada para a mãe/avó: ${parentChurch.codigoTotvs} - ${parentChurch.nome}.`
+                    {effectiveOrigin
+                      ? `Destino fora do seu escopo. A origem foi ajustada automaticamente para: ${effectiveOrigin.codigoTotvs} - ${effectiveOrigin.nome}.`
                       : "Destino fora do seu escopo. A origem será ajustada para a mãe/avó no envio."}
                   </p>
                 )}
@@ -680,7 +710,7 @@ const Index = () => {
 
                 <div className="space-y-2">
                   <Label className="text-sm font-medium text-slate-800">Igreja que vai pregar (destino)</Label>
-                  {/* Seletor rapido — traz todas as igrejas do escopo da mae */}
+                  {/* Seletor rapido — traz igrejas do escopo da avo/mae */}
                   <Select
                     value={igrejaDestino ? `${igrejaDestino.codigoTotvs} - ${igrejaDestino.nome}` : ""}
                     onValueChange={(value) => {

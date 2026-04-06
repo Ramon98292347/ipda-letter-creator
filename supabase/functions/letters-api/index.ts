@@ -588,10 +588,6 @@ async function handleCreate(session: SessionClaims, body: Record<string, unknown
     const scopeSignerTotvs = String(scopeSignerChurch.totvs_id || "");
     if (!scopeSignerTotvs) return json({ ok: false, error: "signer_not_found_for_class_rule" }, 409);
 
-    const scope = computeScope(scopeSignerTotvs, churches);
-    const ancestors = collectAncestors(scopeSignerTotvs, churches);
-    const allowedDestinations = new Set<string>([...scope, ...ancestors]);
-
     const destinationTotvsExplicit = String(body.destination_totvs_id || "").trim();
     const destinationTotvs = destinationTotvsExplicit || parseTotvsFromText(church_destination);
     if (!destinationTotvs && !manual_destination) {
@@ -604,14 +600,6 @@ async function handleCreate(session: SessionClaims, body: Record<string, unknown
         const destinationName = String(destinationChurch.church_name || "").trim() || churchNameOnly(church_destination) || destinationTotvs;
         church_destination = `${destinationTotvs} - ${destinationName}`;
       }
-    }
-
-    if (destinationTotvs && !allowedDestinations.has(destinationTotvs) && !manual_destination) {
-      return json({
-        ok: false,
-        error: "destination_out_of_scope_use_parent",
-        detail: "Destino fora do escopo permitido. Use a igreja mae/avo para emitir.",
-      }, 403);
     }
 
     let church_totvs_id = resolveOriginFromDestination(
@@ -639,6 +627,17 @@ async function handleCreate(session: SessionClaims, body: Record<string, unknown
     // Resolve assinante pela regra fixa de classe
     const signerChurch = resolveSignerChurch(church_totvs_id, churches);
     if (!signerChurch) return json({ ok: false, error: "signer_not_found_for_class_rule" }, 409);
+
+    const resolvedScope = computeScope(String(signerChurch.totvs_id || ""), churches);
+    const resolvedAncestors = collectAncestors(String(signerChurch.totvs_id || ""), churches);
+    const resolvedAllowedDestinations = new Set<string>([...resolvedScope, ...resolvedAncestors]);
+    if (destinationTotvs && !resolvedAllowedDestinations.has(destinationTotvs) && !manual_destination) {
+      return json({
+        ok: false,
+        error: "destination_out_of_scope_use_parent",
+        detail: "Destino fora do escopo permitido. Use a igreja mae/avo para emitir.",
+      }, 403);
+    }
 
     const signerPastorId = String(signerChurch.pastor_user_id || "").trim();
     if (!signerPastorId) return json({ ok: false, error: "signer_pastor_not_defined" }, 409);
