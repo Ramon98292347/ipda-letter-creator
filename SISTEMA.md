@@ -698,3 +698,16 @@ Melhorias aplicadas somente em performance, sem mudar regra de negocio:
 
 Arquivo de referencia:
 - `src/pages/PastorMembrosPage.tsx`
+
+---
+
+## 23. Regra de Atualizacao do PWA - 2026-04-06
+
+Decisao registrada para evitar atualizacao repetitiva no app:
+- O PWA nao deve forcar atualizacao constante.
+- Atualizacao automatica so acontece quando o Service Worker detectar versao nova de fato.
+- A checagem periodica de update foi aumentada para janela maior (6 horas), evitando loop de recarga.
+- A versao ja tratada na sessao e memorizada para nao repetir o mesmo refresh.
+
+Arquivo de referencia:
+- `src/components/shared/PwaUpdater.tsx`
