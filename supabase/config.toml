@@ -69,6 +69,12 @@ verify_jwt = false
 [functions.member-docs-api]
 verify_jwt = false
 
+[functions.feedback-api]
+verify_jwt = false
+
+[functions.admin-comms-api]
+verify_jwt = false
+
 [functions.approve-release]
 verify_jwt = false
 
