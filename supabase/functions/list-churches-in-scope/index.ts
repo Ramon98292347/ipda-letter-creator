@@ -84,6 +84,24 @@ function computeScope(rootTotvs: string, churches: ChurchRow[]): Set<string> {
   return scope;
 }
 
+function isAncestorOf(descendantTotvs: string, possibleAncestorTotvs: string, churches: ChurchRow[]): boolean {
+  if (!descendantTotvs || !possibleAncestorTotvs) return false;
+  if (descendantTotvs === possibleAncestorTotvs) return true;
+  const byId = new Map(churches.map((row) => [String(row.totvs_id), row]));
+  const visited = new Set<string>();
+  let current = String(descendantTotvs);
+  while (current && !visited.has(current)) {
+    visited.add(current);
+    const row = byId.get(current);
+    if (!row) return false;
+    const parentId = row.parent_totvs_id ? String(row.parent_totvs_id) : "";
+    if (!parentId) return false;
+    if (parentId === possibleAncestorTotvs) return true;
+    current = parentId;
+  }
+  return false;
+}
+
 // Comentario: determina o root do escopo de DESTINO para o obreiro.
 // Regra: sobe para o pai da propria igreja. Se o pai for "central", sobe mais um nivel
 // (setorial ou estadual) pois a central pertence ao escopo da setorial/estadual acima.
@@ -173,7 +191,12 @@ Deno.serve(async (req) => {
       const scopeRootTotvs = session.active_totvs_id;
       const baseScope = computeScope(scopeRootTotvs, allRows);
       if (requestedRoot && !baseScope.has(requestedRoot)) {
-        return json({ ok: false, error: "forbidden_church_out_of_scope" }, 403);
+        // Comentario: permite subir para mae/avo da igreja ativa.
+        // Necessario para regional/local listar destinos no escopo superior.
+        const isAncestorRoot = isAncestorOf(scopeRootTotvs, requestedRoot, allRows);
+        if (!isAncestorRoot) {
+          return json({ ok: false, error: "forbidden_church_out_of_scope" }, 403);
+        }
       }
       const effectiveRoot = requestedRoot || scopeRootTotvs;
       effectiveRootForAncestors = effectiveRoot;
