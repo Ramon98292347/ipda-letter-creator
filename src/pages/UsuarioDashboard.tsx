@@ -483,15 +483,43 @@ async function openPdf(letter: PastorLetter) {
       setOutrosDebounced("");
       return;
     }
+
     setSearchingDestinations(true);
-    listChurchesInScope(1, 1000)
-      .then((churches) => {
-        setRawScopeChurches(churches);
+    const activeTotvsId = String(session?.totvs_id || "");
+
+    async function loadDestinationScopes() {
+      try {
+        const ownScope = await listChurchesInScope(1, 1000);
+        const chain = activeTotvsId ? await fetchAncestorChain(activeTotvsId).catch(() => []) : [];
+        setAncestorChain(chain);
+
+        const mergedByTotvs = new Map<string, ChurchInScopeItem>();
+        ownScope.forEach((church) => mergedByTotvs.set(String(church.totvs_id || ""), church));
+
+        const activeChurch = ownScope.find((church) => String(church.totvs_id || "") === activeTotvsId) || null;
+        const activeClass = String(activeChurch?.church_class || "").toLowerCase();
+        const isRegionalOrLocal = activeClass === "regional" || activeClass === "local";
+
+        if (isRegionalOrLocal) {
+          // Comentario: para regional/local, inclui destinos do escopo da mae e da avo.
+          const parentTotvs = String(chain[0]?.totvs_id || "").trim();
+          const grandParentTotvs = String(chain[1]?.totvs_id || "").trim();
+          const extraRoots = [parentTotvs, grandParentTotvs].filter(Boolean);
+
+          const extraScopes = await Promise.all(
+            extraRoots.map((rootTotvs) => listChurchesInScope(1, 1000, rootTotvs).catch(() => []))
+          );
+          extraScopes.flat().forEach((church) => mergedByTotvs.set(String(church.totvs_id || ""), church));
+        }
+
+        const mergedChurches = Array.from(mergedByTotvs.values());
+        setRawScopeChurches(mergedChurches);
+
         // Comentario: ordena pela hierarquia (estadual > setorial > central > regional > local)
-        // e dentro de cada nível, pelo TOTVS numérico crescente.
+        // e dentro de cada nivel, pelo TOTVS numerico crescente.
         const classOrder: Record<string, number> = { estadual: 0, setorial: 1, central: 2, regional: 3, local: 4 };
         setDestinationOptions(
-          [...churches]
+          [...mergedChurches]
             .sort((a, b) => {
               const oA = classOrder[String(a.church_class || "").toLowerCase()] ?? 99;
               const oB = classOrder[String(b.church_class || "").toLowerCase()] ?? 99;
@@ -500,17 +528,18 @@ async function openPdf(letter: PastorLetter) {
             })
             .map((c) => ({ totvs_id: String(c.totvs_id || ""), church_name: String(c.church_name || "") }))
         );
-      })
-      .catch(() => { setRawScopeChurches([]); setDestinationOptions([]); })
-      .finally(() => setSearchingDestinations(false));
-    // Comentario: busca ancestrais acima do scope root do obreiro (ex.: estadual acima de setorial).
-    // Usado para calcular a mae MAIS ALTA com pastor no campo "Outros".
-    const activeTotvsId = String(session?.totvs_id || "");
-    if (activeTotvsId) {
-      fetchAncestorChain(activeTotvsId).then(setAncestorChain).catch(() => setAncestorChain([]));
+      } catch {
+        setRawScopeChurches([]);
+        setDestinationOptions([]);
+        setAncestorChain([]);
+      } finally {
+        setSearchingDestinations(false);
+      }
     }
+
+    void loadDestinationScopes();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [openLetterDialog]);
+  }, [openLetterDialog, session?.totvs_id]);
 
   // ─── Igreja assinante (origem da carta) ─────────────────────────────────────
   // Comentario: igual ao telas-cartas — regional/local NUNCA e a origem.
