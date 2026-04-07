@@ -305,7 +305,7 @@ export default function UsuarioDocumentosPage() {
         },
       });
       await refetchDocsStatus();
-      toast.success("Documento enviado para confec??o.");
+      toast.success("Documento enviado para confecção.");
     } catch (err) {
       const message = err instanceof Error ? err.message : "Falha ao enviar documento.";
       toast.error(message || "Falha ao enviar documento.");
