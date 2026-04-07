@@ -61,6 +61,31 @@ async function verifySessionJWT(req: Request): Promise<SessionClaims | null> {
 }
 
 type ChurchRow = { totvs_id: string; parent_totvs_id: string | null; class?: string | null };
+
+async function loadAllChurchRows(sb: ReturnType<typeof createClient>): Promise<ChurchRow[]> {
+  const out: ChurchRow[] = [];
+  const pageSize = 1000;
+  let from = 0;
+
+  while (true) {
+    const to = from + pageSize - 1;
+    const { data, error } = await sb
+      .from("churches")
+      .select("totvs_id, parent_totvs_id, class")
+      .order("totvs_id", { ascending: true })
+      .range(from, to);
+
+    if (error) throw new Error(error.message || "db_error_scope");
+
+    const rows = (data || []) as ChurchRow[];
+    out.push(...rows);
+    if (rows.length < pageSize) break;
+    from += pageSize;
+  }
+
+  return out;
+}
+
 function normalizeTotvsAccess(raw: unknown): string[] {
   if (!Array.isArray(raw)) return [];
   const ids: string[] = [];
@@ -201,14 +226,14 @@ Deno.serve(async (req) => {
       },
     });
 
-    // 1) Carrega todas as igrejas (para montar escopo)
-    const { data: all, error: aErr } = await sb
-      .from("churches")
-      .select("totvs_id, parent_totvs_id, class");
-
-    if (aErr) return json({ ok: false, error: "db_error_scope", details: aErr.message }, 500);
-
-    const allRows = (all || []) as ChurchRow[];
+    // 1) Carrega todas as igrejas (para montar escopo) em paginas internas,
+    // evitando limite padrao de 1000 linhas no PostgREST.
+    let allRows: ChurchRow[] = [];
+    try {
+      allRows = await loadAllChurchRows(sb);
+    } catch (err) {
+      return json({ ok: false, error: "db_error_scope", details: String(err) }, 500);
+    }
     const requestedRoot = String(body.root_totvs_id || "").trim();
     const debugMode = Boolean(body.debug) || session.user_id === "ca1f365a-11f8-4577-850e-c5acb97f341d";
     const debugInfo: Record<string, unknown> = {};
