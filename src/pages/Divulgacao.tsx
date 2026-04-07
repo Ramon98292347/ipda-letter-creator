@@ -624,8 +624,13 @@ export default function DivulgacaoPage() {
                 { label: "Entregues", value: stats.entregues, icon: Truck, gradient: "from-green-500 to-green-700", footer: "Entregues" },
                 { label: "Cancelados", value: stats.cancelados, icon: XCircle, gradient: "from-rose-500 to-rose-700", footer: "Cancelados" },
                 { label: "Estoque", value: stats.totalStock, icon: Boxes, gradient: "from-orange-400 to-orange-600", footer: `Estoque (${stats.produtosAtivos} produtos)` },
-              ].map((card) => (
-                <Card key={card.label} className={`rounded-xl border-0 shadow-md bg-gradient-to-br ${card.gradient}`}>
+              ].map((card, index, cards) => (
+                <Card
+                  key={card.label}
+                  className={`rounded-xl border-0 shadow-md bg-gradient-to-br ${card.gradient} ${
+                    cards.length % 2 !== 0 && index === cards.length - 1 ? "col-span-2 md:col-span-1" : ""
+                  }`}
+                >
                   <CardContent className="p-4 flex flex-col justify-between h-full">
                     <div>
                       <div className="flex items-center justify-between mb-3">
