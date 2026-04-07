@@ -48,6 +48,7 @@ import {
   Loader2,
   Plus,
   Pencil,
+  SlidersHorizontal,
   Trash2,
 } from "lucide-react";
 
@@ -275,7 +276,9 @@ export default function DepositoPage() {
           <SummaryCard title="Entradas (mês)" value={formatNumber(summary?.entries_month ?? 0)} icon={ArrowUpCircle} gradient="from-emerald-600 to-emerald-500" />
           <SummaryCard title="Saídas (mês)" value={formatNumber(summary?.exits_month ?? 0)} icon={TrendingDown} gradient="from-amber-600 to-amber-500" />
           <SummaryCard title="Transferências" value={formatNumber(summary?.transfers_month ?? 0)} icon={ArrowRightLeft} gradient="from-sky-600 to-sky-500" />
-          <SummaryCard title="Valor estoque" value={formatCurrency(summary?.total_value ?? 0)} icon={DollarSign} gradient="from-violet-600 to-violet-500" />
+          <div className="col-span-2 sm:col-span-1">
+            <SummaryCard title="Valor estoque" value={formatCurrency(summary?.total_value ?? 0)} icon={DollarSign} gradient="from-violet-600 to-violet-500" />
+          </div>
         </section>
 
         {/* â”€â”€ Abas â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
@@ -431,6 +434,7 @@ function EstoqueTab({
   onMovement: (pid: string) => void;
 }) {
   const [page, setPage] = useState(1);
+  const [showFiltersMobile, setShowFiltersMobile] = useState(false);
   const totalPages = Math.max(1, Math.ceil(stock.length / ESTOQUE_PAGE_SIZE));
   const paginatedStock = stock.slice((page - 1) * ESTOQUE_PAGE_SIZE, page * ESTOQUE_PAGE_SIZE);
 
@@ -440,7 +444,19 @@ function EstoqueTab({
   return (
     <div className="space-y-4">
       {/* Comentario: barra de filtros do estoque */}
-      <div className="flex flex-wrap items-end gap-3">
+      <div className="sm:hidden">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="w-full"
+          onClick={() => setShowFiltersMobile((v) => !v)}
+        >
+          <SlidersHorizontal className="mr-2 h-4 w-4" />
+          {showFiltersMobile ? "Recolher filtros" : "Mostrar filtros"}
+        </Button>
+      </div>
+      <div className={`${showFiltersMobile ? "flex" : "hidden"} flex-wrap items-end gap-3 sm:flex`}>
         <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
           <Input placeholder="Buscar por código ou descrição..." value={search} onChange={(e) => onSearchChange(e.target.value)} className="pl-9" />

@@ -26,7 +26,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Bus, Check, Trash2, Loader2, Users, Map, Calendar, QrCode, Copy, ExternalLink, Plus, Edit, Building2, Phone, Search, Filter, Clock, CheckCircle } from "lucide-react";
+import { Bus, Check, Trash2, Loader2, Users, Map, Calendar, QrCode, Copy, ExternalLink, Plus, Edit, Building2, Phone, Search, Filter, Clock, CheckCircle, SlidersHorizontal } from "lucide-react";
 import { toast } from "sonner";
 import QRCode from "qrcode";
 import { useUser } from "@/context/UserContext";
@@ -57,6 +57,7 @@ export default function CaravanasPage() {
   const [isCreatingEvent, setIsCreatingEvent] = useState(false);
   const [filterPastor, setFilterPastor] = useState("");
   const [filterDate, setFilterDate] = useState("");
+  const [showFiltersMobile, setShowFiltersMobile] = useState(false);
 
   type EventRow = {
     id: string;
@@ -258,7 +259,7 @@ export default function CaravanasPage() {
         </div>
 
         {/* 4 Cards Superiores (Resumo) */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <Card className="rounded-xl border-0 bg-gradient-to-br from-blue-500 to-blue-700 shadow-md flex flex-col justify-between p-4">
             <div className="flex items-center text-white/90 text-sm font-medium mb-3">
               <Bus className="h-4 w-4 mr-2" /> Total de Caravanas
@@ -286,7 +287,18 @@ export default function CaravanasPage() {
         </div>
 
         {/* Linha de Filtros */}
-        <div className="flex flex-col md:flex-row items-center gap-3 w-full">
+        <div className="sm:hidden">
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full"
+            onClick={() => setShowFiltersMobile((v) => !v)}
+          >
+            <SlidersHorizontal className="h-4 w-4 mr-2" />
+            {showFiltersMobile ? "Recolher filtros" : "Mostrar filtros"}
+          </Button>
+        </div>
+        <div className={`${showFiltersMobile ? "flex" : "hidden"} flex-col md:flex-row items-center gap-3 w-full sm:flex`}>
           <div className="relative flex-1 w-full">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
             <Input

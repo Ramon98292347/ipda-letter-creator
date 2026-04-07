@@ -176,14 +176,16 @@ export default function AdminIgrejasPage() {
           </div>
         </section>
 
-        <section className="grid gap-4 md:grid-cols-3 xl:grid-cols-7">
+        <section className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-7">
           <IgrejaStat title="Total" value={totals.total} subtitle="total de igrejas" gradient={gradients.total} />
           <IgrejaStat title="Estadual" value={totals.estadual} subtitle="classe estadual" gradient={gradients.estadual} />
           <IgrejaStat title="Setorial" value={totals.setorial} subtitle="classe setorial" gradient={gradients.setorial} />
           <IgrejaStat title="Central" value={totals.central} subtitle="classe central" gradient={gradients.central} />
           <IgrejaStat title="Regional" value={totals.regional} subtitle="classe regional" gradient={gradients.regional} />
           <IgrejaStat title="Local" value={totals.local} subtitle="classe local" gradient={gradients.local} />
-          <IgrejaStat title="Casa de oração" value={totals.casa_oracao} subtitle="classe casa de oração" gradient={gradients.casa_oracao} />
+          <div className="col-span-2 md:col-span-1">
+            <IgrejaStat title="Casa de oração" value={totals.casa_oracao} subtitle="classe casa de oração" gradient={gradients.casa_oracao} />
+          </div>
         </section>
 
         <AdminChurchesTab

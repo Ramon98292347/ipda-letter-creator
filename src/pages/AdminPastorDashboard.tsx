@@ -297,7 +297,7 @@ export default function AdminPastorDashboard() {
         </section>
 
         {loadingMetrics ? (
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
             <Skeleton className="h-24 rounded-2xl" />
             <Skeleton className="h-24 rounded-2xl" />
             <Skeleton className="h-24 rounded-2xl" />

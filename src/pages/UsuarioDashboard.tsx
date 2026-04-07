@@ -919,7 +919,7 @@ async function openPdf(letter: PastorLetter) {
           </div>
         </section>
 
-        <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <section className="grid grid-cols-2 gap-4">
           {/* Card azul — total de cartas */}
           <Card className="rounded-xl border-0 bg-gradient-to-br from-blue-500 to-blue-700 shadow-md">
             <CardContent className="p-5">

@@ -1356,7 +1356,7 @@ export default function PastorMembrosPage() {
         <p className="mt-1 text-base text-slate-600">Gestão de membros com visualização, filtros e documentos.</p>
       </div>
 
-      <section className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-7">
+      <section className="mb-5 grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-7">
         <MiniCard title="Total de membros" value={counters.total} subtitle="membros encontrados" gradient={memberTone.total} />
         <MiniCard title="Pastor" value={counters.pastor} subtitle="pastores" gradient={memberTone.pastor} />
         <MiniCard title="Presbítero" value={counters.presbitero} subtitle="presbíteros" gradient={memberTone.presbitero} />
@@ -1364,21 +1364,23 @@ export default function PastorMembrosPage() {
         <MiniCard title="Cooperador" value={counters.obreiro} subtitle="cooperadores" gradient={memberTone.obreiro} />
         <MiniCard title="Membros ativos" value={counters.batizados} subtitle="ministério membro" gradient={memberTone.batizados} />
         {/* Comentario: card clicavel — ao clicar mostra so os inativos, clica de novo volta aos ativos */}
-        <MiniCard
-          title="Inativos"
-          value={inativosCount}
-          subtitle="membros inativos"
-          gradient={memberTone.inativos}
-          active={filterActive === false}
-          onClick={() => {
-            if (filterActive === false) {
-              setFilterActive(undefined);
-            } else {
-              setFilterActive(false);
-            }
-            setMembersPage(1);
-          }}
-        />
+        <div className="col-span-2 md:col-span-1">
+          <MiniCard
+            title="Inativos"
+            value={inativosCount}
+            subtitle="membros inativos"
+            gradient={memberTone.inativos}
+            active={filterActive === false}
+            onClick={() => {
+              if (filterActive === false) {
+                setFilterActive(undefined);
+              } else {
+                setFilterActive(false);
+              }
+              setMembersPage(1);
+            }}
+          />
+        </div>
       </section>
 
       <MobileFiltersCard

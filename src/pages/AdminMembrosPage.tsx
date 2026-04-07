@@ -252,7 +252,7 @@ export default function AdminMembrosPage() {
           </div>
         </section>
 
-        <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-7">
+        <section className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-7">
           <MiniCard title="Total de membros" value={counters.total} subtitle="cadastros na igreja" gradient={memberTone.total} />
           <MiniCard title="Pastor" value={counters.pastor} subtitle="cargo pastor" gradient={memberTone.pastor} />
           <MiniCard title="Presbítero" value={counters.presbitero} subtitle="cargo presbítero" gradient={memberTone.presbitero} />
@@ -260,20 +260,22 @@ export default function AdminMembrosPage() {
           <MiniCard title="Cooperador" value={counters.obreiro} subtitle="cargo cooperador" gradient={memberTone.obreiro} />
           <MiniCard title="Membros ativos" value={counters.membrosAtivos} subtitle="ministério membro" gradient={memberTone.ativo} />
           {/* Comentario: card clicavel — ao clicar mostra so os inativos na tabela */}
-          <MiniCard
-            title="Inativos"
-            value={inativosCount}
-            subtitle="membros inativos"
-            gradient={memberTone.inativos}
-            active={filterActive === false}
-            onClick={() => {
-              if (filterActive === false) {
-                setFilterActive(undefined);
-              } else {
-                setFilterActive(false);
-              }
-            }}
-          />
+          <div className="col-span-2 md:col-span-1">
+            <MiniCard
+              title="Inativos"
+              value={inativosCount}
+              subtitle="membros inativos"
+              gradient={memberTone.inativos}
+              active={filterActive === false}
+              onClick={() => {
+                if (filterActive === false) {
+                  setFilterActive(undefined);
+                } else {
+                  setFilterActive(false);
+                }
+              }}
+            />
+          </div>
         </section>
 
         <section className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
