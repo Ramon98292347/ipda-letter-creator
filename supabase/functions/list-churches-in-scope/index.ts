@@ -244,14 +244,25 @@ Deno.serve(async (req) => {
       }
 
       if (requestedRoot) {
-        const requestedInsideAllowed = allowed.has(requestedRoot);
-        const requestedIsAncestorOfAllowed = effectiveRoots.some((root) => isAncestorOf(root, requestedRoot, allRows));
-        if (!requestedInsideAllowed && !requestedIsAncestorOfAllowed) {
-          return json({ ok: false, error: "forbidden_church_out_of_scope" }, 403);
+        // Comentario: compatibilidade com app antigo em cache que envia root_totvs_id
+        // fixo como igreja ativa; nesse caso preserva o escopo completo permitido.
+        const looksLikeLegacyForcedActiveRoot =
+          requestedRoot === session.active_totvs_id &&
+          effectiveRoots.some((root) => root !== requestedRoot);
+        const shouldApplyRequestedRoot = !looksLikeLegacyForcedActiveRoot;
+        if (!shouldApplyRequestedRoot) {
+          scopeList = [...allowed];
+          if (effectiveRoots.length === 1) effectiveRootForAncestors = effectiveRoots[0];
+        } else {
+          const requestedInsideAllowed = allowed.has(requestedRoot);
+          const requestedIsAncestorOfAllowed = effectiveRoots.some((root) => isAncestorOf(root, requestedRoot, allRows));
+          if (!requestedInsideAllowed && !requestedIsAncestorOfAllowed) {
+            return json({ ok: false, error: "forbidden_church_out_of_scope" }, 403);
         }
 
         effectiveRootForAncestors = requestedRoot;
         scopeList = [...computeScope(requestedRoot, allRows)];
+        }
       } else {
         scopeList = [...allowed];
         if (effectiveRoots.length === 1) effectiveRootForAncestors = effectiveRoots[0];
