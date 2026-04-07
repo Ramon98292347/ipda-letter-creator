@@ -284,14 +284,14 @@ export default function FeedbackPage() {
                   Enviar Feedback
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-2xl">
+              <DialogContent className="max-h-[85vh] w-[95vw] max-w-2xl overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle>Formulario de feedback</DialogTitle>
                   <DialogDescription>
                     Responda rapido e conte suas sugestoes para melhorarmos o sistema.
                   </DialogDescription>
                 </DialogHeader>
-                <div className="grid gap-3 md:grid-cols-2">
+                <div className="grid gap-3 sm:grid-cols-2">
                   <div className="space-y-1">
                     <Label>Facilidade de uso (1-5)</Label>
                     <Select value={form.usability_rating} onValueChange={(v) => setForm((p) => ({ ...p, usability_rating: v }))}>

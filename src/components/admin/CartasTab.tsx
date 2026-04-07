@@ -404,7 +404,7 @@ export function CartasTab({
           <Button size="sm" variant="outline" disabled={!canViewOrShare(letter)} onClick={() => openPdf(letter)}>
             <ArrowUpRight className="mr-2 h-4 w-4" /> Ver PDF
           </Button>
-          <Button size="sm" variant="outline" className="text-rose-600" onClick={() => remove(letter)}>
+          <Button size="sm" variant="outline" className="hidden text-rose-600 sm:inline-flex" onClick={() => remove(letter)}>
             <Trash2 className="mr-2 h-4 w-4" /> Excluir
           </Button>
         </div>
