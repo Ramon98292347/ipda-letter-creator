@@ -306,6 +306,49 @@ Deno.serve(async (req) => {
           totvs_ids: [String(saved.default_totvs_id || default_totvs_id || "")],
           data: { user_id: String(saved.id || ""), role: String(saved.role || "") },
         });
+
+        // Comentario: notifica lideres da igreja e quem criou o cadastro sobre novo usuario criado.
+        const churchTotvs = String(saved.default_totvs_id || default_totvs_id || "").trim();
+        const { data: leaders } = await sb
+          .from("users")
+          .select("id")
+          .eq("default_totvs_id", churchTotvs)
+          .in("role", ["pastor", "secretario"])
+          .eq("is_active", true);
+
+        const targetUserIds = new Set<string>();
+        for (const row of (leaders || [])) {
+          const id = String((row as Record<string, unknown>).id || "").trim();
+          if (id && id !== String(saved.id || "")) targetUserIds.add(id);
+        }
+        if (session?.user_id) targetUserIds.add(String(session.user_id));
+
+        const managerIds = [...targetUserIds];
+        if (managerIds.length > 0) {
+          const managerTitle = "Novo usuario criado";
+          const managerMessage = `${String(saved.full_name || "Usuario")} foi cadastrado como ${String(saved.role || "obreiro")}.`;
+
+          await Promise.all(
+            managerIds.map((uid) =>
+              insertNotification({
+                church_totvs_id: churchTotvs,
+                user_id: uid,
+                type: "new_user_created",
+                title: managerTitle,
+                message: managerMessage,
+              })
+            ),
+          );
+
+          await sendInternalPushNotification({
+            title: managerTitle,
+            body: managerMessage,
+            url: session?.role === "admin" ? "/admin/membros" : "/pastor/membros",
+            user_ids: managerIds,
+            totvs_ids: [churchTotvs],
+            data: { created_user_id: String(saved.id || ""), created_user_role: String(saved.role || "") },
+          });
+        }
       } catch {
         // Comentario: falha de notificacao nao impede o cadastro.
       }
