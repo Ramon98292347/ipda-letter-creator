@@ -129,6 +129,7 @@ function movementBadge(type: string) {
 // ============================================================================
 export default function DepositoPage() {
   const { session } = useUser();
+  const activeTotvs = String(session?.totvs_id || "");
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<TabKey>("estoque");
   const [movementsPageSize, setMovementsPageSize] = useState(50);
@@ -147,19 +148,22 @@ export default function DepositoPage() {
 
   // Comentario: query dos KPIs/resumo
   const { data: summary } = useQuery({
-    queryKey: ["deposit-summary"],
-    queryFn: depositGetSummary,
+    queryKey: ["deposit-summary", activeTotvs],
+    queryFn: () => depositGetSummary({ church_totvs_id: activeTotvs || undefined }),
+    enabled: Boolean(activeTotvs),
   });
 
   // Comentario: query do estoque consolidado
   const { data: stockData, isLoading: loadingStock } = useQuery({
-    queryKey: ["deposit-stock", search, filterGroup, filterLowStock],
+    queryKey: ["deposit-stock", activeTotvs, search, filterGroup, filterLowStock],
     queryFn: () => depositListStock({
+      church_totvs_id: activeTotvs || undefined,
       search: search || undefined,
       group_name: filterGroup !== "all" ? filterGroup : undefined,
       low_stock: filterLowStock || undefined,
       is_active: true,
     }),
+    enabled: Boolean(activeTotvs),
   });
 
   // Comentario: query dos produtos para selects e cadastro
@@ -170,9 +174,9 @@ export default function DepositoPage() {
 
   // Comentario: query das movimentacoes
   const { data: movementsData, isLoading: loadingMovements } = useQuery({
-    queryKey: ["deposit-movements", movementsPageSize],
-    queryFn: () => depositListMovements({ page: 1, page_size: movementsPageSize }),
-    enabled: tab === "movimentacoes" || tab === "transferencias",
+    queryKey: ["deposit-movements", activeTotvs, movementsPageSize],
+    queryFn: () => depositListMovements({ church_totvs_id: activeTotvs || undefined, page: 1, page_size: movementsPageSize }),
+    enabled: (tab === "movimentacoes" || tab === "transferencias") && Boolean(activeTotvs),
   });
 
   useEffect(() => {

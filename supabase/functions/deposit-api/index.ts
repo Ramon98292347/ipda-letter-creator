@@ -221,7 +221,7 @@ async function handleListStock(session: SessionClaims, body: Record<string, unkn
 
   // Comentario: filtros opcionais
   const filterGroup = String(body.group_name || "").trim();
-  const filterChurch = String(body.church_totvs_id || "").trim();
+  const filterChurch = String(body.church_totvs_id || session.active_totvs_id || "").trim();
   const filterLowStock = Boolean(body.low_stock);
   const filterActive = body.is_active !== undefined ? Boolean(body.is_active) : null;
   const filterSearch = String(body.search || "").trim().toLowerCase();
@@ -268,27 +268,37 @@ async function handleListStock(session: SessionClaims, body: Record<string, unkn
 async function handleGetSummary(session: SessionClaims, _body: Record<string, unknown>): Promise<Response> {
   const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
   const scope = await resolveScope(sb, session);
+  const filterChurch = String(_body.church_totvs_id || session.active_totvs_id || "").trim();
 
   const [productsRes, stockRes, movementsRes] = await Promise.all([
     sb.from("deposit_products").select("id, min_stock, unit_price, is_active", { count: "exact" }).eq("is_active", true),
     sb.from("deposit_stock").select("product_id, church_totvs_id, quantity"),
-    sb.from("deposit_movements").select("type, quantity, unit_price, created_at"),
+    sb.from("deposit_movements").select("type, quantity, unit_price, created_at, church_origin_totvs, church_destination_totvs"),
   ]);
 
   const products = (productsRes.data || []) as Record<string, unknown>[];
   const stockRows = ((stockRes.data || []) as Record<string, unknown>[])
     .filter((s) => scope.has(String(s.church_totvs_id || "")));
-  const movements = (movementsRes.data || []) as Record<string, unknown>[];
+  const movements = ((movementsRes.data || []) as Record<string, unknown>[])
+    .filter((m) => {
+      const origin = String(m.church_origin_totvs || "");
+      const dest = String(m.church_destination_totvs || "");
+      if (!filterChurch) return (origin && scope.has(origin)) || (dest && scope.has(dest)) || (!origin && !dest);
+      return origin === filterChurch || dest === filterChurch;
+    });
+  const filteredStockRows = filterChurch
+    ? stockRows.filter((s) => String(s.church_totvs_id || "") === filterChurch)
+    : stockRows;
 
   // Comentario: calcula KPIs
   const totalProducts = products.length;
 
   // Comentario: estoque total (soma de todas as quantidades no escopo)
-  const totalStock = stockRows.reduce((sum, s) => sum + Number(s.quantity || 0), 0);
+  const totalStock = filteredStockRows.reduce((sum, s) => sum + Number(s.quantity || 0), 0);
 
   // Comentario: itens com estoque baixo
   const stockByProduct = new Map<string, number>();
-  for (const s of stockRows) {
+  for (const s of filteredStockRows) {
     const pid = String(s.product_id || "");
     stockByProduct.set(pid, (stockByProduct.get(pid) || 0) + Number(s.quantity || 0));
   }
@@ -320,7 +330,7 @@ async function handleGetSummary(session: SessionClaims, _body: Record<string, un
   const priceMap = new Map<string, number>();
   for (const p of products) priceMap.set(String(p.id || ""), Number(p.unit_price || 0));
   let totalValue = 0;
-  for (const s of stockRows) {
+  for (const s of filteredStockRows) {
     const price = priceMap.get(String(s.product_id || "")) || 0;
     totalValue += Number(s.quantity || 0) * price;
   }
@@ -502,6 +512,7 @@ async function handleCreateTransfer(session: SessionClaims, body: Record<string,
 async function handleListMovements(session: SessionClaims, body: Record<string, unknown>): Promise<Response> {
   const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
   const scope = await resolveScope(sb, session);
+  const filterChurch = String(body.church_totvs_id || session.active_totvs_id || "").trim();
 
   const page = Number(body.page) || 1;
   const page_size = Math.min(Number(body.page_size) || 50, 500);
@@ -526,6 +537,7 @@ async function handleListMovements(session: SessionClaims, body: Record<string, 
   const movements = (data || []).filter((m: Record<string, unknown>) => {
     const origin = String(m.church_origin_totvs || "");
     const dest = String(m.church_destination_totvs || "");
+    if (filterChurch) return origin === filterChurch || dest === filterChurch;
     return (origin && scope.has(origin)) || (dest && scope.has(dest)) || (!origin && !dest);
   });
 

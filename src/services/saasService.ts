@@ -3902,8 +3902,8 @@ export async function depositListStock(filters?: {
 }
 
 // Comentario: retorna KPIs/resumo do deposito
-export async function depositGetSummary(): Promise<DepositSummary> {
-  const res = await api.depositGetSummary();
+export async function depositGetSummary(filters?: { church_totvs_id?: string }): Promise<DepositSummary> {
+  const res = await api.depositGetSummary(filters || {});
   return (res as { summary: DepositSummary }).summary;
 }
 
@@ -3936,6 +3936,7 @@ export async function depositListMovements(filters?: {
   product_id?: string;
   date_start?: string;
   date_end?: string;
+  church_totvs_id?: string;
   church_origin_totvs?: string;
   church_destination_totvs?: string;
   page?: number;
