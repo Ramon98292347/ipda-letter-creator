@@ -61,7 +61,24 @@ async function verifySessionJWT(req: Request): Promise<SessionClaims | null> {
 
 type ChurchRow = { totvs_id: string; parent_totvs_id: string | null; class?: string | null };
 
+// Comentario: cache em memoria por instancia da Edge Function para evitar reler
+// toda a arvore de igrejas em chamadas sequenciais.
+let churchesTreeCacheRows: ChurchRow[] | null = null;
+let churchesTreeCacheAt = 0;
+
+function getChurchesTreeCacheTtlMs() {
+  const envValue = Number(Deno.env.get("CHURCHES_TREE_CACHE_TTL_MS") || "");
+  if (Number.isFinite(envValue) && envValue > 0) return envValue;
+  return 60_000;
+}
+
 async function loadAllChurchRows(sb: ReturnType<typeof createClient>): Promise<ChurchRow[]> {
+  const ttl = getChurchesTreeCacheTtlMs();
+  const now = Date.now();
+  if (churchesTreeCacheRows && now - churchesTreeCacheAt <= ttl) {
+    return churchesTreeCacheRows;
+  }
+
   const out: ChurchRow[] = [];
   const pageSize = 1000;
   let from = 0;
@@ -82,6 +99,8 @@ async function loadAllChurchRows(sb: ReturnType<typeof createClient>): Promise<C
     from += pageSize;
   }
 
+  churchesTreeCacheRows = out;
+  churchesTreeCacheAt = now;
   return out;
 }
 
