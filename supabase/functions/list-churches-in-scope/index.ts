@@ -100,6 +100,34 @@ function computeScope(rootTotvs: string, churches: ChurchRow[]): Set<string> {
   return scope;
 }
 
+async function computeScopeByDbBfs(
+  sb: ReturnType<typeof createClient>,
+  rootTotvs: string,
+): Promise<Set<string>> {
+  const visited = new Set<string>();
+  let frontier = [rootTotvs].filter(Boolean);
+
+  while (frontier.length > 0) {
+    const batch = [...new Set(frontier.filter((id) => id && !visited.has(id)))];
+    frontier = [];
+    if (batch.length === 0) break;
+
+    for (const id of batch) visited.add(id);
+
+    const { data: childrenRows } = await sb
+      .from("churches")
+      .select("totvs_id,parent_totvs_id")
+      .in("parent_totvs_id", batch);
+
+    for (const row of childrenRows || []) {
+      const childId = String((row as { totvs_id?: string | null }).totvs_id || "").trim();
+      if (childId && !visited.has(childId)) frontier.push(childId);
+    }
+  }
+
+  return visited;
+}
+
 function isAncestorOf(descendantTotvs: string, possibleAncestorTotvs: string, churches: ChurchRow[]): boolean {
   if (!descendantTotvs || !possibleAncestorTotvs) return false;
   if (descendantTotvs === possibleAncestorTotvs) return true;
@@ -285,6 +313,15 @@ Deno.serve(async (req) => {
     }
 
     const scopeTotal = scopeList.length;
+
+    // Comentario: fallback defensivo para casos raros em que o calculo em memoria
+    // retorna apenas a raiz mesmo existindo filhas no banco.
+    if (requestedRoot && scopeList.length <= 1) {
+      const dbScope = await computeScopeByDbBfs(sb, requestedRoot);
+      if (dbScope.size > scopeList.length) {
+        scopeList = [...dbScope];
+      }
+    }
 
     // 2) Busca igrejas do escopo + pastor (join)
     const { data: churches, error: cErr } = await sb
