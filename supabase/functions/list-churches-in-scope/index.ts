@@ -221,6 +221,18 @@ Deno.serve(async (req) => {
       const defaultTotvs = String(meRow?.default_totvs_id || "").trim();
       if (defaultTotvs) accessRoots.push(defaultTotvs);
       if (session.active_totvs_id) accessRoots.push(session.active_totvs_id);
+      // Comentario: fallback para casos pontuais de pastor com totvs_access incompleto.
+      // Inclui igrejas em que ele esta vinculado como pastor_user_id.
+      if (session.role === "pastor") {
+        const { data: pastorChurchRows } = await sb
+          .from("churches")
+          .select("totvs_id")
+          .eq("pastor_user_id", session.user_id);
+        for (const row of pastorChurchRows || []) {
+          const id = String((row as { totvs_id?: string | null }).totvs_id || "").trim();
+          if (id) accessRoots.push(id);
+        }
+      }
 
       const roots = [...new Set(accessRoots.filter(Boolean))];
       const effectiveRoots = roots.length > 0 ? roots : [session.active_totvs_id];
