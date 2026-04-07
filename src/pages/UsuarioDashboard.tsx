@@ -1009,6 +1009,12 @@ async function openPdf(letter: PastorLetter) {
                           <DropdownMenuItem disabled={!canRequest} onClick={() => pedirLiberacao(letter)}>
                             <Unlock className="mr-2 h-4 w-4" /> Pedir liberacao
                           </DropdownMenuItem>
+                          <DropdownMenuItem
+                            className="text-rose-600 focus:text-rose-600"
+                            onClick={() => excluirCarta(letter)}
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" /> Excluir
+                          </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </CardContent>
