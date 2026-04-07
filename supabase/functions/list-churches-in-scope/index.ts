@@ -35,7 +35,6 @@ type Body = {
   page?: number;
   page_size?: number;
   root_totvs_id?: string;
-  debug?: boolean;
 };
 
 async function verifySessionJWT(req: Request): Promise<SessionClaims | null> {
@@ -235,19 +234,6 @@ Deno.serve(async (req) => {
       return json({ ok: false, error: "db_error_scope", details: String(err) }, 500);
     }
     const requestedRoot = String(body.root_totvs_id || "").trim();
-    const debugMode = Boolean(body.debug) || session.user_id === "ca1f365a-11f8-4577-850e-c5acb97f341d";
-    const debugInfo: Record<string, unknown> = {};
-    if (debugMode) {
-      debugInfo.session_user_id = session.user_id;
-      debugInfo.session_role = session.role;
-      debugInfo.session_active_totvs_id = session.active_totvs_id;
-      debugInfo.requested_root = requestedRoot || null;
-      debugInfo.all_rows_count = allRows.length;
-      if (requestedRoot) {
-        debugInfo.children_exact_count = allRows.filter((r) => String(r.parent_totvs_id || "") === requestedRoot).length;
-        debugInfo.children_trim_count = allRows.filter((r) => String(r.parent_totvs_id || "").trim() === requestedRoot).length;
-      }
-    }
 
     let scopeList: string[] = [];
     // Comentario: effectiveRoot guarda o TOTVS raiz do escopo computado.
@@ -311,17 +297,10 @@ Deno.serve(async (req) => {
 
       const roots = [...new Set(accessRoots.filter(Boolean))];
       const effectiveRoots = roots.length > 0 ? roots : [session.active_totvs_id];
-      if (debugMode) {
-        debugInfo.effective_roots = effectiveRoots;
-      }
-
       const allowed = new Set<string>();
       for (const root of effectiveRoots) {
         const scope = computeScope(root, allRows);
         for (const id of scope) allowed.add(id);
-      }
-      if (debugMode) {
-        debugInfo.allowed_size = allowed.size;
       }
 
       if (requestedRoot) {
@@ -366,25 +345,16 @@ Deno.serve(async (req) => {
     }
 
     let scopeTotal = scopeList.length;
-    if (debugMode) {
-      debugInfo.scope_before_fallback = scopeList.length;
-    }
 
     // Comentario: fallback defensivo para casos raros em que o calculo em memoria
     // retorna apenas a raiz mesmo existindo filhas no banco.
     if (requestedRoot && scopeList.length <= 1) {
       const dbScope = await computeScopeByDbBfs(sb, requestedRoot);
-      if (debugMode) {
-        debugInfo.db_scope_size = dbScope.size;
-      }
       if (dbScope.size > scopeList.length) {
         scopeList = [...dbScope];
       }
     }
     scopeTotal = scopeList.length;
-    if (debugMode) {
-      debugInfo.scope_after_fallback = scopeList.length;
-    }
 
     // 2) Busca igrejas do escopo + pastor (join)
     const { data: churches, error: cErr } = await sb
@@ -472,15 +442,7 @@ Deno.serve(async (req) => {
       ancestorChain = ancData || [];
     }
 
-    return json({
-      ok: true,
-      churches: enriched,
-      ancestor_chain: ancestorChain,
-      total: scopeTotal,
-      page,
-      page_size,
-      ...(debugMode ? { debug: debugInfo } : {}),
-    }, 200);
+    return json({ ok: true, churches: enriched, ancestor_chain: ancestorChain, total: scopeTotal, page, page_size }, 200);
   } catch (err) {
     return json({ ok: false, error: "exception", details: String(err) }, 500);
   }
