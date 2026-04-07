@@ -38,9 +38,10 @@ function KpiCard({
 export default function PastorIgrejasPage() {
   const queryClient = useQueryClient();
   const { session } = useUser();
-  // Comentario: activeTotvsId limita o escopo ao mesmo que o dashboard usa,
-  // evitando mostrar igrejas fora do escopo da igreja logada.
-  const activeTotvsId = String(session?.totvs_id || "");
+  // Comentario: usa a raiz da sessao para listar toda a hierarquia do pastor.
+  // Em alguns perfis o totvs ativo pode ser uma filha (regional/local), o que
+  // limitaria a lista a apenas 1 igreja.
+  const activeTotvsId = String(session?.root_totvs_id || session?.totvs_id || "");
   const [filterNome, setFilterNome] = useState("");
   // Comentario: debounce de 400ms evita recalcular o filtro a cada tecla pressionada.
   const debouncedNome = useDebounce(filterNome, 400);
