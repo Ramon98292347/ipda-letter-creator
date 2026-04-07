@@ -32,7 +32,7 @@ function json(obj: unknown, status = 200) {
 }
 
 type Role = "admin" | "pastor" | "obreiro";
-type ChurchClass = "estadual" | "setorial" | "central" | "regional" | "local";
+type ChurchClass = "estadual" | "setorial" | "central" | "regional" | "local" | "casa_oracao";
 
 type SessionClaims = {
   user_id: string;
@@ -69,16 +69,24 @@ type ChurchRow = {
 };
 
 const childClassMap: Record<ChurchClass, ChurchClass[]> = {
-  estadual: ["setorial", "central", "regional", "local"],
-  setorial: ["central", "regional", "local"],
-  central: ["regional", "local"],
-  regional: ["local"],
-  local: [],
+  estadual: ["setorial", "central", "regional", "local", "casa_oracao"],
+  setorial: ["central", "regional", "local", "casa_oracao"],
+  central: ["regional", "local", "casa_oracao"],
+  regional: ["local", "casa_oracao"],
+  local: ["casa_oracao"],
+  casa_oracao: [],
 };
 
 function normalizeClass(value: string | null | undefined): ChurchClass | null {
   const safe = String(value || "").trim().toLowerCase();
-  if (safe === "estadual" || safe === "setorial" || safe === "central" || safe === "regional" || safe === "local") {
+  if (
+    safe === "estadual" ||
+    safe === "setorial" ||
+    safe === "central" ||
+    safe === "regional" ||
+    safe === "local" ||
+    safe === "casa_oracao"
+  ) {
     return safe;
   }
   return null;

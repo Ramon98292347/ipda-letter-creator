@@ -113,6 +113,7 @@ export default function PastorIgrejasPage() {
       central: filteredRowsForCounters.filter((c) => String(c.church_class || "").toLowerCase() === "central").length,
       regional: filteredRowsForCounters.filter((c) => String(c.church_class || "").toLowerCase() === "regional").length,
       local: filteredRowsForCounters.filter((c) => String(c.church_class || "").toLowerCase() === "local").length,
+      casa_oracao: filteredRowsForCounters.filter((c) => String(c.church_class || "").toLowerCase() === "casa_oracao").length,
     };
   }, [filteredRowsForCounters]);
 
@@ -123,6 +124,7 @@ export default function PastorIgrejasPage() {
     central: "from-orange-500 to-orange-400",
     regional: "from-emerald-600 to-emerald-500",
     local: "from-slate-600 to-slate-500",
+    casa_oracao: "from-zinc-700 to-zinc-600",
   };
 
   return (
@@ -155,6 +157,7 @@ export default function PastorIgrejasPage() {
                     <SelectItem value="central">Central</SelectItem>
                     <SelectItem value="regional">Regional</SelectItem>
                     <SelectItem value="local">Local</SelectItem>
+                    <SelectItem value="casa_oracao">Casa de oração</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -168,13 +171,14 @@ export default function PastorIgrejasPage() {
           </div>
         </section>
 
-        <section className="grid gap-4 md:grid-cols-3 xl:grid-cols-6">
+        <section className="grid gap-4 md:grid-cols-3 xl:grid-cols-7">
           <KpiCard title="Total" value={totals.total} subtitle="total de igrejas" gradient={gradients.total} />
           <KpiCard title="Estadual" value={totals.estadual} subtitle="classe estadual" gradient={gradients.estadual} />
           <KpiCard title="Setorial" value={totals.setorial} subtitle="classe setorial" gradient={gradients.setorial} />
           <KpiCard title="Central" value={totals.central} subtitle="classe central" gradient={gradients.central} />
           <KpiCard title="Regional" value={totals.regional} subtitle="classe regional" gradient={gradients.regional} />
           <KpiCard title="Local" value={totals.local} subtitle="classe local" gradient={gradients.local} />
+          <KpiCard title="Casa de oração" value={totals.casa_oracao} subtitle="classe casa de oração" gradient={gradients.casa_oracao} />
         </section>
 
         <AdminChurchesTab

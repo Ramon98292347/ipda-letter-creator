@@ -22,7 +22,7 @@ import { formatCepBr, formatPhoneBr } from "@/lib/br-format";
 import { supabase } from "@/lib/supabase";
 import { BRAZIL_UF_OPTIONS } from "@/lib/brazil-ufs";
 
-type ChurchClass = "estadual" | "setorial" | "central" | "regional" | "local";
+type ChurchClass = "estadual" | "setorial" | "central" | "regional" | "local" | "casa_oracao";
 
 type NewChurchForm = {
   totvs_id: string;
@@ -67,22 +67,28 @@ const initialForm: NewChurchForm = {
   is_active: true,
 };
 
-const classOptions: ChurchClass[] = ["estadual", "setorial", "central", "regional", "local"];
+const classOptions: ChurchClass[] = ["estadual", "setorial", "central", "regional", "local", "casa_oracao"];
 
 const childClassMap: Record<ChurchClass, ChurchClass[]> = {
-  estadual: ["setorial", "central", "regional", "local"],
-  setorial: ["central", "regional", "local"],
-  central: ["regional", "local"],
-  regional: ["local"],
-  local: [],
+  estadual: ["setorial", "central", "regional", "local", "casa_oracao"],
+  setorial: ["central", "regional", "local", "casa_oracao"],
+  central: ["regional", "local", "casa_oracao"],
+  regional: ["local", "casa_oracao"],
+  local: ["casa_oracao"],
+  casa_oracao: [],
 };
 
 function normalizeChurchClass(value: string | null | undefined): ChurchClass | null {
   const safe = String(value || "").trim().toLowerCase();
-  if (safe === "estadual" || safe === "setorial" || safe === "central" || safe === "regional" || safe === "local") {
+  if (safe === "estadual" || safe === "setorial" || safe === "central" || safe === "regional" || safe === "local" || safe === "casa_oracao") {
     return safe;
   }
   return null;
+}
+
+function classLabel(value: ChurchClass | string) {
+  if (String(value) === "casa_oracao") return "casa de oração";
+  return String(value || "");
 }
 
 function viewValue(value: unknown) {
@@ -178,7 +184,7 @@ export function AdminChurchesTab({
   // Comentario: ordena pela hierarquia (estadual > setorial > central > regional > local)
   // e dentro de cada nível, pelo TOTVS numérico crescente — mesmo formato do obreiro.
   const sortedRows = useMemo(() => {
-    const classOrder: Record<string, number> = { estadual: 0, setorial: 1, central: 2, regional: 3, local: 4 };
+    const classOrder: Record<string, number> = { estadual: 0, setorial: 1, central: 2, regional: 3, local: 4, casa_oracao: 5 };
     return [...rows].sort((a, b) => {
       const oA = classOrder[String(a.church_class || "").toLowerCase().trim()] ?? 99;
       const oB = classOrder[String(b.church_class || "").toLowerCase().trim()] ?? 99;
@@ -767,7 +773,7 @@ export function AdminChurchesTab({
                 <SelectContent>
                   {allowedCreateClasses.map((item) => (
                     <SelectItem key={item} value={item}>
-                      {item}
+                      {classLabel(item)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -958,6 +964,7 @@ export function AdminChurchesTab({
                   <SelectItem value="central">central</SelectItem>
                   <SelectItem value="regional">regional</SelectItem>
                   <SelectItem value="local">local</SelectItem>
+                  <SelectItem value="casa_oracao">casa de oração</SelectItem>
                 </SelectContent>
               </Select>
             </div>

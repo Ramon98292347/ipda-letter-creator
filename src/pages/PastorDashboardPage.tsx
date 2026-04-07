@@ -89,6 +89,7 @@ export default function PastorDashboardPage() {
       central: churches.filter((c) => String(c.church_class || "").toLowerCase() === "central").length,
       regional: churches.filter((c) => String(c.church_class || "").toLowerCase() === "regional").length,
       local: churches.filter((c) => String(c.church_class || "").toLowerCase() === "local").length,
+      casa_oracao: churches.filter((c) => String(c.church_class || "").toLowerCase() === "casa_oracao").length,
     };
 
     return { totalMembers, pastors, obreiros, presbiteros, diaconos, membrosAtivos, byClass };
@@ -138,6 +139,7 @@ export default function PastorDashboardPage() {
             <KpiCard title="Central" value={counters.byClass.central} subtitle="classe central" icon={Church} gradient="from-orange-500 to-orange-400" onClick={() => navigate("/pastor/igrejas?class=central")} />
             <KpiCard title="Regional" value={counters.byClass.regional} subtitle="classe regional" icon={Church} gradient="from-emerald-600 to-emerald-500" onClick={() => navigate("/pastor/igrejas?class=regional")} />
             <KpiCard title="Local" value={counters.byClass.local} subtitle="classe local" icon={Church} gradient="from-slate-600 to-slate-500" onClick={() => navigate("/pastor/igrejas?class=local")} />
+            <KpiCard title="Casa de oração" value={counters.byClass.casa_oracao} subtitle="classe casa de oração" icon={Church} gradient="from-zinc-700 to-zinc-600" onClick={() => navigate("/pastor/igrejas?class=casa_oracao")} />
           </div>
         </section>
       </div>
