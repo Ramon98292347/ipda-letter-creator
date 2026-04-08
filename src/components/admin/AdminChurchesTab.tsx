@@ -556,20 +556,21 @@ export function AdminChurchesTab({
         <CardHeader className="space-y-4">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <CardTitle>Igrejas cadastradas</CardTitle>
-            <div className="grid w-full grid-cols-1 gap-2 sm:grid-cols-3 lg:flex lg:w-auto lg:items-center">
-              <Button className="w-full lg:w-auto" variant={view === "lista" ? "default" : "outline"} size="sm" onClick={() => setView("lista")}>
+            <div className="grid w-full grid-cols-3 gap-2 sm:grid-cols-3 lg:flex lg:w-auto lg:items-center">
+              <Button className="h-9 w-full px-2 text-sm lg:h-10 lg:w-auto" variant={view === "lista" ? "default" : "outline"} size="sm" onClick={() => setView("lista")}>
                 <List className="mr-2 h-4 w-4" /> Lista
               </Button>
-              <Button className="w-full lg:w-auto" variant={view === "grid" ? "default" : "outline"} size="sm" onClick={() => setView("grid")}>
+              <Button className="h-9 w-full px-2 text-sm lg:h-10 lg:w-auto" variant={view === "grid" ? "default" : "outline"} size="sm" onClick={() => setView("grid")}>
                 <LayoutGrid className="mr-2 h-4 w-4" /> Grid
               </Button>
-              <Button className="w-full lg:w-auto" onClick={openNewChurchModal}>Nova Igreja</Button>
+              <Button className="h-9 w-full px-2 text-sm lg:h-10 lg:w-auto" onClick={openNewChurchModal}>Nova Igreja</Button>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-            <Button variant={tab === "lista" ? "default" : "outline"} onClick={() => setTab("lista")}>Lista</Button>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+            <Button className="h-9 px-2 text-sm lg:h-10" variant={tab === "lista" ? "default" : "outline"} onClick={() => setTab("lista")}>Lista</Button>
             <Button
+              className="h-9 px-2 text-sm lg:h-10"
               variant={tab === "remanejamento" ? "default" : "outline"}
               onClick={() => {
                 setTab("remanejamento");
@@ -578,7 +579,7 @@ export function AdminChurchesTab({
             >
               Remanejamento
             </Button>
-            <Button variant="outline" disabled>Contratos (implantacao em breve)</Button>
+            <Button className="col-span-2 h-9 px-2 text-[11px] leading-tight whitespace-normal sm:col-span-1 lg:h-10 lg:text-sm" variant="outline" disabled>Contratos (implantacao em breve)</Button>
           </div>
         </CardHeader>
 
