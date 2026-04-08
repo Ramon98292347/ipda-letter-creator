@@ -31,3 +31,4 @@ test-results/
 
 # Supabase temp
 supabase/.temp/
+.fcm-service-account.json

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "223408327468",
+    "project_id": "login-b3da3",
+    "storage_bucket": "login-b3da3.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:223408327468:android:a8d15d374e948067efba89",
+        "android_client_info": {
+          "package_name": "com.ipda.sistema"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA8hUACdtHyeMV2fssbNd4T0qHqjMrTGT8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

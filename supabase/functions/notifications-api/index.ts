@@ -248,6 +248,89 @@ async function sendPush(
   }
 }
 
+// Comentario: cache do access token do FCM V1 (dura 1h)
+let cachedFcmToken: { token: string; expiresAt: number } | null = null;
+
+// Comentario: converte PEM PKCS#8 em CryptoKey para assinar JWT
+async function importPrivateKey(pem: string): Promise<CryptoKey> {
+  const cleaned = pem
+    .replace(/-----BEGIN PRIVATE KEY-----/g, "")
+    .replace(/-----END PRIVATE KEY-----/g, "")
+    .replace(/\s+/g, "");
+  const binary = Uint8Array.from(atob(cleaned), (c) => c.charCodeAt(0));
+  return await crypto.subtle.importKey(
+    "pkcs8",
+    binary,
+    { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+}
+
+function base64UrlEncode(data: Uint8Array | string): string {
+  const bytes = typeof data === "string" ? new TextEncoder().encode(data) : data;
+  let bin = "";
+  for (const b of bytes) bin += String.fromCharCode(b);
+  return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+}
+
+// Comentario: gera access token FCM via JWT assinado com a service account
+async function getFcmAccessToken(): Promise<{ token: string; projectId: string } | null> {
+  const raw = String(Deno.env.get("FCM_SERVICE_ACCOUNT_JSON") || "").trim();
+  if (!raw) return null;
+
+  let sa: { client_email?: string; private_key?: string; project_id?: string };
+  try {
+    sa = JSON.parse(raw);
+  } catch {
+    return null;
+  }
+  if (!sa.client_email || !sa.private_key || !sa.project_id) return null;
+
+  const now = Math.floor(Date.now() / 1000);
+  if (cachedFcmToken && cachedFcmToken.expiresAt > now + 60) {
+    return { token: cachedFcmToken.token, projectId: sa.project_id };
+  }
+
+  try {
+    const header = { alg: "RS256", typ: "JWT" };
+    const claim = {
+      iss: sa.client_email,
+      scope: "https://www.googleapis.com/auth/firebase.messaging",
+      aud: "https://oauth2.googleapis.com/token",
+      iat: now,
+      exp: now + 3600,
+    };
+
+    const unsigned = `${base64UrlEncode(JSON.stringify(header))}.${base64UrlEncode(JSON.stringify(claim))}`;
+    const key = await importPrivateKey(sa.private_key);
+    const sig = await crypto.subtle.sign(
+      "RSASSA-PKCS1-v1_5",
+      key,
+      new TextEncoder().encode(unsigned),
+    );
+    const jwt = `${unsigned}.${base64UrlEncode(new Uint8Array(sig))}`;
+
+    const resp = await fetch("https://oauth2.googleapis.com/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: `grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=${jwt}`,
+    });
+    if (!resp.ok) return null;
+    const data = await resp.json() as { access_token?: string; expires_in?: number };
+    if (!data.access_token) return null;
+
+    cachedFcmToken = {
+      token: data.access_token,
+      expiresAt: now + (data.expires_in || 3600),
+    };
+    return { token: data.access_token, projectId: sa.project_id };
+  } catch (err) {
+    console.error("[fcm] erro ao gerar access token:", err);
+    return null;
+  }
+}
+
 async function sendNativePush(
   token: string,
   title: string,
@@ -255,45 +338,54 @@ async function sendNativePush(
   url: string,
   data: Record<string, unknown>,
 ): Promise<{ ok: boolean; expired: boolean }> {
-  const fcmServerKey = String(Deno.env.get("FCM_SERVER_KEY") || "").trim();
-  if (!fcmServerKey) return { ok: false, expired: false };
+  const fcmAuth = await getFcmAccessToken();
+  if (!fcmAuth) return { ok: false, expired: false };
 
-  const payloadData: Record<string, string> = {
-    url,
-  };
+  const payloadData: Record<string, string> = { url };
   for (const [k, v] of Object.entries(data || {})) {
     payloadData[k] = typeof v === "string" ? v : JSON.stringify(v);
   }
 
   try {
-    const resp = await fetch("https://fcm.googleapis.com/fcm/send", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `key=${fcmServerKey}`,
-      },
-      body: JSON.stringify({
-        to: token,
-        priority: "high",
-        notification: {
-          title,
-          body,
-          sound: "default",
+    const resp = await fetch(
+      `https://fcm.googleapis.com/v1/projects/${fcmAuth.projectId}/messages:send`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${fcmAuth.token}`,
         },
-        data: payloadData,
-      }),
-    });
+        body: JSON.stringify({
+          message: {
+            token,
+            notification: { title, body },
+            data: payloadData,
+            android: {
+              priority: "HIGH",
+              notification: { sound: "default", channel_id: "default" },
+            },
+          },
+        }),
+      },
+    );
 
-    if (!resp.ok) return { ok: false, expired: false };
-    const bodyJson = await resp.json().catch(() => ({}));
-    if (bodyJson && typeof bodyJson === "object" && Number((bodyJson as Record<string, unknown>).failure || 0) > 0) {
-      const results = ((bodyJson as Record<string, unknown>).results as Array<Record<string, unknown>> | undefined) || [];
-      const err = String((results[0] || {}).error || "");
-      const expired = err === "NotRegistered" || err === "InvalidRegistration";
+    if (resp.ok) return { ok: true, expired: false };
+
+    // Token invalido/expirado -> remover do banco
+    if (resp.status === 404 || resp.status === 400) {
+      const errBody = await resp.text().catch(() => "");
+      const expired =
+        errBody.includes("UNREGISTERED") ||
+        errBody.includes("INVALID_ARGUMENT") ||
+        errBody.includes("registration-token-not-registered");
       return { ok: false, expired };
     }
-    return { ok: true, expired: false };
-  } catch {
+
+    const errText = await resp.text().catch(() => "");
+    console.error(`[fcm] erro ${resp.status}: ${errText}`);
+    return { ok: false, expired: false };
+  } catch (err) {
+    console.error("[fcm] erro no envio:", err);
     return { ok: false, expired: false };
   }
 }
