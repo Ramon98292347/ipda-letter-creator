@@ -3696,6 +3696,18 @@ export async function deleteMemberDocs(payload: {
   return { ok: true };
 }
 
+export async function deleteChurchRemanejamento(churchTotvsId: string) {
+  localStorage.removeItem(remanejamentoDraftKey(churchTotvsId));
+  if (!isMockMode() && CHURCH_DOCS_BACKEND_ENABLED) {
+    try {
+      await api.deleteChurchRemanejamento({ church_totvs_id: churchTotvsId });
+      return;
+    } catch {
+      // Comentario: mantem sem falha visivel mesmo se backend estiver indisponivel.
+    }
+  }
+}
+
 // Comentario: tipo de item da listagem de carteirinhas prontas para impressao em lote
 export type ReadyCarteirinhaItem = {
   id: string;

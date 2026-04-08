@@ -165,6 +165,7 @@ export const api = {
   // Comentario: modulo Igrejas > Remanejamento/Contrato.
   getChurchRemanejamentoForm: (body: { church_totvs_id: string }) => post("church-docs-api", { action: "get-remanejamento-form", ...body }),
   upsertChurchRemanejamento: (body: JsonBody) => post("church-docs-api", { action: "upsert-remanejamento", ...body }),
+  deleteChurchRemanejamento: (body: { church_totvs_id: string }) => post("church-docs-api", { action: "delete-remanejamento", ...body }),
   generateChurchRemanejamentoPdf: (body: { church_totvs_id: string; remanejamento_id?: string }) =>
     post("church-docs-api", { action: "generate-remanejamento-pdf", ...body }),
   getChurchContratoForm: (body: { church_totvs_id: string }) => post("church-docs-api", { action: "get-contrato-form", ...body }),

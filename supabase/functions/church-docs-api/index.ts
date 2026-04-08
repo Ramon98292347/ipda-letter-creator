@@ -7,6 +7,7 @@
  * Recebe:
  *   - get-remanejamento-form: { action: "get-remanejamento-form", church_totvs_id: string }
  *   - upsert-remanejamento: { action: "upsert-remanejamento", church_totvs_id: string, hierarchy?: object, ...campos }
+ *   - delete-remanejamento: { action: "delete-remanejamento", church_totvs_id: string }
  *   - generate-remanejamento-pdf: { action: "generate-remanejamento-pdf", church_totvs_id: string }
  *   - get-contrato-form: { action: "get-contrato-form", church_totvs_id: string }
  *   - upsert-contrato: { action: "upsert-contrato", church_totvs_id: string, ...campos }
@@ -31,6 +32,7 @@ type SessionClaims = { user_id: string; role: Role; active_totvs_id: string };
 type Action =
   | "get-remanejamento-form"
   | "upsert-remanejamento"
+  | "delete-remanejamento"
   | "generate-remanejamento-pdf"
   | "get-contrato-form"
   | "upsert-contrato"
@@ -302,6 +304,22 @@ async function actionUpsertRemanejamento(sb: ReturnType<typeof createClient>, re
 
   if (error) return json({ ok: false, error: "upsert_failed", details: error.message }, 500);
   return json({ ok: true, remanejamento: data }, 200);
+}
+
+async function actionDeleteRemanejamento(sb: ReturnType<typeof createClient>, req: Request, churchTotvsId: string) {
+  const auth = await requireSession(req);
+  if (auth.error || !auth.session) return auth.error!;
+
+  const scopeResult = await ensureChurchScope(sb, auth.session, churchTotvsId);
+  if (scopeResult.error) return scopeResult.error;
+
+  const { error } = await sb
+    .from("church_remanejamentos")
+    .delete()
+    .eq("church_totvs_id", churchTotvsId);
+
+  if (error) return json({ ok: false, error: "delete_failed", details: error.message }, 500);
+  return json({ ok: true }, 200);
 }
 
 async function actionGenerateRemanejamentoPdf(sb: ReturnType<typeof createClient>, req: Request, churchTotvsId: string) {
@@ -634,6 +652,7 @@ Deno.serve(async (req) => {
 
     if (action === "get-remanejamento-form") return await actionGetRemanejamentoForm(sb, req, churchTotvsId);
     if (action === "upsert-remanejamento") return await actionUpsertRemanejamento(sb, req, body, churchTotvsId);
+    if (action === "delete-remanejamento") return await actionDeleteRemanejamento(sb, req, churchTotvsId);
     if (action === "generate-remanejamento-pdf") return await actionGenerateRemanejamentoPdf(sb, req, churchTotvsId);
     if (action === "get-contrato-form") return await actionGetContratoForm(sb, req, churchTotvsId);
     if (action === "upsert-contrato") return await actionUpsertContrato(sb, req, body, churchTotvsId);
@@ -646,6 +665,7 @@ Deno.serve(async (req) => {
       allowed: [
         "get-remanejamento-form",
         "upsert-remanejamento",
+        "delete-remanejamento",
         "generate-remanejamento-pdf",
         "get-contrato-form",
         "upsert-contrato",

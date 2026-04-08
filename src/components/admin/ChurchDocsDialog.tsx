@@ -14,6 +14,7 @@ import { supabase } from "@/lib/supabase";
 import { fetchAddressByCep, maskCep, onlyDigits } from "@/lib/cep";
 import type { ChurchInScopeItem, ChurchContratoDraft, ChurchHierarchySigner, ChurchLaudoDraft, ChurchRemanejamentoDraft, UserListItem } from "@/services/saasService";
 import {
+  deleteChurchRemanejamento,
   generateChurchContratoPdf,
   generateChurchRemanejamentoPdf,
   getChurchContratoForm,
@@ -81,6 +82,7 @@ export function ChurchDocsDialog({
   const [searchingNovo, setSearchingNovo] = useState(false);
   const [remStatus, setRemStatus] = useState<string>("RASCUNHO");
   const [remPdfUrl, setRemPdfUrl] = useState<string>("");
+  const [hideRemFormManual, setHideRemFormManual] = useState(false);
 
   useEffect(() => {
     setActiveTab(initialTab);
@@ -96,6 +98,7 @@ export function ChurchDocsDialog({
         setRemanejamento(remData.draft);
         setRemStatus(String(remData.status || "RASCUNHO"));
         setRemPdfUrl(String(remData.pdf_storage_path || ""));
+        setHideRemFormManual(false);
         setContrato(conData.draft);
         setLaudo(conData.laudo);
       } catch {
@@ -313,6 +316,7 @@ export function ChurchDocsDialog({
       toast.error(`Preencha os campos obrigatorios: ${missingRemFields.join(", ")}.`);
       return;
     }
+    if (activeTab === "remanejamento") setHideRemFormManual(true);
     setSaving(true);
     try {
       if (activeTab === "remanejamento") {
@@ -334,6 +338,27 @@ export function ChurchDocsDialog({
       setSaving(false);
     }
   }
+
+  async function onDeleteRemanejamento() {
+    if (!church) return;
+    const confirmed = window.confirm("Deseja excluir este remanejamento para fazer outro?");
+    if (!confirmed) return;
+    setSaving(true);
+    try {
+      await deleteChurchRemanejamento(church.totvs_id);
+      const remData = await getChurchRemanejamentoForm(church);
+      setHierarchy(remData.hierarchy);
+      setRemanejamento(remData.draft);
+      setRemStatus(String(remData.status || "RASCUNHO"));
+      setRemPdfUrl(String(remData.pdf_storage_path || ""));
+      setHideRemFormManual(false);
+      toast.success("Remanejamento excluido. Formulario liberado para novo preenchimento.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const remFormHidden = activeTab === "remanejamento" && (hideRemFormManual || remStatus === "FINALIZADO");
 
   function getMissingRemanejamentoFields() {
     const requiredFields: Array<{ key: keyof ChurchRemanejamentoDraft; label: string }> = [
@@ -428,7 +453,7 @@ export function ChurchDocsDialog({
                   <Badge
                     variant="outline"
                     className={
-                      remStatus === "GERADO"
+                      remStatus === "FINALIZADO" || remStatus === "GERADO"
                         ? "border-emerald-200 bg-emerald-50 text-emerald-700"
                         : remStatus === "GERANDO"
                           ? "border-amber-200 bg-amber-50 text-amber-700"
@@ -442,22 +467,29 @@ export function ChurchDocsDialog({
                       Abrir documento
                     </Button>
                   ) : null}
+                  {remFormHidden ? (
+                    <Button type="button" variant="outline" onClick={onDeleteRemanejamento} disabled={saving || loading}>
+                      Excluir e refazer
+                    </Button>
+                  ) : null}
                 </CardContent>
               </Card>
 
-              <Card>
-                <CardHeader><CardTitle>Pastor Estadual</CardTitle></CardHeader>
-                <CardContent className="grid gap-3 md:grid-cols-3">
+              {!remFormHidden ? (
+                <>
+                  <Card>
+                    <CardHeader><CardTitle>Pastor Estadual</CardTitle></CardHeader>
+                    <CardContent className="grid gap-3 md:grid-cols-3">
                   <div className="space-y-1"><Label>Nome</Label><Input value={textValue(remanejamento.estadual_pastor_nome)} onChange={(e) => updateRem("estadual_pastor_nome", e.target.value)} /></div>
                   <div className="space-y-1"><Label>CPF</Label><Input value={textValue(remanejamento.estadual_pastor_cpf)} onChange={(e) => updateRem("estadual_pastor_cpf", e.target.value)} /></div>
                   <div className="space-y-1"><Label>Telefone</Label><Input value={textValue(remanejamento.estadual_telefone)} onChange={(e) => updateRem("estadual_telefone", e.target.value)} /></div>
                   <div className="space-y-1"><Label>Email</Label><Input value={textValue(remanejamento.estadual_email)} onChange={(e) => updateRem("estadual_email", e.target.value)} /></div>
                   <div className="space-y-1"><Label>Cidade</Label><Input value={textValue(remanejamento.estadual_cidade)} onChange={(e) => updateRem("estadual_cidade", e.target.value)} /></div>
                   <div className="space-y-1"><Label>UF</Label><Select value={textValue(remanejamento.estadual_uf)} onValueChange={(value) => updateRem("estadual_uf", value)}><SelectTrigger><SelectValue placeholder="Selecione a UF" /></SelectTrigger><SelectContent>{BRAZIL_UF_OPTIONS.map((uf) => (<SelectItem key={uf} value={uf}>{uf}</SelectItem>))}</SelectContent></Select></div>
-                </CardContent>
-              </Card>
+                    </CardContent>
+                  </Card>
 
-              <Card>
+                  <Card>
                 <CardHeader><CardTitle>Pastor Setorial (quando necessario)</CardTitle></CardHeader>
                 <CardContent className="grid gap-3 md:grid-cols-3">
                   <div className="space-y-1"><Label>Nome</Label><Input value={textValue(remanejamento.setorial_pastor_nome)} onChange={(e) => updateRem("setorial_pastor_nome", e.target.value)} /></div>
@@ -467,9 +499,9 @@ export function ChurchDocsDialog({
                   <div className="space-y-1"><Label>Cidade</Label><Input value={textValue(remanejamento.setorial_cidade)} onChange={(e) => updateRem("setorial_cidade", e.target.value)} /></div>
                   <div className="space-y-1"><Label>UF</Label><Select value={textValue(remanejamento.setorial_uf)} onValueChange={(value) => updateRem("setorial_uf", value)}><SelectTrigger><SelectValue placeholder="Selecione a UF" /></SelectTrigger><SelectContent>{BRAZIL_UF_OPTIONS.map((uf) => (<SelectItem key={uf} value={uf}>{uf}</SelectItem>))}</SelectContent></Select></div>
                 </CardContent>
-              </Card>
+                  </Card>
 
-              <Card>
+                  <Card>
                 <CardHeader><CardTitle>Dados da Igreja e Financeiro</CardTitle></CardHeader>
                 <CardContent className="grid gap-3 md:grid-cols-3">
                   <div className="space-y-1"><Label>Endereco</Label><Input value={textValue(remanejamento.igreja_endereco_atual)} onChange={(e) => updateRem("igreja_endereco_atual", e.target.value)} /></div>
@@ -541,9 +573,9 @@ export function ChurchDocsDialog({
                   </div>
                   <div className="space-y-1"><Label>Numero de membros</Label><Input value={textValue(remanejamento.numero_membros)} onChange={(e) => updateRem("numero_membros", e.target.value)} /></div>
                 </CardContent>
-              </Card>
+                  </Card>
 
-              <Card>
+                  <Card>
                 <CardHeader><CardTitle>Dirigente que Deixa a IPDA</CardTitle></CardHeader>
                 <CardContent className="grid gap-3 md:grid-cols-3">
                   <div className="space-y-1 md:col-span-3">
@@ -568,9 +600,9 @@ export function ChurchDocsDialog({
                   <div className="space-y-1"><Label>CPF</Label><Input value={textValue(remanejamento.dirigente_saida_cpf)} onChange={(e) => updateRem("dirigente_saida_cpf", e.target.value)} /></div>
                   <div className="space-y-1"><Label>Telefone</Label><Input value={textValue(remanejamento.dirigente_saida_telefone)} onChange={(e) => updateRem("dirigente_saida_telefone", e.target.value)} /></div>
                 </CardContent>
-              </Card>
+                  </Card>
 
-              <Card>
+                  <Card>
                 <CardHeader><CardTitle>Novo Dirigente</CardTitle></CardHeader>
                 <CardContent className="grid gap-3 md:grid-cols-3">
                   <div className="space-y-1 md:col-span-3">
@@ -608,14 +640,16 @@ export function ChurchDocsDialog({
                     <div className="space-y-1"><Label>Prebenda desde</Label><Input type="date" value={textValue(remanejamento.novo_dirigente_prebenda_desde)} onChange={(e) => updateRem("novo_dirigente_prebenda_desde", e.target.value)} /></div>
                   ) : null}
                 </CardContent>
-              </Card>
+                  </Card>
 
-              <Card>
+                  <Card>
                 <CardHeader><CardTitle>Motivo da Troca</CardTitle></CardHeader>
                 <CardContent className="space-y-3">
                   <div className="space-y-1"><Label>Motivo da troca</Label><Textarea value={textValue(remanejamento.motivo_troca)} onChange={(e) => updateRem("motivo_troca", e.target.value)} rows={4} /></div>
                 </CardContent>
-              </Card>
+                  </Card>
+                </>
+              ) : null}
             </TabsContent>
 
             <TabsContent value="contrato" className="space-y-4">
@@ -728,13 +762,17 @@ export function ChurchDocsDialog({
 
         <div className="flex flex-wrap justify-end gap-2 pt-2">
           <Button type="button" variant="outline" onClick={onClose}>Fechar</Button>
-          <Button type="button" variant="outline" onClick={onSaveDraft} disabled={saving || loading}>
-            {saving ? "Salvando..." : "Salvar rascunho"}
-          </Button>
-          <Button type="button" onClick={onSaveSystem} disabled={saving || loading}>
-            {saving ? "Salvando..." : "Salvar no sistema"}
-          </Button>
-          {activeTab !== "laudo" ? (
+          {!(activeTab === "remanejamento" && remFormHidden) ? (
+            <Button type="button" variant="outline" onClick={onSaveDraft} disabled={saving || loading}>
+              {saving ? "Salvando..." : "Salvar rascunho"}
+            </Button>
+          ) : null}
+          {!(activeTab === "remanejamento" && remFormHidden) ? (
+            <Button type="button" onClick={onSaveSystem} disabled={saving || loading}>
+              {saving ? "Salvando..." : "Salvar no sistema"}
+            </Button>
+          ) : null}
+          {activeTab !== "laudo" && !(activeTab === "remanejamento" && remFormHidden) ? (
             <Button type="button" variant="secondary" onClick={onGeneratePdf} disabled={saving || loading}>
               {saving ? "Processando..." : "Gerar PDF"}
             </Button>
