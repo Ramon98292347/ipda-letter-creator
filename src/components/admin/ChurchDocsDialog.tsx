@@ -3,6 +3,7 @@ import { toast } from "sonner";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -11,12 +12,13 @@ import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { supabase } from "@/lib/supabase";
 import { fetchAddressByCep, maskCep, onlyDigits } from "@/lib/cep";
-import type { ChurchInScopeItem, ChurchContratoDraft, ChurchHierarchySigner, ChurchLaudoDraft, ChurchRemanejamentoDraft } from "@/services/saasService";
+import type { ChurchInScopeItem, ChurchContratoDraft, ChurchHierarchySigner, ChurchLaudoDraft, ChurchRemanejamentoDraft, UserListItem } from "@/services/saasService";
 import {
   generateChurchContratoPdf,
   generateChurchRemanejamentoPdf,
   getChurchContratoForm,
   getChurchRemanejamentoForm,
+  listMembers,
   saveChurchContratoDraft,
   saveChurchLaudoDraft,
   saveChurchRemanejamentoDraft,
@@ -29,9 +31,21 @@ import { BRAZIL_UF_OPTIONS } from "@/lib/brazil-ufs";
 type TabValue = "remanejamento" | "contrato" | "laudo";
 
 const DOCS_BUCKET = "documentos_igrejas";
+const MINISTER_ROLE_OPTIONS = ["Pastor", "Presbitero", "Diacono", "Cooperador", "Membro"];
 
 function textValue(v: unknown) {
   return String(v || "");
+}
+
+function formatCurrencyBRL(raw: string) {
+  const digits = String(raw || "").replace(/\D/g, "");
+  if (!digits) return "";
+  const value = Number(digits || "0") / 100;
+  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
+}
+
+function isBlank(v: unknown) {
+  return String(v ?? "").trim().length === 0;
 }
 
 // Comentario: formulario completo de documentos da igreja em um modal unico com abas.
@@ -61,6 +75,12 @@ export function ChurchDocsDialog({
   const [busyPhoto, setBusyPhoto] = useState<string>("");
   const [cepLoading, setCepLoading] = useState(false);
   const [lastCepLookup, setLastCepLookup] = useState("");
+  const [searchDirigenteSaida, setSearchDirigenteSaida] = useState("");
+  const [searchNovoDirigente, setSearchNovoDirigente] = useState("");
+  const [searchingSaida, setSearchingSaida] = useState(false);
+  const [searchingNovo, setSearchingNovo] = useState(false);
+  const [remStatus, setRemStatus] = useState<string>("RASCUNHO");
+  const [remPdfUrl, setRemPdfUrl] = useState<string>("");
 
   useEffect(() => {
     setActiveTab(initialTab);
@@ -74,6 +94,8 @@ export function ChurchDocsDialog({
         const [remData, conData] = await Promise.all([getChurchRemanejamentoForm(church), getChurchContratoForm(church)]);
         setHierarchy(remData.hierarchy);
         setRemanejamento(remData.draft);
+        setRemStatus(String(remData.status || "RASCUNHO"));
+        setRemPdfUrl(String(remData.pdf_storage_path || ""));
         setContrato(conData.draft);
         setLaudo(conData.laudo);
       } catch {
@@ -100,6 +122,82 @@ export function ChurchDocsDialog({
 
   function updateLaudo(field: keyof ChurchLaudoDraft, value: string) {
     setLaudo((prev) => ({ ...prev, [field]: value }));
+  }
+
+  function formatKmValue(raw: string) {
+    const digits = String(raw || "").replace(/\D/g, "");
+    if (!digits) return "";
+    return `${digits} KM`;
+  }
+
+  function normalizeMinisterRole(value: string) {
+    const safe = String(value || "").trim().toLowerCase();
+    if (!safe) return "";
+    if (safe.includes("pastor")) return "Pastor";
+    if (safe.includes("presb")) return "Presbitero";
+    if (safe.includes("diac")) return "Diacono";
+    if (safe.includes("coop") || safe.includes("obreiro")) return "Cooperador";
+    if (safe.includes("membro")) return "Membro";
+    return String(value || "").trim();
+  }
+
+  async function searchMemberByNameOrCpf(query: string): Promise<UserListItem | null> {
+    const q = String(query || "").trim();
+    if (!q) return null;
+    const data = await listMembers({ search: q, is_active: true, page: 1, page_size: 20 });
+    const members = data?.workers || [];
+    if (!members.length) return null;
+    const exactCpf = members.find((m) => String(m.cpf || "").replace(/\D/g, "") === q.replace(/\D/g, ""));
+    return exactCpf || members[0];
+  }
+
+  async function handleSearchDirigenteSaida() {
+    const q = String(searchDirigenteSaida || "").trim();
+    if (!q) return;
+    setSearchingSaida(true);
+    try {
+      const member = await searchMemberByNameOrCpf(q);
+      if (!member) {
+        toast.error("Dirigente nao encontrado.");
+        return;
+      }
+      setRemanejamento((prev) => ({
+        ...prev,
+        dirigente_saida_nome: String(member.full_name || ""),
+        dirigente_saida_cpf: String(member.cpf || ""),
+        dirigente_saida_rg: String(member.rg || ""),
+        dirigente_saida_telefone: String(member.phone || ""),
+        dirigente_saida_tipo: normalizeMinisterRole(String(member.minister_role || "")),
+      }));
+      toast.success("Dados do dirigente preenchidos.");
+    } finally {
+      setSearchingSaida(false);
+    }
+  }
+
+  async function handleSearchNovoDirigente() {
+    const q = String(searchNovoDirigente || "").trim();
+    if (!q) return;
+    setSearchingNovo(true);
+    try {
+      const member = await searchMemberByNameOrCpf(q);
+      if (!member) {
+        toast.error("Novo dirigente nao encontrado.");
+        return;
+      }
+      setRemanejamento((prev) => ({
+        ...prev,
+        novo_dirigente_nome: String(member.full_name || ""),
+        novo_dirigente_cpf: String(member.cpf || ""),
+        novo_dirigente_rg: String(member.rg || ""),
+        novo_dirigente_telefone: String(member.phone || ""),
+        novo_dirigente_tipo: normalizeMinisterRole(String(member.minister_role || "")),
+        novo_dirigente_data_batismo: String(member.baptism_date || prev.novo_dirigente_data_batismo || ""),
+      }));
+      toast.success("Dados do novo dirigente preenchidos.");
+    } finally {
+      setSearchingNovo(false);
+    }
   }
 
   async function autofillLocadorCep(force = false) {
@@ -185,10 +283,16 @@ export function ChurchDocsDialog({
 
   async function onSaveSystem() {
     if (!church) return;
+    const missingRemFields = activeTab === "remanejamento" ? getMissingRemanejamentoFields() : [];
+    if (missingRemFields.length > 0) {
+      toast.error(`Preencha os campos obrigatorios: ${missingRemFields.join(", ")}.`);
+      return;
+    }
     setSaving(true);
     try {
       if (activeTab === "remanejamento") {
         await upsertChurchRemanejamento({ ...remanejamento, church_totvs_id: church.totvs_id });
+        setRemStatus("FINALIZADO");
       }
       if (activeTab === "contrato") {
         await upsertChurchContrato({ ...contrato, church_totvs_id: church.totvs_id });
@@ -204,10 +308,21 @@ export function ChurchDocsDialog({
 
   async function onGeneratePdf() {
     if (!church) return;
+    const missingRemFields = activeTab === "remanejamento" ? getMissingRemanejamentoFields() : [];
+    if (missingRemFields.length > 0) {
+      toast.error(`Preencha os campos obrigatorios: ${missingRemFields.join(", ")}.`);
+      return;
+    }
     setSaving(true);
     try {
       if (activeTab === "remanejamento") {
+        // Comentario: garante persistencia dos dados atuais antes de chamar o webhook de geracao.
+        await upsertChurchRemanejamento({ ...remanejamento, church_totvs_id: church.totvs_id });
         const res = await generateChurchRemanejamentoPdf(church.totvs_id);
+        const nextStatus = String((res as { remanejamento?: { status?: string } })?.remanejamento?.status || "");
+        const nextPdfUrl = String((res as { remanejamento?: { pdf_storage_path?: string | null } })?.remanejamento?.pdf_storage_path || "");
+        if (nextStatus) setRemStatus(nextStatus);
+        if (nextPdfUrl) setRemPdfUrl(nextPdfUrl);
         if ((res as { ok?: boolean }).ok) toast.success("Remanejamento enviado para geracao de PDF.");
         else toast.message("PDF de remanejamento pendente de backend.");
       } else {
@@ -218,6 +333,65 @@ export function ChurchDocsDialog({
     } finally {
       setSaving(false);
     }
+  }
+
+  function getMissingRemanejamentoFields() {
+    const requiredFields: Array<{ key: keyof ChurchRemanejamentoDraft; label: string }> = [
+      { key: "estadual_pastor_nome", label: "Nome do pastor estadual" },
+      { key: "estadual_pastor_cpf", label: "CPF do pastor estadual" },
+      { key: "estadual_telefone", label: "Telefone estadual" },
+      { key: "estadual_email", label: "Email estadual" },
+      { key: "estadual_cidade", label: "Cidade estadual" },
+      { key: "estadual_uf", label: "UF estadual" },
+      { key: "igreja_endereco_atual", label: "Endereco da igreja" },
+      { key: "igreja_numero", label: "Numero da igreja" },
+      { key: "igreja_bairro", label: "Bairro da igreja" },
+      { key: "igreja_cidade", label: "Cidade da igreja" },
+      { key: "igreja_uf", label: "UF da igreja" },
+      { key: "porte_igreja", label: "Porte da IPDA" },
+      { key: "sobre_imovel", label: "Sobre o imovel" },
+      { key: "possui_escritura", label: "Possui escritura" },
+      { key: "comodato", label: "Comodato" },
+      { key: "entradas_atuais", label: "Entradas atuais" },
+      { key: "saidas", label: "Saidas" },
+      { key: "saldo", label: "Saldo" },
+      { key: "numero_membros", label: "Numero de membros" },
+      { key: "dirigente_saida_tipo", label: "Tipo ministerial (dirigente que deixa)" },
+      { key: "dirigente_saida_data_assumiu", label: "Assumiu em" },
+      { key: "dirigente_saida_nome", label: "Nome do dirigente que deixa" },
+      { key: "dirigente_saida_rg", label: "RG do dirigente que deixa" },
+      { key: "dirigente_saida_cpf", label: "CPF do dirigente que deixa" },
+      { key: "dirigente_saida_telefone", label: "Telefone do dirigente que deixa" },
+      { key: "novo_dirigente_tipo", label: "Tipo ministerial (novo dirigente)" },
+      { key: "novo_dirigente_data_batismo", label: "Data de batismo" },
+      { key: "novo_dirigente_nome", label: "Nome do novo dirigente" },
+      { key: "novo_dirigente_rg", label: "RG do novo dirigente" },
+      { key: "novo_dirigente_cpf", label: "CPF do novo dirigente" },
+      { key: "novo_dirigente_telefone", label: "Telefone do novo dirigente" },
+      { key: "novo_dirigente_distancia_km", label: "Distancia em KM" },
+      { key: "novo_dirigente_recebe_prebenda", label: "Recebe prebenda" },
+      { key: "motivo_troca", label: "Motivo da troca" },
+    ];
+
+    if (hierarchy.requires_setorial_signature) {
+      requiredFields.push(
+        { key: "setorial_pastor_nome", label: "Nome do pastor setorial" },
+        { key: "setorial_pastor_cpf", label: "CPF do pastor setorial" },
+        { key: "setorial_telefone", label: "Telefone setorial" },
+        { key: "setorial_email", label: "Email setorial" },
+        { key: "setorial_cidade", label: "Cidade setorial" },
+        { key: "setorial_uf", label: "UF setorial" },
+      );
+    }
+
+    if (textValue(remanejamento.novo_dirigente_recebe_prebenda) === "sim") {
+      requiredFields.push({ key: "novo_dirigente_prebenda_desde", label: "Prebenda desde" });
+    }
+
+    return requiredFields
+      .filter(({ key }) => isBlank(remanejamento[key]))
+      .map(({ label }) => label)
+      .slice(0, 8);
   }
 
   return (
@@ -248,6 +422,29 @@ export function ChurchDocsDialog({
             </Alert>
 
             <TabsContent value="remanejamento" className="space-y-4">
+              <Card>
+                <CardHeader><CardTitle>Status do documento</CardTitle></CardHeader>
+                <CardContent className="flex flex-wrap items-center gap-2">
+                  <Badge
+                    variant="outline"
+                    className={
+                      remStatus === "GERADO"
+                        ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                        : remStatus === "GERANDO"
+                          ? "border-amber-200 bg-amber-50 text-amber-700"
+                          : "border-slate-200 bg-slate-50 text-slate-700"
+                    }
+                  >
+                    {remStatus || "RASCUNHO"}
+                  </Badge>
+                  {remPdfUrl ? (
+                    <Button type="button" variant="outline" onClick={() => window.open(remPdfUrl, "_blank")}>
+                      Abrir documento
+                    </Button>
+                  ) : null}
+                </CardContent>
+              </Card>
+
               <Card>
                 <CardHeader><CardTitle>Pastor Estadual</CardTitle></CardHeader>
                 <CardContent className="grid gap-3 md:grid-cols-3">
@@ -280,20 +477,143 @@ export function ChurchDocsDialog({
                   <div className="space-y-1"><Label>Bairro</Label><Input value={textValue(remanejamento.igreja_bairro)} onChange={(e) => updateRem("igreja_bairro", e.target.value)} /></div>
                   <div className="space-y-1"><Label>Cidade</Label><Input value={textValue(remanejamento.igreja_cidade)} onChange={(e) => updateRem("igreja_cidade", e.target.value)} /></div>
                   <div className="space-y-1"><Label>UF</Label><Select value={textValue(remanejamento.igreja_uf)} onValueChange={(value) => updateRem("igreja_uf", value)}><SelectTrigger><SelectValue placeholder="Selecione a UF" /></SelectTrigger><SelectContent>{BRAZIL_UF_OPTIONS.map((uf) => (<SelectItem key={uf} value={uf}>{uf}</SelectItem>))}</SelectContent></Select></div>
-                  <div className="space-y-1"><Label>Porte da Igreja</Label><Input value={textValue(remanejamento.porte_igreja)} onChange={(e) => updateRem("porte_igreja", e.target.value)} /></div>
-                  <div className="space-y-1"><Label>Valor Aluguel</Label><Input value={textValue(remanejamento.valor_aluguel)} onChange={(e) => updateRem("valor_aluguel", e.target.value)} /></div>
-                  <div className="space-y-1"><Label>Entradas Atuais</Label><Input value={textValue(remanejamento.entradas_atuais)} onChange={(e) => updateRem("entradas_atuais", e.target.value)} /></div>
-                  <div className="space-y-1"><Label>Saidas</Label><Input value={textValue(remanejamento.saidas)} onChange={(e) => updateRem("saidas", e.target.value)} /></div>
-                  <div className="space-y-1"><Label>Saldo</Label><Input value={textValue(remanejamento.saldo)} onChange={(e) => updateRem("saldo", e.target.value)} /></div>
+                  <div className="space-y-1">
+                    <Label>Porte da IPDA</Label>
+                    <Select value={textValue(remanejamento.porte_igreja)} onValueChange={(value) => updateRem("porte_igreja", value)}>
+                      <SelectTrigger><SelectValue placeholder="Selecione o porte" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="local">Local</SelectItem>
+                        <SelectItem value="regional">Regional</SelectItem>
+                        <SelectItem value="central">Central</SelectItem>
+                        <SelectItem value="setorial">Setorial</SelectItem>
+                        <SelectItem value="estadual">Estadual</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1">
+                    <Label>Sobre o imovel</Label>
+                    <Select value={textValue(remanejamento.sobre_imovel)} onValueChange={(value) => updateRem("sobre_imovel", value)}>
+                      <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="propria">Propria</SelectItem>
+                        <SelectItem value="alugada">Alugada</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {textValue(remanejamento.sobre_imovel) === "alugada" ? (
+                    <>
+                      <div className="space-y-1"><Label>Contrato vence em</Label><Input type="date" value={textValue(remanejamento.contrato_vence_em)} onChange={(e) => updateRem("contrato_vence_em", e.target.value)} /></div>
+                      <div className="space-y-1">
+                        <Label>Valor Aluguel</Label>
+                        <Input
+                          inputMode="numeric"
+                          value={textValue(remanejamento.valor_aluguel)}
+                          onChange={(e) => updateRem("valor_aluguel", formatCurrencyBRL(e.target.value))}
+                        />
+                      </div>
+                    </>
+                  ) : null}
+                  <div className="space-y-1"><Label>Possui escritura</Label><Select value={textValue(remanejamento.possui_escritura)} onValueChange={(value) => updateRem("possui_escritura", value)}><SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger><SelectContent><SelectItem value="sim">Sim</SelectItem><SelectItem value="nao">Nao</SelectItem></SelectContent></Select></div>
+                  <div className="space-y-1"><Label>Comodato</Label><Select value={textValue(remanejamento.comodato)} onValueChange={(value) => updateRem("comodato", value)}><SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger><SelectContent><SelectItem value="sim">Sim</SelectItem><SelectItem value="nao">Nao</SelectItem></SelectContent></Select></div>
+                  <div className="space-y-1">
+                    <Label>Entradas Atuais</Label>
+                    <Input
+                      inputMode="numeric"
+                      value={textValue(remanejamento.entradas_atuais)}
+                      onChange={(e) => updateRem("entradas_atuais", formatCurrencyBRL(e.target.value))}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label>Saidas</Label>
+                    <Input
+                      inputMode="numeric"
+                      value={textValue(remanejamento.saidas)}
+                      onChange={(e) => updateRem("saidas", formatCurrencyBRL(e.target.value))}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label>Saldo</Label>
+                    <Input
+                      inputMode="numeric"
+                      value={textValue(remanejamento.saldo)}
+                      onChange={(e) => updateRem("saldo", formatCurrencyBRL(e.target.value))}
+                    />
+                  </div>
                   <div className="space-y-1"><Label>Numero de membros</Label><Input value={textValue(remanejamento.numero_membros)} onChange={(e) => updateRem("numero_membros", e.target.value)} /></div>
                 </CardContent>
               </Card>
 
               <Card>
-                <CardHeader><CardTitle>Motivo da Troca e Resolucao</CardTitle></CardHeader>
+                <CardHeader><CardTitle>Dirigente que Deixa a IPDA</CardTitle></CardHeader>
+                <CardContent className="grid gap-3 md:grid-cols-3">
+                  <div className="space-y-1 md:col-span-3">
+                    <Label>Buscar dirigente (nome ou CPF)</Label>
+                    <div className="flex gap-2">
+                      <Input value={searchDirigenteSaida} onChange={(e) => setSearchDirigenteSaida(e.target.value)} placeholder="Digite nome ou CPF" />
+                      <Button type="button" variant="outline" onClick={() => void handleSearchDirigenteSaida()} disabled={searchingSaida}>
+                        {searchingSaida ? "Buscando..." : "Buscar"}
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <Label>Tipo ministerial</Label>
+                    <Select value={textValue(remanejamento.dirigente_saida_tipo)} onValueChange={(value) => updateRem("dirigente_saida_tipo", value)}>
+                      <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                      <SelectContent>{MINISTER_ROLE_OPTIONS.map((role) => (<SelectItem key={role} value={role}>{role}</SelectItem>))}</SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1"><Label>Assumiu em</Label><Input type="date" value={textValue(remanejamento.dirigente_saida_data_assumiu)} onChange={(e) => updateRem("dirigente_saida_data_assumiu", e.target.value)} /></div>
+                  <div className="space-y-1 md:col-span-3"><Label>Nome completo</Label><Input value={textValue(remanejamento.dirigente_saida_nome)} onChange={(e) => updateRem("dirigente_saida_nome", e.target.value)} /></div>
+                  <div className="space-y-1"><Label>RG</Label><Input value={textValue(remanejamento.dirigente_saida_rg)} onChange={(e) => updateRem("dirigente_saida_rg", e.target.value)} /></div>
+                  <div className="space-y-1"><Label>CPF</Label><Input value={textValue(remanejamento.dirigente_saida_cpf)} onChange={(e) => updateRem("dirigente_saida_cpf", e.target.value)} /></div>
+                  <div className="space-y-1"><Label>Telefone</Label><Input value={textValue(remanejamento.dirigente_saida_telefone)} onChange={(e) => updateRem("dirigente_saida_telefone", e.target.value)} /></div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader><CardTitle>Novo Dirigente</CardTitle></CardHeader>
+                <CardContent className="grid gap-3 md:grid-cols-3">
+                  <div className="space-y-1 md:col-span-3">
+                    <Label>Buscar novo dirigente (nome ou CPF)</Label>
+                    <div className="flex gap-2">
+                      <Input value={searchNovoDirigente} onChange={(e) => setSearchNovoDirigente(e.target.value)} placeholder="Digite nome ou CPF" />
+                      <Button type="button" variant="outline" onClick={() => void handleSearchNovoDirigente()} disabled={searchingNovo}>
+                        {searchingNovo ? "Buscando..." : "Buscar"}
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <Label>Tipo ministerial</Label>
+                    <Select value={textValue(remanejamento.novo_dirigente_tipo)} onValueChange={(value) => updateRem("novo_dirigente_tipo", value)}>
+                      <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                      <SelectContent>{MINISTER_ROLE_OPTIONS.map((role) => (<SelectItem key={role} value={role}>{role}</SelectItem>))}</SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1"><Label>Data de batismo</Label><Input type="date" value={textValue(remanejamento.novo_dirigente_data_batismo)} onChange={(e) => updateRem("novo_dirigente_data_batismo", e.target.value)} /></div>
+                  <div className="space-y-1 md:col-span-3"><Label>Nome completo</Label><Input value={textValue(remanejamento.novo_dirigente_nome)} onChange={(e) => updateRem("novo_dirigente_nome", e.target.value)} /></div>
+                  <div className="space-y-1"><Label>RG</Label><Input value={textValue(remanejamento.novo_dirigente_rg)} onChange={(e) => updateRem("novo_dirigente_rg", e.target.value)} /></div>
+                  <div className="space-y-1"><Label>CPF</Label><Input value={textValue(remanejamento.novo_dirigente_cpf)} onChange={(e) => updateRem("novo_dirigente_cpf", e.target.value)} /></div>
+                  <div className="space-y-1"><Label>Telefone</Label><Input value={textValue(remanejamento.novo_dirigente_telefone)} onChange={(e) => updateRem("novo_dirigente_telefone", e.target.value)} /></div>
+                  <div className="space-y-1 md:col-span-3">
+                    <Label>Reside a quantos KM da IPDA</Label>
+                    <Input
+                      value={textValue(remanejamento.novo_dirigente_distancia_km)}
+                      onChange={(e) => updateRem("novo_dirigente_distancia_km", e.target.value.replace(/[^\d]/g, ""))}
+                      onBlur={(e) => updateRem("novo_dirigente_distancia_km", formatKmValue(e.target.value))}
+                      placeholder="Ex: 15"
+                    />
+                  </div>
+                  <div className="space-y-1"><Label>Recebe prebenda</Label><Select value={textValue(remanejamento.novo_dirigente_recebe_prebenda)} onValueChange={(value) => updateRem("novo_dirigente_recebe_prebenda", value)}><SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger><SelectContent><SelectItem value="sim">Sim</SelectItem><SelectItem value="nao">Nao</SelectItem></SelectContent></Select></div>
+                  {textValue(remanejamento.novo_dirigente_recebe_prebenda) === "sim" ? (
+                    <div className="space-y-1"><Label>Prebenda desde</Label><Input type="date" value={textValue(remanejamento.novo_dirigente_prebenda_desde)} onChange={(e) => updateRem("novo_dirigente_prebenda_desde", e.target.value)} /></div>
+                  ) : null}
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader><CardTitle>Motivo da Troca</CardTitle></CardHeader>
                 <CardContent className="space-y-3">
                   <div className="space-y-1"><Label>Motivo da troca</Label><Textarea value={textValue(remanejamento.motivo_troca)} onChange={(e) => updateRem("motivo_troca", e.target.value)} rows={4} /></div>
-                  <div className="space-y-1"><Label>Resolucao da diretoria</Label><Textarea value={textValue(remanejamento.resolucao_diretoria)} onChange={(e) => updateRem("resolucao_diretoria", e.target.value)} rows={4} /></div>
                 </CardContent>
               </Card>
             </TabsContent>
@@ -344,7 +664,14 @@ export function ChurchDocsDialog({
               <Card>
                 <CardHeader><CardTitle>Valores e Datas</CardTitle></CardHeader>
                 <CardContent className="grid gap-3 md:grid-cols-3">
-                  <div className="space-y-1"><Label>Valor aluguel</Label><Input value={textValue(contrato.valor_aluguel)} onChange={(e) => updateContrato("valor_aluguel", e.target.value)} /></div>
+                  <div className="space-y-1">
+                    <Label>Valor aluguel</Label>
+                    <Input
+                      inputMode="numeric"
+                      value={textValue(contrato.valor_aluguel)}
+                      onChange={(e) => updateContrato("valor_aluguel", formatCurrencyBRL(e.target.value))}
+                    />
+                  </div>
                   <div className="space-y-1"><Label>Valor por extenso</Label><Input value={textValue(contrato.valor_extenso)} onChange={(e) => updateContrato("valor_extenso", e.target.value)} /></div>
                   <div className="space-y-1"><Label>Dia pagamento</Label><Input value={textValue(contrato.dia_pagamento)} onChange={(e) => updateContrato("dia_pagamento", e.target.value)} /></div>
                   <div className="space-y-1"><Label>Dia</Label><Input value={textValue(contrato.contrato_dia)} onChange={(e) => updateContrato("contrato_dia", e.target.value)} /></div>

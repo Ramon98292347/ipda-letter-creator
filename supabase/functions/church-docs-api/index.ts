@@ -21,7 +21,9 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { jwtVerify } from "https://esm.sh/jose@5.2.4";
 
-const REMANEJAMENTO_WEBHOOK_URL = Deno.env.get("N8N_REMANEJAMENTO_WEBHOOK_URL") || "";
+const REMANEJAMENTO_WEBHOOK_URL =
+  Deno.env.get("N8N_REMANEJAMENTO_WEBHOOK_URL") ||
+  "https://n8n-n8n.ynlng8.easypanel.host/webhook/remanejamento";
 const CONTRATO_WEBHOOK_URL = Deno.env.get("N8N_CONTRATO_WEBHOOK_URL") || "";
 
 type Role = "admin" | "pastor" | "obreiro";
@@ -41,7 +43,33 @@ type ChurchRow = {
   class: string | null;
   pastor_user_id: string | null;
   church_name: string | null;
+  address_street: string | null;
+  address_number: string | null;
+  address_neighborhood: string | null;
+  address_city: string | null;
+  address_state: string | null;
 };
+
+function extractPdfUrl(payload: unknown): string {
+  const queue: unknown[] = [payload];
+  const seen = new Set<unknown>();
+  const directKeys = ["pdf_storage_path", "pdf_url", "url", "public_url", "file_url", "download_url"];
+  while (queue.length) {
+    const item = queue.shift();
+    if (!item || typeof item !== "object") continue;
+    if (seen.has(item)) continue;
+    seen.add(item);
+    const rec = item as Record<string, unknown>;
+    for (const key of directKeys) {
+      const value = rec[key];
+      if (typeof value === "string" && /^https?:\/\//i.test(value.trim())) return value.trim();
+    }
+    for (const value of Object.values(rec)) {
+      if (value && typeof value === "object") queue.push(value);
+    }
+  }
+  return "";
+}
 
 function corsHeaders() {
   return {
@@ -124,7 +152,7 @@ async function ensureChurchScope(
 ) {
   const { data: churches, error: churchErr } = await sb
     .from("churches")
-    .select("totvs_id,parent_totvs_id,class,pastor_user_id,church_name");
+    .select("totvs_id,parent_totvs_id,class,pastor_user_id,church_name,address_street,address_number,address_neighborhood,address_city,address_state");
   if (churchErr) return { error: json({ ok: false, error: "db_error_churches", details: churchErr.message }, 500), byId: null };
 
   const allChurches = (churches || []) as ChurchRow[];
@@ -141,29 +169,87 @@ async function ensureChurchScope(
   return { error: null, byId };
 }
 
+async function buildRemanejamentoPrefill(
+  sb: ReturnType<typeof createClient>,
+  churchTotvsId: string,
+  byId: Map<string, ChurchRow>,
+) {
+  const chain = buildAncestors(churchTotvsId, byId);
+  const setorial = chain.find((church) => String(church.class || "").toLowerCase() === "setorial") || null;
+  const estadual = [...chain].reverse().find((church) => String(church.class || "").toLowerCase() === "estadual") || null;
+
+  const estadualSignerId = String(estadual?.pastor_user_id || "").trim();
+  const setorialSignerId = String(setorial?.pastor_user_id || "").trim();
+
+  const [estadualSignerRes, setorialSignerRes] = await Promise.all([
+    estadualSignerId
+      ? sb
+          .from("users")
+          .select("id,full_name,cpf,phone,email,address_street,address_number,address_neighborhood,address_city,address_state,signature_url")
+          .eq("id", estadualSignerId)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
+    setorialSignerId
+      ? sb
+          .from("users")
+          .select("id,full_name,cpf,phone,email,address_street,address_number,address_neighborhood,address_city,address_state,signature_url")
+          .eq("id", setorialSignerId)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
+  ]);
+
+  const estadualSigner = (estadualSignerRes.data || {}) as Record<string, unknown>;
+  const setorialSigner = (setorialSignerRes.data || {}) as Record<string, unknown>;
+  const targetChurch = byId.get(churchTotvsId);
+
+  const draft = {
+    church_totvs_id: churchTotvsId,
+    estadual_pastor_nome: String(estadualSigner.full_name || ""),
+    estadual_pastor_cpf: String(estadualSigner.cpf || ""),
+    estadual_telefone: String(estadualSigner.phone || ""),
+    estadual_email: String(estadualSigner.email || ""),
+    estadual_endereco: `${String(estadualSigner.address_street || "")}, ${String(estadualSigner.address_number || "")}`.trim(),
+    estadual_cidade: String(estadualSigner.address_city || ""),
+    estadual_bairro: String(estadualSigner.address_neighborhood || ""),
+    estadual_uf: String(estadualSigner.address_state || ""),
+    estadual_assinatura_url: String(estadualSigner.signature_url || ""),
+    setorial_pastor_nome: String(setorialSigner.full_name || ""),
+    setorial_pastor_cpf: String(setorialSigner.cpf || ""),
+    setorial_telefone: String(setorialSigner.phone || ""),
+    setorial_email: String(setorialSigner.email || ""),
+    setorial_endereco: `${String(setorialSigner.address_street || "")}, ${String(setorialSigner.address_number || "")}`.trim(),
+    setorial_cidade: String(setorialSigner.address_city || ""),
+    setorial_bairro: String(setorialSigner.address_neighborhood || ""),
+    setorial_uf: String(setorialSigner.address_state || ""),
+    setorial_assinatura_url: String(setorialSigner.signature_url || ""),
+    igreja_endereco_atual: String(targetChurch?.address_street || ""),
+    igreja_numero: String(targetChurch?.address_number || ""),
+    igreja_bairro: String(targetChurch?.address_neighborhood || ""),
+    igreja_cidade: String(targetChurch?.address_city || ""),
+    igreja_uf: String(targetChurch?.address_state || ""),
+  };
+
+  const hierarchy = {
+    requires_setorial_signature: Boolean(setorial),
+    signer_role: setorial ? "setorial" : "estadual",
+    signer_user_id: setorial ? setorialSignerId || null : estadualSignerId || null,
+    signer_name: setorial ? String(setorialSigner.full_name || "") : String(estadualSigner.full_name || ""),
+    signer_signature_url: setorial ? String(setorialSigner.signature_url || "") : String(estadualSigner.signature_url || ""),
+    message: setorial
+      ? "Esta igreja precisa da assinatura do Pastor Setorial."
+      : "Esta igreja esta ligada diretamente a Estadual. A assinatura setorial nao e necessaria.",
+  };
+
+  return { draft, hierarchy };
+}
+
 async function actionGetRemanejamentoForm(sb: ReturnType<typeof createClient>, req: Request, churchTotvsId: string) {
   const auth = await requireSession(req);
   if (auth.error || !auth.session) return auth.error!;
 
   const scopeResult = await ensureChurchScope(sb, auth.session, churchTotvsId);
   if (scopeResult.error || !scopeResult.byId) return scopeResult.error!;
-
-  const chain = buildAncestors(churchTotvsId, scopeResult.byId);
-  const setorial = chain.find((church) => String(church.class || "").toLowerCase() === "setorial");
-  const estadual = [...chain].reverse().find((church) => String(church.class || "").toLowerCase() === "estadual");
-  const signerChurch = setorial || estadual || chain[chain.length - 1];
-  const signerRole = setorial ? "setorial" : "estadual";
-
-  let signer: Record<string, unknown> = {};
-  const signerId = String(signerChurch?.pastor_user_id || "");
-  if (signerId) {
-    const { data: signerUser } = await sb
-      .from("users")
-      .select("id,full_name,cpf,phone,email,address_street,address_number,address_neighborhood,address_city,address_state,signature_url")
-      .eq("id", signerId)
-      .maybeSingle();
-    signer = signerUser || {};
-  }
+  const prefill = await buildRemanejamentoPrefill(sb, churchTotvsId, scopeResult.byId);
 
   const { data: remRow } = await sb
     .from("church_remanejamentos")
@@ -171,40 +257,13 @@ async function actionGetRemanejamentoForm(sb: ReturnType<typeof createClient>, r
     .eq("church_totvs_id", churchTotvsId)
     .maybeSingle();
 
-  const targetChurch = scopeResult.byId.get(churchTotvsId);
   const draft = {
-    church_totvs_id: churchTotvsId,
-    estadual_pastor_nome: signerRole === "estadual" ? String(signer.full_name || "") : "",
-    estadual_pastor_cpf: signerRole === "estadual" ? String(signer.cpf || "") : "",
-    estadual_telefone: signerRole === "estadual" ? String(signer.phone || "") : "",
-    estadual_email: signerRole === "estadual" ? String(signer.email || "") : "",
-    estadual_endereco: signerRole === "estadual" ? `${String(signer.address_street || "")}, ${String(signer.address_number || "")}`.trim() : "",
-    estadual_cidade: signerRole === "estadual" ? String(signer.address_city || "") : "",
-    estadual_bairro: signerRole === "estadual" ? String(signer.address_neighborhood || "") : "",
-    estadual_uf: signerRole === "estadual" ? String(signer.address_state || "") : "",
-    estadual_assinatura_url: signerRole === "estadual" ? String(signer.signature_url || "") : "",
-    setorial_pastor_nome: signerRole === "setorial" ? String(signer.full_name || "") : "",
-    setorial_pastor_cpf: signerRole === "setorial" ? String(signer.cpf || "") : "",
-    setorial_telefone: signerRole === "setorial" ? String(signer.phone || "") : "",
-    setorial_email: signerRole === "setorial" ? String(signer.email || "") : "",
-    setorial_endereco: signerRole === "setorial" ? `${String(signer.address_street || "")}, ${String(signer.address_number || "")}`.trim() : "",
-    setorial_cidade: signerRole === "setorial" ? String(signer.address_city || "") : "",
-    setorial_bairro: signerRole === "setorial" ? String(signer.address_neighborhood || "") : "",
-    setorial_uf: signerRole === "setorial" ? String(signer.address_state || "") : "",
-    setorial_assinatura_url: signerRole === "setorial" ? String(signer.signature_url || "") : "",
-    igreja_cidade: String(targetChurch?.church_name || ""),
+    ...prefill.draft,
     ...(remRow?.payload || {}),
   };
 
   const hierarchy = {
-    requires_setorial_signature: Boolean(setorial),
-    signer_role: signerRole,
-    signer_user_id: signerId || null,
-    signer_name: String(signer.full_name || ""),
-    signer_signature_url: String(signer.signature_url || ""),
-    message: setorial
-      ? "Esta igreja precisa da assinatura do Pastor Setorial."
-      : "Esta igreja esta ligada diretamente a Estadual. A assinatura setorial nao e necessaria.",
+    ...prefill.hierarchy,
     ...(remRow?.hierarchy || {}),
   };
 
@@ -258,20 +317,109 @@ async function actionGenerateRemanejamentoPdf(sb: ReturnType<typeof createClient
     .eq("church_totvs_id", churchTotvsId)
     .maybeSingle();
   if (error) return json({ ok: false, error: "db_error_remanejamento", details: error.message }, 500);
-  if (!rem) return json({ ok: false, error: "remanejamento_not_found" }, 404);
+  let remData = rem;
+  if (!remData) {
+    if (!scopeResult.byId) return json({ ok: false, error: "scope_byid_missing" }, 500);
+    const prefill = await buildRemanejamentoPrefill(sb, churchTotvsId, scopeResult.byId);
+    const createRes = await sb
+      .from("church_remanejamentos")
+      .upsert(
+        {
+          church_totvs_id: churchTotvsId,
+          payload: prefill.draft,
+          hierarchy: prefill.hierarchy,
+          status: "FINALIZADO",
+          updated_by_user_id: auth.session.user_id,
+          created_by_user_id: auth.session.user_id,
+        },
+        { onConflict: "church_totvs_id" },
+      )
+      .select("id,payload,hierarchy,status")
+      .single();
+    if (createRes.error) return json({ ok: false, error: "create_remanejamento_failed", details: createRes.error.message }, 500);
+    remData = createRes.data;
+  }
 
-  await sb.from("church_remanejamentos").update({ status: "GERANDO", updated_by_user_id: auth.session.user_id }).eq("id", rem.id);
+  await sb.from("church_remanejamentos").update({ status: "GERANDO", updated_by_user_id: auth.session.user_id }).eq("id", remData.id);
 
   if (!REMANEJAMENTO_WEBHOOK_URL) {
     return json({ ok: false, error: "missing_n8n_webhook", detail: "Configure N8N_REMANEJAMENTO_WEBHOOK_URL." }, 500);
   }
 
+  const dados = (remData.payload || {}) as Record<string, unknown>;
+  const igrejaAtual = scopeResult.byId?.get(churchTotvsId) || null;
+  const estadual = {
+    pastor_nome: String(dados.estadual_pastor_nome || ""),
+    pastor_cpf: String(dados.estadual_pastor_cpf || ""),
+    telefone: String(dados.estadual_telefone || ""),
+    email: String(dados.estadual_email || ""),
+    endereco: String(dados.estadual_endereco || ""),
+    cidade: String(dados.estadual_cidade || ""),
+    bairro: String(dados.estadual_bairro || ""),
+    uf: String(dados.estadual_uf || ""),
+    assinatura_url: String(dados.estadual_assinatura_url || ""),
+  };
+  const setorial = {
+    pastor_nome: String(dados.setorial_pastor_nome || ""),
+    pastor_cpf: String(dados.setorial_pastor_cpf || ""),
+    telefone: String(dados.setorial_telefone || ""),
+    email: String(dados.setorial_email || ""),
+    endereco: String(dados.setorial_endereco || ""),
+    cidade: String(dados.setorial_cidade || ""),
+    bairro: String(dados.setorial_bairro || ""),
+    uf: String(dados.setorial_uf || ""),
+    assinatura_url: String(dados.setorial_assinatura_url || ""),
+  };
+  const igreja = {
+    totvs_id: churchTotvsId,
+    nome: String(igrejaAtual?.church_name || ""),
+    endereco: String(dados.igreja_endereco_atual || ""),
+    numero: String(dados.igreja_numero || ""),
+    bairro: String(dados.igreja_bairro || ""),
+    cidade: String(dados.igreja_cidade || ""),
+    uf: String(dados.igreja_uf || ""),
+    porte: String(dados.porte_igreja || ""),
+    sobre_imovel: String(dados.sobre_imovel || ""),
+    contrato_vence_em: String(dados.contrato_vence_em || ""),
+    valor_aluguel: String(dados.valor_aluguel || ""),
+    possui_escritura: String(dados.possui_escritura || ""),
+    comodato: String(dados.comodato || ""),
+    entradas_atuais: String(dados.entradas_atuais || ""),
+    saidas: String(dados.saidas || ""),
+    saldo: String(dados.saldo || ""),
+    numero_membros: String(dados.numero_membros || ""),
+    motivo_troca: String(dados.motivo_troca || ""),
+  };
+  const dirigenteQueDeixa = {
+    tipo_ministerial: String(dados.dirigente_saida_tipo || ""),
+    assumiu_em: String(dados.dirigente_saida_data_assumiu || ""),
+    nome: String(dados.dirigente_saida_nome || ""),
+    rg: String(dados.dirigente_saida_rg || ""),
+    cpf: String(dados.dirigente_saida_cpf || ""),
+    telefone: String(dados.dirigente_saida_telefone || ""),
+  };
+  const novoDirigente = {
+    tipo_ministerial: String(dados.novo_dirigente_tipo || ""),
+    data_batismo: String(dados.novo_dirigente_data_batismo || ""),
+    nome: String(dados.novo_dirigente_nome || ""),
+    rg: String(dados.novo_dirigente_rg || ""),
+    cpf: String(dados.novo_dirigente_cpf || ""),
+    telefone: String(dados.novo_dirigente_telefone || ""),
+    distancia_km: String(dados.novo_dirigente_distancia_km || ""),
+    recebe_prebenda: String(dados.novo_dirigente_recebe_prebenda || ""),
+    prebenda_desde: String(dados.novo_dirigente_prebenda_desde || ""),
+  };
+
   const payload = {
     action: "create_remanejamento",
     church_totvs_id: churchTotvsId,
-    remanejamento_id: rem.id,
-    dados: rem.payload || {},
-    hierarchy: rem.hierarchy || {},
+    remanejamento_id: remData.id,
+    estadual,
+    setorial,
+    igreja,
+    dirigente_que_deixa: dirigenteQueDeixa,
+    novo_dirigente: novoDirigente,
+    hierarchy: remData.hierarchy || {},
     requested_by_user_id: auth.session.user_id,
   };
 
@@ -296,7 +444,35 @@ async function actionGenerateRemanejamentoPdf(sb: ReturnType<typeof createClient
     n8nResponse = { error: String(err) };
   }
 
-  return json({ ok: true, n8n: { ok: n8nOk, status: n8nStatus, response: n8nResponse } }, 200);
+  const pdfUrl = extractPdfUrl(n8nResponse);
+  if (n8nOk && pdfUrl) {
+    await sb
+      .from("church_remanejamentos")
+      .update({
+        status: "FINALIZADO",
+        pdf_storage_path: pdfUrl,
+        updated_by_user_id: auth.session.user_id,
+      })
+      .eq("id", remData.id);
+  } else if (!n8nOk) {
+    await sb
+      .from("church_remanejamentos")
+      .update({
+        status: "FINALIZADO",
+        updated_by_user_id: auth.session.user_id,
+      })
+      .eq("id", remData.id);
+  }
+
+  return json({
+    ok: true,
+    n8n: { ok: n8nOk, status: n8nStatus, response: n8nResponse },
+    remanejamento: {
+      id: remData.id,
+      status: n8nOk && pdfUrl ? "FINALIZADO" : n8nOk ? "GERANDO" : "FINALIZADO",
+      pdf_storage_path: pdfUrl || null,
+    },
+  }, 200);
 }
 
 async function actionGetContratoForm(sb: ReturnType<typeof createClient>, req: Request, churchTotvsId: string) {

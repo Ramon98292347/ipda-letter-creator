@@ -310,11 +310,13 @@ export type ChurchRemanejamentoDraft = {
   saldo?: string;
   numero_membros?: string;
   motivo_troca?: string;
+  dirigente_saida_tipo?: string;
   dirigente_saida_nome?: string;
   dirigente_saida_rg?: string;
   dirigente_saida_cpf?: string;
   dirigente_saida_telefone?: string;
   dirigente_saida_data_assumiu?: string;
+  novo_dirigente_tipo?: string;
   novo_dirigente_nome?: string;
   novo_dirigente_rg?: string;
   novo_dirigente_cpf?: string;
@@ -3468,11 +3470,13 @@ function writeLocalDraft<T>(key: string, payload: Partial<T>) {
 }
 
 // Comentario: backend dos documentos de igreja pode ser ligado por variavel de ambiente.
-const CHURCH_DOCS_BACKEND_ENABLED = String(import.meta.env.VITE_ENABLE_CHURCH_DOCS_BACKEND || "false").toLowerCase() === "true";
+const CHURCH_DOCS_BACKEND_ENABLED = String(import.meta.env.VITE_ENABLE_CHURCH_DOCS_BACKEND || "true").toLowerCase() === "true";
 
 export async function getChurchRemanejamentoForm(church: ChurchInScopeItem): Promise<{
   hierarchy: ChurchHierarchySigner;
   draft: ChurchRemanejamentoDraft;
+  status?: string;
+  pdf_storage_path?: string | null;
 }> {
   const localDraft = readLocalDraft<ChurchRemanejamentoDraft>(remanejamentoDraftKey(church.totvs_id));
   if (!isMockMode() && CHURCH_DOCS_BACKEND_ENABLED) {
@@ -3490,6 +3494,8 @@ export async function getChurchRemanejamentoForm(church: ChurchInScopeItem): Pro
           ...(data?.draft as Record<string, string>),
           ...localDraft,
         },
+        status: String(data?.status || "RASCUNHO"),
+        pdf_storage_path: String(data?.pdf_storage_path || "") || null,
       };
     } catch {
       // Comentario: sem endpoint publicado, usa rascunho local sem quebrar a tela.
@@ -3509,6 +3515,8 @@ export async function getChurchRemanejamentoForm(church: ChurchInScopeItem): Pro
       estadual_pastor_nome: church.pastor?.full_name || "",
       ...localDraft,
     },
+    status: "RASCUNHO",
+    pdf_storage_path: null,
   };
 }
 

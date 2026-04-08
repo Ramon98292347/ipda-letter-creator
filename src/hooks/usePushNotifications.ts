@@ -1,11 +1,11 @@
 import { useState, useEffect, useCallback } from "react";
 import { Capacitor } from "@capacitor/core";
+import { PushNotifications } from "@capacitor/push-notifications";
 import { supabase } from "@/lib/supabase";
 import { post } from "@/lib/api";
-import { getLocalNotificationPermissionStatus, requestLocalNotificationPermission } from "@/lib/native/localNotifications";
 import { toast } from "sonner";
 
-// Chave pública VAPID gerada para este projeto.
+// Chave publica VAPID gerada para este projeto.
 const VAPID_PUBLIC_KEY =
   "BPjB7Z77SSXtXOn2i2Cf1BjoStG0rzXf6_xb4oTBVyoyaF6udxa20x677X99L99Sqtj3tE_2wusQ9MhhdBkkskg";
 
@@ -50,6 +50,7 @@ async function salvarUserNoSW(userData: { role?: string; scope_totvs_ids?: strin
 export function usePushNotifications(userId?: string, userRole?: string, scopeTotvsIds?: string[]) {
   const isNativeApp = Capacitor.isNativePlatform();
   const nativeEnabledKey = "native_notifications_enabled";
+  const nativeTokenKey = "native_push_token";
   const supported =
     isNativeApp ||
     (typeof window !== "undefined" &&
@@ -62,6 +63,12 @@ export function usePushNotifications(userId?: string, userRole?: string, scopeTo
   );
   const [subscribed, setSubscribed] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  const mapNativePermission = useCallback((receive: string): NotificationPermission => {
+    if (receive === "granted") return "granted";
+    if (receive === "denied") return "denied";
+    return "default";
+  }, []);
 
   const persistSubscription = useCallback(async (sub: PushSubscription) => {
     if (!userId) return;
@@ -83,15 +90,57 @@ export function usePushNotifications(userId?: string, userRole?: string, scopeTo
     if (!supported) return;
 
     if (isNativeApp) {
-      void getLocalNotificationPermissionStatus().then((perm) => {
+      let cancelled = false;
+
+      void (async () => {
+        const status = await PushNotifications.checkPermissions();
+        if (cancelled) return;
+
+        const perm = mapNativePermission(status.receive);
         setPermission(perm);
+
         const enabled = localStorage.getItem(nativeEnabledKey) === "1";
-        setSubscribed(perm === "granted" && enabled);
-      });
-      return;
+        const savedToken = localStorage.getItem(nativeTokenKey);
+        setSubscribed(perm === "granted" && enabled && Boolean(savedToken));
+
+        await PushNotifications.removeAllListeners();
+
+        await PushNotifications.addListener("registration", async (token) => {
+          localStorage.setItem(nativeTokenKey, token.value);
+          localStorage.setItem(nativeEnabledKey, "1");
+          setPermission("granted");
+          setSubscribed(true);
+          await post("notifications-api", {
+            action: "subscribe-native-push",
+            token: token.value,
+            platform: "android",
+          }).catch((err) => console.warn("[push-native] falha ao registrar token no backend:", err));
+        });
+
+        await PushNotifications.addListener("registrationError", (error) => {
+          console.warn("[push-native] registration error:", error);
+        });
+
+        await PushNotifications.addListener("pushNotificationActionPerformed", (event) => {
+          const data = (event as { notification?: { data?: Record<string, unknown> } }).notification?.data || {};
+          const url = String(data.url || "").trim();
+          if (url) window.location.href = url;
+        });
+
+        if (enabled && perm === "granted") {
+          await PushNotifications.register().catch((err) => {
+            console.warn("[push-native] erro ao atualizar registro:", err);
+          });
+        }
+      })();
+
+      return () => {
+        cancelled = true;
+        void PushNotifications.removeAllListeners();
+      };
     }
 
-    // Comentario: verifica permissao e subscrição ao carregar
+    // Comentario: verifica permissao e subscricao ao carregar
     const checkSubscription = async () => {
       setPermission(Notification.permission);
       const reg = await navigator.serviceWorker.ready;
@@ -111,7 +160,7 @@ export function usePushNotifications(userId?: string, userRole?: string, scopeTo
     }, 500);
 
     return () => clearTimeout(timerId);
-  }, [supported, isNativeApp, persistSubscription]);
+  }, [supported, isNativeApp, persistSubscription, mapNativePermission]);
 
   // Comentario: salva dados do usuario no SW para validar escopo de notificacoes
   useEffect(() => {
@@ -125,26 +174,26 @@ export function usePushNotifications(userId?: string, userRole?: string, scopeTo
     setLoading(true);
     try {
       if (isNativeApp) {
-        // Comentario: no Android usa apenas notificacoes locais (Capacitor LocalNotifications)
-        // Push via FCM sera adicionado quando google-services.json estiver configurado
-        const localPerm = await requestLocalNotificationPermission();
-        setPermission(localPerm);
-        if (localPerm === "granted") {
-          localStorage.setItem(nativeEnabledKey, "1");
-          setSubscribed(true);
-          toast.success("Notificações ativadas!");
-        } else {
+        const status = await PushNotifications.requestPermissions();
+        const perm = mapNativePermission(status.receive);
+        setPermission(perm);
+        if (perm !== "granted") {
           localStorage.setItem(nativeEnabledKey, "0");
           setSubscribed(false);
-          toast.error("Permissão de notificação negada.");
+          toast.error("Permissao de notificacao negada.");
+          return;
         }
+
+        localStorage.setItem(nativeEnabledKey, "1");
+        await PushNotifications.register();
+        toast.success("Notificacoes ativadas!");
         return;
       }
 
       const perm = await Notification.requestPermission();
       setPermission(perm);
       if (perm !== "granted") {
-        toast.error("Notificações bloqueadas! Libere no cadeado ao lado do site.");
+        toast.error("Notificacoes bloqueadas! Libere no cadeado ao lado do site.");
         return;
       }
 
@@ -163,20 +212,28 @@ export function usePushNotifications(userId?: string, userRole?: string, scopeTo
       await persistSubscription(sub);
     } catch (err) {
       console.warn("[push] subscribe error:", err);
-      toast.error("Não foi possível ativar as notificações.");
+      toast.error("Nao foi possivel ativar as notificacoes.");
     } finally {
       setLoading(false);
     }
-  }, [supported, isNativeApp, persistSubscription]);
+  }, [supported, isNativeApp, persistSubscription, mapNativePermission]);
 
   const unsubscribe = useCallback(async () => {
     if (!supported) return;
     setLoading(true);
     try {
       if (isNativeApp) {
+        const token = String(localStorage.getItem(nativeTokenKey) || "").trim();
+        if (token) {
+          await post("notifications-api", {
+            action: "unsubscribe-native-push",
+            token,
+          }).catch((err) => console.warn("[push-native] falha ao remover token no backend:", err));
+        }
+        localStorage.removeItem(nativeTokenKey);
         localStorage.setItem(nativeEnabledKey, "0");
         setSubscribed(false);
-        toast.success("Notificações desativadas.");
+        toast.success("Notificacoes desativadas.");
         return;
       }
 
@@ -189,7 +246,7 @@ export function usePushNotifications(userId?: string, userRole?: string, scopeTo
         }
       }
       setSubscribed(false);
-      toast.success("Notificações desativadas.");
+      toast.success("Notificacoes desativadas.");
     } finally {
       setLoading(false);
     }

@@ -193,12 +193,6 @@ export function AdminChurchesTab({
     });
   }, [rows]);
 
-  useEffect(() => {
-    if (tab !== "lista") {
-      setTab("lista");
-    }
-  }, [tab]);
-
   async function uploadChurchImage(file: File, totvsId: string) {
     if (!supabase) throw new Error("Supabase não configurado.");
     const ext = file.name.split(".").pop()?.toLowerCase() || "png";
@@ -575,7 +569,15 @@ export function AdminChurchesTab({
 
           <div className="grid gap-2 sm:grid-cols-3">
             <Button variant={tab === "lista" ? "default" : "outline"} onClick={() => setTab("lista")}>Lista</Button>
-            <Button variant="outline" disabled>Remanejamento (implantacao em breve)</Button>
+            <Button
+              variant={tab === "remanejamento" ? "default" : "outline"}
+              onClick={() => {
+                setTab("remanejamento");
+                if (sortedRows.length === 1) openChurchDocs(sortedRows[0], "remanejamento");
+              }}
+            >
+              Remanejamento
+            </Button>
             <Button variant="outline" disabled>Contratos (implantacao em breve)</Button>
           </div>
         </CardHeader>
@@ -683,7 +685,7 @@ export function AdminChurchesTab({
             </div>
           ) : null}
 
-          {tab !== "lista" ? (
+          {tab === "remanejamento" ? (
             <div className="grid gap-3 p-5 sm:grid-cols-2 xl:grid-cols-4">
               {sortedRows.map((church) => (
                 <Card key={`${tab}-${church.totvs_id}`} className="border border-slate-200 shadow-sm">
@@ -705,9 +707,9 @@ export function AdminChurchesTab({
                     </div>
                     <Button
                       className="w-full"
-                      onClick={() => openChurchDocs(church, tab === "remanejamento" ? "remanejamento" : "contrato")}
+                      onClick={() => openChurchDocs(church, "remanejamento")}
                     >
-                      {tab === "remanejamento" ? "Abrir remanejamento" : "Abrir contrato"}
+                      Abrir remanejamento
                     </Button>
                   </CardContent>
                 </Card>
