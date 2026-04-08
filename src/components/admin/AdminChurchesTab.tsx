@@ -556,7 +556,7 @@ export function AdminChurchesTab({
         <CardHeader className="space-y-4">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <CardTitle>Igrejas cadastradas</CardTitle>
-            <div className="grid w-full grid-cols-3 gap-2 lg:flex lg:w-auto lg:items-center">
+            <div className="grid w-full grid-cols-1 gap-2 sm:grid-cols-3 lg:flex lg:w-auto lg:items-center">
               <Button className="w-full lg:w-auto" variant={view === "lista" ? "default" : "outline"} size="sm" onClick={() => setView("lista")}>
                 <List className="mr-2 h-4 w-4" /> Lista
               </Button>
@@ -567,7 +567,7 @@ export function AdminChurchesTab({
             </div>
           </div>
 
-          <div className="grid gap-2 sm:grid-cols-3">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
             <Button variant={tab === "lista" ? "default" : "outline"} onClick={() => setTab("lista")}>Lista</Button>
             <Button
               variant={tab === "remanejamento" ? "default" : "outline"}
@@ -686,7 +686,7 @@ export function AdminChurchesTab({
           ) : null}
 
           {tab === "remanejamento" ? (
-            <div className="grid gap-3 p-5 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="grid grid-cols-1 gap-3 p-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {sortedRows.map((church) => (
                 <Card key={`${tab}-${church.totvs_id}`} className="border border-slate-200 shadow-sm">
                   <CardContent className="space-y-3 p-4">
@@ -721,7 +721,7 @@ export function AdminChurchesTab({
         </CardContent>
       </Card>
 
-      <div className="flex items-center justify-end gap-2">
+      <div className="flex flex-wrap items-center justify-end gap-2">
         <Select value={String(pageSize)} onValueChange={(v) => onPageSizeChange(Number(v))}>
           <SelectTrigger className="w-24">
             <SelectValue />

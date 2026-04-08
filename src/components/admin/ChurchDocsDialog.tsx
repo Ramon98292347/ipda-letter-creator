@@ -421,7 +421,7 @@ export function ChurchDocsDialog({
 
   return (
     <Dialog open={open} onOpenChange={(v) => (!v ? onClose() : null)}>
-      <DialogContent className="max-h-[92vh] max-w-6xl overflow-hidden">
+      <DialogContent className="h-[95vh] w-[calc(100vw-0.75rem)] max-w-6xl overflow-hidden p-3 sm:h-auto sm:max-h-[92vh] sm:p-6">
         <DialogHeader>
           <DialogTitle>Documentos da Igreja - {churchLabel}</DialogTitle>
           <DialogDescription>
@@ -429,9 +429,9 @@ export function ChurchDocsDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="max-h-[72vh] overflow-y-auto pr-1">
+        <div className="max-h-[calc(95vh-180px)] overflow-y-auto pr-1 sm:max-h-[72vh]">
           <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabValue)} className="space-y-4">
-            <TabsList className="grid grid-cols-3 w-full">
+            <TabsList className="grid w-full grid-cols-1 gap-2 sm:grid-cols-3">
               <TabsTrigger value="remanejamento">Remanejamento</TabsTrigger>
               <TabsTrigger value="contrato">Contrato</TabsTrigger>
               <TabsTrigger value="laudo">Laudo</TabsTrigger>
@@ -468,7 +468,7 @@ export function ChurchDocsDialog({
                     </Button>
                   ) : null}
                   {remFormHidden ? (
-                    <Button type="button" variant="outline" onClick={onDeleteRemanejamento} disabled={saving || loading}>
+                    <Button type="button" variant="destructive" onClick={onDeleteRemanejamento} disabled={saving || loading}>
                       Excluir e refazer
                     </Button>
                   ) : null}
@@ -760,20 +760,20 @@ export function ChurchDocsDialog({
           </Tabs>
         </div>
 
-        <div className="flex flex-wrap justify-end gap-2 pt-2">
-          <Button type="button" variant="outline" onClick={onClose}>Fechar</Button>
+        <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:flex-wrap sm:justify-end">
+          <Button className="w-full sm:w-auto" type="button" variant="outline" onClick={onClose}>Fechar</Button>
           {!(activeTab === "remanejamento" && remFormHidden) ? (
-            <Button type="button" variant="outline" onClick={onSaveDraft} disabled={saving || loading}>
+            <Button className="w-full sm:w-auto" type="button" variant="outline" onClick={onSaveDraft} disabled={saving || loading}>
               {saving ? "Salvando..." : "Salvar rascunho"}
             </Button>
           ) : null}
           {!(activeTab === "remanejamento" && remFormHidden) ? (
-            <Button type="button" onClick={onSaveSystem} disabled={saving || loading}>
+            <Button className="w-full sm:w-auto" type="button" onClick={onSaveSystem} disabled={saving || loading}>
               {saving ? "Salvando..." : "Salvar no sistema"}
             </Button>
           ) : null}
           {activeTab !== "laudo" && !(activeTab === "remanejamento" && remFormHidden) ? (
-            <Button type="button" variant="secondary" onClick={onGeneratePdf} disabled={saving || loading}>
+            <Button className="w-full sm:w-auto" type="button" variant="secondary" onClick={onGeneratePdf} disabled={saving || loading}>
               {saving ? "Processando..." : "Gerar PDF"}
             </Button>
           ) : null}

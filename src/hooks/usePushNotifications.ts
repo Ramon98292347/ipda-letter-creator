@@ -49,10 +49,12 @@ async function salvarUserNoSW(userData: { role?: string; scope_totvs_ids?: strin
 
 export function usePushNotifications(userId?: string, userRole?: string, scopeTotvsIds?: string[]) {
   const isNativeApp = Capacitor.isNativePlatform();
+  const isNativeAndroid = isNativeApp && Capacitor.getPlatform() === "android";
+  const nativePushEnabled = !isNativeAndroid;
   const nativeEnabledKey = "native_notifications_enabled";
   const nativeTokenKey = "native_push_token";
   const supported =
-    isNativeApp ||
+    (nativePushEnabled && isNativeApp) ||
     (typeof window !== "undefined" &&
       "serviceWorker" in navigator &&
       "PushManager" in window &&
@@ -160,7 +162,7 @@ export function usePushNotifications(userId?: string, userRole?: string, scopeTo
     }, 500);
 
     return () => clearTimeout(timerId);
-  }, [supported, isNativeApp, persistSubscription, mapNativePermission]);
+  }, [supported, isNativeApp, nativePushEnabled, persistSubscription, mapNativePermission]);
 
   // Comentario: salva dados do usuario no SW para validar escopo de notificacoes
   useEffect(() => {
@@ -216,7 +218,7 @@ export function usePushNotifications(userId?: string, userRole?: string, scopeTo
     } finally {
       setLoading(false);
     }
-  }, [supported, isNativeApp, persistSubscription, mapNativePermission]);
+  }, [supported, isNativeApp, nativePushEnabled, persistSubscription, mapNativePermission]);
 
   const unsubscribe = useCallback(async () => {
     if (!supported) return;
