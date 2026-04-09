@@ -352,8 +352,7 @@ export function AvatarCapture({ onFileReady, disabled = false, currentUrl }: Ava
       ctx.fillRect(0, 0, FOTO_WIDTH, FOTO_HEIGHT);
       const vw = video.videoWidth;
       const vh = video.videoHeight;
-      // Comentario: contain (Math.min) — preserva a imagem inteira sem zoom, igual ao fluxo da galeria
-      const scale = Math.min(FOTO_WIDTH / vw, FOTO_HEIGHT / vh);
+      const scale = Math.max(FOTO_WIDTH / vw, FOTO_HEIGHT / vh);
       const drawW = vw * scale;
       const drawH = vh * scale;
       const drawX = (FOTO_WIDTH - drawW) / 2;
@@ -441,9 +440,7 @@ export function AvatarCapture({ onFileReady, disabled = false, currentUrl }: Ava
       const ctx = canvas.getContext("2d")!;
       ctx.fillStyle = "#ffffff";
       ctx.fillRect(0, 0, FOTO_WIDTH, FOTO_HEIGHT);
-      // Comentario: usa "contain" (Math.min) para preservar a foto inteira sem zoom/corte,
-      // preenchendo as bordas com fundo branco quando a proporcao nao for 3x4.
-      const scale = Math.min(FOTO_WIDTH / img.naturalWidth, FOTO_HEIGHT / img.naturalHeight);
+      const scale = Math.max(FOTO_WIDTH / img.naturalWidth, FOTO_HEIGHT / img.naturalHeight);
       const w = img.naturalWidth * scale;
       const h = img.naturalHeight * scale;
       ctx.drawImage(img, (FOTO_WIDTH - w) / 2, (FOTO_HEIGHT - h) / 2, w, h);
@@ -542,7 +539,7 @@ export function AvatarCapture({ onFileReady, disabled = false, currentUrl }: Ava
         <div className="flex items-start gap-3">
           <div className="flex flex-col items-center gap-1">
             <div className="relative overflow-hidden rounded-md border-2 border-green-400 bg-slate-50" style={{ width: 90, height: 120 }}>
-              <img src={previewUrl} alt="Foto 3x4" className="h-full w-full object-contain bg-white" />
+              <img src={previewUrl} alt="Foto 3x4" className="h-full w-full object-cover" />
               <GuideOverlay />
             </div>
             <span className="flex items-center gap-1 text-[10px] text-green-600 font-medium">
