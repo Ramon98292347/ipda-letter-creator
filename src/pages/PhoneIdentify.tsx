@@ -3,7 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Capacitor } from "@capacitor/core";
 import { toast } from "sonner";
-import { Building2, Eye, EyeOff, KeyRound, Loader2, UserPlus } from "lucide-react";
+import { Building2, Eye, EyeOff, Fingerprint, KeyRound, Loader2, UserPlus } from "lucide-react";
+import { useBiometric } from "@/hooks/useBiometric";
 
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -69,6 +70,10 @@ export default function PhoneIdentify() {
   const { setUsuario, setTelefone, setToken, setSession, setPendingCpf, setAvailableChurches } = useUser();
   const queryClient = useQueryClient();
   const isNativeAndroid = Capacitor.isNativePlatform() && Capacitor.getPlatform() === "android";
+  const biometric = useBiometric();
+  // Comentario: controla o dialogo que pergunta se o usuario quer ativar a digital apos primeiro login
+  const [askEnableBiometric, setAskEnableBiometric] = useState<{ cpf: string; senha: string } | null>(null);
+  const [biometricLoading, setBiometricLoading] = useState(false);
 
   // Comentario: le o CPF salvo no cache para pre-preencher o campo no proximo acesso.
   const cachedCpf = typeof window !== "undefined" ? localStorage.getItem("ipda_last_cpf") || "" : "";
@@ -230,6 +235,10 @@ export default function PhoneIdentify() {
       // Comentario: salva o CPF no cache para pre-preencher o campo e buscar divulgacoes na proxima abertura.
       localStorage.setItem("ipda_last_cpf", cpfRaw);
       if (isNativeAndroid) localStorage.setItem(LS_SAVED_PASSWORD_ANDROID, senha.trim());
+      // Comentario: se biometria disponivel e ainda nao ativada, pergunta apos login bem sucedido
+      if (biometric.isNative && biometric.available && !biometric.enabled) {
+        setAskEnableBiometric({ cpf: cpfRaw, senha: senha.trim() });
+      }
       setPendingCpf(undefined);
       setAvailableChurches([]);
 
@@ -322,6 +331,42 @@ export default function PhoneIdentify() {
     }
   }
 
+  // Comentario: login via digital — verifica biometria, recupera credencial do Keystore e dispara handleLogin
+  async function handleBiometricLogin() {
+    setBiometricLoading(true);
+    try {
+      const ok = await biometric.verify();
+      if (!ok) {
+        toast.error("Autenticação biométrica cancelada ou inválida.");
+        return;
+      }
+      const creds = await biometric.loadCredentials();
+      if (!creds) {
+        toast.error("Nenhuma credencial salva. Faça login com senha primeiro.");
+        await biometric.clearCredentials();
+        return;
+      }
+      setCpf(creds.username);
+      setSenha(creds.password);
+      // Comentario: aguarda o estado propagar e dispara o login
+      setTimeout(() => void handleLogin(), 50);
+    } finally {
+      setBiometricLoading(false);
+    }
+  }
+
+  // Comentario: confirma ativacao da biometria salvando credenciais no Keystore
+  async function confirmEnableBiometric() {
+    if (!askEnableBiometric) return;
+    const ok = await biometric.saveCredentials(askEnableBiometric.cpf, askEnableBiometric.senha);
+    if (ok) {
+      toast.success("Login por digital ativado!");
+    } else {
+      toast.error("Não foi possível ativar a digital.");
+    }
+    setAskEnableBiometric(null);
+  }
+
   async function handleForgotPassword() {
     const cpfRaw = forgotCpf.replace(/\D/g, "");
     const email = forgotEmail.trim();
@@ -412,6 +457,24 @@ export default function PhoneIdentify() {
             )}
           </Button>
 
+          {/* Comentario: botao de login por digital — so aparece no Android com biometria ativada */}
+          {biometric.isNative && biometric.available && biometric.enabled ? (
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full"
+              disabled={biometricLoading || loading}
+              onClick={() => void handleBiometricLogin()}
+            >
+              {biometricLoading ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Fingerprint className="mr-2 h-4 w-4" />
+              )}
+              Entrar com digital
+            </Button>
+          ) : null}
+
           <div className="grid gap-2 sm:grid-cols-2">
             <Dialog open={forgotOpen} onOpenChange={setForgotOpen}>
               <DialogTrigger asChild>
@@ -461,6 +524,26 @@ export default function PhoneIdentify() {
 
         <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-lg lg:min-h-[700px]">
           <p className="mb-3 text-sm font-semibold text-slate-700">Area de divulgacao</p>
+          {/* Comentario: dialog que oferece ativar login por digital apos primeiro login bem sucedido */}
+          <Dialog open={Boolean(askEnableBiometric)} onOpenChange={(o) => !o && setAskEnableBiometric(null)}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Entrar com digital nas próximas vezes?</DialogTitle>
+                <DialogDescription>
+                  Suas credenciais ficam salvas com segurança no aparelho (protegidas pela sua digital).
+                </DialogDescription>
+              </DialogHeader>
+              <div className="flex gap-2">
+                <Button variant="outline" className="flex-1" onClick={() => setAskEnableBiometric(null)}>
+                  Agora não
+                </Button>
+                <Button className="flex-1" onClick={() => void confirmEnableBiometric()}>
+                  <Fingerprint className="mr-2 h-4 w-4" /> Ativar
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+
           <AnnouncementCarousel
             items={announcements}
             birthdays={birthdays.slice(0, 10).map((b) => b.full_name)}

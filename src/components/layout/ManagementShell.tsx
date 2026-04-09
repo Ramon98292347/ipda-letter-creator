@@ -389,6 +389,17 @@ export function ManagementShell({
                   <span>Baixar app</span>
                 </DropdownMenuItem>
               ) : null}
+              {/* Comentario: opcao para ativar alertas push (visivel no mobile/Android sem precisar abrir o sino) */}
+              {pushSupported && !pushSubscribed ? (
+                <DropdownMenuItem
+                  onClick={() => void subscribePush()}
+                  disabled={pushLoading}
+                  className="flex min-h-10 items-center gap-2"
+                >
+                  <Bell className="h-4 w-4 text-amber-600" />
+                  <span>{pushLoading ? "Ativando alertas..." : "Ativar alertas"}</span>
+                </DropdownMenuItem>
+              ) : null}
               <DropdownMenuItem className="flex min-h-10 items-center gap-2 text-rose-600" onClick={onLogout}>
                 <LogOut className="h-4 w-4" />
                 <span>Sair</span>
