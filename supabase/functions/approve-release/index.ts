@@ -1,15 +1,15 @@
-/**
+﻿/**
  * approve-release
  * ===============
- * O que faz: Aprova uma solicitação de liberação de carta de pregação que estava PENDENTE,
+ * O que faz: Aprova uma solicitaÃ§Ã£o de liberaÃ§Ã£o de carta de pregaÃ§Ã£o que estava PENDENTE,
  *            atualiza o status da carta para LIBERADA e dispara o webhook n8n para gerar o PDF.
  * Para que serve: Usada pelo pastor/admin para liberar manualmente uma carta que passou pelo
- *                 fluxo de solicitação de liberação (release_requests).
- * Quem pode usar: admin, pastor (somente cartas da própria igreja ativa)
+ *                 fluxo de solicitaÃ§Ã£o de liberaÃ§Ã£o (release_requests).
+ * Quem pode usar: admin, pastor (somente cartas da prÃ³pria igreja ativa)
  * Recebe: { request_id: string }
  * Retorna: { ok, request, letter, n8n: { fired, status, error } }
- * Observações: Após aprovação, dispara webhook n8n (N8N_WEBHOOK_URL) para gerar o PDF da carta.
- *              O erro no webhook não reverte a aprovação. Cria notificação para o solicitante.
+ * ObservaÃ§Ãµes: ApÃ³s aprovaÃ§Ã£o, dispara webhook n8n (N8N_WEBHOOK_URL) para gerar o PDF da carta.
+ *              O erro no webhook nÃ£o reverte a aprovaÃ§Ã£o. Cria notificaÃ§Ã£o para o solicitante.
  */
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -74,7 +74,7 @@ async function verifySessionJWT(req: Request): Promise<SessionClaims | null> {
   }
 }
 
-const PT_MONTHS = ["janeiro","fevereiro","março","abril","maio","junho","julho","agosto","setembro","outubro","novembro","dezembro"];
+const PT_MONTHS = ["janeiro","fevereiro","marÃ§o","abril","maio","junho","julho","agosto","setembro","outubro","novembro","dezembro"];
 
 function formatDMY(s: string): string {
   const m = String(s || "").match(/^(\d{4})-(\d{2})-(\d{2})/);
@@ -171,7 +171,7 @@ Deno.serve(async (req) => {
       read_at: null,
     });
 
-    // Variáveis para registrar o resultado do webhook no response (facilita debug)
+    // VariÃ¡veis para registrar o resultado do webhook no response (facilita debug)
     let n8nFired = false;
     let n8nStatus = 0;
     let n8nError: string | null = null;
@@ -179,7 +179,7 @@ Deno.serve(async (req) => {
     // Dispara o webhook N8N para gerar o PDF agora que a carta foi liberada manualmente
     try {
       if (!N8N_WEBHOOK_URL) throw new Error("missing_n8n_letter_webhook_url");
-      // Extrai os IDs necessários da carta para buscar dados completos
+      // Extrai os IDs necessÃ¡rios da carta para buscar dados completos
       const churchTotvs = String(letter.church_totvs_id || "");
       const signerTotvs = String(letter.signer_totvs_id || "");
       const signerUserId = String(letter.signer_user_id || "");
@@ -187,7 +187,7 @@ Deno.serve(async (req) => {
       const churchOrigin = String(letter.church_origin || "");
       const churchDestination = String(letter.church_destination || "");
 
-      // Extrai o número TOTVS da string de destino (ex: "9639 - PEDRA AZUL" → "9639")
+      // Extrai o nÃºmero TOTVS da string de destino (ex: "9639 - PEDRA AZUL" â†’ "9639")
       const destinationTotvs = parseTotvsFromText(churchDestination);
 
       // Busca em paralelo: igrejas de origem/assinante, dados do pastor, dados do pregador
@@ -201,7 +201,7 @@ Deno.serve(async (req) => {
           ? sb.from("users").select("id,full_name,phone,signature_url,stamp_pastor_url").eq("id", signerUserId).maybeSingle()
           : Promise.resolve({ data: null, error: null }),
 
-        // Busca data de separação e status de cadastro do pregador (inclui default_totvs_id para resolver pastor local)
+        // Busca data de separaÃ§Ã£o e status de cadastro do pregador (inclui default_totvs_id para resolver pastor local)
         preacherUserId
           ? sb.from("users").select("id,data_separacao,registration_status,default_totvs_id").eq("id", preacherUserId).maybeSingle()
           : Promise.resolve({ data: null, error: null }),
@@ -217,7 +217,7 @@ Deno.serve(async (req) => {
       const preacherRegistrationStatus = String(preacherUser?.registration_status || "").trim() || null;
       const statusUsuario = preacherRegistrationStatus === "PENDENTE" ? "PENDENTE" : "AUTORIZADO";
 
-      // Resolução automática do pastor local via service_role (sem limitação de RLS)
+      // ResoluÃ§Ã£o automÃ¡tica do pastor local via service_role (sem limitaÃ§Ã£o de RLS)
       let resolvedPastorLocalName = "";
       let resolvedPastorLocalPhone = "";
       let resolvedPastorLocalEmail = "";
@@ -244,22 +244,22 @@ Deno.serve(async (req) => {
         }
       }
 
-      // Define destinatário e status_carta: se há pastor local, envia para ele; senão, para o membro
+      // Define destinatÃ¡rio e status_carta: se hÃ¡ pastor local, envia para ele; senÃ£o, para o membro
       const membroNome = String(letter.preacher_name || "");
       const membroTelefone = String(letter.phone || "");
       const targetNome = resolvedPastorLocalName || membroNome;
       const targetTelefone = resolvedPastorLocalName ? resolvedPastorLocalPhone : membroTelefone;
       const finalStatusCarta = resolvedPastorLocalName ? "LIBERADA_PARA_PASTOR" : "LIBERADA_PARA_MEMBRO";
 
-      // URL pública de verificação da carta (para QR Code impresso na carta)
+      // URL pÃºblica de verificaÃ§Ã£o da carta (para QR Code impresso na carta)
       const appBaseUrl = String(Deno.env.get("APP_BASE_URL") || "https://sistem-ipda.vercel.app").replace(/\/$/, "");
       const verifyUrl = `${appBaseUrl}/validar-carta?id=${String(letter.id || "")}`;
 
       // Monta o payload completo para o N8N gerar o PDF
       const n8nPayload = {
         letter_id: letter.id,
-        nome: targetNome,
-        telefone: targetTelefone,
+        nome: membroNome,
+        telefone: membroTelefone,
         igreja_origem: churchOrigin,
         origem: churchOrigin,
         igreja_destino: churchDestination,
@@ -301,7 +301,7 @@ Deno.serve(async (req) => {
       n8nFired = true;
       n8nStatus = webhookResp.status;
     } catch (e) {
-      // Salva o erro mas NÃO reverte a aprovação — a carta continua liberada
+      // Salva o erro mas NÃƒO reverte a aprovaÃ§Ã£o â€” a carta continua liberada
       n8nError = String(e);
     }
 
@@ -311,3 +311,4 @@ Deno.serve(async (req) => {
     return json({ ok: false, error: "exception", details: "erro interno" }, 500);
   }
 });
+

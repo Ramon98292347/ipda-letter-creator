@@ -1,18 +1,18 @@
-/**
+﻿/**
  * set-letter-status
  * =================
- * O que faz: Altera o status de uma carta de pregação para qualquer valor válido
+ * O que faz: Altera o status de uma carta de pregaÃ§Ã£o para qualquer valor vÃ¡lido
  *            (LIBERADA, BLOQUEADO, EXCLUIDA, AUTORIZADO, AGUARDANDO_LIBERACAO, ENVIADA).
- *            Quando o novo status é LIBERADA (e o anterior não era), dispara o webhook
+ *            Quando o novo status Ã© LIBERADA (e o anterior nÃ£o era), dispara o webhook
  *            n8n para gerar o PDF da carta.
  * Para que serve: Usada pelo pastor/admin para liberar, bloquear ou excluir cartas manualmente
- *                 a partir da tabela de cartas no painel de gestão.
- * Quem pode usar: admin, pastor (somente cartas dentro do próprio escopo)
+ *                 a partir da tabela de cartas no painel de gestÃ£o.
+ * Quem pode usar: admin, pastor (somente cartas dentro do prÃ³prio escopo)
  * Recebe: { letter_id: string, status: string }
  * Retorna: { ok, letter, n8n: { fired, status, error } }
- * Observações: O webhook n8n só é disparado quando status muda PARA "LIBERADA" pela primeira vez
+ * ObservaÃ§Ãµes: O webhook n8n sÃ³ Ã© disparado quando status muda PARA "LIBERADA" pela primeira vez
  *              (prevStatus != "LIBERADA") para evitar disparos duplicados.
- *              O erro no webhook não reverte a mudança de status da carta.
+ *              O erro no webhook nÃ£o reverte a mudanÃ§a de status da carta.
  */
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -89,7 +89,7 @@ function computeScope(rootTotvs: string, churches: ChurchRow[]): Set<string> {
   return scope;
 }
 
-const PT_MONTHS = ["janeiro","fevereiro","março","abril","maio","junho","julho","agosto","setembro","outubro","novembro","dezembro"];
+const PT_MONTHS = ["janeiro","fevereiro","marÃ§o","abril","maio","junho","julho","agosto","setembro","outubro","novembro","dezembro"];
 
 function formatDMY(s: string): string {
   const m = String(s || "").match(/^(\d{4})-(\d{2})-(\d{2})/);
@@ -142,7 +142,7 @@ Deno.serve(async (req) => {
     if (lErr) return json({ ok: false, error: "db_error_letter", details: "erro interno" }, 500);
     if (!letter) return json({ ok: false, error: "letter_not_found" }, 404);
 
-    // Admin pode tudo. Pastor só no escopo (igreja ativa + filhas).
+    // Admin pode tudo. Pastor sÃ³ no escopo (igreja ativa + filhas).
     if (session.role === "pastor") {
       const { data: allChurches, error: cErr } = await sb
         .from("churches")
@@ -167,23 +167,23 @@ Deno.serve(async (req) => {
 
     if (uErr) return json({ ok: false, error: "db_error_update", details: "erro interno" }, 500);
 
-    // Armazena informações do webhook para retornar na resposta (útil para debug)
+    // Armazena informaÃ§Ãµes do webhook para retornar na resposta (Ãºtil para debug)
     let n8nFired = false;
     let n8nStatus = 0;
     let n8nError: string | null = null;
 
-    // Dispara o webhook apenas quando a carta está sendo liberada pela primeira vez.
+    // Dispara o webhook apenas quando a carta estÃ¡ sendo liberada pela primeira vez.
     // prevStatus != "LIBERADA" evita disparar duas vezes se o pastor clicar duas vezes.
     if (status === "LIBERADA" && prevStatus !== "LIBERADA") {
       try {
-        // Campos extras opcionais enviados pelo frontend (liberação para pastor ou membro)
+        // Campos extras opcionais enviados pelo frontend (liberaÃ§Ã£o para pastor ou membro)
         const bodyFull = body as Record<string, unknown>;
         const customStatusCarta = String(bodyFull.statusCarta || "");
         let resolvedPastorLocalName = String(bodyFull.pastorLocalName || "");
         let resolvedPastorLocalPhone = String(bodyFull.pastorLocalPhone || "");
         let resolvedPastorLocalEmail = String(bodyFull.pastorLocalEmail || "");
 
-        // Lê os IDs importantes da carta para buscar dados completos
+        // LÃª os IDs importantes da carta para buscar dados completos
         const churchTotvs = String(letter.church_totvs_id || "");
         const signerTotvs = String(letter.signer_totvs_id || "");
         const signerUserId = String(letter.signer_user_id || "");
@@ -191,7 +191,7 @@ Deno.serve(async (req) => {
         const churchOrigin = String(letter.church_origin || "");
         const churchDestination = String(letter.church_destination || "");
 
-        // Extrai o número TOTVS da string de destino (ex: "9639 - PEDRA AZUL" → "9639")
+        // Extrai o nÃºmero TOTVS da string de destino (ex: "9639 - PEDRA AZUL" â†’ "9639")
         const destinationTotvs = parseTotvsFromText(churchDestination);
 
         // Busca em paralelo: igrejas de origem/assinante, dados do pastor assinante, dados do pregador
@@ -219,7 +219,7 @@ Deno.serve(async (req) => {
         const preacherRegistrationStatus = String(preacherUser?.registration_status || "").trim() || null;
         const statusUsuario = preacherRegistrationStatus === "PENDENTE" ? "PENDENTE" : "AUTORIZADO";
 
-        // Resolução automática do pastor local via service_role (sem limitação de RLS)
+        // ResoluÃ§Ã£o automÃ¡tica do pastor local via service_role (sem limitaÃ§Ã£o de RLS)
         if ((customStatusCarta === "LIBERADA_PARA_PASTOR" || customStatusCarta === "SEM_PASTOR") && !resolvedPastorLocalName && preacherUserId) {
           const preacherLocalTotvs = String(preacherUser?.default_totvs_id || "").trim();
           if (preacherLocalTotvs) {
@@ -244,7 +244,7 @@ Deno.serve(async (req) => {
           }
         }
 
-        // Define destinatário e status_carta final
+        // Define destinatÃ¡rio e status_carta final
         const membroNome = String(letter.preacher_name || "");
         const membroTelefone = String(letter.preacher_phone || letter.phone || "");
         let targetNome = membroNome;
@@ -265,15 +265,15 @@ Deno.serve(async (req) => {
           finalStatusCarta = "SEM_PASTOR";
         }
 
-        // URL pública de verificação da carta (para QR Code impresso na carta)
+        // URL pÃºblica de verificaÃ§Ã£o da carta (para QR Code impresso na carta)
         const appBaseUrl = String(Deno.env.get("APP_BASE_URL") || "https://ipda-letter-creator.vercel.app").replace(/\/$/, "");
         const verifyUrl = `${appBaseUrl}/validar-carta?id=${String(letter.id || "")}`;
 
         // Monta o payload completo enviado ao N8N para gerar o PDF
         const n8nPayload = {
           letter_id: letter.id,
-          nome: targetNome,
-          telefone: targetTelefone,
+          nome: membroNome,
+          telefone: membroTelefone,
           igreja_origem: churchOrigin,
           origem: churchOrigin,
           igreja_destino: churchDestination,
@@ -316,15 +316,16 @@ Deno.serve(async (req) => {
         n8nFired = true;
         n8nStatus = webhookResp.status;
       } catch (e) {
-        // Salva o erro para retornar na resposta (não reverte o status da carta)
+        // Salva o erro para retornar na resposta (nÃ£o reverte o status da carta)
         n8nError = String(e);
       }
     }
 
 
-    // Retorna o resultado incluindo informação do webhook para facilitar debug
+    // Retorna o resultado incluindo informaÃ§Ã£o do webhook para facilitar debug
     return json({ ok: true, letter: updated, n8n: { fired: n8nFired, status: n8nStatus, error: n8nError } }, 200);
   } catch (err) {
     return json({ ok: false, error: "exception", details: "erro interno" }, 500);
   }
 });
+

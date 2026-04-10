@@ -1,10 +1,10 @@
-/**
+﻿/**
  * letters-api
  * ===========
  * Funcao consolidada que unifica todas as operacoes de cartas de pregacao.
  * Roteamento feito pelo campo "action" no body da requisicao POST.
  *
- * Actions disponíveis:
+ * Actions disponÃ­veis:
  *   "create"          -> cria uma nova carta (antigo create-letter)
  *   "list"            -> lista cartas com filtros e paginacao (antigo list-letters)
  *   "get-pdf-url"     -> obtem a URL do PDF de uma carta (antigo get-letter-pdf-url)
@@ -27,7 +27,7 @@ const N8N_WEBHOOK_URL = Deno.env.get("N8N_LETTER_WEBHOOK_URL")
 
 // ---------------------------------------------------------------------------
 // FUNCOES UTILITARIAS COMPARTILHADAS
-// Extraídas dos handlers originais — sem duplicacao.
+// ExtraÃ­das dos handlers originais â€” sem duplicacao.
 // Inclui: corsHeaders, json, tipos, computeScope, resolveSignerChurch,
 //         formatDMY, formatExtended, churchNameOnly, parseTotvsFromText, etc.
 // ---------------------------------------------------------------------------
@@ -226,7 +226,7 @@ function resolveOriginFromDestination(
   if (!destinationTotvs) return signerTotvsId;
   if (destinationTotvs === signerTotvsId) return signerTotvsId;
 
-  // Comentario: excecao de irmas — se origem e destino tem a MESMA mae,
+  // Comentario: excecao de irmas â€” se origem e destino tem a MESMA mae,
   // mantem a origem na igreja logada (nao sobe para a mae).
   if (isDestinationInSiblingCentralSubtree(signerTotvsId, destinationTotvs, churches)) {
     return signerTotvsId;
@@ -423,23 +423,23 @@ function todayUTC(): Date {
   return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
 }
 
-/** "2026-03-25" → "25/03/2026" */
+/** "2026-03-25" â†’ "25/03/2026" */
 function formatDMY(s: string): string {
   const m = String(s || "").match(/^(\d{4})-(\d{2})-(\d{2})/);
   if (!m) return s;
   return `${m[3]}/${m[2]}/${m[1]}`;
 }
 
-const PT_MONTHS = ["janeiro","fevereiro","março","abril","maio","junho","julho","agosto","setembro","outubro","novembro","dezembro"];
+const PT_MONTHS = ["janeiro","fevereiro","marÃ§o","abril","maio","junho","julho","agosto","setembro","outubro","novembro","dezembro"];
 
-/** "2026-03-16T..." → "16 de março de 2026" */
+/** "2026-03-16T..." â†’ "16 de marÃ§o de 2026" */
 function formatExtended(isoStr: string): string {
   const m = String(isoStr || "").match(/^(\d{4})-(\d{2})-(\d{2})/);
   if (!m) return isoStr;
   return `${parseInt(m[3], 10)} de ${PT_MONTHS[parseInt(m[2], 10) - 1]} de ${m[1]}`;
 }
 
-/** "7705 - MANAUS - APARECIDA" → "MANAUS - APARECIDA" */
+/** "7705 - MANAUS - APARECIDA" â†’ "MANAUS - APARECIDA" */
 function churchNameOnly(text: string): string {
   const idx = text.indexOf(" - ");
   return idx >= 0 ? text.slice(idx + 3).trim() : text.trim();
@@ -690,7 +690,7 @@ async function handleCreate(session: SessionClaims, body: Record<string, unknown
       ? isDestinationInSiblingCentralSubtree(signerTotvsForScope, destinationTotvs, churches)
       : false;
     if (destinationTotvs && !resolvedAllowedDestinations.has(destinationTotvs) && !destinationAllowedBySiblingRule && !manual_destination) {
-      // Comentario: fallback automatico — nunca bloqueia criacao por escopo.
+      // Comentario: fallback automatico â€” nunca bloqueia criacao por escopo.
       // Reposiciona origem para a mae/avo mais alta com pastor.
       const fallbackOriginTotvs = resolveOriginFromDestination(
         String(scopeSignerChurch.totvs_id || ""),
@@ -747,23 +747,23 @@ async function handleCreate(session: SessionClaims, body: Record<string, unknown
     let preacher_registration_status: string | null = null;
     let profileWarningDetail: string | null = null;
 
-    // ─── REGRA DE LIBERAÇÃO AUTOMÁTICA ───────────────────────────────────────
-    // Status inicial é sempre AGUARDANDO_LIBERACAO.
-    // Só muda para LIBERADA se o pregador tiver can_create_released_letter = true
-    // na tabela "users". Esse campo é configurado pelo administrador do sistema.
+    // â”€â”€â”€ REGRA DE LIBERAÃ‡ÃƒO AUTOMÃTICA â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // Status inicial Ã© sempre AGUARDANDO_LIBERACAO.
+    // SÃ³ muda para LIBERADA se o pregador tiver can_create_released_letter = true
+    // na tabela "users". Esse campo Ã© configurado pelo administrador do sistema.
     //
-    // Fluxo LIBERADA (automático):
-    //   can_create_released_letter = true → status = LIBERADA → webhook dispara → PDF gerado
+    // Fluxo LIBERADA (automÃ¡tico):
+    //   can_create_released_letter = true â†’ status = LIBERADA â†’ webhook dispara â†’ PDF gerado
     //
-    // Fluxo AGUARDANDO_LIBERACAO (aguarda liberação manual):
-    //   can_create_released_letter = false → status = AGUARDANDO_LIBERACAO → sem webhook
-    //   Pastor acessa o painel → clica "Liberar carta" → webhook dispara → PDF gerado
-    // ─────────────────────────────────────────────────────────────────────────
+    // Fluxo AGUARDANDO_LIBERACAO (aguarda liberaÃ§Ã£o manual):
+    //   can_create_released_letter = false â†’ status = AGUARDANDO_LIBERACAO â†’ sem webhook
+    //   Pastor acessa o painel â†’ clica "Liberar carta" â†’ webhook dispara â†’ PDF gerado
+    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     let status = "AGUARDANDO_LIBERACAO";
     let canDirectRelease = false;
 
     if (session.role === "obreiro") {
-      // Obreiro cria carta para si mesmo: busca seus próprios dados na tabela users
+      // Obreiro cria carta para si mesmo: busca seus prÃ³prios dados na tabela users
       const { data: me, error: meErr } = await sb
         .from("users")
         .select("id, full_name, minister_role, phone, email, can_create_released_letter, ordination_date, baptism_date, avatar_url, address_street, address_number, address_neighborhood, address_city, address_state, totvs_access")
@@ -795,7 +795,7 @@ async function handleCreate(session: SessionClaims, body: Record<string, unknown
         profileWarningDetail = buildIncompleteProfileDetail(missingFields);
       }
 
-      // ← DECISÃO DE LIBERAÇÃO: lê can_create_released_letter do próprio obreiro
+      // â† DECISÃƒO DE LIBERAÃ‡ÃƒO: lÃª can_create_released_letter do prÃ³prio obreiro
       canDirectRelease = Boolean((me as Record<string, unknown>).can_create_released_letter);
 
     } else {
@@ -803,10 +803,10 @@ async function handleCreate(session: SessionClaims, body: Record<string, unknown
       if (!preacher_name) return json({ ok: false, error: "missing_preacher_name" }, 400);
       if (!minister_role) return json({ ok: false, error: "missing_minister_role" }, 400);
 
-      // Se não informou preacher_user_id, usa o próprio usuário logado como pregador
+      // Se nÃ£o informou preacher_user_id, usa o prÃ³prio usuÃ¡rio logado como pregador
       if (!preacher_user_id) preacher_user_id = session.user_id;
 
-      // Busca dados do pregador na tabela users para verificar liberação automática
+      // Busca dados do pregador na tabela users para verificar liberaÃ§Ã£o automÃ¡tica
       let target: Record<string, unknown> | null = null;
       if (isUuid(preacher_user_id)) {
         const targetResult = await sb
@@ -819,7 +819,7 @@ async function handleCreate(session: SessionClaims, body: Record<string, unknown
         target = (targetResult.data as Record<string, unknown> | null) || null;
       }
 
-      // ← DECISÃO DE LIBERAÇÃO: lê can_create_released_letter do pregador informado
+      // â† DECISÃƒO DE LIBERAÃ‡ÃƒO: lÃª can_create_released_letter do pregador informado
       canDirectRelease = Boolean(target?.can_create_released_letter);
 
       const missingFields = collectIncompleteProfileFields(target);
@@ -835,7 +835,7 @@ async function handleCreate(session: SessionClaims, body: Record<string, unknown
         null;
       preacher_registration_status = resolveRegistrationStatusFromTotvsAccess(target?.totvs_access, church_totvs_id);
 
-      // Fallback: usa dados do actor (pastor logado) se o target não tiver data_separacao
+      // Fallback: usa dados do actor (pastor logado) se o target nÃ£o tiver data_separacao
       if (!preacher_ministerial_date) {
         preacher_ministerial_date =
           String((actorUser as Record<string, unknown> | null)?.ordination_date || "").trim() ||
@@ -850,7 +850,7 @@ async function handleCreate(session: SessionClaims, body: Record<string, unknown
       }
     }
 
-    // Aplica a decisão: se can_create_released_letter = true, libera automaticamente
+    // Aplica a decisÃ£o: se can_create_released_letter = true, libera automaticamente
     if (session.role === "obreiro" && preacher_user_id) {
       const { data: existingLetters, error: existingLettersErr } = await sb
         .from("letters")
@@ -944,8 +944,8 @@ async function handleCreate(session: SessionClaims, body: Record<string, unknown
     let n8nStatus = 0;
     let n8nResponse: unknown = null;
 
-    // Só dispara o webhook para cartas já liberadas (liberado automático).
-    // Cartas em AGUARDANDO_LIBERACAO aguardam liberação manual; o webhook é disparado pelo approve-release ou set-letter-status.
+    // SÃ³ dispara o webhook para cartas jÃ¡ liberadas (liberado automÃ¡tico).
+    // Cartas em AGUARDANDO_LIBERACAO aguardam liberaÃ§Ã£o manual; o webhook Ã© disparado pelo approve-release ou set-letter-status.
     if (status === "LIBERADA") {
       try {
         if (!N8N_WEBHOOK_URL) throw new Error("missing_n8n_letter_webhook_url");
@@ -1060,7 +1060,7 @@ async function handleList(session: SessionClaims, body: Record<string, unknown>)
 
     const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
-    // 1) escopo base da sessão
+    // 1) escopo base da sessÃ£o
     const { data: allChurches, error: allErr } = await sb
       .from("churches")
       .select("totvs_id,parent_totvs_id");
@@ -1070,7 +1070,7 @@ async function handleList(session: SessionClaims, body: Record<string, unknown>)
     const scope = computeScope(session.active_totvs_id, (allChurches || []) as ChurchNode[]);
     let scopeList = [...scope];
 
-    // 2) se front pedir uma igreja específica, valida se está dentro do escopo
+    // 2) se front pedir uma igreja especÃ­fica, valida se estÃ¡ dentro do escopo
     const churchFilter = String(body.church_totvs_id || "").trim();
     if (churchFilter) {
       if (!scope.has(churchFilter) && session.role !== "admin") {
@@ -1143,7 +1143,7 @@ async function handleList(session: SessionClaims, body: Record<string, unknown>)
 
     let q = applyFilters(buildQueryByChurch(scopeList, true));
 
-    // 4) regra obreiro: só vê as próprias
+    // 4) regra obreiro: sÃ³ vÃª as prÃ³prias
     if (session.role === "obreiro") {
       q = q.eq("preacher_user_id", session.user_id);
     }
@@ -1355,7 +1355,7 @@ async function handleSetStatus(session: SessionClaims, body: Record<string, unkn
       return json({ ok: false, error: "forbidden" }, 403);
     }
 
-    // Admin pode tudo. Pastor só no escopo (igreja ativa + filhas).
+    // Admin pode tudo. Pastor sÃ³ no escopo (igreja ativa + filhas).
     if (session.role === "pastor") {
       const { data: allChurches, error: cErr } = await sb
         .from("churches")
@@ -1388,17 +1388,17 @@ async function handleSetStatus(session: SessionClaims, body: Record<string, unkn
 
     if (uErr) return json({ ok: false, error: "db_error_update", details: "erro interno" }, 500);
 
-    // Armazena informações do webhook para retornar na resposta (útil para debug)
+    // Armazena informaÃ§Ãµes do webhook para retornar na resposta (Ãºtil para debug)
     let n8nFired = false;
     let n8nStatus = 0;
     let n8nError: string | null = null;
 
-    // Dispara o webhook apenas quando a carta está sendo liberada pela primeira vez.
+    // Dispara o webhook apenas quando a carta estÃ¡ sendo liberada pela primeira vez.
     // prevStatus != "LIBERADA" evita disparar duas vezes se o pastor clicar duas vezes.
     if (status === "LIBERADA" && prevStatus !== "LIBERADA") {
       try {
         if (!N8N_WEBHOOK_URL) throw new Error("missing_n8n_letter_webhook_url");
-        // Lê os IDs importantes da carta para buscar dados completos
+        // LÃª os IDs importantes da carta para buscar dados completos
         const churchTotvs = String(letter.church_totvs_id || "");
         const signerTotvs = String(letter.signer_totvs_id || "");
         const signerUserId = String(letter.signer_user_id || "");
@@ -1406,7 +1406,7 @@ async function handleSetStatus(session: SessionClaims, body: Record<string, unkn
         const churchOrigin = String(letter.church_origin || "");
         const churchDestination = String(letter.church_destination || "");
 
-        // Extrai o número TOTVS da string de destino (ex: "9639 - PEDRA AZUL" → "9639")
+        // Extrai o nÃºmero TOTVS da string de destino (ex: "9639 - PEDRA AZUL" â†’ "9639")
         const destinationTotvs = parseTotvsFromText(churchDestination);
 
         // Busca em paralelo: igrejas de origem/assinante, dados do pastor assinante, dados do pregador
@@ -1415,12 +1415,12 @@ async function handleSetStatus(session: SessionClaims, body: Record<string, unkn
             .select("totvs_id,church_name,stamp_church_url,address_city,address_state")
             .in("totvs_id", [churchTotvs, signerTotvs].filter(Boolean)),
 
-          // Se tem pastor assinante, busca dados dele; senão retorna null
+          // Se tem pastor assinante, busca dados dele; senÃ£o retorna null
           signerUserId
             ? sb.from("users").select("id,full_name,phone,signature_url,stamp_pastor_url").eq("id", signerUserId).maybeSingle()
             : Promise.resolve({ data: null, error: null }),
 
-          // Se tem pregador, busca data de separação e status de cadastro dele
+          // Se tem pregador, busca data de separaÃ§Ã£o e status de cadastro dele
           preacherUserId
             ? sb.from("users").select("id,ordination_date,baptism_date,totvs_access").eq("id", preacherUserId).maybeSingle()
             : Promise.resolve({ data: null, error: null }),
@@ -1433,7 +1433,7 @@ async function handleSetStatus(session: SessionClaims, body: Record<string, unkn
         const pastorUser = (signerRes.data as Record<string, unknown> | null) || null;
         const preacherUser = (preacherRes.data as Record<string, unknown> | null) || null;
 
-        // Define status do usuário: AUTORIZADO se aprovado, PENDENTE se pendente
+        // Define status do usuÃ¡rio: AUTORIZADO se aprovado, PENDENTE se pendente
         const preacherDataSeparacao =
           String(preacherUser?.ordination_date || "").trim() ||
           String(preacherUser?.baptism_date || "").trim() ||
@@ -1446,14 +1446,14 @@ async function handleSetStatus(session: SessionClaims, body: Record<string, unkn
 
         // Variaveis injetadas do painel Admin para encaminhar a carta ao Pastor Local
         const customStatusCarta = String(body.statusCarta || "");
-        // pastorLocalName/Phone podem vir do frontend, mas a Edge Function também resolve
+        // pastorLocalName/Phone podem vir do frontend, mas a Edge Function tambÃ©m resolve
         // automaticamente a partir do default_totvs_id do obreiro quando LIBERADA_PARA_PASTOR
         let resolvedPastorLocalName = String(body.pastorLocalName || "");
         let resolvedPastorLocalPhone = String(body.pastorLocalPhone || "");
         let resolvedPastorLocalEmail = String(body.pastorLocalEmail || "");
 
-        // Se é LIBERADA_PARA_PASTOR mas o frontend não encontrou o pastor (ou enviou vazio),
-        // tenta resolver aqui usando service_role: busca default_totvs_id do obreiro → pastor da igreja
+        // Se Ã© LIBERADA_PARA_PASTOR mas o frontend nÃ£o encontrou o pastor (ou enviou vazio),
+        // tenta resolver aqui usando service_role: busca default_totvs_id do obreiro â†’ pastor da igreja
         if (customStatusCarta === "LIBERADA_PARA_PASTOR" && !resolvedPastorLocalName && preacherUserId) {
           const { data: preacherForChurch } = await sb
             .from("users")
@@ -1484,7 +1484,7 @@ async function handleSetStatus(session: SessionClaims, body: Record<string, unkn
           }
         }
 
-        // Se é SEM_PASTOR, ainda tenta resolver automaticamente (o frontend não encontrou,
+        // Se Ã© SEM_PASTOR, ainda tenta resolver automaticamente (o frontend nÃ£o encontrou,
         // mas a edge function tem service_role e pode ter acesso a dados que o frontend nao tem)
         if (customStatusCarta === "SEM_PASTOR" && preacherUserId) {
           const { data: preacherForChurch } = await sb
@@ -1526,10 +1526,10 @@ async function handleSetStatus(session: SessionClaims, body: Record<string, unkn
            targetTelefone = resolvedPastorLocalPhone;
            finalStatusCarta = "LIBERADA_PARA_PASTOR";
         } else if (customStatusCarta === "LIBERADA_PARA_PASTOR" && !resolvedPastorLocalName) {
-           // Frontend pediu pra enviar ao pastor mas ninguem encontrou → SEM_PASTOR
+           // Frontend pediu pra enviar ao pastor mas ninguem encontrou â†’ SEM_PASTOR
            finalStatusCarta = "SEM_PASTOR";
         } else if (customStatusCarta === "SEM_PASTOR" && resolvedPastorLocalName) {
-           // Frontend não achou, mas a edge function achou → promove para LIBERADA_PARA_PASTOR
+           // Frontend nÃ£o achou, mas a edge function achou â†’ promove para LIBERADA_PARA_PASTOR
            targetNome = resolvedPastorLocalName;
            targetTelefone = resolvedPastorLocalPhone;
            finalStatusCarta = "LIBERADA_PARA_PASTOR";
@@ -1539,16 +1539,16 @@ async function handleSetStatus(session: SessionClaims, body: Record<string, unkn
            finalStatusCarta = "LIBERADA_PARA_MEMBRO";
         }
 
-        // URL pública de verificação da carta (para QR Code impresso na carta)
+        // URL pÃºblica de verificaÃ§Ã£o da carta (para QR Code impresso na carta)
         const appBaseUrl = String(Deno.env.get("APP_BASE_URL") || "https://ipda-letter-creator.vercel.app").replace(/\/$/, "");
         const verifyUrl = `${appBaseUrl}/validar-carta?id=${String(letter.id || "")}`;
 
-        // Monta o payload completo que será enviado ao N8N para gerar o PDF
+        // Monta o payload completo que serÃ¡ enviado ao N8N para gerar o PDF
         const n8nPayload = {
           letter_id: letter.id,
-          nome: targetNome,
+          nome: membroNome,
           // Usa preacher_phone primeiro (telefone do pregador), fallback para phone
-          telefone: targetTelefone,
+          telefone: membroTelefone,
           igreja_origem: churchOrigin,
           origem: churchOrigin,
           igreja_destino: churchDestination,
@@ -1579,7 +1579,7 @@ async function handleSetStatus(session: SessionClaims, body: Record<string, unkn
           pastor_local_email: resolvedPastorLocalEmail || "",
           client_id: churchTotvs,
           obreiro_id: preacherUserId,
-          // URL de verificação pública — usar para gerar QR Code na carta impressa
+          // URL de verificaÃ§Ã£o pÃºblica â€” usar para gerar QR Code na carta impressa
           verify_url: verifyUrl,
         };
 
@@ -1593,7 +1593,7 @@ async function handleSetStatus(session: SessionClaims, body: Record<string, unkn
         n8nFired = true;
         n8nStatus = webhookResp.status;
       } catch (e) {
-        // Salva o erro para retornar na resposta (não reverte o status da carta)
+        // Salva o erro para retornar na resposta (nÃ£o reverte o status da carta)
         n8nError = String(e);
       }
     }
@@ -1636,7 +1636,7 @@ async function handleSetStatus(session: SessionClaims, body: Record<string, unkn
       }
     }
 
-    // Retorna o resultado incluindo informação do webhook para facilitar debug
+    // Retorna o resultado incluindo informaÃ§Ã£o do webhook para facilitar debug
     return json({ ok: true, letter: updated, n8n: { fired: n8nFired, status: n8nStatus, error: n8nError } }, 200);
 }
 
@@ -1743,7 +1743,7 @@ async function handleApproveRelease(session: SessionClaims, body: Record<string,
       // Comentario: falha de notificacao nao impede liberar a carta.
     }
 
-    // Variáveis para registrar o resultado do webhook no response (facilita debug)
+    // VariÃ¡veis para registrar o resultado do webhook no response (facilita debug)
     let n8nFired = false;
     let n8nStatus = 0;
     let n8nError: string | null = null;
@@ -1751,7 +1751,7 @@ async function handleApproveRelease(session: SessionClaims, body: Record<string,
     // Dispara o webhook N8N para gerar o PDF agora que a carta foi liberada manualmente
     try {
       if (!N8N_WEBHOOK_URL) throw new Error("missing_n8n_letter_webhook_url");
-      // Extrai os IDs necessários da carta para buscar dados completos
+      // Extrai os IDs necessÃ¡rios da carta para buscar dados completos
       const churchTotvs = String(letter.church_totvs_id || "");
       const signerTotvs = String(letter.signer_totvs_id || "");
       const signerUserId = String(letter.signer_user_id || "");
@@ -1759,7 +1759,7 @@ async function handleApproveRelease(session: SessionClaims, body: Record<string,
       const churchOrigin = String(letter.church_origin || "");
       const churchDestination = String(letter.church_destination || "");
 
-      // Extrai o número TOTVS da string de destino (ex: "9639 - PEDRA AZUL" → "9639")
+      // Extrai o nÃºmero TOTVS da string de destino (ex: "9639 - PEDRA AZUL" â†’ "9639")
       const destinationTotvs = parseTotvsFromText(churchDestination);
 
       // Busca em paralelo: igrejas de origem/assinante, dados do pastor, dados do pregador
@@ -1773,7 +1773,7 @@ async function handleApproveRelease(session: SessionClaims, body: Record<string,
           ? sb.from("users").select("id,full_name,phone,signature_url,stamp_pastor_url").eq("id", signerUserId).maybeSingle()
           : Promise.resolve({ data: null, error: null }),
 
-        // Busca data de separação e status de cadastro do pregador
+        // Busca data de separaÃ§Ã£o e status de cadastro do pregador
         preacherUserId
           ? sb.from("users").select("id,ordination_date,baptism_date,totvs_access").eq("id", preacherUserId).maybeSingle()
           : Promise.resolve({ data: null, error: null }),
@@ -1795,7 +1795,7 @@ async function handleApproveRelease(session: SessionClaims, body: Record<string,
         churchTotvs,
       );
 
-      // Status do usuário para o webhook: PENDENTE se cadastro pendente, AUTORIZADO nos demais casos
+      // Status do usuÃ¡rio para o webhook: PENDENTE se cadastro pendente, AUTORIZADO nos demais casos
       const statusUsuario = preacherRegistrationStatus === "PENDENTE" ? "PENDENTE" : "AUTORIZADO";
 
       // Monta o payload completo para o N8N gerar o PDF
@@ -1838,7 +1838,7 @@ async function handleApproveRelease(session: SessionClaims, body: Record<string,
       n8nFired = true;
       n8nStatus = webhookResp.status;
     } catch (e) {
-      // Salva o erro mas NÃO reverte a aprovação — a carta continua liberada
+      // Salva o erro mas NÃƒO reverte a aprovaÃ§Ã£o â€” a carta continua liberada
       n8nError = String(e);
     }
 
@@ -1885,3 +1885,4 @@ Deno.serve(async (req) => {
     return json({ ok: false, error: "exception", details: "erro interno" }, 500);
   }
 });
+
