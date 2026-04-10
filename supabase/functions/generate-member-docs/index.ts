@@ -123,15 +123,22 @@ async function getPastorById(
   return (data as PastorRow | null) || null;
 }
 
+// Comentario: sobe ilimitadamente na hierarquia (central -> setorial -> estadual)
+// ate encontrar um pastor com assinatura cadastrada.
+// Igual a logica da carta: Regional/Local nunca assinam, sobe ate encontrar.
 async function resolveSignatureFromChurchHierarchy(
   sb: ReturnType<typeof createClient>,
   baseChurch: ChurchRow,
 ) {
   const chain: ChurchRow[] = [baseChurch];
   let current = baseChurch;
-  for (let depth = 0; depth < 2; depth += 1) {
+  const seen = new Set<string>([String(baseChurch.totvs_id)]);
+
+  // Comentario: sobe sem limite de profundidade ate a raiz da arvore
+  while (true) {
     const parentId = String(current.parent_totvs_id || "").trim();
-    if (!parentId) break;
+    if (!parentId || seen.has(parentId)) break;
+    seen.add(parentId);
     const parentChurch = await getChurchByTotvs(sb, parentId);
     if (!parentChurch) break;
     chain.push(parentChurch);
