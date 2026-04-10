@@ -382,6 +382,9 @@ export default function CamisasPedidoPage() {
     const contactChurchTotvsId = String(churchTotvsId || churchId || "").trim();
 
     let contactsPayload = {
+      responsavel_name: "",
+      responsavel_phone: "",
+      responsavel_email: "",
       pastor_name: "",
       pastor_phone: "",
       pastor_email: "",
@@ -394,10 +397,14 @@ export default function CamisasPedidoPage() {
       const contactsRes = await post<{
         ok: boolean;
         church_totvs_id?: string;
+        responsavel?: { full_name?: string | null; phone?: string | null; email?: string | null } | null;
         pastor?: { full_name?: string | null; phone?: string | null; email?: string | null } | null;
         secretary?: { full_name?: string | null; phone?: string | null; email?: string | null } | null;
       }>("get-church-order-contacts-public", { church_totvs_id: contactChurchTotvsId }, { skipAuth: true });
       contactsPayload = {
+        responsavel_name: String(contactsRes?.responsavel?.full_name || "").trim(),
+        responsavel_phone: String(contactsRes?.responsavel?.phone || "").trim(),
+        responsavel_email: String(contactsRes?.responsavel?.email || "").trim(),
         pastor_name: String(contactsRes?.pastor?.full_name || "").trim(),
         pastor_phone: String(contactsRes?.pastor?.phone || "").trim(),
         pastor_email: String(contactsRes?.pastor?.email || "").trim(),
@@ -409,11 +416,26 @@ export default function CamisasPedidoPage() {
       console.error("Erro ao buscar contatos da igreja para webhook:", err);
     }
 
+    const hasResponsavel =
+      Boolean(contactsPayload.responsavel_name) ||
+      Boolean(contactsPayload.responsavel_phone) ||
+      Boolean(contactsPayload.responsavel_email);
+    if (!hasResponsavel) {
+      setSubmitting(false);
+      toast.error("Esta página pública ainda não tem responsável cadastrado. Fale com o pastor antes de enviar o pedido.");
+      return;
+    }
+
     const webhookPayload = {
       ...order,
       contact_church_totvs_id: contactChurchTotvsId,
       ...contactsPayload,
       contacts: {
+        responsavel: {
+          name: contactsPayload.responsavel_name,
+          phone: contactsPayload.responsavel_phone,
+          email: contactsPayload.responsavel_email,
+        },
         pastor: {
           name: contactsPayload.pastor_name,
           phone: contactsPayload.pastor_phone,

@@ -59,6 +59,23 @@ Deno.serve(async (req) => {
     if (churchErr) return json({ ok: false, error: "db_error_church", details: "erro interno" }, 500);
     if (!churchRow) return json({ ok: false, error: "church_not_found" }, 404);
 
+    let responsavel: Contact | null = null;
+    const { data: responsavelRow, error: responsavelErr } = await sb
+      .from("public_shirt_page_settings")
+      .select("responsavel_user_id,responsavel_nome,responsavel_telefone,responsavel_email,is_active")
+      .eq("page_totvs_id", churchTotvsId)
+      .eq("is_active", true)
+      .maybeSingle();
+    if (responsavelErr) return json({ ok: false, error: "db_error_responsavel", details: "erro interno" }, 500);
+    if (responsavelRow) {
+      responsavel = {
+        id: String(responsavelRow.responsavel_user_id || ""),
+        full_name: String(responsavelRow.responsavel_nome || ""),
+        phone: responsavelRow.responsavel_telefone ? String(responsavelRow.responsavel_telefone) : null,
+        email: responsavelRow.responsavel_email ? String(responsavelRow.responsavel_email) : null,
+      };
+    }
+
     let pastor: Contact | null = null;
     const pastorId = String(churchRow.pastor_user_id || "").trim();
     if (pastorId) {
@@ -128,6 +145,7 @@ Deno.serve(async (req) => {
     return json({
       ok: true,
       church_totvs_id: churchTotvsId,
+      responsavel,
       pastor,
       secretary,
     });
