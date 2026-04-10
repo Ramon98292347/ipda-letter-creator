@@ -181,7 +181,7 @@ Deno.serve(async (req) => {
       .from("churches")
       .select("totvs_id, church_name, class, parent_totvs_id, is_active");
 
-    if (allErr) return json({ ok: false, error: "db_error_list_churches", details: allErr.message }, 500);
+    if (allErr) return json({ ok: false, error: "db_error_list_churches", details: "erro interno" }, 500);
 
     const churches = (allRows || []) as ChurchRow[];
     const byTotvs = new Map<string, ChurchRow>(churches.map((row) => [String(row.totvs_id), row]));
@@ -288,7 +288,7 @@ Deno.serve(async (req) => {
       )
       .single();
 
-    if (saveErr) return json({ ok: false, error: "db_error_save_church", details: saveErr.message }, 500);
+    if (saveErr) return json({ ok: false, error: "db_error_save_church", details: "erro interno" }, 500);
 
     return json(
       {
@@ -299,6 +299,6 @@ Deno.serve(async (req) => {
       200,
     );
   } catch (err) {
-    return json({ ok: false, error: "exception", details: String(err) }, 500);
+    return json({ ok: false, error: "exception", details: "erro interno" }, 500);
   }
 });

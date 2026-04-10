@@ -263,7 +263,7 @@ Deno.serve(async (req) => {
       .eq("id", memberId)
       .maybeSingle();
 
-    if (memberErr) return json({ ok: false, error: "db_error_member", details: memberErr.message }, 500);
+    if (memberErr) return json({ ok: false, error: "db_error_member", details: "erro interno" }, 500);
     if (!member) return json({ ok: false, error: "member_not_found" }, 404);
     if (String(member.default_totvs_id || "") !== churchTotvsId) {
       return json({ ok: false, error: "forbidden_wrong_church" }, 403);
@@ -276,7 +276,7 @@ Deno.serve(async (req) => {
     try {
       church = await getChurchByTotvs(sb, churchTotvsId);
     } catch (err) {
-      return json({ ok: false, error: "db_error_church", details: String(err) }, 500);
+      return json({ ok: false, error: "db_error_church", details: "erro interno" }, 500);
     }
 
     let pastorSignatureUrl = "";
@@ -294,7 +294,7 @@ Deno.serve(async (req) => {
         assinaturaOrigemTotvs = resolved.source_totvs_id;
       }
     } catch (err) {
-      return json({ ok: false, error: "db_error_pastor_signature", details: String(err) }, 500);
+      return json({ ok: false, error: "db_error_pastor_signature", details: "erro interno" }, 500);
     }
 
     dados.assinatura_pastor_url = pastorSignatureUrl;
@@ -309,7 +309,7 @@ Deno.serve(async (req) => {
       .eq("member_id", memberId)
       .eq("church_totvs_id", churchTotvsId)
       .maybeSingle();
-    if (fichaSavedErr) return json({ ok: false, error: "db_error_ficha_saved", details: fichaSavedErr.message }, 500);
+    if (fichaSavedErr) return json({ ok: false, error: "db_error_ficha_saved", details: "erro interno" }, 500);
     fichaFinalUrl = String(fichaSaved?.final_url || "");
 
     const createBundle = documentType === "ficha_carteirinha";
@@ -425,7 +425,7 @@ Deno.serve(async (req) => {
         requestPayload,
         fichaFinalUrl || null,
       );
-      if (err) return json({ ok: false, error: "db_error_upsert_status", details: err.message }, 500);
+      if (err) return json({ ok: false, error: "db_error_upsert_status", details: "erro interno" }, 500);
     }
 
     const webhook =
@@ -470,6 +470,6 @@ Deno.serve(async (req) => {
       200,
     );
   } catch (err) {
-    return json({ ok: false, error: "exception", details: String(err) }, 500);
+    return json({ ok: false, error: "exception", details: "erro interno" }, 500);
   }
 });

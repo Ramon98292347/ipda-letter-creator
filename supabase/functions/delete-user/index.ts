@@ -123,7 +123,7 @@ Deno.serve(async (req) => {
       .eq("id", targetId)
       .maybeSingle();
 
-    if (targetErr) return json({ ok: false, error: "db_error_target", details: targetErr.message }, 500);
+    if (targetErr) return json({ ok: false, error: "db_error_target", details: "erro interno" }, 500);
     if (!target) return json({ ok: false, error: "user_not_found" }, 404);
 
     // Comentario: validacoes adicionais para role pastor (com hierarquia)
@@ -187,11 +187,11 @@ Deno.serve(async (req) => {
     await sb.from("letters").delete().eq("preacher_user_id", targetId);
 
     const { error: userDeleteErr } = await sb.from("users").delete().eq("id", targetId);
-    if (userDeleteErr) return json({ ok: false, error: "db_error_delete_user", details: userDeleteErr.message }, 500);
+    if (userDeleteErr) return json({ ok: false, error: "db_error_delete_user", details: "erro interno" }, 500);
 
     return json({ ok: true }, 200);
   } catch (err) {
-    return json({ ok: false, error: "exception", details: String(err) }, 500);
+    return json({ ok: false, error: "exception", details: "erro interno" }, 500);
   }
 });
 

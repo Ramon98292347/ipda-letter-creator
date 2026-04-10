@@ -117,7 +117,7 @@ async function handleListProducts(session: SessionClaims, body: Record<string, u
   }
 
   const { data, error } = await q;
-  if (error) return json({ ok: false, error: "db_error", details: error.message }, 500);
+  if (error) return json({ ok: false, error: "db_error", details: "erro interno" }, 500);
   return json({ ok: true, products: data || [] });
 }
 
@@ -151,7 +151,7 @@ async function handleCreateProduct(session: SessionClaims, body: Record<string, 
 
   if (error) {
     if (error.message?.includes("duplicate")) return json({ ok: false, error: "code_already_exists" }, 409);
-    return json({ ok: false, error: "db_error", details: error.message }, 500);
+    return json({ ok: false, error: "db_error", details: "erro interno" }, 500);
   }
   return json({ ok: true, product: data });
 }
@@ -179,7 +179,7 @@ async function handleUpdateProduct(session: SessionClaims, body: Record<string, 
 
   const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
   const { data, error } = await sb.from("deposit_products").update(updates).eq("id", id).select().single();
-  if (error) return json({ ok: false, error: "db_error", details: error.message }, 500);
+  if (error) return json({ ok: false, error: "db_error", details: "erro interno" }, 500);
   return json({ ok: true, product: data });
 }
 
@@ -196,7 +196,7 @@ async function handleDeleteProduct(session: SessionClaims, body: Record<string, 
 
   const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
   const { error } = await sb.from("deposit_products").delete().eq("id", id);
-  if (error) return json({ ok: false, error: "db_error", details: error.message }, 500);
+  if (error) return json({ ok: false, error: "db_error", details: "erro interno" }, 500);
   return json({ ok: true });
 }
 
@@ -213,7 +213,7 @@ async function handleListStock(session: SessionClaims, body: Record<string, unkn
     sb.from("deposit_stock").select("*"),
   ]);
 
-  if (productsRes.error) return json({ ok: false, error: "db_error", details: productsRes.error.message }, 500);
+  if (productsRes.error) return json({ ok: false, error: "db_error", details: "erro interno" }, 500);
 
   const products = (productsRes.data || []) as Record<string, unknown>[];
   const stockRows = ((stockRes.data || []) as Record<string, unknown>[])
@@ -417,7 +417,7 @@ async function handleCreateMovement(session: SessionClaims, body: Record<string,
     notes,
   }).select().single();
 
-  if (mvErr) return json({ ok: false, error: "db_error", details: mvErr.message }, 500);
+  if (mvErr) return json({ ok: false, error: "db_error", details: "erro interno" }, 500);
 
   return json({ ok: true, movement, new_quantity: newQty });
 }
@@ -501,7 +501,7 @@ async function handleCreateTransfer(session: SessionClaims, body: Record<string,
     notes,
   }).select().single();
 
-  if (mvErr) return json({ ok: false, error: "db_error", details: mvErr.message }, 500);
+  if (mvErr) return json({ ok: false, error: "db_error", details: "erro interno" }, 500);
 
   return json({ ok: true, movement, origin_new_qty: originQty - quantity, destination_new_qty: destQty + quantity });
 }
@@ -531,7 +531,7 @@ async function handleListMovements(session: SessionClaims, body: Record<string, 
   if (body.church_destination_totvs) q = q.eq("church_destination_totvs", String(body.church_destination_totvs));
 
   const { data, error, count } = await q;
-  if (error) return json({ ok: false, error: "db_error", details: error.message }, 500);
+  if (error) return json({ ok: false, error: "db_error", details: "erro interno" }, 500);
 
   // Comentario: filtra apenas movimentacoes dentro do escopo do usuario
   const movements = (data || []).filter((m: Record<string, unknown>) => {
@@ -583,6 +583,6 @@ Deno.serve(async (req: Request) => {
         return json({ ok: false, error: "unknown_action", detail: `Action '${action}' nao reconhecida.` }, 400);
     }
   } catch (err) {
-    return json({ ok: false, error: "exception", details: String(err) }, 500);
+    return json({ ok: false, error: "exception", details: "erro interno" }, 500);
   }
 });

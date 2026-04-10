@@ -122,7 +122,7 @@ Deno.serve(async (req) => {
       .eq("id", request_id)
       .maybeSingle();
 
-    if (reqErr) return json({ ok: false, error: "db_error_request", details: reqErr.message }, 500);
+    if (reqErr) return json({ ok: false, error: "db_error_request", details: "erro interno" }, 500);
     if (!reqRow) return json({ ok: false, error: "request_not_found" }, 404);
 
     if (String(reqRow.church_totvs_id) !== String(session.active_totvs_id)) {
@@ -138,7 +138,7 @@ Deno.serve(async (req) => {
       .eq("id", reqRow.letter_id)
       .maybeSingle();
 
-    if (letterErr) return json({ ok: false, error: "db_error_letter", details: letterErr.message }, 500);
+    if (letterErr) return json({ ok: false, error: "db_error_letter", details: "erro interno" }, 500);
     if (!letter) return json({ ok: false, error: "letter_not_found" }, 404);
 
     if (String(letter.church_totvs_id) !== String(session.active_totvs_id)) {
@@ -151,7 +151,7 @@ Deno.serve(async (req) => {
       .eq("id", request_id)
       .select("id, status, updated_at")
       .single();
-    if (updReqErr) return json({ ok: false, error: "db_error_update_request", details: updReqErr.message }, 500);
+    if (updReqErr) return json({ ok: false, error: "db_error_update_request", details: "erro interno" }, 500);
 
     const { data: letterUpdated, error: updLetterErr } = await sb
       .from("letters")
@@ -159,7 +159,7 @@ Deno.serve(async (req) => {
       .eq("id", reqRow.letter_id)
       .select("id, status, updated_at")
       .single();
-    if (updLetterErr) return json({ ok: false, error: "db_error_update_letter", details: updLetterErr.message }, 500);
+    if (updLetterErr) return json({ ok: false, error: "db_error_update_letter", details: "erro interno" }, 500);
 
     // Notificacao para o solicitante
     await sb.from("notifications").insert({
@@ -308,6 +308,6 @@ Deno.serve(async (req) => {
     // Retorna o resultado incluindo info do webhook para facilitar debug
     return json({ ok: true, request: reqUpdated, letter: letterUpdated, n8n: { fired: n8nFired, status: n8nStatus, error: n8nError } }, 200);
   } catch (err) {
-    return json({ ok: false, error: "exception", details: String(err) }, 500);
+    return json({ ok: false, error: "exception", details: "erro interno" }, 500);
   }
 });

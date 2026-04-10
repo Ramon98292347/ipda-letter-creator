@@ -532,7 +532,7 @@ async function actionBirthday(sb: ReturnType<typeof createClient>, req: Request)
     .select("id, full_name, phone, email, birth_date, default_totvs_id")
     .not("birth_date", "is", null);
 
-  if (error) return json({ ok: false, error: "db_error", details: error.message }, 500);
+  if (error) return json({ ok: false, error: "db_error", details: "erro interno" }, 500);
 
   const todayMD = todayMonthDaySaoPaulo();
   const today = new Date().toISOString().slice(0, 10);

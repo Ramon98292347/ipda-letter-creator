@@ -70,7 +70,7 @@ Deno.serve(async (req) => {
       .order("church_name", { ascending: true })
       .limit(limit);
 
-    if (error) return json({ ok: false, error: "db_error_list_churches", details: error.message }, 500);
+    if (error) return json({ ok: false, error: "db_error_list_churches", details: "erro interno" }, 500);
 
     return json({
       ok: true,
@@ -84,6 +84,6 @@ Deno.serve(async (req) => {
       })),
     });
   } catch (err) {
-    return json({ ok: false, error: "exception", details: String(err) }, 500);
+    return json({ ok: false, error: "exception", details: "erro interno" }, 500);
   }
 });

@@ -168,7 +168,7 @@ Deno.serve(async (req) => {
       .eq("id", userId)
       .maybeSingle();
 
-    if (targetError) return json({ ok: false, error: "db_error_target", details: targetError.message }, 500);
+    if (targetError) return json({ ok: false, error: "db_error_target", details: "erro interno" }, 500);
     if (!target) return json({ ok: false, error: "user_not_found" }, 404);
 
     // Comentario: pastor mae pode bloquear/aprovar pastores e obreiros do seu escopo.
@@ -179,7 +179,7 @@ Deno.serve(async (req) => {
       .from("churches")
       .select("totvs_id,parent_totvs_id,class");
 
-    if (churchesErr) return json({ ok: false, error: "db_error_churches", details: churchesErr.message }, 500);
+    if (churchesErr) return json({ ok: false, error: "db_error_churches", details: "erro interno" }, 500);
 
     const rows = (churches || []) as ChurchRow[];
     const scope = computeScope(session.active_totvs_id, rows);
@@ -211,7 +211,7 @@ Deno.serve(async (req) => {
       })
       .eq("id", userId);
 
-    if (updateError) return json({ ok: false, error: "db_error_update", details: updateError.message }, 500);
+    if (updateError) return json({ ok: false, error: "db_error_update", details: "erro interno" }, 500);
 
     // Comentario: cria notificacao interna para o usuario sabendo o resultado da aprovacao/rejeicao
     const notificationTitle = status === "APROVADO" ? "Cadastro Aprovado! ✅" : "Cadastro Pendente ⏳";
@@ -246,6 +246,6 @@ Deno.serve(async (req) => {
 
     return json({ ok: true, user_id: userId, registration_status: status }, 200);
   } catch (err) {
-    return json({ ok: false, error: "exception", details: String(err) }, 500);
+    return json({ ok: false, error: "exception", details: "erro interno" }, 500);
   }
 });

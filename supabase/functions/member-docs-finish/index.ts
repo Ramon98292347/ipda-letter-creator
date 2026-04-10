@@ -100,11 +100,11 @@ Deno.serve(async (req) => {
       .select("id, member_id, church_totvs_id, status, final_url, updated_at")
       .maybeSingle();
 
-    if (error) return json({ ok: false, error: "db_error_update_status", details: error.message }, 500);
+    if (error) return json({ ok: false, error: "db_error_update_status", details: "erro interno" }, 500);
     if (!data) return json({ ok: false, error: "document_request_not_found" }, 404);
 
     return json({ ok: true, document: data }, 200);
   } catch (err) {
-    return json({ ok: false, error: "exception", details: String(err) }, 500);
+    return json({ ok: false, error: "exception", details: "erro interno" }, 500);
   }
 });

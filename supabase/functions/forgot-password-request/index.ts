@@ -81,7 +81,7 @@ Deno.serve(async (req) => {
     }
 
     const { data: user, error } = await query.maybeSingle();
-    if (error) return json({ ok: false, error: "db_error_user", details: error.message }, 500);
+    if (error) return json({ ok: false, error: "db_error_user", details: "erro interno" }, 500);
 
     // Comentario: resposta sempre igual para nao expor se usuario existe.
     const response = {
@@ -109,7 +109,7 @@ Deno.serve(async (req) => {
       .select("id")
       .single();
 
-    if (resetErr) return json({ ok: false, error: "db_error_password_reset", details: resetErr.message }, 500);
+    if (resetErr) return json({ ok: false, error: "db_error_password_reset", details: "erro interno" }, 500);
 
     const appBaseUrl = (Deno.env.get("APP_BASE_URL") || "http://localhost:5175").replace(/\/$/, "");
     const resetUrl = `${appBaseUrl}/reset-senha?token=${encodeURIComponent(token)}`;
@@ -153,6 +153,6 @@ Deno.serve(async (req) => {
 
     return json(response, 200);
   } catch (err) {
-    return json({ ok: false, error: "exception", details: String(err) }, 500);
+    return json({ ok: false, error: "exception", details: "erro interno" }, 500);
   }
 });

@@ -75,8 +75,8 @@ Deno.serve(async (req) => {
       sb.from("notifications").select("id").eq("user_id", session.user_id),
     ]);
 
-    if (churchErr) return json({ ok: false, error: "db_error_list_church", details: churchErr.message }, 500);
-    if (userErr) return json({ ok: false, error: "db_error_list_user", details: userErr.message }, 500);
+    if (churchErr) return json({ ok: false, error: "db_error_list_church", details: "erro interno" }, 500);
+    if (userErr) return json({ ok: false, error: "db_error_list_user", details: "erro interno" }, 500);
 
     const ids = new Set<string>();
     for (const r of churchRows || []) ids.add(String((r as Record<string, unknown>).id || ""));
@@ -86,10 +86,10 @@ Deno.serve(async (req) => {
     if (idList.length === 0) return json({ ok: true, deleted: 0 }, 200);
 
     const { error: delErr } = await sb.from("notifications").delete().in("id", idList);
-    if (delErr) return json({ ok: false, error: "db_error_delete", details: delErr.message }, 500);
+    if (delErr) return json({ ok: false, error: "db_error_delete", details: "erro interno" }, 500);
 
     return json({ ok: true, deleted: idList.length }, 200);
   } catch (err) {
-    return json({ ok: false, error: "exception", details: String(err) }, 500);
+    return json({ ok: false, error: "exception", details: "erro interno" }, 500);
   }
 });

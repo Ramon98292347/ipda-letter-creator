@@ -72,8 +72,8 @@ Deno.serve(async (req) => {
       sb.from("church_contratos").select("id,payload,status").eq("church_totvs_id", churchTotvsId).maybeSingle(),
       sb.from("church_laudos").select("id,payload").eq("church_totvs_id", churchTotvsId).maybeSingle(),
     ]);
-    if (contratoErr) return json({ ok: false, error: "db_error_contrato", details: contratoErr.message }, 500);
-    if (laudoErr) return json({ ok: false, error: "db_error_laudo", details: laudoErr.message }, 500);
+    if (contratoErr) return json({ ok: false, error: "db_error_contrato", details: "erro interno" }, 500);
+    if (laudoErr) return json({ ok: false, error: "db_error_laudo", details: "erro interno" }, 500);
     if (!contrato) return json({ ok: false, error: "contrato_not_found" }, 404);
 
     await sb
@@ -117,6 +117,6 @@ Deno.serve(async (req) => {
 
     return json({ ok: true, n8n: { ok: n8nOk, status: n8nStatus, response: n8nResponse } }, 200);
   } catch (err) {
-    return json({ ok: false, error: "exception", details: String(err) }, 500);
+    return json({ ok: false, error: "exception", details: "erro interno" }, 500);
   }
 });

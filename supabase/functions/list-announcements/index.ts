@@ -109,7 +109,7 @@ Deno.serve(async (req) => {
     }
 
     const { data: allChurches, error: aErr } = await sb.from("churches").select("totvs_id, parent_totvs_id");
-    if (aErr) return json({ ok: false, error: "db_error_churches", details: aErr.message }, 500);
+    if (aErr) return json({ ok: false, error: "db_error_churches", details: "erro interno" }, 500);
 
     const allChurchesList = (allChurches || []) as ChurchRow[];
     const parentById = new Map<string, string | null>();
@@ -141,7 +141,7 @@ Deno.serve(async (req) => {
       .in("church_totvs_id", totvsList)
       .eq("is_active", true);
 
-    if (error) return json({ ok: false, error: "db_error_list_announcements", details: error.message }, 500);
+    if (error) return json({ ok: false, error: "db_error_list_announcements", details: "erro interno" }, 500);
 
     const now = Date.now();
     const inWindow = (data || []).filter((a: Record<string, unknown>) => {
@@ -161,6 +161,6 @@ Deno.serve(async (req) => {
 
     return json({ ok: true, active_totvs_id: activeTotvs, root_totvs_id: rootTotvs, announcements: sorted.slice(0, limit) });
   } catch (err) {
-    return json({ ok: false, error: "exception", details: String(err) }, 500);
+    return json({ ok: false, error: "exception", details: "erro interno" }, 500);
   }
 });

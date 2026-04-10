@@ -100,7 +100,7 @@ Deno.serve(async (req) => {
         .select("totvs_access, default_totvs_id")
         .eq("id", session.user_id)
         .maybeSingle();
-      if (uErr) return json({ ok: false, error: "db_error_user_access", details: uErr.message }, 500);
+      if (uErr) return json({ ok: false, error: "db_error_user_access", details: "erro interno" }, 500);
 
       const allowed = normalizeTotvsAccess(userRow?.totvs_access);
       const fallback = String(userRow?.default_totvs_id || session.active_totvs_id || "").trim();
@@ -112,7 +112,7 @@ Deno.serve(async (req) => {
     }
 
     const { data: orders, error } = await query;
-    if (error) return json({ ok: false, error: "db_error_list_orders", details: error.message }, 500);
+    if (error) return json({ ok: false, error: "db_error_list_orders", details: "erro interno" }, 500);
 
     // 3) Busca itens em lote
     const ids = (orders || []).map((o: Record<string, unknown>) => String(o.id || "")).filter(Boolean);
@@ -122,7 +122,7 @@ Deno.serve(async (req) => {
       .from("order_items")
       .select("*")
       .in("order_id", ids);
-    if (iErr) return json({ ok: false, error: "db_error_list_items", details: iErr.message }, 500);
+    if (iErr) return json({ ok: false, error: "db_error_list_items", details: "erro interno" }, 500);
 
     // 4) Junta itens no pedido
     const itemsByOrder = new Map<string, Record<string, unknown>[]>();
@@ -139,6 +139,6 @@ Deno.serve(async (req) => {
 
     return json({ ok: true, orders: merged });
   } catch (err) {
-    return json({ ok: false, error: "exception", details: String(err) }, 500);
+    return json({ ok: false, error: "exception", details: "erro interno" }, 500);
   }
 });

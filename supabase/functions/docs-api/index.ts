@@ -171,7 +171,7 @@ async function handleGenerateMemberDocs(req: Request, body: Record<string, unkno
         .eq("id", memberId)
         .maybeSingle();
   
-      if (memberErr) return json({ ok: false, error: "db_error_member", details: memberErr.message }, 500);
+      if (memberErr) return json({ ok: false, error: "db_error_member", details: "erro interno" }, 500);
       if (!member) return json({ ok: false, error: "member_not_found" }, 404);
       if (String(member.default_totvs_id || "") !== churchTotvsId) {
         return json({ ok: false, error: "forbidden_wrong_church" }, 403);
@@ -185,7 +185,7 @@ async function handleGenerateMemberDocs(req: Request, body: Record<string, unkno
         .select("church_name, pastor_user_id, stamp_church_url, address_street, address_number, address_neighborhood, address_city, address_state, cep")
         .eq("totvs_id", churchTotvsId)
         .maybeSingle();
-      if (churchErr) return json({ ok: false, error: "db_error_church", details: churchErr.message }, 500);
+      if (churchErr) return json({ ok: false, error: "db_error_church", details: "erro interno" }, 500);
   
       let pastorSignatureUrl = "";
       if (church?.pastor_user_id) {
@@ -194,7 +194,7 @@ async function handleGenerateMemberDocs(req: Request, body: Record<string, unkno
           .select("signature_url, full_name, phone, email")
           .eq("id", String(church.pastor_user_id))
           .maybeSingle();
-        if (pastorErr) return json({ ok: false, error: "db_error_pastor_signature", details: pastorErr.message }, 500);
+        if (pastorErr) return json({ ok: false, error: "db_error_pastor_signature", details: "erro interno" }, 500);
         pastorSignatureUrl = String(pastor?.signature_url || "");
         // Comentario: sempre força assinatura e dados do pastor da igreja do membro.
         // Isso evita reaproveitar URL antiga enviada pelo front de outro pastor/igreja.
@@ -211,7 +211,7 @@ async function handleGenerateMemberDocs(req: Request, body: Record<string, unkno
         .eq("member_id", memberId)
         .eq("church_totvs_id", churchTotvsId)
         .maybeSingle();
-      if (fichaSavedErr) return json({ ok: false, error: "db_error_ficha_saved", details: fichaSavedErr.message }, 500);
+      if (fichaSavedErr) return json({ ok: false, error: "db_error_ficha_saved", details: "erro interno" }, 500);
       fichaFinalUrl = String(fichaSaved?.final_url || "");
   
       const createBundle = documentType === "ficha_carteirinha";
@@ -299,7 +299,7 @@ async function handleGenerateMemberDocs(req: Request, body: Record<string, unkno
           requestPayload,
           fichaFinalUrl || null,
         );
-        if (err) return json({ ok: false, error: "db_error_upsert_status", details: err.message }, 500);
+        if (err) return json({ ok: false, error: "db_error_upsert_status", details: "erro interno" }, 500);
       }
   
       const webhook =
@@ -385,8 +385,8 @@ async function handleGetMemberDocsStatus(req: Request, body: Record<string, unkn
           .maybeSingle(),
       ]);
   
-      if (fichaErr) return json({ ok: false, error: "db_error_ficha", details: fichaErr.message }, 500);
-      if (cardErr) return json({ ok: false, error: "db_error_carteirinha", details: cardErr.message }, 500);
+      if (fichaErr) return json({ ok: false, error: "db_error_ficha", details: "erro interno" }, 500);
+      if (cardErr) return json({ ok: false, error: "db_error_carteirinha", details: "erro interno" }, 500);
   
       const fichaReady = String(ficha?.final_url || "").trim().length > 0;
       const cardReady = String(carteirinha?.final_url || "").trim().length > 0;
@@ -469,7 +469,7 @@ async function handleMemberDocsFinish(req: Request, body: Record<string, unknown
         .select("id, member_id, church_totvs_id, status, final_url, updated_at")
         .maybeSingle();
   
-      if (error) return json({ ok: false, error: "db_error_update_status", details: error.message }, 500);
+      if (error) return json({ ok: false, error: "db_error_update_status", details: "erro interno" }, 500);
       if (!data) return json({ ok: false, error: "document_request_not_found" }, 404);
   
       return json({ ok: true, document: data }, 200);
@@ -495,7 +495,7 @@ async function handleGetContratoForm(req: Request, body: Record<string, unknown>
         .select("totvs_id,church_name,parent_totvs_id")
         .eq("totvs_id", churchTotvsId)
         .maybeSingle();
-      if (churchErr) return json({ ok: false, error: "db_error_church", details: churchErr.message }, 500);
+      if (churchErr) return json({ ok: false, error: "db_error_church", details: "erro interno" }, 500);
       if (!church) return json({ ok: false, error: "church_not_found" }, 404);
   
       const [{ data: contrato }, { data: laudo }] = await Promise.all([
@@ -553,7 +553,7 @@ async function handleUpsertContrato(req: Request, body: Record<string, unknown>)
         .select("id,church_totvs_id,status,updated_at")
         .single();
   
-      if (error) return json({ ok: false, error: "upsert_failed", details: error.message }, 500);
+      if (error) return json({ ok: false, error: "upsert_failed", details: "erro interno" }, 500);
       return json({ ok: true, contrato: data }, 200);
 }
 
@@ -576,8 +576,8 @@ async function handleGenerateContratoPdf(req: Request, body: Record<string, unkn
         sb.from("church_contratos").select("id,payload,status").eq("church_totvs_id", churchTotvsId).maybeSingle(),
         sb.from("church_laudos").select("id,payload").eq("church_totvs_id", churchTotvsId).maybeSingle(),
       ]);
-      if (contratoErr) return json({ ok: false, error: "db_error_contrato", details: contratoErr.message }, 500);
-      if (laudoErr) return json({ ok: false, error: "db_error_laudo", details: laudoErr.message }, 500);
+      if (contratoErr) return json({ ok: false, error: "db_error_contrato", details: "erro interno" }, 500);
+      if (laudoErr) return json({ ok: false, error: "db_error_laudo", details: "erro interno" }, 500);
       if (!contrato) return json({ ok: false, error: "contrato_not_found" }, 404);
   
       await sb

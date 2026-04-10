@@ -80,9 +80,9 @@ Deno.serve(async (req) => {
       .select("id,church_totvs_id,updated_at")
       .single();
 
-    if (error) return json({ ok: false, error: "upsert_failed", details: error.message }, 500);
+    if (error) return json({ ok: false, error: "upsert_failed", details: "erro interno" }, 500);
     return json({ ok: true, laudo: data }, 200);
   } catch (err) {
-    return json({ ok: false, error: "exception", details: String(err) }, 500);
+    return json({ ok: false, error: "exception", details: "erro interno" }, 500);
   }
 });

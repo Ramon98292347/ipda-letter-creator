@@ -292,7 +292,7 @@ async function handleGeneratePrintBatch(body: Record<string, unknown>, req: Requ
     .select("id")
     .single();
   if (batchInsertError) {
-    return json({ ok: false, error: "batch_insert_failed", details: batchInsertError.message }, 500);
+    return json({ ok: false, error: "batch_insert_failed", details: "erro interno" }, 500);
   }
   const batchId = String(batch?.id || "");
 
@@ -331,7 +331,7 @@ async function handleGeneratePrintBatch(body: Record<string, unknown>, req: Requ
         finished_at: new Date().toISOString(),
       })
       .eq("id", batchId);
-    return json({ ok: false, error: "webhook_unreachable", details: String(err) }, 502);
+    return json({ ok: false, error: "webhook_unreachable", details: "erro interno" }, 502);
   }
 
   const documentUrl = pickUrlFromPayload(responseData);
@@ -404,7 +404,7 @@ async function handleDeleteDocs(body: Record<string, unknown>, req: Request) {
     let q = sb.from("member_ficha_documents").delete().eq("member_id", memberId);
     if (churchTotvsId) q = q.eq("church_totvs_id", churchTotvsId);
     const { error } = await q;
-    if (error) return json({ ok: false, error: "db_error_ficha", details: error.message }, 500);
+    if (error) return json({ ok: false, error: "db_error_ficha", details: "erro interno" }, 500);
     deletedFicha = true;
   }
 
@@ -412,7 +412,7 @@ async function handleDeleteDocs(body: Record<string, unknown>, req: Request) {
     let q = sb.from("member_carteirinha_documents").delete().eq("member_id", memberId);
     if (churchTotvsId) q = q.eq("church_totvs_id", churchTotvsId);
     const { error } = await q;
-    if (error) return json({ ok: false, error: "db_error_carteirinha", details: error.message }, 500);
+    if (error) return json({ ok: false, error: "db_error_carteirinha", details: "erro interno" }, 500);
     deletedCarteirinha = true;
   }
 
@@ -464,6 +464,6 @@ Deno.serve(async (req) => {
       headers: corsHeaders(),
     });
   } catch (err) {
-    return json({ ok: false, error: "exception", details: String(err) }, 500);
+    return json({ ok: false, error: "exception", details: "erro interno" }, 500);
   }
 });

@@ -124,7 +124,7 @@ Deno.serve(async (req) => {
 
     if (session.role !== "admin" && churchTotvsId !== session.active_totvs_id) {
       const { data: allChurches, error: churchesErr } = await sb.from("churches").select("totvs_id, parent_totvs_id");
-      if (churchesErr) return json({ ok: false, error: "db_error_churches", details: churchesErr.message }, 500);
+      if (churchesErr) return json({ ok: false, error: "db_error_churches", details: "erro interno" }, 500);
       const scope = computeScope(session.active_totvs_id, (allChurches || []) as ChurchRow[]);
       if (!scope.has(churchTotvsId)) return json({ ok: false, error: "church_out_of_scope" }, 403);
     }
@@ -135,7 +135,7 @@ Deno.serve(async (req) => {
       .eq("totvs_id", churchTotvsId)
       .maybeSingle();
 
-    if (churchError) return json({ ok: false, error: "db_error_church", details: churchError.message }, 500);
+    if (churchError) return json({ ok: false, error: "db_error_church", details: "erro interno" }, 500);
     if (!church) return json({ ok: false, error: "church_not_found" }, 404);
 
     const publicToken = buildPublicToken();
@@ -155,7 +155,7 @@ Deno.serve(async (req) => {
       .select("id, church_totvs_id, title, meeting_date, public_token, expires_at, is_active, notes, created_at")
       .single();
 
-    if (createError) return json({ ok: false, error: "db_error_create_meeting", details: createError.message }, 500);
+    if (createError) return json({ ok: false, error: "db_error_create_meeting", details: "erro interno" }, 500);
 
     return json({
       ok: true,
@@ -165,6 +165,6 @@ Deno.serve(async (req) => {
       },
     });
   } catch (err) {
-    return json({ ok: false, error: "exception", details: String(err) }, 500);
+    return json({ ok: false, error: "exception", details: "erro interno" }, 500);
   }
 });

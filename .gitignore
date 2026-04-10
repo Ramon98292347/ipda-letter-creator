@@ -32,3 +32,4 @@ test-results/
 # Supabase temp
 supabase/.temp/
 .fcm-service-account.json
+android/app/google-services.json

@@ -155,7 +155,7 @@ async function ensureChurchScope(
   const { data: churches, error: churchErr } = await sb
     .from("churches")
     .select("totvs_id,parent_totvs_id,class,pastor_user_id,church_name,address_street,address_number,address_neighborhood,address_city,address_state");
-  if (churchErr) return { error: json({ ok: false, error: "db_error_churches", details: churchErr.message }, 500), byId: null };
+  if (churchErr) return { error: json({ ok: false, error: "db_error_churches", details: "erro interno" }, 500), byId: null };
 
   const allChurches = (churches || []) as ChurchRow[];
   const byId = new Map<string, ChurchRow>(allChurches.map((church) => [String(church.totvs_id), church]));
@@ -302,7 +302,7 @@ async function actionUpsertRemanejamento(sb: ReturnType<typeof createClient>, re
     .select("id,church_totvs_id,status,updated_at")
     .single();
 
-  if (error) return json({ ok: false, error: "upsert_failed", details: error.message }, 500);
+  if (error) return json({ ok: false, error: "upsert_failed", details: "erro interno" }, 500);
   return json({ ok: true, remanejamento: data }, 200);
 }
 
@@ -318,7 +318,7 @@ async function actionDeleteRemanejamento(sb: ReturnType<typeof createClient>, re
     .delete()
     .eq("church_totvs_id", churchTotvsId);
 
-  if (error) return json({ ok: false, error: "delete_failed", details: error.message }, 500);
+  if (error) return json({ ok: false, error: "delete_failed", details: "erro interno" }, 500);
   return json({ ok: true }, 200);
 }
 
@@ -334,7 +334,7 @@ async function actionGenerateRemanejamentoPdf(sb: ReturnType<typeof createClient
     .select("id,payload,hierarchy,status")
     .eq("church_totvs_id", churchTotvsId)
     .maybeSingle();
-  if (error) return json({ ok: false, error: "db_error_remanejamento", details: error.message }, 500);
+  if (error) return json({ ok: false, error: "db_error_remanejamento", details: "erro interno" }, 500);
   let remData = rem;
   if (!remData) {
     if (!scopeResult.byId) return json({ ok: false, error: "scope_byid_missing" }, 500);
@@ -354,7 +354,7 @@ async function actionGenerateRemanejamentoPdf(sb: ReturnType<typeof createClient
       )
       .select("id,payload,hierarchy,status")
       .single();
-    if (createRes.error) return json({ ok: false, error: "create_remanejamento_failed", details: createRes.error.message }, 500);
+    if (createRes.error) return json({ ok: false, error: "create_remanejamento_failed", details: "erro interno" }, 500);
     remData = createRes.data;
   }
 
@@ -505,7 +505,7 @@ async function actionGetContratoForm(sb: ReturnType<typeof createClient>, req: R
     .select("totvs_id,church_name,parent_totvs_id")
     .eq("totvs_id", churchTotvsId)
     .maybeSingle();
-  if (churchErr) return json({ ok: false, error: "db_error_church", details: churchErr.message }, 500);
+  if (churchErr) return json({ ok: false, error: "db_error_church", details: "erro interno" }, 500);
   if (!church) return json({ ok: false, error: "church_not_found" }, 404);
 
   const [{ data: contrato }, { data: laudo }] = await Promise.all([
@@ -555,7 +555,7 @@ async function actionUpsertContrato(sb: ReturnType<typeof createClient>, req: Re
     .select("id,church_totvs_id,status,updated_at")
     .single();
 
-  if (error) return json({ ok: false, error: "upsert_failed", details: error.message }, 500);
+  if (error) return json({ ok: false, error: "upsert_failed", details: "erro interno" }, 500);
   return json({ ok: true, contrato: data }, 200);
 }
 
@@ -580,7 +580,7 @@ async function actionUpsertLaudo(sb: ReturnType<typeof createClient>, req: Reque
     .select("id,church_totvs_id,updated_at")
     .single();
 
-  if (error) return json({ ok: false, error: "upsert_failed", details: error.message }, 500);
+  if (error) return json({ ok: false, error: "upsert_failed", details: "erro interno" }, 500);
   return json({ ok: true, laudo: data }, 200);
 }
 
@@ -595,8 +595,8 @@ async function actionGenerateContratoPdf(sb: ReturnType<typeof createClient>, re
     sb.from("church_contratos").select("id,payload,status").eq("church_totvs_id", churchTotvsId).maybeSingle(),
     sb.from("church_laudos").select("id,payload").eq("church_totvs_id", churchTotvsId).maybeSingle(),
   ]);
-  if (contratoErr) return json({ ok: false, error: "db_error_contrato", details: contratoErr.message }, 500);
-  if (laudoErr) return json({ ok: false, error: "db_error_laudo", details: laudoErr.message }, 500);
+  if (contratoErr) return json({ ok: false, error: "db_error_contrato", details: "erro interno" }, 500);
+  if (laudoErr) return json({ ok: false, error: "db_error_laudo", details: "erro interno" }, 500);
   if (!contrato) return json({ ok: false, error: "contrato_not_found" }, 404);
 
   await sb.from("church_contratos").update({ status: "GERANDO", updated_by_user_id: auth.session.user_id }).eq("id", contrato.id);
@@ -674,6 +674,6 @@ Deno.serve(async (req) => {
       ],
     }, 400);
   } catch (err) {
-    return json({ ok: false, error: "exception", details: String(err) }, 500);
+    return json({ ok: false, error: "exception", details: "erro interno" }, 500);
   }
 });

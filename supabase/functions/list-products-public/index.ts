@@ -49,9 +49,9 @@ Deno.serve(async (req) => {
       .eq("is_active", true)
       .order("name", { ascending: true });
 
-    if (error) return json({ ok: false, error: "db_error_list_products", details: error.message }, 500);
+    if (error) return json({ ok: false, error: "db_error_list_products", details: "erro interno" }, 500);
     return json({ ok: true, products: data || [] });
   } catch (err) {
-    return json({ ok: false, error: "exception", details: String(err) }, 500);
+    return json({ ok: false, error: "exception", details: "erro interno" }, 500);
   }
 });

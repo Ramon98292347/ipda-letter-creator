@@ -97,7 +97,7 @@ Deno.serve(async (req) => {
       .eq("id", session.user_id)
       .maybeSingle();
 
-    if (error) return json({ ok: false, error: "db_error_user", details: error.message }, 500);
+    if (error) return json({ ok: false, error: "db_error_user", details: "erro interno" }, 500);
     if (!user) return json({ ok: false, error: "user_not_found" }, 404);
 
     // Comentario: pastor/admin sempre aprovados para operacao administrativa.
@@ -114,6 +114,6 @@ Deno.serve(async (req) => {
         : [],
     }, 200);
   } catch (err) {
-    return json({ ok: false, error: "exception", details: String(err) }, 500);
+    return json({ ok: false, error: "exception", details: "erro interno" }, 500);
   }
 });

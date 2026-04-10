@@ -125,7 +125,7 @@ Deno.serve(async (req) => {
       .select("id, created_at")
       .single();
 
-    if (error) return json({ ok: false, error: "db_error_submit_feedback", details: error.message }, 500);
+    if (error) return json({ ok: false, error: "db_error_submit_feedback", details: "erro interno" }, 500);
     return json({ ok: true, feedback: data }, 200);
   }
 
@@ -150,7 +150,7 @@ Deno.serve(async (req) => {
     }
 
     const { data, error, count } = await query;
-    if (error) return json({ ok: false, error: "db_error_list_feedback", details: error.message }, 500);
+    if (error) return json({ ok: false, error: "db_error_list_feedback", details: "erro interno" }, 500);
     return json({ ok: true, feedback: data || [], total: Number(count || 0), page, page_size: pageSize }, 200);
   }
 
@@ -175,7 +175,7 @@ Deno.serve(async (req) => {
       .select("*")
       .single();
 
-    if (error) return json({ ok: false, error: "db_error_update_feedback", details: error.message }, 500);
+    if (error) return json({ ok: false, error: "db_error_update_feedback", details: "erro interno" }, 500);
     return json({ ok: true, feedback: data }, 200);
   }
 

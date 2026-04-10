@@ -144,7 +144,7 @@ Deno.serve(async (req) => {
       .select("id, cpf, full_name, role, is_active, totvs_access")
       .eq("cpf", cpf)
       .maybeSingle();
-    if (uErr) return json({ ok: false, error: "db_error_user", details: uErr.message }, 500);
+    if (uErr) return json({ ok: false, error: "db_error_user", details: "erro interno" }, 500);
     if (!user) return json({ ok: false, error: "user_not_found" }, 404);
     if (!user.is_active) return json({ ok: false, error: "inactive_user" }, 403);
 
@@ -158,10 +158,10 @@ Deno.serve(async (req) => {
       .select("totvs_id, church_name, class")
       .eq("totvs_id", totvs_id)
       .maybeSingle();
-    if (cErr) return json({ ok: false, error: "db_error_church", details: cErr.message }, 500);
+    if (cErr) return json({ ok: false, error: "db_error_church", details: "erro interno" }, 500);
 
     const { data: allChurches, error: aErr } = await sb.from("churches").select("totvs_id,parent_totvs_id");
-    if (aErr) return json({ ok: false, error: "db_error_scope", details: aErr.message }, 500);
+    if (aErr) return json({ ok: false, error: "db_error_scope", details: "erro interno" }, 500);
 
     const all = (allChurches || []) as ChurchRow[];
     const scope_totvs_ids = computeScope(totvs_id, all);
@@ -192,6 +192,6 @@ Deno.serve(async (req) => {
       },
     }, 200);
   } catch (err) {
-    return json({ ok: false, error: "exception", details: String(err) }, 500);
+    return json({ ok: false, error: "exception", details: "erro interno" }, 500);
   }
 });

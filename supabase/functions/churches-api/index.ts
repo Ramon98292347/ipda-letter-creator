@@ -100,6 +100,6 @@ Deno.serve(async (req) => {
       headers: corsHeaders(),
     });
   } catch (err) {
-    return json({ ok: false, error: "exception", details: String(err) }, 500);
+    return json({ ok: false, error: "exception", details: "erro interno" }, 500);
   }
 });

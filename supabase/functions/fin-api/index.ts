@@ -110,7 +110,7 @@ async function handleDashboard(
     .gte("data_transacao", inicioMes)
     .lte("data_transacao", fimMesStr);
 
-  if (error) return json({ ok: false, error: "db_error", details: error.message }, 500);
+  if (error) return json({ ok: false, error: "db_error", details: "erro interno" }, 500);
 
   const transacoes = (data || []) as Array<{ valor: number; tipo: string }>;
 
@@ -158,7 +158,7 @@ async function handleListTransacoes(
       .order("created_at", { ascending: false })
       .limit(200);
 
-    if (error) return json({ ok: false, error: "db_error", details: error.message }, 500);
+    if (error) return json({ ok: false, error: "db_error", details: "erro interno" }, 500);
     return json({ ok: true, data: data || [] });
   }
 
@@ -180,7 +180,7 @@ async function handleListTransacoes(
     .lte("data_transacao", fimMes)
     .order("data_transacao", { ascending: false });
 
-  if (error) return json({ ok: false, error: "db_error", details: error.message }, 500);
+  if (error) return json({ ok: false, error: "db_error", details: "erro interno" }, 500);
 
   return json({ ok: true, data: data || [] });
 }
@@ -232,7 +232,7 @@ async function handleSaveTransacao(
       .single();
   }
 
-  if (result.error) return json({ ok: false, error: "db_error", details: result.error.message }, 500);
+  if (result.error) return json({ ok: false, error: "db_error", details: "erro interno" }, 500);
   return json({ ok: true, data: result.data });
 }
 
@@ -258,7 +258,7 @@ async function handleDeleteTransacao(
     .eq("id", id)
     .eq("church_totvs_id", churchId);
 
-  if (error) return json({ ok: false, error: "db_error", details: error.message }, 500);
+  if (error) return json({ ok: false, error: "db_error", details: "erro interno" }, 500);
   return json({ ok: true });
 }
 
@@ -277,7 +277,7 @@ async function handleListCategorias(
     .eq("ativo", true)
     .order("nome", { ascending: true });
 
-  if (error) return json({ ok: false, error: "db_error", details: error.message }, 500);
+  if (error) return json({ ok: false, error: "db_error", details: "erro interno" }, 500);
   return json({ ok: true, data: data || [] });
 }
 
@@ -297,7 +297,7 @@ async function handleDeleteCategoria(
     .eq("id", id)
     .eq("church_totvs_id", churchId);
 
-  if (error) return json({ ok: false, error: "db_error", details: error.message }, 500);
+  if (error) return json({ ok: false, error: "db_error", details: "erro interno" }, 500);
   return json({ ok: true });
 }
 
@@ -336,7 +336,7 @@ async function handleSaveCategoria(
       .single();
   }
 
-  if (result.error) return json({ ok: false, error: "db_error", details: result.error.message }, 500);
+  if (result.error) return json({ ok: false, error: "db_error", details: "erro interno" }, 500);
   return json({ ok: true, data: result.data });
 }
 
@@ -390,7 +390,7 @@ async function handleSaveContagem(
     .select()
     .single();
 
-  if (contagemError) return json({ ok: false, error: "db_error_contagem", details: contagemError.message }, 500);
+  if (contagemError) return json({ ok: false, error: "db_error_contagem", details: "erro interno" }, 500);
 
   return json({ ok: true, data: contagem });
 }
@@ -427,7 +427,7 @@ async function handleListContagens(
     .eq("church_totvs_id", churchId)
     .order("data_contagem", { ascending: false });
 
-  if (error) return json({ ok: false, error: "db_error", details: error.message }, 500);
+  if (error) return json({ ok: false, error: "db_error", details: "erro interno" }, 500);
   return json({ ok: true, data: data || [] });
 }
 
@@ -481,7 +481,7 @@ async function handleSaveFechamento(
     .select()
     .single();
 
-  if (error) return json({ ok: false, error: "db_error", details: error.message }, 500);
+  if (error) return json({ ok: false, error: "db_error", details: "erro interno" }, 500);
   return json({ ok: true, data });
 }
 
@@ -511,7 +511,7 @@ async function handleSaveFichaDiaria(
     .eq("church_totvs_id", churchId)
     .maybeSingle();
 
-  if (findError) return json({ ok: false, error: "db_error", details: findError.message }, 500);
+  if (findError) return json({ ok: false, error: "db_error", details: "erro interno" }, 500);
 
   if (existing) {
     // Comentario: já existe — incrementa total_entradas com o novo valor
@@ -522,7 +522,7 @@ async function handleSaveFichaDiaria(
       .eq("id", existing.id)
       .select()
       .single();
-    if (error) return json({ ok: false, error: "db_error", details: error.message }, 500);
+    if (error) return json({ ok: false, error: "db_error", details: "erro interno" }, 500);
     return json({ ok: true, data });
   } else {
     // Comentario: não existe — cria nova ficha para o dia
@@ -539,7 +539,7 @@ async function handleSaveFichaDiaria(
       })
       .select()
       .single();
-    if (error) return json({ ok: false, error: "db_error", details: error.message }, 500);
+    if (error) return json({ ok: false, error: "db_error", details: "erro interno" }, 500);
     return json({ ok: true, data });
   }
 }
@@ -567,7 +567,7 @@ async function handleListFichasDiarias(
     .lte("data_ficha", fimMes)
     .order("data_ficha", { ascending: true });
 
-  if (error) return json({ ok: false, error: "db_error", details: error.message }, 500);
+  if (error) return json({ ok: false, error: "db_error", details: "erro interno" }, 500);
   return json({ ok: true, data: data || [] });
 }
 
@@ -674,7 +674,7 @@ async function handleListFechamentos(
     .order("ano", { ascending: false })
     .order("mes", { ascending: false });
 
-  if (error) return json({ ok: false, error: "db_error", details: error.message }, 500);
+  if (error) return json({ ok: false, error: "db_error", details: "erro interno" }, 500);
   return json({ ok: true, data: data || [] });
 }
 
@@ -695,7 +695,7 @@ async function handleSearchChurches(
     .eq("is_active", true)
     .limit(10);
 
-  if (error) return json({ ok: false, error: "db_error", details: error.message }, 500);
+  if (error) return json({ ok: false, error: "db_error", details: "erro interno" }, 500);
   return json({ ok: true, data: data || [] });
 }
 

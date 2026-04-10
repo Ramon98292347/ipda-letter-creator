@@ -107,7 +107,7 @@ Deno.serve(async (req) => {
     const { data: allChurches, error: churchesErr } = await sb
       .from("churches")
       .select("totvs_id, parent_totvs_id");
-    if (churchesErr) return json({ ok: false, error: "db_error_churches", details: churchesErr.message }, 500);
+    if (churchesErr) return json({ ok: false, error: "db_error_churches", details: "erro interno" }, 500);
 
     if (session.role !== "admin") {
       const scope = computeScope(session.active_totvs_id, (allChurches || []) as ChurchRow[]);
@@ -121,7 +121,7 @@ Deno.serve(async (req) => {
       .select("id, full_name, role, default_totvs_id, is_active")
       .eq("id", userId)
       .maybeSingle();
-    if (targetErr) return json({ ok: false, error: "db_error_target_user", details: targetErr.message }, 500);
+    if (targetErr) return json({ ok: false, error: "db_error_target_user", details: "erro interno" }, 500);
     if (!targetUser) return json({ ok: false, error: "user_not_found" }, 404);
 
     if (String(targetUser.default_totvs_id || "") !== churchTotvsId) {
@@ -144,7 +144,7 @@ Deno.serve(async (req) => {
       )
       .select("id, user_id, meeting_date, church_totvs_id, status, justification_text, created_at, updated_at")
       .single();
-    if (attendanceErr) return json({ ok: false, error: "db_error_save_attendance", details: attendanceErr.message }, 500);
+    if (attendanceErr) return json({ ok: false, error: "db_error_save_attendance", details: "erro interno" }, 500);
 
     const cutoffDate = new Date();
     cutoffDate.setUTCDate(cutoffDate.getUTCDate() - 180);
@@ -156,7 +156,7 @@ Deno.serve(async (req) => {
       .eq("user_id", userId)
       .eq("status", "FALTA")
       .gte("meeting_date", cutoffIso);
-    if (countErr) return json({ ok: false, error: "db_error_count_absences", details: countErr.message }, 500);
+    if (countErr) return json({ ok: false, error: "db_error_count_absences", details: "erro interno" }, 500);
 
     let blockedOnSave = false;
     if ((absencesCount || 0) >= 3) {
@@ -173,7 +173,7 @@ Deno.serve(async (req) => {
           discipline_updated_by: session.user_id,
         })
         .eq("id", userId);
-      if (blockErr) return json({ ok: false, error: "db_error_block_user", details: blockErr.message }, 500);
+      if (blockErr) return json({ ok: false, error: "db_error_block_user", details: "erro interno" }, 500);
 
       await sb
         .from("ministerial_meeting_attendance")
@@ -197,6 +197,6 @@ Deno.serve(async (req) => {
       200,
     );
   } catch (err) {
-    return json({ ok: false, error: "exception", details: String(err) }, 500);
+    return json({ ok: false, error: "exception", details: "erro interno" }, 500);
   }
 });

@@ -116,8 +116,8 @@ Deno.serve(async (req) => {
       qMine,
     ]);
 
-    if (churchErr) return json({ ok: false, error: "db_error_list_church", details: churchErr.message }, 500);
-    if (myErr) return json({ ok: false, error: "db_error_list_user", details: myErr.message }, 500);
+    if (churchErr) return json({ ok: false, error: "db_error_list_church", details: "erro interno" }, 500);
+    if (myErr) return json({ ok: false, error: "db_error_list_user", details: "erro interno" }, 500);
 
     // Comentario: junta notificacoes da igreja + individuais e remove duplicadas por id.
     const merged = [...(churchRows || []), ...(myRows || [])];
@@ -141,6 +141,6 @@ Deno.serve(async (req) => {
 
     return json({ ok: true, notifications, total, unread_count, page, page_size }, 200);
   } catch (err) {
-    return json({ ok: false, error: "exception", details: String(err) }, 500);
+    return json({ ok: false, error: "exception", details: "erro interno" }, 500);
   }
 });

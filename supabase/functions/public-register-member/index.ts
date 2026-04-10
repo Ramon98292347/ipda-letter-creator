@@ -122,7 +122,7 @@ Deno.serve(async (req) => {
       .eq("totvs_id", totvsId)
       .maybeSingle();
 
-    if (churchError) return json({ ok: false, error: "db_error_church", details: churchError.message }, 500);
+    if (churchError) return json({ ok: false, error: "db_error_church", details: "erro interno" }, 500);
     if (!church) {
       return json({
         ok: false,
@@ -144,7 +144,7 @@ Deno.serve(async (req) => {
       .eq("cpf", cpf)
       .maybeSingle();
 
-    if (existingError) return json({ ok: false, error: "db_error_existing_user", details: existingError.message }, 500);
+    if (existingError) return json({ ok: false, error: "db_error_existing_user", details: "erro interno" }, 500);
     if (existing) return json({ ok: false, error: "cpf_already_registered", detail: "CPF ja cadastrado." }, 409);
 
     const passwordHash = bcrypt.hashSync(password, 10);
@@ -185,7 +185,7 @@ Deno.serve(async (req) => {
       .select("id, cpf, full_name, role, minister_role, default_totvs_id")
       .single();
 
-    if (insertError) return json({ ok: false, error: "insert_user_failed", details: insertError.message }, 500);
+    if (insertError) return json({ ok: false, error: "insert_user_failed", details: "erro interno" }, 500);
 
     // [NOVO] Notifica o pastor e o próprio membro sobre o novo cadastro
     try {
@@ -258,6 +258,6 @@ Deno.serve(async (req) => {
       detail: "Cadastro recebido. Aguardando liberacao da secretaria/pastor.",
     }, 200);
   } catch (err) {
-    return json({ ok: false, error: "exception", details: String(err) }, 500);
+    return json({ ok: false, error: "exception", details: "erro interno" }, 500);
   }
 });

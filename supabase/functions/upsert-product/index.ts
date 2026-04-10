@@ -82,21 +82,21 @@ Deno.serve(async (req) => {
         .select("id, church_totvs_id")
         .eq("id", id)
         .maybeSingle();
-      if (eErr) return json({ ok: false, error: "db_error_find", details: eErr.message }, 500);
+      if (eErr) return json({ ok: false, error: "db_error_find", details: "erro interno" }, 500);
       if (!existing) return json({ ok: false, error: "not_found" }, 404);
       if (String(existing.church_totvs_id || "") !== session.active_totvs_id) {
         return json({ ok: false, error: "forbidden_wrong_church" }, 403);
       }
 
       const { data, error } = await sb.from("products").update(payload).eq("id", id).select("*").single();
-      if (error) return json({ ok: false, error: "db_error_update", details: error.message }, 500);
+      if (error) return json({ ok: false, error: "db_error_update", details: "erro interno" }, 500);
       return json({ ok: true, product: data });
     }
 
     const { data, error } = await sb.from("products").insert(payload).select("*").single();
-    if (error) return json({ ok: false, error: "db_error_insert", details: error.message }, 500);
+    if (error) return json({ ok: false, error: "db_error_insert", details: "erro interno" }, 500);
     return json({ ok: true, product: data });
   } catch (err) {
-    return json({ ok: false, error: "exception", details: String(err) }, 500);
+    return json({ ok: false, error: "exception", details: "erro interno" }, 500);
   }
 });

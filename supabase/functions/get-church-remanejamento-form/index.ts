@@ -112,7 +112,7 @@ Deno.serve(async (req) => {
     const { data: churches, error: churchErr } = await sb
       .from("churches")
       .select("totvs_id,parent_totvs_id,class,pastor_user_id,church_name");
-    if (churchErr) return json({ ok: false, error: "db_error_churches", details: churchErr.message }, 500);
+    if (churchErr) return json({ ok: false, error: "db_error_churches", details: "erro interno" }, 500);
 
     const allChurches = (churches || []) as ChurchRow[];
     const byId = new Map<string, ChurchRow>(allChurches.map((c) => [String(c.totvs_id), c]));
@@ -191,6 +191,6 @@ Deno.serve(async (req) => {
       pdf_storage_path: remRow?.pdf_storage_path || null,
     });
   } catch (err) {
-    return json({ ok: false, error: "exception", details: String(err) }, 500);
+    return json({ ok: false, error: "exception", details: "erro interno" }, 500);
   }
 });

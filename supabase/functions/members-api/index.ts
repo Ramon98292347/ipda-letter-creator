@@ -597,7 +597,7 @@ async function handleUpdateAvatar(body: UpdateAvatarBody): Promise<Response> {
     .eq("cpf", cpf)
     .maybeSingle();
 
-  if (findErr) return json({ ok: false, error: "db_error", details: findErr.message }, 500);
+  if (findErr) return json({ ok: false, error: "db_error", details: "erro interno" }, 500);
   if (!user) return json({ ok: false, error: "user_not_found" }, 404);
 
   const { error: updateErr } = await sb
@@ -605,7 +605,7 @@ async function handleUpdateAvatar(body: UpdateAvatarBody): Promise<Response> {
     .update({ avatar_url: avatarUrl })
     .eq("id", userId);
 
-  if (updateErr) return json({ ok: false, error: "update_failed", details: updateErr.message }, 500);
+  if (updateErr) return json({ ok: false, error: "update_failed", details: "erro interno" }, 500);
   return json({ ok: true, avatar_url: avatarUrl }, 200);
 }
 
@@ -632,7 +632,7 @@ async function handleUpsertStamps(session: SessionClaims, body: UpsertStampsBody
       .from("users")
       .update(userPayload)
       .eq("id", session.user_id);
-    if (userErr) return json({ ok: false, error: "db_error_update_user_stamps", details: userErr.message }, 500);
+    if (userErr) return json({ ok: false, error: "db_error_update_user_stamps", details: "erro interno" }, 500);
   }
 
   if (stampChurchUrl !== undefined) {
@@ -640,7 +640,7 @@ async function handleUpsertStamps(session: SessionClaims, body: UpsertStampsBody
       .from("churches")
       .update({ stamp_church_url: stampChurchUrl })
       .eq("totvs_id", session.active_totvs_id);
-    if (churchErr) return json({ ok: false, error: "db_error_update_church_stamp", details: churchErr.message }, 500);
+    if (churchErr) return json({ ok: false, error: "db_error_update_church_stamp", details: "erro interno" }, 500);
   }
 
   return json({
@@ -880,7 +880,7 @@ async function handleListMembers(session: SessionClaims, body: ListMembersBody):
 
   const sb = createClient(Deno.env.get("SUPABASE_URL") || "", Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "");
   const { data: churches, error: churchesErr } = await sb.from("churches").select("totvs_id,parent_totvs_id,church_name,class");
-  if (churchesErr) return json({ ok: false, error: "db_error_churches", details: churchesErr.message }, 500);
+  if (churchesErr) return json({ ok: false, error: "db_error_churches", details: "erro interno" }, 500);
 
   const churchRows = (churches || []) as ChurchRow[];
   let scopeRootTotvs = session.active_totvs_id;
@@ -915,7 +915,7 @@ async function handleListMembers(session: SessionClaims, body: ListMembersBody):
   }
 
   const { data: users, error: usersErr } = await q;
-  if (usersErr) return json({ ok: false, error: "db_error_users", details: usersErr.message }, 500);
+  if (usersErr) return json({ ok: false, error: "db_error_users", details: "erro interno" }, 500);
 
   // exact_church=true: filtra apenas membros da igreja exata (usado no dashboard do pastor)
   // exact_church=false/omitido: computa sub-escopo (igreja + filhas) para pagina de membros
@@ -1071,7 +1071,7 @@ async function handleChangeMemberChurch(session: SessionClaims, body: ChangeMemb
     .select("id, role, full_name, default_totvs_id")
     .eq("id", userId)
     .maybeSingle();
-  if (targetErr) return json({ ok: false, error: "db_error_target_user", details: targetErr.message }, 500);
+  if (targetErr) return json({ ok: false, error: "db_error_target_user", details: "erro interno" }, 500);
   if (!targetUser) return json({ ok: false, error: "target_user_not_found" }, 404);
 
   const currentRole = String((targetUser as Record<string, unknown>).role || "").toLowerCase();
@@ -1082,7 +1082,7 @@ async function handleChangeMemberChurch(session: SessionClaims, body: ChangeMemb
   if (currentTotvs === targetTotvsId) return json({ ok: true, unchanged: true }, 200);
 
   const { data: churches, error: churchesErr } = await sb.from("churches").select("totvs_id,parent_totvs_id,class");
-  if (churchesErr) return json({ ok: false, error: "db_error_churches", details: churchesErr.message }, 500);
+  if (churchesErr) return json({ ok: false, error: "db_error_churches", details: "erro interno" }, 500);
 
   const churchRows = (churches || []) as ChurchRow[];
   const churchSet = new Set(churchRows.map((church) => String(church.totvs_id)));
@@ -1112,7 +1112,7 @@ async function handleChangeMemberChurch(session: SessionClaims, body: ChangeMemb
       totvs_access: [{ totvs_id: targetTotvsId, role: accessRole }],
     })
     .eq("id", userId);
-  if (updateErr) return json({ ok: false, error: "db_error_change_member_church", details: updateErr.message }, 500);
+  if (updateErr) return json({ ok: false, error: "db_error_change_member_church", details: "erro interno" }, 500);
 
   return json({
     ok: true,
@@ -1141,7 +1141,7 @@ async function handleChangeMemberAccess(session: SessionClaims, body: ChangeMemb
     .select("id, role, full_name, default_totvs_id, totvs_access")
     .eq("id", userId)
     .maybeSingle();
-  if (targetErr) return json({ ok: false, error: "db_error_target_user", details: targetErr.message }, 500);
+  if (targetErr) return json({ ok: false, error: "db_error_target_user", details: "erro interno" }, 500);
   if (!targetUser) return json({ ok: false, error: "target_user_not_found" }, 404);
 
   const currentRole = String((targetUser as Record<string, unknown>).role || "").toLowerCase();
@@ -1153,7 +1153,7 @@ async function handleChangeMemberAccess(session: SessionClaims, body: ChangeMemb
   if (!currentTotvs) return json({ ok: false, error: "target_user_without_church" }, 409);
 
   const { data: churches, error: churchesErr } = await sb.from("churches").select("totvs_id,parent_totvs_id,class");
-  if (churchesErr) return json({ ok: false, error: "db_error_churches", details: churchesErr.message }, 500);
+  if (churchesErr) return json({ ok: false, error: "db_error_churches", details: "erro interno" }, 500);
   const churchRows = (churches || []) as ChurchRow[];
 
   if (session.role !== "admin") {
@@ -1179,7 +1179,7 @@ async function handleChangeMemberAccess(session: SessionClaims, body: ChangeMemb
       totvs_access: nextAccess,
     })
     .eq("id", userId);
-  if (updateErr) return json({ ok: false, error: "db_error_change_member_access", details: updateErr.message }, 500);
+  if (updateErr) return json({ ok: false, error: "db_error_change_member_access", details: "erro interno" }, 500);
 
   return json({
     ok: true,

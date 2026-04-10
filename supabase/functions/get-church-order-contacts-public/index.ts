@@ -56,7 +56,7 @@ Deno.serve(async (req) => {
       .eq("totvs_id", churchTotvsId)
       .maybeSingle();
 
-    if (churchErr) return json({ ok: false, error: "db_error_church", details: churchErr.message }, 500);
+    if (churchErr) return json({ ok: false, error: "db_error_church", details: "erro interno" }, 500);
     if (!churchRow) return json({ ok: false, error: "church_not_found" }, 404);
 
     let pastor: Contact | null = null;
@@ -68,7 +68,7 @@ Deno.serve(async (req) => {
         .eq("id", pastorId)
         .eq("is_active", true)
         .maybeSingle();
-      if (pastorErr) return json({ ok: false, error: "db_error_pastor", details: pastorErr.message }, 500);
+      if (pastorErr) return json({ ok: false, error: "db_error_pastor", details: "erro interno" }, 500);
       if (pastorRow) {
         pastor = {
           id: String(pastorRow.id || ""),
@@ -88,7 +88,7 @@ Deno.serve(async (req) => {
         .eq("is_active", true)
         .order("updated_at", { ascending: false })
         .limit(1);
-      if (fallbackPastorErr) return json({ ok: false, error: "db_error_pastor_fallback", details: fallbackPastorErr.message }, 500);
+      if (fallbackPastorErr) return json({ ok: false, error: "db_error_pastor_fallback", details: "erro interno" }, 500);
       const firstPastor = (fallbackPastorRows || [])[0] as Record<string, unknown> | undefined;
       if (firstPastor) {
         pastor = {
@@ -108,7 +108,7 @@ Deno.serve(async (req) => {
       .order("updated_at", { ascending: false })
       .limit(200);
 
-    if (secretarioErr) return json({ ok: false, error: "db_error_secretary", details: secretarioErr.message }, 500);
+    if (secretarioErr) return json({ ok: false, error: "db_error_secretary", details: "erro interno" }, 500);
 
     const firstSecretary = (secretarioRows || []).find((row) => {
       const item = row as Record<string, unknown>;
@@ -132,6 +132,6 @@ Deno.serve(async (req) => {
       secretary,
     });
   } catch (err) {
-    return json({ ok: false, error: "exception", details: String(err) }, 500);
+    return json({ ok: false, error: "exception", details: "erro interno" }, 500);
   }
 });

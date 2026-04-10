@@ -95,7 +95,7 @@ Deno.serve(async (req) => {
       .select("id, full_name, cpf, phone, email, role, default_totvs_id")
       .eq("id", user_id)
       .maybeSingle();
-    if (targetErr) return json({ ok: false, error: "db_error_target", details: targetErr.message }, 500);
+    if (targetErr) return json({ ok: false, error: "db_error_target", details: "erro interno" }, 500);
     if (!target) return json({ ok: false, error: "user_not_found" }, 404);
 
     const nowIso = new Date().toISOString();
@@ -113,7 +113,7 @@ Deno.serve(async (req) => {
       .eq("id", user_id)
       .select("id, payment_status, payment_block_reason, payment_blocked_at, payment_unblocked_at, updated_at")
       .single();
-    if (updateErr) return json({ ok: false, error: "db_error_update", details: updateErr.message }, 500);
+    if (updateErr) return json({ ok: false, error: "db_error_update", details: "erro interno" }, 500);
 
     const notificationTitle = payment_status === "BLOQUEADO_PAGAMENTO" ? "Pagamento bloqueado" : "Pagamento liberado";
     const notificationMessage = payment_status === "BLOQUEADO_PAGAMENTO"
@@ -189,6 +189,6 @@ Deno.serve(async (req) => {
 
     return json({ ok: true, user: updated, n8n: { ok: n8nOk, status: n8nStatus, response: n8nResponse } }, 200);
   } catch (err) {
-    return json({ ok: false, error: "exception", details: String(err) }, 500);
+    return json({ ok: false, error: "exception", details: "erro interno" }, 500);
   }
 });

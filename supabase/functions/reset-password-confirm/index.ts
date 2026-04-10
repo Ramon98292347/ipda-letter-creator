@@ -69,7 +69,7 @@ Deno.serve(async (req) => {
       .order("created_at", { ascending: false })
       .limit(1);
 
-    if (resetErr) return json({ ok: false, error: "db_error_password_reset", details: resetErr.message }, 500);
+    if (resetErr) return json({ ok: false, error: "db_error_password_reset", details: "erro interno" }, 500);
     if (!resetRows || resetRows.length === 0) return json({ ok: false, error: "invalid_or_expired_token" }, 400);
 
     const resetRow = resetRows[0] as { id: string; user_id: string; expires_at: string; used_at: string | null };
@@ -85,17 +85,17 @@ Deno.serve(async (req) => {
       .update({ password_hash })
       .eq("id", resetRow.user_id);
 
-    if (userErr) return json({ ok: false, error: "db_error_update_password", details: userErr.message }, 500);
+    if (userErr) return json({ ok: false, error: "db_error_update_password", details: "erro interno" }, 500);
 
     const { error: usedErr } = await sb
       .from("password_resets")
       .update({ used_at: new Date().toISOString() })
       .eq("id", resetRow.id);
 
-    if (usedErr) return json({ ok: false, error: "db_error_mark_used", details: usedErr.message }, 500);
+    if (usedErr) return json({ ok: false, error: "db_error_mark_used", details: "erro interno" }, 500);
 
     return json({ ok: true, message: "Senha redefinida com sucesso." }, 200);
   } catch (err) {
-    return json({ ok: false, error: "exception", details: String(err) }, 500);
+    return json({ ok: false, error: "exception", details: "erro interno" }, 500);
   }
 });

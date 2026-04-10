@@ -212,7 +212,7 @@ async function actionList(sb: ReturnType<typeof createClient>, req: Request, bod
     const { data: allChurches, error: allChurchesErr } = await sb
       .from("churches")
       .select("totvs_id, parent_totvs_id");
-    if (allChurchesErr) return json({ ok: false, error: "db_error_churches", details: allChurchesErr.message }, 500);
+    if (allChurchesErr) return json({ ok: false, error: "db_error_churches", details: "erro interno" }, 500);
 
     const rows = (allChurches || []) as Array<{ totvs_id: string; parent_totvs_id: string | null }>;
     const parentById = new Map<string, string | null>();
@@ -251,7 +251,7 @@ async function actionList(sb: ReturnType<typeof createClient>, req: Request, bod
   // Para list (pública), mostrar apenas ativos
   const includeInactive = action === "list-admin";
   const loaded = await fetchAnnouncementsByTotvs(churchesToLoad, includeInactive);
-  if (loaded.error) return json({ ok: false, error: "db_error_list_announcements", details: loaded.error.message }, 500);
+  if (loaded.error) return json({ ok: false, error: "db_error_list_announcements", details: "erro interno" }, 500);
   const data = loaded.data as Record<string, unknown>[];
 
   const now = Date.now();
@@ -301,7 +301,7 @@ async function actionUpsert(sb: ReturnType<typeof createClient>, req: Request, b
       .eq("id", id)
       .maybeSingle();
 
-    if (findError) return json({ ok: false, error: "db_error_find", details: findError.message }, 500);
+    if (findError) return json({ ok: false, error: "db_error_find", details: "erro interno" }, 500);
     if (!existingRow) return json({ ok: false, error: "not_found" }, 404);
     if (String(existingRow.church_totvs_id) !== String(session.active_totvs_id)) {
       return json({ ok: false, error: "forbidden_wrong_church" }, 403);
@@ -363,12 +363,12 @@ async function actionUpsert(sb: ReturnType<typeof createClient>, req: Request, b
       .select("*")
       .single();
 
-    if (updateError) return json({ ok: false, error: "db_error_update", details: updateError.message }, 500);
+    if (updateError) return json({ ok: false, error: "db_error_update", details: "erro interno" }, 500);
     return json({ ok: true, announcement: updated }, 200);
   }
 
   const { data: created, error: insertError } = await sb.from("announcements").insert(payload).select("*").single();
-  if (insertError) return json({ ok: false, error: "db_error_insert", details: insertError.message }, 500);
+  if (insertError) return json({ ok: false, error: "db_error_insert", details: "erro interno" }, 500);
   return json({ ok: true, announcement: created }, 200);
 }
 
@@ -386,14 +386,14 @@ async function actionDelete(sb: ReturnType<typeof createClient>, req: Request, b
     .eq("id", id)
     .maybeSingle();
 
-  if (findError) return json({ ok: false, error: "db_error_find", details: findError.message }, 500);
+  if (findError) return json({ ok: false, error: "db_error_find", details: "erro interno" }, 500);
   if (!existing) return json({ ok: false, error: "not_found" }, 404);
   if (String(existing.church_totvs_id) !== String(session.active_totvs_id)) {
     return json({ ok: false, error: "forbidden_wrong_church" }, 403);
   }
 
   const { error: deleteError } = await sb.from("announcements").delete().eq("id", id);
-  if (deleteError) return json({ ok: false, error: "db_error_delete", details: deleteError.message }, 500);
+  if (deleteError) return json({ ok: false, error: "db_error_delete", details: "erro interno" }, 500);
   return json({ ok: true, deleted_id: id }, 200);
 }
 
@@ -416,7 +416,7 @@ async function actionListEvents(sb: ReturnType<typeof createClient>, req: Reques
     .eq("is_active", true)
     .order("created_at", { ascending: false });
 
-  if (error) return json({ ok: false, error: "db_error_list_events", details: error.message }, 500);
+  if (error) return json({ ok: false, error: "db_error_list_events", details: "erro interno" }, 500);
 
   return json({ ok: true, events: (events || []) });
 }
@@ -470,7 +470,7 @@ async function actionUpsertEvent(sb: ReturnType<typeof createClient>, req: Reque
       .eq("id", id)
       .maybeSingle();
 
-    if (findError) return json({ ok: false, error: "db_error_find", details: findError.message }, 500);
+    if (findError) return json({ ok: false, error: "db_error_find", details: "erro interno" }, 500);
     if (!existing) return json({ ok: false, error: "not_found" }, 404);
     if (String(existing.church_totvs_id) !== churchCode) {
       return json({ ok: false, error: "forbidden_wrong_church" }, 403);
@@ -482,7 +482,7 @@ async function actionUpsertEvent(sb: ReturnType<typeof createClient>, req: Reque
     result = await sb.from("announcements").insert(payload).select("id, title, starts_at, ends_at, church_totvs_id");
   }
 
-  if (result.error) return json({ ok: false, error: "db_error_upsert_event", details: result.error.message }, 500);
+  if (result.error) return json({ ok: false, error: "db_error_upsert_event", details: "erro interno" }, 500);
   const event = result.data?.[0];
   if (!event) return json({ ok: false, error: "unexpected_response" }, 500);
 
@@ -529,6 +529,6 @@ Deno.serve(async (req) => {
       400,
     );
   } catch (err) {
-    return json({ ok: false, error: "exception", details: String(err) }, 500);
+    return json({ ok: false, error: "exception", details: "erro interno" }, 500);
   }
 });

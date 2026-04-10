@@ -358,6 +358,6 @@ Deno.serve(async (req) => {
       },
     }, 200);
   } catch (err) {
-    return json({ ok: false, error: "exception", details: String(err) }, 500);
+    return json({ ok: false, error: "exception", details: "erro interno" }, 500);
   }
 });

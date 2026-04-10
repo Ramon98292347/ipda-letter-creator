@@ -88,7 +88,7 @@ Deno.serve(async (req) => {
 
     if (session.role !== "admin" && churchTotvsId !== session.active_totvs_id) {
       const { data: allChurches, error: churchesErr } = await sb.from("churches").select("totvs_id, parent_totvs_id");
-      if (churchesErr) return json({ ok: false, error: "db_error_churches", details: churchesErr.message }, 500);
+      if (churchesErr) return json({ ok: false, error: "db_error_churches", details: "erro interno" }, 500);
       const scope = computeScope(session.active_totvs_id, (allChurches || []) as ChurchRow[]);
       if (!scope.has(churchTotvsId)) return json({ ok: false, error: "church_out_of_scope" }, 403);
     }
@@ -100,7 +100,7 @@ Deno.serve(async (req) => {
       .eq("church_totvs_id", churchTotvsId)
       .maybeSingle();
 
-    if (meetingError) return json({ ok: false, error: "db_error_meeting", details: meetingError.message }, 500);
+    if (meetingError) return json({ ok: false, error: "db_error_meeting", details: "erro interno" }, 500);
     if (!meeting) return json({ ok: false, error: "meeting_not_found" }, 404);
 
     if (action === "delete") {
@@ -111,12 +111,12 @@ Deno.serve(async (req) => {
         .eq("meeting_date", meeting.meeting_date);
 
       if (deleteAttendanceError) {
-        return json({ ok: false, error: "db_error_delete_attendance", details: deleteAttendanceError.message }, 500);
+        return json({ ok: false, error: "db_error_delete_attendance", details: "erro interno" }, 500);
       }
 
       const { error: deleteMeetingError } = await sb.from("ministerial_meetings").delete().eq("id", meetingId);
       if (deleteMeetingError) {
-        return json({ ok: false, error: "db_error_delete_meeting", details: deleteMeetingError.message }, 500);
+        return json({ ok: false, error: "db_error_delete_meeting", details: "erro interno" }, 500);
       }
 
       return json({ ok: true, deleted: true, meeting_id: meetingId });
@@ -141,10 +141,10 @@ Deno.serve(async (req) => {
       .select("id, church_totvs_id, title, meeting_date, public_token, expires_at, is_active, notes, created_at")
       .single();
 
-    if (updateError) return json({ ok: false, error: "db_error_update_meeting", details: updateError.message }, 500);
+    if (updateError) return json({ ok: false, error: "db_error_update_meeting", details: "erro interno" }, 500);
 
     return json({ ok: true, meeting: updated });
   } catch (err) {
-    return json({ ok: false, error: "exception", details: String(err) }, 500);
+    return json({ ok: false, error: "exception", details: "erro interno" }, 500);
   }
 });

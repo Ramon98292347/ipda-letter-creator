@@ -119,7 +119,7 @@ Deno.serve(async (req) => {
       .eq("id", id)
       .maybeSingle();
 
-    if (findErr) return json({ ok: false, error: "db_error_find", details: findErr.message }, 500);
+    if (findErr) return json({ ok: false, error: "db_error_find", details: "erro interno" }, 500);
     if (!row) return json({ ok: false, error: "notification_not_found" }, 404);
 
     const isMine = String(row.user_id || "") === session.user_id;
@@ -132,7 +132,7 @@ Deno.serve(async (req) => {
         .from("churches")
         .select("totvs_id,parent_totvs_id");
 
-      if (cErr) return json({ ok: false, error: "db_error_scope", details: cErr.message }, 500);
+      if (cErr) return json({ ok: false, error: "db_error_scope", details: "erro interno" }, 500);
 
       const rows = (allChurches || []) as ChurchRow[];
       const scope = computeScope(session.active_totvs_id, rows);
@@ -152,9 +152,9 @@ Deno.serve(async (req) => {
       .select("*")
       .single();
 
-    if (updErr) return json({ ok: false, error: "db_error_update", details: updErr.message }, 500);
+    if (updErr) return json({ ok: false, error: "db_error_update", details: "erro interno" }, 500);
     return json({ ok: true, notification: updated }, 200);
   } catch (err) {
-    return json({ ok: false, error: "exception", details: String(err) }, 500);
+    return json({ ok: false, error: "exception", details: "erro interno" }, 500);
   }
 });

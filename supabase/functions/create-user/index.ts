@@ -189,7 +189,7 @@ Deno.serve(async (req) => {
       .select("id, role, matricula")
       .eq("cpf", cpf)
       .maybeSingle();
-    if (existingErr) return json({ ok: false, error: "db_error_existing_user", details: existingErr.message }, 500);
+    if (existingErr) return json({ ok: false, error: "db_error_existing_user", details: "erro interno" }, 500);
 
     // Comentario: regra de papel:
     // - Edicao: nunca altera o role, mantem o role atual.
@@ -213,7 +213,7 @@ Deno.serve(async (req) => {
     const { data: allChurches, error: allChurchesErr } = await sb
       .from("churches")
       .select("totvs_id, parent_totvs_id, class");
-    if (allChurchesErr) return json({ ok: false, error: "db_error_churches", details: allChurchesErr.message }, 500);
+    if (allChurchesErr) return json({ ok: false, error: "db_error_churches", details: "erro interno" }, 500);
 
     const churchRows = (allChurches || []) as ChurchRow[];
     const churchSet = new Set(churchRows.map((c) => String(c.totvs_id)));
@@ -285,7 +285,7 @@ Deno.serve(async (req) => {
       .upsert(payload, { onConflict: "cpf" })
       .select("id, cpf, full_name, role, default_totvs_id, totvs_access, is_active, updated_at")
       .single();
-    if (saveErr) return json({ ok: false, error: "db_error_save_user", details: saveErr.message }, 500);
+    if (saveErr) return json({ ok: false, error: "db_error_save_user", details: "erro interno" }, 500);
 
     if (!existingUser?.id) {
       const title = "Cadastro criado";
@@ -356,6 +356,6 @@ Deno.serve(async (req) => {
 
     return json({ ok: true, user: saved }, 200);
   } catch (err) {
-    return json({ ok: false, error: "exception", details: String(err) }, 500);
+    return json({ ok: false, error: "exception", details: "erro interno" }, 500);
   }
 });

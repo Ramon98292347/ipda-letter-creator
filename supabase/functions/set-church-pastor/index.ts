@@ -164,7 +164,7 @@ Deno.serve(async (req) => {
     const { data: churches, error: churchesErr } = await sb
       .from("churches")
       .select("totvs_id, class, parent_totvs_id, pastor_user_id");
-    if (churchesErr) return json({ ok: false, error: "db_error_churches", details: churchesErr.message }, 500);
+    if (churchesErr) return json({ ok: false, error: "db_error_churches", details: "erro interno" }, 500);
 
     const rows = (churches || []) as ChurchRow[];
     const byTotvs = new Map<string, ChurchRow>(rows.map((r) => [String(r.totvs_id), r]));
@@ -200,7 +200,7 @@ Deno.serve(async (req) => {
       .select("id, full_name, role, is_active, totvs_access, default_totvs_id")
       .eq("id", pastor_user_id)
       .maybeSingle();
-    if (newPastorErr) return json({ ok: false, error: "db_error_new_pastor", details: newPastorErr.message }, 500);
+    if (newPastorErr) return json({ ok: false, error: "db_error_new_pastor", details: "erro interno" }, 500);
     if (!newPastor) return json({ ok: false, error: "pastor_user_not_found" }, 404);
     if (newPastor.is_active === false) return json({ ok: false, error: "pastor_user_inactive" }, 409);
 
@@ -234,7 +234,7 @@ Deno.serve(async (req) => {
         default_totvs_id: newDefaultTotvs,
       })
       .eq("id", pastor_user_id);
-    if (updateNewErr) return json({ ok: false, error: "db_error_update_new_pastor", details: updateNewErr.message }, 500);
+    if (updateNewErr) return json({ ok: false, error: "db_error_update_new_pastor", details: "erro interno" }, 500);
 
     const previousPastorId = String(church.pastor_user_id || "").trim();
     if (previousPastorId && previousPastorId !== pastor_user_id) {
@@ -243,7 +243,7 @@ Deno.serve(async (req) => {
         .select("id, role, totvs_access")
         .eq("id", previousPastorId)
         .maybeSingle();
-      if (oldPastorErr) return json({ ok: false, error: "db_error_old_pastor", details: oldPastorErr.message }, 500);
+      if (oldPastorErr) return json({ ok: false, error: "db_error_old_pastor", details: "erro interno" }, 500);
 
       if (oldPastor) {
         const oldAccess = normalizeTotvsAccess(oldPastor.totvs_access).map((item) =>
@@ -259,7 +259,7 @@ Deno.serve(async (req) => {
             totvs_access: oldAccess,
           })
           .eq("id", previousPastorId);
-        if (downgradeErr) return json({ ok: false, error: "db_error_downgrade_old_pastor", details: downgradeErr.message }, 500);
+        if (downgradeErr) return json({ ok: false, error: "db_error_downgrade_old_pastor", details: "erro interno" }, 500);
       }
     }
 
@@ -269,7 +269,7 @@ Deno.serve(async (req) => {
       .eq("totvs_id", church_totvs_id)
       .select("totvs_id, pastor_user_id")
       .single();
-    if (churchUpdateErr) return json({ ok: false, error: "db_error_update_church", details: churchUpdateErr.message }, 500);
+    if (churchUpdateErr) return json({ ok: false, error: "db_error_update_church", details: "erro interno" }, 500);
 
     return json(
       {
@@ -279,6 +279,6 @@ Deno.serve(async (req) => {
       200,
     );
   } catch (err) {
-    return json({ ok: false, error: "exception", details: String(err) }, 500);
+    return json({ ok: false, error: "exception", details: "erro interno" }, 500);
   }
 });

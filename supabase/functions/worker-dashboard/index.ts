@@ -126,7 +126,7 @@ Deno.serve(async (req) => {
       .eq("id", user_id)
       .maybeSingle();
 
-    if (uErr) return json({ ok: false, error: "db_error_user", details: uErr.message }, 500);
+    if (uErr) return json({ ok: false, error: "db_error_user", details: "erro interno" }, 500);
     if (!user) return json({ ok: false, error: "user_not_found" }, 404);
     if (!user.is_active) return json({ ok: false, error: "inactive_user" }, 403);
 
@@ -140,7 +140,7 @@ Deno.serve(async (req) => {
       .eq("totvs_id", effectiveTotvs)
       .maybeSingle();
 
-    if (cErr) return json({ ok: false, error: "db_error_church", details: cErr.message }, 500);
+    if (cErr) return json({ ok: false, error: "db_error_church", details: "erro interno" }, 500);
     if (!church) return json({ ok: false, error: "church_not_found" }, 404);
 
     function buildLettersQuery(includeUrlPronta: boolean) {
@@ -183,7 +183,7 @@ Deno.serve(async (req) => {
     }
 
     const { data: lettersRaw, error: lErr, count } = lettersResult;
-    if (lErr) return json({ ok: false, error: "db_error_letters", details: lErr.message }, 500);
+    if (lErr) return json({ ok: false, error: "db_error_letters", details: "erro interno" }, 500);
 
     const letters = fallbackWithoutUrlPronta && Array.isArray(lettersRaw)
       ? lettersRaw.map((row: Record<string, unknown>) => ({ ...row, url_pronta: false, url_carta: null }))
@@ -202,6 +202,6 @@ Deno.serve(async (req) => {
       200
     );
   } catch (err) {
-    return json({ ok: false, error: "exception", details: String(err) }, 500);
+    return json({ ok: false, error: "exception", details: "erro interno" }, 500);
   }
 });

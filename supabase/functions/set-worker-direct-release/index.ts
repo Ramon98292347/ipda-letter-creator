@@ -120,7 +120,7 @@ Deno.serve(async (req) => {
       .eq("id", worker_id)
       .maybeSingle();
 
-    if (targetErr) return json({ ok: false, error: "db_error_target", details: targetErr.message }, 500);
+    if (targetErr) return json({ ok: false, error: "db_error_target", details: "erro interno" }, 500);
     if (!target) return json({ ok: false, error: "worker_not_found" }, 404);
     if (String(target.id) === session.user_id) {
       return json({ ok: false, error: "cannot_release_self_direct" }, 403);
@@ -131,7 +131,7 @@ Deno.serve(async (req) => {
 
     if (session.role !== "admin") {
       const { data: churches, error: churchesErr } = await sb.from("churches").select("totvs_id,parent_totvs_id,class");
-      if (churchesErr) return json({ ok: false, error: "db_error_churches", details: churchesErr.message }, 500);
+      if (churchesErr) return json({ ok: false, error: "db_error_churches", details: "erro interno" }, 500);
 
       const churchRows = (churches || []) as ChurchRow[];
       const scope = computeScope(session.active_totvs_id, churchRows);
@@ -155,7 +155,7 @@ Deno.serve(async (req) => {
       .select("id, can_create_released_letter, updated_at")
       .single();
 
-    if (updateErr) return json({ ok: false, error: "db_error_update", details: updateErr.message }, 500);
+    if (updateErr) return json({ ok: false, error: "db_error_update", details: "erro interno" }, 500);
 
     const notificationTitle = body.can_create_released_letter ? "Liberacao direta ativada" : "Liberacao direta removida";
     const notificationMessage = body.can_create_released_letter
@@ -183,6 +183,6 @@ Deno.serve(async (req) => {
 
     return json({ ok: true, worker: updated }, 200);
   } catch (err) {
-    return json({ ok: false, error: "exception", details: String(err) }, 500);
+    return json({ ok: false, error: "exception", details: "erro interno" }, 500);
   }
 });

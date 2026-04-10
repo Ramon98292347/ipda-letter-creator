@@ -81,7 +81,7 @@ Deno.serve(async (req) => {
       .eq("is_active", true)
       .not("birth_date", "is", null);
 
-    if (error) return json({ ok: false, error: "db_error", details: error.message }, 500);
+    if (error) return json({ ok: false, error: "db_error", details: "erro interno" }, 500);
 
     const todayMD = todayMonthDaySaoPaulo();
 
@@ -271,6 +271,6 @@ Deno.serve(async (req) => {
     });
 
   } catch (err) {
-    return json({ ok: false, error: "exception", details: String(err) }, 500);
+    return json({ ok: false, error: "exception", details: "erro interno" }, 500);
   }
 });

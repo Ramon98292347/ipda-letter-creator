@@ -75,7 +75,7 @@ Deno.serve(async (req) => {
 
     if (session.role !== "admin" && churchTotvsId !== session.active_totvs_id) {
       const { data: allChurches, error: churchesErr } = await sb.from("churches").select("totvs_id, parent_totvs_id");
-      if (churchesErr) return json({ ok: false, error: "db_error_churches", details: churchesErr.message }, 500);
+      if (churchesErr) return json({ ok: false, error: "db_error_churches", details: "erro interno" }, 500);
       const scope = computeScope(session.active_totvs_id, (allChurches || []) as ChurchRow[]);
       if (!scope.has(churchTotvsId)) return json({ ok: false, error: "church_out_of_scope" }, 403);
     }
@@ -87,10 +87,10 @@ Deno.serve(async (req) => {
       .order("meeting_date", { ascending: false })
       .limit(10);
 
-    if (error) return json({ ok: false, error: "db_error_meetings", details: error.message }, 500);
+    if (error) return json({ ok: false, error: "db_error_meetings", details: "erro interno" }, 500);
 
     return json({ ok: true, meetings: data || [] });
   } catch (err) {
-    return json({ ok: false, error: "exception", details: String(err) }, 500);
+    return json({ ok: false, error: "exception", details: "erro interno" }, 500);
   }
 });

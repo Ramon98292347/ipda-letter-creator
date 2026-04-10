@@ -614,7 +614,7 @@ async function handleCreate(session: SessionClaims, body: Record<string, unknown
       .from("churches")
       .select("totvs_id,parent_totvs_id,church_name,class,stamp_church_url,pastor_user_id,address_city,address_state");
 
-    if (churchesErr) return json({ ok: false, error: "db_error_church_tree", details: churchesErr.message }, 500);
+    if (churchesErr) return json({ ok: false, error: "db_error_church_tree", details: "erro interno" }, 500);
 
     const churches: ChurchNode[] = ((churchesRaw || []) as Record<string, unknown>[]).map((r) => ({
       totvs_id: String(r.totvs_id || ""),
@@ -715,7 +715,7 @@ async function handleCreate(session: SessionClaims, body: Record<string, unknown
       .eq("id", signerPastorId)
       .maybeSingle();
 
-    if (pErr) return json({ ok: false, error: "db_error_pastor", details: pErr.message }, 500);
+    if (pErr) return json({ ok: false, error: "db_error_pastor", details: "erro interno" }, 500);
     if (!pastorUser) return json({ ok: false, error: "pastor_not_found" }, 404);
 
     // Comentario: dados de quem esta logado e emitindo a carta.
@@ -770,7 +770,7 @@ async function handleCreate(session: SessionClaims, body: Record<string, unknown
         .eq("id", session.user_id)
         .maybeSingle();
 
-      if (meErr) return json({ ok: false, error: "db_error_me", details: meErr.message }, 500);
+      if (meErr) return json({ ok: false, error: "db_error_me", details: "erro interno" }, 500);
       if (!me) return json({ ok: false, error: "me_not_found" }, 404);
 
       preacher_user_id = String(me.id);
@@ -815,7 +815,7 @@ async function handleCreate(session: SessionClaims, body: Record<string, unknown
           .eq("id", preacher_user_id)
           .maybeSingle();
 
-        if (targetResult.error) return json({ ok: false, error: "db_error_target_user", details: targetResult.error.message }, 500);
+        if (targetResult.error) return json({ ok: false, error: "db_error_target_user", details: "erro interno" }, 500);
         target = (targetResult.data as Record<string, unknown> | null) || null;
       }
 
@@ -861,7 +861,7 @@ async function handleCreate(session: SessionClaims, body: Record<string, unknown
         .limit(200);
 
       if (existingLettersErr) {
-        return json({ ok: false, error: "db_error_existing_letters", details: existingLettersErr.message }, 500);
+        return json({ ok: false, error: "db_error_existing_letters", details: "erro interno" }, 500);
       }
 
       const sameDestinationExists = (existingLetters || []).some((row) => {
@@ -903,7 +903,7 @@ async function handleCreate(session: SessionClaims, body: Record<string, unknown
       .select("id, church_totvs_id, preacher_user_id, preacher_name, minister_role, preach_date, preach_period, church_origin, church_destination, status, created_at")
       .single();
 
-    if (insErr) return json({ ok: false, error: "insert_failed", details: insErr.message }, 400);
+    if (insErr) return json({ ok: false, error: "insert_failed", details: "erro interno" }, 400);
 
     const statusUsuario = preacher_registration_status === "APROVADO"
       ? "AUTORIZADO"
@@ -1065,7 +1065,7 @@ async function handleList(session: SessionClaims, body: Record<string, unknown>)
       .from("churches")
       .select("totvs_id,parent_totvs_id");
 
-    if (allErr) return json({ ok: false, error: "db_error_scope", details: allErr.message }, 500);
+    if (allErr) return json({ ok: false, error: "db_error_scope", details: "erro interno" }, 500);
 
     const scope = computeScope(session.active_totvs_id, (allChurches || []) as ChurchNode[]);
     let scopeList = [...scope];
@@ -1163,7 +1163,7 @@ async function handleList(session: SessionClaims, body: Record<string, unknown>)
 
     const { data, error, count } = result;
 
-    if (error) return json({ ok: false, error: "db_error_list_letters", details: error.message }, 500);
+    if (error) return json({ ok: false, error: "db_error_list_letters", details: "erro interno" }, 500);
 
     // 5) Regra pastor: sempre incluir cartas dele (preacher_user_id), mesmo quando origem for igreja acima do escopo.
     if (session.role === "pastor") {
@@ -1184,7 +1184,7 @@ async function handleList(session: SessionClaims, body: Record<string, unknown>)
       }
 
       if (mineResult.error) {
-        return json({ ok: false, error: "db_error_list_letters_mine", details: mineResult.error.message }, 500);
+        return json({ ok: false, error: "db_error_list_letters_mine", details: "erro interno" }, 500);
       }
 
       const merged = new Map<string, Record<string, unknown>>();
@@ -1253,7 +1253,7 @@ async function handleGetPdfUrl(session: SessionClaims, body: Record<string, unkn
     }
 
     const { data: letter, error: lErr } = letterQuery;
-    if (lErr) return json({ ok: false, error: "db_error_letter", details: lErr.message }, 500);
+    if (lErr) return json({ ok: false, error: "db_error_letter", details: "erro interno" }, 500);
     if (!letter) return json({ ok: false, error: "letter_not_found" }, 404);
 
     const letterChurch = String((letter as Record<string, unknown>).church_totvs_id || "");
@@ -1265,7 +1265,7 @@ async function handleGetPdfUrl(session: SessionClaims, body: Record<string, unkn
       }
     } else {
       const { data: allChurches, error: cErr } = await sb.from("churches").select("totvs_id,parent_totvs_id");
-      if (cErr) return json({ ok: false, error: "db_error_scope", details: cErr.message }, 500);
+      if (cErr) return json({ ok: false, error: "db_error_scope", details: "erro interno" }, 500);
       const scope = computeScope(session.active_totvs_id, (allChurches || []) as ChurchRow[]);
       if (!scope.has(letterChurch) && session.role !== "admin") {
         return json({ ok: false, error: "forbidden" }, 403);
@@ -1347,7 +1347,7 @@ async function handleSetStatus(session: SessionClaims, body: Record<string, unkn
       .eq("id", letter_id)
       .maybeSingle();
 
-    if (lErr) return json({ ok: false, error: "db_error_letter", details: lErr.message }, 500);
+    if (lErr) return json({ ok: false, error: "db_error_letter", details: "erro interno" }, 500);
     if (!letter) return json({ ok: false, error: "letter_not_found" }, 404);
 
     // Comentario: obreiro so pode excluir carta que ele mesmo criou
@@ -1361,7 +1361,7 @@ async function handleSetStatus(session: SessionClaims, body: Record<string, unkn
         .from("churches")
         .select("totvs_id,parent_totvs_id");
 
-      if (cErr) return json({ ok: false, error: "db_error_scope", details: cErr.message }, 500);
+      if (cErr) return json({ ok: false, error: "db_error_scope", details: "erro interno" }, 500);
 
       const scope = computeScope(session.active_totvs_id, (allChurches || []) as ChurchRow[]);
       if (!scope.has(String(letter.church_totvs_id || ""))) {
@@ -1375,7 +1375,7 @@ async function handleSetStatus(session: SessionClaims, body: Record<string, unkn
       await sb.from("release_requests").delete().eq("letter_id", letter_id);
       await sb.from("notifications").delete().eq("related_id", letter_id);
       const { error: delErr } = await sb.from("letters").delete().eq("id", letter_id);
-      if (delErr) return json({ ok: false, error: "db_error_delete", details: delErr.message }, 500);
+      if (delErr) return json({ ok: false, error: "db_error_delete", details: "erro interno" }, 500);
       return json({ ok: true, deleted: true, letter_id }, 200);
     }
 
@@ -1386,7 +1386,7 @@ async function handleSetStatus(session: SessionClaims, body: Record<string, unkn
       .select("id,status,updated_at")
       .single();
 
-    if (uErr) return json({ ok: false, error: "db_error_update", details: uErr.message }, 500);
+    if (uErr) return json({ ok: false, error: "db_error_update", details: "erro interno" }, 500);
 
     // Armazena informações do webhook para retornar na resposta (útil para debug)
     let n8nFired = false;
@@ -1681,7 +1681,7 @@ async function handleApproveRelease(session: SessionClaims, body: Record<string,
       .eq("id", request_id)
       .maybeSingle();
 
-    if (reqErr) return json({ ok: false, error: "db_error_request", details: reqErr.message }, 500);
+    if (reqErr) return json({ ok: false, error: "db_error_request", details: "erro interno" }, 500);
     if (!reqRow) return json({ ok: false, error: "request_not_found" }, 404);
 
     if (String(reqRow.church_totvs_id) !== String(session.active_totvs_id)) {
@@ -1697,7 +1697,7 @@ async function handleApproveRelease(session: SessionClaims, body: Record<string,
       .eq("id", reqRow.letter_id)
       .maybeSingle();
 
-    if (letterErr) return json({ ok: false, error: "db_error_letter", details: letterErr.message }, 500);
+    if (letterErr) return json({ ok: false, error: "db_error_letter", details: "erro interno" }, 500);
     if (!letter) return json({ ok: false, error: "letter_not_found" }, 404);
 
     if (String(letter.church_totvs_id) !== String(session.active_totvs_id)) {
@@ -1710,7 +1710,7 @@ async function handleApproveRelease(session: SessionClaims, body: Record<string,
       .eq("id", request_id)
       .select("id, status, updated_at")
       .single();
-    if (updReqErr) return json({ ok: false, error: "db_error_update_request", details: updReqErr.message }, 500);
+    if (updReqErr) return json({ ok: false, error: "db_error_update_request", details: "erro interno" }, 500);
 
     const { data: letterUpdated, error: updLetterErr } = await sb
       .from("letters")
@@ -1718,7 +1718,7 @@ async function handleApproveRelease(session: SessionClaims, body: Record<string,
       .eq("id", reqRow.letter_id)
       .select("id, status, updated_at")
       .single();
-    if (updLetterErr) return json({ ok: false, error: "db_error_update_letter", details: updLetterErr.message }, 500);
+    if (updLetterErr) return json({ ok: false, error: "db_error_update_letter", details: "erro interno" }, 500);
 
     // Notificacao para o solicitante
     const releaseTitle = "Carta liberada";
@@ -1882,6 +1882,6 @@ Deno.serve(async (req) => {
         return json({ ok: false, error: "unknown_action", received: action }, 400);
     }
   } catch (err) {
-    return json({ ok: false, error: "exception", details: String(err) }, 500);
+    return json({ ok: false, error: "exception", details: "erro interno" }, 500);
   }
 });

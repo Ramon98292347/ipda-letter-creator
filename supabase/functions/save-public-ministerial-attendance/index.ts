@@ -62,7 +62,7 @@ Deno.serve(async (req) => {
       .eq("public_token", token)
       .maybeSingle();
 
-    if (meetingError) return json({ ok: false, error: "db_error_meeting", details: meetingError.message }, 500);
+    if (meetingError) return json({ ok: false, error: "db_error_meeting", details: "erro interno" }, 500);
     if (!meeting) return json({ ok: false, error: "meeting_not_found" }, 404);
     if (!meeting.is_active) return json({ ok: false, error: "meeting_inactive" }, 403);
     if (new Date(meeting.expires_at).getTime() < Date.now()) {
@@ -76,7 +76,7 @@ Deno.serve(async (req) => {
       .eq("role", "obreiro")
       .maybeSingle();
 
-    if (userError) return json({ ok: false, error: "db_error_user", details: userError.message }, 500);
+    if (userError) return json({ ok: false, error: "db_error_user", details: "erro interno" }, 500);
     if (!user) return json({ ok: false, error: "user_not_found" }, 404);
     if (String(user.default_totvs_id || "") !== String(meeting.church_totvs_id || "")) {
       return json({ ok: false, error: "user_not_in_selected_church" }, 403);
@@ -94,7 +94,7 @@ Deno.serve(async (req) => {
         marked_by: null,
       }, { onConflict: "user_id,meeting_date" });
 
-    if (saveError) return json({ ok: false, error: "db_error_save_attendance", details: saveError.message }, 500);
+    if (saveError) return json({ ok: false, error: "db_error_save_attendance", details: "erro interno" }, 500);
 
     const cutoffDate = new Date();
     cutoffDate.setUTCDate(cutoffDate.getUTCDate() - 180);
@@ -107,7 +107,7 @@ Deno.serve(async (req) => {
       .eq("status", "FALTA")
       .gte("meeting_date", cutoffIso);
 
-    if (absencesError) return json({ ok: false, error: "db_error_absences", details: absencesError.message }, 500);
+    if (absencesError) return json({ ok: false, error: "db_error_absences", details: "erro interno" }, 500);
 
     const absenceCount = Array.isArray(absences) ? absences.length : 0;
     let blocked = false;
@@ -124,7 +124,7 @@ Deno.serve(async (req) => {
         })
         .eq("id", userId);
 
-      if (blockError) return json({ ok: false, error: "db_error_block_user", details: blockError.message }, 500);
+      if (blockError) return json({ ok: false, error: "db_error_block_user", details: "erro interno" }, 500);
 
       await sb
         .from("ministerial_meeting_attendance")
@@ -140,6 +140,6 @@ Deno.serve(async (req) => {
       absence_count_180_days: absenceCount,
     });
   } catch (err) {
-    return json({ ok: false, error: "exception", details: String(err) }, 500);
+    return json({ ok: false, error: "exception", details: "erro interno" }, 500);
   }
 });

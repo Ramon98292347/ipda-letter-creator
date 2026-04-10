@@ -33,7 +33,7 @@ Deno.serve(async (req) => {
       .eq("public_token", token)
       .maybeSingle();
 
-    if (meetingError) return json({ ok: false, error: "db_error_meeting", details: meetingError.message }, 500);
+    if (meetingError) return json({ ok: false, error: "db_error_meeting", details: "erro interno" }, 500);
     if (!meeting) return json({ ok: false, error: "meeting_not_found" }, 404);
     if (!meeting.is_active) return json({ ok: false, error: "meeting_inactive" }, 403);
     if (new Date(meeting.expires_at).getTime() < Date.now()) {
@@ -54,9 +54,9 @@ Deno.serve(async (req) => {
         .eq("meeting_date", meeting.meeting_date),
     ]);
 
-    if (churchResult.error) return json({ ok: false, error: "db_error_church", details: churchResult.error.message }, 500);
-    if (usersResult.error) return json({ ok: false, error: "db_error_users", details: usersResult.error.message }, 500);
-    if (attendanceResult.error) return json({ ok: false, error: "db_error_attendance", details: attendanceResult.error.message }, 500);
+    if (churchResult.error) return json({ ok: false, error: "db_error_church", details: "erro interno" }, 500);
+    if (usersResult.error) return json({ ok: false, error: "db_error_users", details: "erro interno" }, 500);
+    if (attendanceResult.error) return json({ ok: false, error: "db_error_attendance", details: "erro interno" }, 500);
 
     const attendanceByUser = new Map<string, Record<string, unknown>>();
     for (const row of attendanceResult.data || []) {
@@ -85,6 +85,6 @@ Deno.serve(async (req) => {
       users,
     });
   } catch (err) {
-    return json({ ok: false, error: "exception", details: String(err) }, 500);
+    return json({ ok: false, error: "exception", details: "erro interno" }, 500);
   }
 });

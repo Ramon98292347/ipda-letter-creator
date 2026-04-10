@@ -69,7 +69,7 @@ Deno.serve(async (req) => {
       .select("totvs_id,church_name,parent_totvs_id")
       .eq("totvs_id", churchTotvsId)
       .maybeSingle();
-    if (churchErr) return json({ ok: false, error: "db_error_church", details: churchErr.message }, 500);
+    if (churchErr) return json({ ok: false, error: "db_error_church", details: "erro interno" }, 500);
     if (!church) return json({ ok: false, error: "church_not_found" }, 404);
 
     const [{ data: contrato }, { data: laudo }] = await Promise.all([
@@ -96,6 +96,6 @@ Deno.serve(async (req) => {
       pdf_storage_path: contrato?.pdf_storage_path || null,
     });
   } catch (err) {
-    return json({ ok: false, error: "exception", details: String(err) }, 500);
+    return json({ ok: false, error: "exception", details: "erro interno" }, 500);
   }
 });

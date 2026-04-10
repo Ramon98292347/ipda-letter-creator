@@ -178,7 +178,7 @@ Deno.serve(async (req) => {
     const sb = createClient(Deno.env.get("SUPABASE_URL") || "", Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "");
 
     const { data: churches, error: churchesErr } = await sb.from("churches").select("totvs_id,parent_totvs_id,class");
-    if (churchesErr) return json({ ok: false, error: "db_error_churches", details: churchesErr.message }, 500);
+    if (churchesErr) return json({ ok: false, error: "db_error_churches", details: "erro interno" }, 500);
     const churchRows = (churches || []) as ChurchRow[];
     let scopeRootTotvs = session.active_totvs_id;
     let scope: Set<string>;
@@ -215,7 +215,7 @@ Deno.serve(async (req) => {
     }
 
     const { data: users, error: usersErr } = await q;
-    if (usersErr) return json({ ok: false, error: "db_error_users", details: usersErr.message }, 500);
+    if (usersErr) return json({ ok: false, error: "db_error_users", details: "erro interno" }, 500);
 
     // Comentario: normaliza o filtro de cargo para comparar sem acento e sem diferenca de maiusculas.
     // Exemplo: "presbitero" bate com "Presbítero" no banco; "diacono" bate com "Diácono".
@@ -265,7 +265,7 @@ Deno.serve(async (req) => {
         .order("updated_at", { ascending: false });
 
       if (attendanceErr) {
-        return json({ ok: false, error: "db_error_attendance", details: attendanceErr.message }, 500);
+        return json({ ok: false, error: "db_error_attendance", details: "erro interno" }, 500);
       }
 
       for (const rawRow of attendanceRows || []) {
@@ -319,6 +319,6 @@ Deno.serve(async (req) => {
 
     return json({ ok: true, members: pageRows, total, page, page_size, metrics }, 200);
   } catch (err) {
-    return json({ ok: false, error: "exception", details: String(err) }, 500);
+    return json({ ok: false, error: "exception", details: "erro interno" }, 500);
   }
 });

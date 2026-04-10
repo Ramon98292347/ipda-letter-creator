@@ -530,7 +530,7 @@ Deno.serve(async (req) => {
       .from("churches")
       .select("totvs_id,parent_totvs_id,church_name,class,stamp_church_url,pastor_user_id,address_city,address_state");
 
-    if (churchesErr) return json({ ok: false, error: "db_error_church_tree", details: churchesErr.message }, 500);
+    if (churchesErr) return json({ ok: false, error: "db_error_church_tree", details: "erro interno" }, 500);
 
     const churches: ChurchNode[] = ((churchesRaw || []) as Record<string, unknown>[]).map((r) => ({
       totvs_id: String(r.totvs_id || ""),
@@ -599,7 +599,7 @@ Deno.serve(async (req) => {
       .eq("id", signerPastorId)
       .maybeSingle();
 
-    if (pErr) return json({ ok: false, error: "db_error_pastor", details: pErr.message }, 500);
+    if (pErr) return json({ ok: false, error: "db_error_pastor", details: "erro interno" }, 500);
     if (!pastorUser) return json({ ok: false, error: "pastor_not_found" }, 404);
 
     // Comentario: dados de quem esta logado e emitindo a carta.
@@ -653,7 +653,7 @@ Deno.serve(async (req) => {
         .eq("id", session.user_id)
         .maybeSingle();
 
-      if (meErr) return json({ ok: false, error: "db_error_me", details: meErr.message }, 500);
+      if (meErr) return json({ ok: false, error: "db_error_me", details: "erro interno" }, 500);
       if (!me) return json({ ok: false, error: "me_not_found" }, 404);
 
       preacher_user_id = String(me.id);
@@ -685,7 +685,7 @@ Deno.serve(async (req) => {
         .eq("id", preacher_user_id)
         .maybeSingle();
 
-      if (targetErr) return json({ ok: false, error: "db_error_target_user", details: targetErr.message }, 500);
+      if (targetErr) return json({ ok: false, error: "db_error_target_user", details: "erro interno" }, 500);
 
       // ← DECISÃO DE LIBERAÇÃO: lê can_create_released_letter do pregador informado
       canDirectRelease = Boolean((target as Record<string, unknown> | null)?.can_create_released_letter);
@@ -715,7 +715,7 @@ Deno.serve(async (req) => {
         .limit(200);
 
       if (existingLettersErr) {
-        return json({ ok: false, error: "db_error_existing_letters", details: existingLettersErr.message }, 500);
+        return json({ ok: false, error: "db_error_existing_letters", details: "erro interno" }, 500);
       }
 
       const sameDestinationExists = (existingLetters || []).some((row) => {
@@ -761,7 +761,7 @@ Deno.serve(async (req) => {
       .select("id, church_totvs_id, preacher_user_id, preacher_name, minister_role, preach_date, preach_period, church_origin, church_destination, status, created_at")
       .single();
 
-    if (insErr) return json({ ok: false, error: "insert_failed", details: insErr.message }, 400);
+    if (insErr) return json({ ok: false, error: "insert_failed", details: "erro interno" }, 400);
 
     const statusUsuario = preacher_registration_status === "APROVADO"
       ? "AUTORIZADO"
@@ -884,6 +884,6 @@ Deno.serve(async (req) => {
 
 return json({ ok: true, letter: created, n8n: { ok: n8nOk, status: n8nStatus, response: n8nResponse } }, 200);
   } catch (err) {
-    return json({ ok: false, error: "exception", details: String(err) }, 500);
+    return json({ ok: false, error: "exception", details: "erro interno" }, 500);
   }
 });

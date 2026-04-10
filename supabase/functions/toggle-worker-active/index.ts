@@ -107,12 +107,12 @@ Deno.serve(async (req) => {
       .select("id, role, default_totvs_id")
       .eq("id", worker_id)
       .maybeSingle();
-    if (workerErr) return json({ ok: false, error: "db_error_worker", details: workerErr.message }, 500);
+    if (workerErr) return json({ ok: false, error: "db_error_worker", details: "erro interno" }, 500);
     if (!worker) return json({ ok: false, error: "worker_not_found" }, 404);
     if (String(worker.id) === session.user_id) return json({ ok: false, error: "cannot_toggle_self" }, 409);
 
     const { data: churches, error: churchesErr } = await sb.from("churches").select("totvs_id,parent_totvs_id,class");
-    if (churchesErr) return json({ ok: false, error: "db_error_churches", details: churchesErr.message }, 500);
+    if (churchesErr) return json({ ok: false, error: "db_error_churches", details: "erro interno" }, 500);
     const churchRows = (churches || []) as ChurchRow[];
     const scope = computeScope(session.active_totvs_id, churchRows);
     const map = new Map(churchRows.map((c) => [String(c.totvs_id), c]));
@@ -131,11 +131,11 @@ Deno.serve(async (req) => {
       .eq("id", worker_id)
       .select("id, is_active, updated_at")
       .single();
-    if (saveErr) return json({ ok: false, error: "db_error_update_worker", details: saveErr.message }, 500);
+    if (saveErr) return json({ ok: false, error: "db_error_update_worker", details: "erro interno" }, 500);
 
     return json({ ok: true, worker: saved }, 200);
   } catch (err) {
-    return json({ ok: false, error: "exception", details: String(err) }, 500);
+    return json({ ok: false, error: "exception", details: "erro interno" }, 500);
   }
 });
 

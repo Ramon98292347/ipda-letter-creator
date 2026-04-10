@@ -105,7 +105,7 @@ async function handleRegister(body: any, sb: any) {
     return json({ ok: true, id: data?.id });
   } catch (error: any) {
     console.error("[register] erro:", error);
-    return json({ ok: false, error: "internal_error", details: error?.message || error?.details || JSON.stringify(error) }, 500);
+    return json({ ok: false, error: "internal_error", details: "erro interno" }, 500);
   }
 }
 
@@ -167,7 +167,7 @@ async function handleList(body: any, sb: any, user: any) {
     return json({ ok: true, caravanas: data || [] });
   } catch (error: any) {
     console.error("[list] erro:", error);
-    return json({ ok: false, error: "internal_error", details: error?.message || error?.details || JSON.stringify(error) }, 500);
+    return json({ ok: false, error: "internal_error", details: "erro interno" }, 500);
   }
 }
 
@@ -255,7 +255,7 @@ async function handleConfirm(body: any, sb: any, user: any) {
     return json({ ok: true });
   } catch (error: any) {
     console.error("[confirm] erro:", error);
-    return json({ ok: false, error: "internal_error", details: error?.message || error?.details || JSON.stringify(error) }, 500);
+    return json({ ok: false, error: "internal_error", details: "erro interno" }, 500);
   }
 }
 
@@ -303,7 +303,7 @@ async function handleDelete(body: any, sb: any, user: any) {
     return json({ ok: true });
   } catch (error: any) {
     console.error("[delete] erro:", error);
-    return json({ ok: false, error: "internal_error", details: error?.message || error?.details || JSON.stringify(error) }, 500);
+    return json({ ok: false, error: "internal_error", details: "erro interno" }, 500);
   }
 }
 
@@ -364,7 +364,7 @@ async function handleUpdate(body: any, sb: any, user: any) {
     return json({ ok: true });
   } catch (error: any) {
     console.error("[update] erro:", error);
-    return json({ ok: false, error: "internal_error", details: error?.message || error?.details || JSON.stringify(error) }, 500);
+    return json({ ok: false, error: "internal_error", details: "erro interno" }, 500);
   }
 }
 
@@ -407,6 +407,6 @@ Deno.serve(async (req: Request) => {
     }
   } catch (error: any) {
     console.error("[caravanas-api] erro:", error);
-    return json({ ok: false, error: "internal_error", details: error?.message || error?.details || JSON.stringify(error) }, 500);
+    return json({ ok: false, error: "internal_error", details: "erro interno" }, 500);
   }
 });

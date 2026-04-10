@@ -139,7 +139,7 @@ Deno.serve(async (req) => {
       .eq("id", letter_id)
       .maybeSingle();
 
-    if (lErr) return json({ ok: false, error: "db_error_letter", details: lErr.message }, 500);
+    if (lErr) return json({ ok: false, error: "db_error_letter", details: "erro interno" }, 500);
     if (!letter) return json({ ok: false, error: "letter_not_found" }, 404);
 
     // Admin pode tudo. Pastor só no escopo (igreja ativa + filhas).
@@ -148,7 +148,7 @@ Deno.serve(async (req) => {
         .from("churches")
         .select("totvs_id,parent_totvs_id");
 
-      if (cErr) return json({ ok: false, error: "db_error_scope", details: cErr.message }, 500);
+      if (cErr) return json({ ok: false, error: "db_error_scope", details: "erro interno" }, 500);
 
       const scope = computeScope(session.active_totvs_id, (allChurches || []) as ChurchRow[]);
       if (!scope.has(String(letter.church_totvs_id || ""))) {
@@ -165,7 +165,7 @@ Deno.serve(async (req) => {
       .select("id,status,updated_at")
       .single();
 
-    if (uErr) return json({ ok: false, error: "db_error_update", details: uErr.message }, 500);
+    if (uErr) return json({ ok: false, error: "db_error_update", details: "erro interno" }, 500);
 
     // Armazena informações do webhook para retornar na resposta (útil para debug)
     let n8nFired = false;
@@ -325,6 +325,6 @@ Deno.serve(async (req) => {
     // Retorna o resultado incluindo informação do webhook para facilitar debug
     return json({ ok: true, letter: updated, n8n: { fired: n8nFired, status: n8nStatus, error: n8nError } }, 200);
   } catch (err) {
-    return json({ ok: false, error: "exception", details: String(err) }, 500);
+    return json({ ok: false, error: "exception", details: "erro interno" }, 500);
   }
 });

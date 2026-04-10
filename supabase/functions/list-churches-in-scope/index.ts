@@ -250,7 +250,7 @@ Deno.serve(async (req) => {
     try {
       allRows = await loadAllChurchRows(sb);
     } catch (err) {
-      return json({ ok: false, error: "db_error_scope", details: String(err) }, 500);
+      return json({ ok: false, error: "db_error_scope", details: "erro interno" }, 500);
     }
     const requestedRoot = String(body.root_totvs_id || "").trim();
 
@@ -409,7 +409,7 @@ Deno.serve(async (req) => {
       .order("church_name", { ascending: true })
       .range(from, to);
 
-    if (cErr) return json({ ok: false, error: "db_error_list_churches", details: cErr.message }, 500);
+    if (cErr) return json({ ok: false, error: "db_error_list_churches", details: "erro interno" }, 500);
 
     // 3) Conta obreiros por igreja (default_totvs_id)
     const churchIdsPage = (churches || []).map((ch: any) => String(ch.totvs_id || "")).filter(Boolean);
@@ -421,7 +421,7 @@ Deno.serve(async (req) => {
         .eq("role", "obreiro")
         .eq("is_active", true)
         .in("default_totvs_id", churchIdsPage);
-      if (wErr) return json({ ok: false, error: "db_error_workers_count", details: wErr.message }, 500);
+      if (wErr) return json({ ok: false, error: "db_error_workers_count", details: "erro interno" }, 500);
       workers = workersData || [];
     }
 
@@ -463,7 +463,7 @@ Deno.serve(async (req) => {
 
     return json({ ok: true, churches: enriched, ancestor_chain: ancestorChain, total: scopeTotal, page, page_size }, 200);
   } catch (err) {
-    return json({ ok: false, error: "exception", details: String(err) }, 500);
+    return json({ ok: false, error: "exception", details: "erro interno" }, 500);
   }
 });
 

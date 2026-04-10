@@ -98,6 +98,6 @@ Deno.serve(async (req) => {
 
     return json({ ok: true, pastor: pastor || null });
   } catch (err) {
-    return json({ ok: false, error: "exception", details: String(err) }, 500);
+    return json({ ok: false, error: "exception", details: "erro interno" }, 500);
   }
 });

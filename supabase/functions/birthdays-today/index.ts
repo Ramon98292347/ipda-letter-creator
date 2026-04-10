@@ -93,7 +93,7 @@ Deno.serve(async (req) => {
         .eq("cpf", cpf)
         .maybeSingle();
 
-      if (ownerErr) return json({ ok: false, error: "db_error_owner", details: ownerErr.message }, 500);
+      if (ownerErr) return json({ ok: false, error: "db_error_owner", details: "erro interno" }, 500);
       activeTotvsId = String(owner?.default_totvs_id || "").trim();
     } else {
       return json({ ok: false, error: "unauthorized" }, 401);
@@ -108,7 +108,7 @@ Deno.serve(async (req) => {
       .eq("default_totvs_id", activeTotvsId)
       .not("birth_date", "is", null);
 
-    if (error) return json({ ok: false, error: "db_error", details: error.message }, 500);
+    if (error) return json({ ok: false, error: "db_error", details: "erro interno" }, 500);
 
     const todayMD = todayMonthDaySaoPaulo();
 
@@ -127,6 +127,6 @@ Deno.serve(async (req) => {
 
     return json({ ok: true, birthdays });
   } catch (err) {
-    return json({ ok: false, error: "exception", details: String(err) }, 500);
+    return json({ ok: false, error: "exception", details: "erro interno" }, 500);
   }
 });

@@ -509,7 +509,7 @@ async function handleSelectChurch(body: Record<string, unknown>) {
     .select("id, cpf, full_name, role, is_active, totvs_access")
     .eq("cpf", cpf)
     .maybeSingle();
-  if (userError) return json({ ok: false, error: "db_error_user", details: userError.message }, 500);
+  if (userError) return json({ ok: false, error: "db_error_user", details: "erro interno" }, 500);
   if (!user) return json({ ok: false, error: "user_not_found" }, 404);
   if (!user.is_active) return json({ ok: false, error: "inactive_user" }, 403);
 
@@ -523,10 +523,10 @@ async function handleSelectChurch(body: Record<string, unknown>) {
     .select("totvs_id, church_name, class")
     .eq("totvs_id", totvs_id)
     .maybeSingle();
-  if (churchError) return json({ ok: false, error: "db_error_church", details: churchError.message }, 500);
+  if (churchError) return json({ ok: false, error: "db_error_church", details: "erro interno" }, 500);
 
   const { data: allChurches, error: scopeError } = await sb.from("churches").select("totvs_id,parent_totvs_id");
-  if (scopeError) return json({ ok: false, error: "db_error_scope", details: scopeError.message }, 500);
+  if (scopeError) return json({ ok: false, error: "db_error_scope", details: "erro interno" }, 500);
 
   const all = (allChurches || []) as ChurchRow[];
   const scope_totvs_ids = userRole === "admin"
@@ -578,7 +578,7 @@ async function handleForgotPassword(req: Request, body: Record<string, unknown>)
   else query = query.ilike("email", email);
 
   const { data: user, error } = await query.maybeSingle();
-  if (error) return json({ ok: false, error: "db_error_user", details: error.message }, 500);
+  if (error) return json({ ok: false, error: "db_error_user", details: "erro interno" }, 500);
 
   const response = {
     ok: true,
@@ -605,7 +605,7 @@ async function handleForgotPassword(req: Request, body: Record<string, unknown>)
     .select("id")
     .single();
 
-  if (resetErr) return json({ ok: false, error: "db_error_password_reset", details: resetErr.message }, 500);
+  if (resetErr) return json({ ok: false, error: "db_error_password_reset", details: "erro interno" }, 500);
 
   const appBaseUrl = (Deno.env.get("APP_BASE_URL") || "http://localhost:5175").replace(/\/$/, "");
   const resetUrl = `${appBaseUrl}/reset-senha?token=${encodeURIComponent(token)}`;
@@ -668,7 +668,7 @@ async function handleResetPassword(body: Record<string, unknown>) {
     .order("created_at", { ascending: false })
     .limit(1);
 
-  if (resetErr) return json({ ok: false, error: "db_error_password_reset", details: resetErr.message }, 500);
+  if (resetErr) return json({ ok: false, error: "db_error_password_reset", details: "erro interno" }, 500);
   if (!resetRows || resetRows.length === 0) return json({ ok: false, error: "invalid_or_expired_token" }, 400);
 
   const resetRow = resetRows[0] as { id: string; user_id: string; expires_at: string };
@@ -683,13 +683,13 @@ async function handleResetPassword(body: Record<string, unknown>) {
     .from("users")
     .update({ password_hash })
     .eq("id", resetRow.user_id);
-  if (userErr) return json({ ok: false, error: "db_error_update_password", details: userErr.message }, 500);
+  if (userErr) return json({ ok: false, error: "db_error_update_password", details: "erro interno" }, 500);
 
   const { error: usedErr } = await sb
     .from("password_resets")
     .update({ used_at: new Date().toISOString() })
     .eq("id", resetRow.id);
-  if (usedErr) return json({ ok: false, error: "db_error_mark_used", details: usedErr.message }, 500);
+  if (usedErr) return json({ ok: false, error: "db_error_mark_used", details: "erro interno" }, 500);
 
   return json({ ok: true, message: "Senha redefinida com sucesso." }, 200);
 }
@@ -786,7 +786,7 @@ async function handlePublicRegister(body: Record<string, unknown>) {
     .eq("totvs_id", totvsId)
     .maybeSingle();
 
-  if (churchError) return json({ ok: false, error: "db_error_church", details: churchError.message }, 500);
+  if (churchError) return json({ ok: false, error: "db_error_church", details: "erro interno" }, 500);
   if (!church) {
     return json({
       ok: false,
@@ -807,7 +807,7 @@ async function handlePublicRegister(body: Record<string, unknown>) {
     .select("id")
     .eq("cpf", cpf)
     .maybeSingle();
-  if (existingError) return json({ ok: false, error: "db_error_existing_user", details: existingError.message }, 500);
+  if (existingError) return json({ ok: false, error: "db_error_existing_user", details: "erro interno" }, 500);
   if (existing) return json({ ok: false, error: "cpf_already_registered", detail: "CPF ja cadastrado." }, 409);
 
   const passwordHash = bcrypt.hashSync(password, 10);
@@ -850,7 +850,7 @@ async function handlePublicRegister(body: Record<string, unknown>) {
     .select("id, cpf, full_name, role, minister_role, default_totvs_id")
     .single();
 
-  if (insertError) return json({ ok: false, error: "insert_user_failed", details: insertError.message }, 500);
+  if (insertError) return json({ ok: false, error: "insert_user_failed", details: "erro interno" }, 500);
 
   return json({
     ok: true,
@@ -875,7 +875,7 @@ async function handleGetRegistrationStatus(req: Request) {
     .eq("id", session.user_id)
     .maybeSingle();
 
-  if (error) return json({ ok: false, error: "db_error_user", details: error.message }, 500);
+  if (error) return json({ ok: false, error: "db_error_user", details: "erro interno" }, 500);
   if (!user) return json({ ok: false, error: "user_not_found" }, 404);
 
   const status = session.role === "obreiro"
@@ -917,7 +917,7 @@ async function handleAdminResetPassword(req: Request, body: Record<string, unkno
   }
   const { data: targets, error: targetError } = await targetQuery;
 
-  if (targetError) return json({ ok: false, error: "db_error_target", details: targetError.message }, 500);
+  if (targetError) return json({ ok: false, error: "db_error_target", details: "erro interno" }, 500);
   if (!targets || targets.length === 0) return json({ ok: false, error: "user_not_found" }, 404);
 
   const target = targets[0] as { id: string; role: string; default_totvs_id: string | null };
@@ -927,7 +927,7 @@ async function handleAdminResetPassword(req: Request, body: Record<string, unkno
     .from("churches")
     .select("totvs_id,parent_totvs_id,class");
 
-  if (churchesErr) return json({ ok: false, error: "db_error_churches", details: churchesErr.message }, 500);
+  if (churchesErr) return json({ ok: false, error: "db_error_churches", details: "erro interno" }, 500);
 
   const rows = (churches || []) as (ChurchRow & { class?: string | null })[];
   const scope = computeScope(session.active_totvs_id, rows);
@@ -954,7 +954,7 @@ async function handleAdminResetPassword(req: Request, body: Record<string, unkno
     .update({ password_hash })
     .eq("id", target.id);
 
-  if (updateError) return json({ ok: false, error: "db_error_update_password", details: updateError.message }, 500);
+  if (updateError) return json({ ok: false, error: "db_error_update_password", details: "erro interno" }, 500);
 
   return json({ ok: true, message: "Senha redefinida com sucesso." }, 200);
 }
@@ -998,6 +998,6 @@ Deno.serve(async (req) => {
         }, 400);
     }
   } catch (err) {
-    return json({ ok: false, error: "exception", details: String(err) }, 500);
+    return json({ ok: false, error: "exception", details: "erro interno" }, 500);
   }
 });

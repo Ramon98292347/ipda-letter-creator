@@ -72,7 +72,7 @@ Deno.serve(async (req) => {
       .select("id,payload,hierarchy,status")
       .eq("church_totvs_id", churchTotvsId)
       .maybeSingle();
-    if (error) return json({ ok: false, error: "db_error_remanejamento", details: error.message }, 500);
+    if (error) return json({ ok: false, error: "db_error_remanejamento", details: "erro interno" }, 500);
     if (!rem) return json({ ok: false, error: "remanejamento_not_found" }, 404);
 
     await sb
@@ -116,6 +116,6 @@ Deno.serve(async (req) => {
 
     return json({ ok: true, n8n: { ok: n8nOk, status: n8nStatus, response: n8nResponse } }, 200);
   } catch (err) {
-    return json({ ok: false, error: "exception", details: String(err) }, 500);
+    return json({ ok: false, error: "exception", details: "erro interno" }, 500);
   }
 });

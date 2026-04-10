@@ -57,7 +57,7 @@ Deno.serve(async (req) => {
       .eq("cpf", cpf)
       .maybeSingle();
 
-    if (findErr) return json({ ok: false, error: "db_error", details: findErr.message }, 500);
+    if (findErr) return json({ ok: false, error: "db_error", details: "erro interno" }, 500);
     if (!user) return json({ ok: false, error: "user_not_found" }, 404);
 
     const { error: updateErr } = await sb
@@ -65,10 +65,10 @@ Deno.serve(async (req) => {
       .update({ avatar_url: avatarUrl })
       .eq("id", userId);
 
-    if (updateErr) return json({ ok: false, error: "update_failed", details: updateErr.message }, 500);
+    if (updateErr) return json({ ok: false, error: "update_failed", details: "erro interno" }, 500);
 
     return json({ ok: true, avatar_url: avatarUrl });
   } catch (err) {
-    return json({ ok: false, error: "exception", details: String(err) }, 500);
+    return json({ ok: false, error: "exception", details: "erro interno" }, 500);
   }
 });

@@ -1,4 +1,4 @@
-﻿import { useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Capacitor } from "@capacitor/core";
@@ -63,8 +63,6 @@ function routeByRole(role: string) {
   return "/obreiro";
 }
 
-const LS_SAVED_PASSWORD_ANDROID = "ipda_saved_password_android";
-
 export default function PhoneIdentify() {
   const nav = useNavigate();
   const { setUsuario, setTelefone, setToken, setSession, setPendingCpf, setAvailableChurches } = useUser();
@@ -75,14 +73,18 @@ export default function PhoneIdentify() {
   const [askEnableBiometric, setAskEnableBiometric] = useState<{ cpf: string; senha: string } | null>(null);
   const [biometricLoading, setBiometricLoading] = useState(false);
 
+  // Comentario: remove senha em texto puro do localStorage (migracao de seguranca).
+  // Essa chave era usada antes da biometria; agora credenciais ficam no Keystore.
+  useEffect(() => {
+    if (typeof window !== "undefined") localStorage.removeItem("ipda_saved_password_android");
+  }, []);
+
   // Comentario: le o CPF salvo no cache para pre-preencher o campo no proximo acesso.
   const cachedCpf = typeof window !== "undefined" ? localStorage.getItem("ipda_last_cpf") || "" : "";
   const [cpf, setCpf] = useState(cachedCpf);
-  const [senha, setSenha] = useState(() => {
-    if (typeof window === "undefined") return "";
-    if (!(Capacitor.isNativePlatform() && Capacitor.getPlatform() === "android")) return "";
-    return localStorage.getItem(LS_SAVED_PASSWORD_ANDROID) || "";
-  });
+  // Comentario: senha nunca mais e salva em texto puro no localStorage (seguranca).
+  // Login offline agora funciona apenas via biometria (Keystore protegido).
+  const [senha, setSenha] = useState("");
   const [showSenha, setShowSenha] = useState(false);
   const [loading, setLoading] = useState(false);
   const [openingCadastro, setOpeningCadastro] = useState(false);
@@ -166,38 +168,14 @@ export default function PhoneIdentify() {
       return;
     }
 
+    // Comentario: login offline removido por seguranca — senha nao e mais salva em texto puro.
+    // Login offline agora funciona apenas via biometria (botao "Entrar com digital").
     if (typeof navigator !== "undefined" && !navigator.onLine) {
-      const savedCpf = localStorage.getItem("ipda_last_cpf") || "";
-      const savedPassword = localStorage.getItem(LS_SAVED_PASSWORD_ANDROID) || "";
-      const cachedToken = localStorage.getItem("ipda_token") || "";
-      const cachedUserRaw = localStorage.getItem("ipda_user");
-      const cachedSessionRaw = localStorage.getItem("ipda_session");
-
-      if (!isNativeAndroid) {
-        toast.error("Login offline está disponível apenas no app Android.");
-        return;
+      if (isNativeAndroid && biometric.enabled) {
+        toast.message("Sem internet. Use o botão 'Entrar com digital' para acesso offline.");
+      } else {
+        toast.error("Sem internet. Conecte-se para fazer login.");
       }
-
-      if (savedCpf === cpfRaw && savedPassword === senha.trim() && cachedToken && cachedUserRaw && cachedSessionRaw) {
-        try {
-          const offlineUser = JSON.parse(cachedUserRaw);
-          const offlineSession = JSON.parse(cachedSessionRaw);
-          queryClient.clear();
-          setStoredToken(cachedToken);
-          setToken(cachedToken);
-          setSession(offlineSession);
-          setUsuario(offlineUser);
-          setTelefone(undefined);
-          toast.message("Entrando com dados salvos offline.");
-          nav(routeByRole(String(offlineUser?.role || "")));
-          return;
-        } catch {
-          toast.error("Não foi possível recuperar os dados offline deste aparelho.");
-          return;
-        }
-      }
-
-      toast.error("Sem internet. Faça um login online neste aparelho para liberar o acesso offline.");
       return;
     }
     setLoading(true);
@@ -234,7 +212,7 @@ export default function PhoneIdentify() {
       if (fixedSession.root_totvs_id) localStorage.setItem("ipda_root_totvs", fixedSession.root_totvs_id);
       // Comentario: salva o CPF no cache para pre-preencher o campo e buscar divulgacoes na proxima abertura.
       localStorage.setItem("ipda_last_cpf", cpfRaw);
-      if (isNativeAndroid) localStorage.setItem(LS_SAVED_PASSWORD_ANDROID, senha.trim());
+      // Comentario: senha removida do localStorage por seguranca. Credenciais ficam no Keystore via biometria.
       // Comentario: se biometria disponivel e ainda nao ativada, pergunta apos login bem sucedido
       if (biometric.isNative && biometric.available && !biometric.enabled) {
         setAskEnableBiometric({ cpf: cpfRaw, senha: senha.trim() });

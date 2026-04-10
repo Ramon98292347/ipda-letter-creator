@@ -99,8 +99,8 @@ Deno.serve(async (req) => {
         .maybeSingle(),
     ]);
 
-    if (fichaErr) return json({ ok: false, error: "db_error_ficha", details: fichaErr.message }, 500);
-    if (cardErr) return json({ ok: false, error: "db_error_carteirinha", details: cardErr.message }, 500);
+    if (fichaErr) return json({ ok: false, error: "db_error_ficha", details: "erro interno" }, 500);
+    if (cardErr) return json({ ok: false, error: "db_error_carteirinha", details: "erro interno" }, 500);
 
     const fichaReady = String(ficha?.final_url || "").trim().length > 0;
     const cardReady = String(carteirinha?.final_url || "").trim().length > 0;
@@ -121,6 +121,6 @@ Deno.serve(async (req) => {
       200,
     );
   } catch (err) {
-    return json({ ok: false, error: "exception", details: String(err) }, 500);
+    return json({ ok: false, error: "exception", details: "erro interno" }, 500);
   }
 });
