@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+﻿import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Plus, Minus, Trash2, ShoppingBag, Shirt, CreditCard, QrCode, BadgeCheck } from "lucide-react";
@@ -654,7 +654,7 @@ export default function CamisasPedidoPage() {
 
           <div className="bg-amber-50 border border-amber-200 rounded-xl p-5 mb-8">
             <h3 className="font-bold text-amber-900 mb-2 flex items-center gap-2 text-sm">
-              <span role="img" aria-label="money bag">💰</span> Sobre o Pagamento
+              <span role="img" aria-label="money bag">ðŸ’°</span> Sobre o Pagamento
             </h3>
             <p className="text-sm text-amber-800 leading-relaxed">
               Pedido registrado com sucesso. O pagamento será realizado manualmente conforme orientação da administração.
@@ -1040,3 +1040,4 @@ export default function CamisasPedidoPage() {
     </div>
   );
 }
+

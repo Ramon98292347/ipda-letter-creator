@@ -125,7 +125,7 @@ const STATUS_LABEL: Record<string, string> = {
   NOVO: "Novo",
   AGUARDANDO_PAGAMENTO: "Aguardando pagamento",
   PAGO: "Pago",
-  EM_SEPARACAO: "Em separaÃ§Ã£o",
+  EM_SEPARACAO: "Em separação",
   ENTREGUE: "Entregue",
   CANCELADO: "Cancelado",
 };
@@ -138,7 +138,7 @@ const TAB_ITEMS = [
   { value: "camisetas", label: "Camisetas" },
   { value: "tamanhos", label: "Tamanhos" },
   { value: "pedidos", label: "Pedidos" },
-  { value: "links", label: "PublicaÃ§Ã£o" },
+  { value: "links", label: "Publicação" },
 ] as const;
 
 const EVENT_MARKER = "event://internal";
@@ -278,7 +278,7 @@ export default function DivulgacaoPage() {
       toast.success("Status atualizado.");
       await queryClient.invalidateQueries({ queryKey: ["div-orders"] });
     },
-    onError: () => toast.error("NÃ£o foi possÃ­vel atualizar o status."),
+    onError: () => toast.error("Não foi possível atualizar o status."),
   });
 
   const createProduto = useMutation({
@@ -383,7 +383,7 @@ export default function DivulgacaoPage() {
       return previousAnn;
     },
     onSuccess: () => {
-      toast.success("Evento excluÃ­do.");
+      toast.success("Evento excluído.");
       queryClient.invalidateQueries({ queryKey: ["div-ann"] });
     },
     onError: (error, variables, context) => {
@@ -403,7 +403,7 @@ export default function DivulgacaoPage() {
       return previousAnn;
     },
     onSuccess: () => {
-      toast.success("Informativo excluÃ­do.");
+      toast.success("Informativo excluído.");
       queryClient.invalidateQueries({ queryKey: ["div-ann"] });
     },
     onError: (error, variables, context) => {
@@ -424,7 +424,7 @@ export default function DivulgacaoPage() {
       return previousProducts;
     },
     onSuccess: () => {
-      toast.success("Camiseta excluÃ­da.");
+      toast.success("Camiseta excluída.");
       queryClient.invalidateQueries({ queryKey: ["div-products"] });
     },
     onError: (error, variables, context) => {
@@ -446,7 +446,7 @@ export default function DivulgacaoPage() {
       return previousSizes;
     },
     onSuccess: () => {
-      toast.success("Tamanho excluÃ­do.");
+      toast.success("Tamanho excluído.");
       queryClient.invalidateQueries({ queryKey: ["div-sizes"] });
     },
     onError: (error, variables, context) => {
@@ -468,7 +468,7 @@ export default function DivulgacaoPage() {
       return previousOrders;
     },
     onSuccess: () => {
-      toast.success("Pedido excluÃ­do.");
+      toast.success("Pedido excluído.");
       queryClient.invalidateQueries({ queryKey: ["div-orders"] });
     },
     onError: (error, variables, context) => {
@@ -533,7 +533,7 @@ export default function DivulgacaoPage() {
       setProdutoForm((prev) => ({ ...prev, image_urls: [...prev.image_urls, ...newUrls] }));
       toast.success(files.length > 1 ? "Imagens enviadas com sucesso." : "Imagem enviada com sucesso.");
     } catch {
-      toast.error("NÃ£o foi possÃ­vel enviar.")
+      toast.error("Não foi possível enviar.")
     } finally {
       setUploadingProduto(false);
       e.target.value = "";
@@ -549,7 +549,7 @@ export default function DivulgacaoPage() {
       setEventoForm((prev) => ({ ...prev, banner_url: url }));
       toast.success("Banner enviado com sucesso.");
     } catch {
-      toast.error("NÃ£o foi possÃ­vel enviar o banner.");
+      toast.error("Não foi possível enviar o banner.");
     } finally {
       setUploadingEvento(false);
       e.target.value = "";
@@ -565,7 +565,7 @@ export default function DivulgacaoPage() {
       setInformativoForm((prev) => ({ ...prev, media_url: url }));
       toast.success("Imagem enviada com sucesso.");
     } catch {
-      toast.error("NÃ£o foi possÃ­vel enviar a imagem.");
+      toast.error("Não foi possível enviar a imagem.");
     } finally {
       setUploadingInformativo(false);
       e.target.value = "";
@@ -618,11 +618,11 @@ export default function DivulgacaoPage() {
       });
     },
     onSuccess: async () => {
-      toast.success("ResponsÃ¡vel salvo com sucesso.");
+      toast.success("Responsável salvo com sucesso.");
       await queryClient.invalidateQueries({ queryKey: ["shirt-page-setting", activeTotvs] });
     },
     onError: () => {
-      toast.error("NÃ£o foi possÃ­vel salvar o responsÃ¡vel.");
+      toast.error("Não foi possível salvar o responsável.");
     },
   });
 
@@ -636,10 +636,10 @@ export default function DivulgacaoPage() {
     },
     onSuccess: async () => {
       setSelectedResponsibleId("");
-      toast.success("ResponsÃ¡vel removido.");
+      toast.success("Responsável removido.");
       await queryClient.invalidateQueries({ queryKey: ["shirt-page-setting", activeTotvs] });
     },
-    onError: () => toast.error("NÃ£o foi possÃ­vel remover o responsÃ¡vel."),
+    onError: () => toast.error("Não foi possível remover o responsável."),
   });
 
   async function copyLink(value: string) {
@@ -647,7 +647,7 @@ export default function DivulgacaoPage() {
       await navigator.clipboard.writeText(value);
       toast.success("Link copiado.");
     } catch {
-      toast.error("NÃ£o foi possÃ­vel copiar o link.");
+      toast.error("Não foi possível copiar o link.");
     }
   }
 
@@ -675,7 +675,7 @@ export default function DivulgacaoPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-2xl text-slate-900">
               <Megaphone className="h-6 w-6 text-blue-600" />
-              DivulgaÃ§Ã£o e Camisetas
+              Divulgação e Camisetas
             </CardTitle>
             <p className="text-sm text-slate-600">Painel com o mesmo visual do sistema original de camisetas.</p>
           </CardHeader>
@@ -779,13 +779,13 @@ export default function DivulgacaoPage() {
           </TabsContent>
 
           <TabsContent value="pedidos" className="space-y-3">
-            <h2 className="text-2xl font-bold text-slate-900">GestÃ£o de Pedidos</h2>
+            <h2 className="text-2xl font-bold text-slate-900">Gestão de Pedidos</h2>
             <div className="grid gap-3 md:grid-cols-[1fr_260px]">
               <div className="relative">
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                 <Input
                   className="pl-9"
-                  placeholder="Buscar por nome ou nÂº do pedido..."
+                  placeholder="Buscar por nome ou nº do pedido..."
                   value={orderSearch}
                   onChange={(e) => setOrderSearch(e.target.value)}
                 />
@@ -814,7 +814,7 @@ export default function DivulgacaoPage() {
                       <th className="px-4 py-3">Pagamento</th>
                       <th className="px-4 py-3">Total</th>
                       <th className="px-4 py-3">Status</th>
-                      <th className="px-4 py-3">AÃ§Ãµes</th>
+                      <th className="px-4 py-3">Ações</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -854,7 +854,7 @@ export default function DivulgacaoPage() {
 
           <TabsContent value="camisetas" className="space-y-3">
             <div className="flex items-center justify-between">
-              <h3 className="text-xl font-bold text-slate-900">GestÃ£o de Camisetas</h3>
+              <h3 className="text-xl font-bold text-slate-900">Gestão de Camisetas</h3>
               <Button
                 className="bg-[#232b7a] text-white hover:bg-[#1b2367]"
                 onClick={() => {
@@ -869,7 +869,7 @@ export default function DivulgacaoPage() {
             </div>
             <Card><CardContent className="overflow-x-auto p-0">
               <table className="w-full min-w-[760px] text-sm">
-                <thead><tr className="border-b bg-slate-50 text-left text-slate-600"><th className="px-4 py-3">Produto</th><th className="px-4 py-3">PreÃ§o</th><th className="px-4 py-3">Status</th><th className="px-4 py-3">AÃ§Ãµes</th></tr></thead>
+                <thead><tr className="border-b bg-slate-50 text-left text-slate-600"><th className="px-4 py-3">Produto</th><th className="px-4 py-3">Preço</th><th className="px-4 py-3">Status</th><th className="px-4 py-3">Ações</th></tr></thead>
                 <tbody>
                   {products.map((product) => {
                     const parsedUrls = parseImageUrls(product.image_url);
@@ -882,7 +882,7 @@ export default function DivulgacaoPage() {
                           </div>
                           <div>
                             <p className="font-semibold">{product.name || "Sem nome"}</p>
-                            <p className="text-xs text-slate-500">{product.description || "Sem descriÃ§Ã£o"}</p>
+                            <p className="text-xs text-slate-500">{product.description || "Sem descrição"}</p>
                           </div>
                         </div>
                       </td>
@@ -905,7 +905,7 @@ export default function DivulgacaoPage() {
 
           <TabsContent value="tamanhos" className="space-y-3">
             <div className="flex items-center justify-between">
-              <h3 className="text-xl font-bold text-slate-900">GestÃ£o de Tamanhos</h3>
+              <h3 className="text-xl font-bold text-slate-900">Gestão de Tamanhos</h3>
               <Button
                 className="bg-[#232b7a] text-white hover:bg-[#1b2367]"
                 onClick={() => {
@@ -920,7 +920,7 @@ export default function DivulgacaoPage() {
             </div>
             <Card><CardContent className="overflow-x-auto p-0">
               <table className="w-full min-w-[760px] text-sm">
-                <thead><tr className="border-b bg-slate-50 text-left text-slate-600"><th className="px-4 py-3">Produto</th><th className="px-4 py-3">Tamanho</th><th className="px-4 py-3">Estoque</th><th className="px-4 py-3">Status</th><th className="px-4 py-3">AÃ§Ãµes</th></tr></thead>
+                <thead><tr className="border-b bg-slate-50 text-left text-slate-600"><th className="px-4 py-3">Produto</th><th className="px-4 py-3">Tamanho</th><th className="px-4 py-3">Estoque</th><th className="px-4 py-3">Status</th><th className="px-4 py-3">Ações</th></tr></thead>
                 <tbody>
                   {sizes.map((size) => {
                     const productName = products.find((p) => p.id === size.product_id)?.name || "-";
@@ -947,7 +947,7 @@ export default function DivulgacaoPage() {
 
           <TabsContent value="eventos" className="space-y-3">
             <div className="flex items-center justify-between">
-              <h3 className="text-xl font-bold text-slate-900">GestÃ£o de Eventos</h3>
+              <h3 className="text-xl font-bold text-slate-900">Gestão de Eventos</h3>
               <Button
                 className="bg-[#232b7a] text-white hover:bg-[#1b2367]"
                 onClick={() => {
@@ -962,13 +962,13 @@ export default function DivulgacaoPage() {
             </div>
             <Card><CardContent className="overflow-x-auto p-0">
               <table className="w-full min-w-[760px] text-sm">
-                <thead><tr className="border-b bg-slate-50 text-left text-slate-600"><th className="px-4 py-3">Nome</th><th className="px-4 py-3">PerÃ­odo</th><th className="px-4 py-3">Ordem</th><th className="px-4 py-3">Status</th><th className="px-4 py-3">AÃ§Ãµes</th></tr></thead>
+                <thead><tr className="border-b bg-slate-50 text-left text-slate-600"><th className="px-4 py-3">Nome</th><th className="px-4 py-3">Período</th><th className="px-4 py-3">Ordem</th><th className="px-4 py-3">Status</th><th className="px-4 py-3">Ações</th></tr></thead>
                 <tbody>
                   {events.map((event) => (
                     <tr key={event.id} className="border-b last:border-0">
                       <td className="px-4 py-3">
-                        <p className="font-semibold">{event.title || "Sem tÃ­tulo"}</p>
-                        <p className="text-xs text-slate-500">{event.body_text || "Sem descriÃ§Ã£o"}</p>
+                        <p className="font-semibold">{event.title || "Sem título"}</p>
+                        <p className="text-xs text-slate-500">{event.body_text || "Sem descrição"}</p>
                       </td>
                       <td className="px-4 py-3">{formatDate(event.starts_at)} - {formatDate(event.ends_at)}</td>
                       <td className="px-4 py-3">{event.position || 0}</td>
@@ -989,7 +989,7 @@ export default function DivulgacaoPage() {
 
           <TabsContent value="informativos" className="space-y-3">
             <div className="flex items-center justify-between">
-              <h3 className="text-xl font-bold text-slate-900">GestÃ£o de Informativos</h3>
+              <h3 className="text-xl font-bold text-slate-900">Gestão de Informativos</h3>
               <Button
                 className="bg-[#232b7a] text-white hover:bg-[#1b2367]"
                 onClick={() => {
@@ -1004,11 +1004,11 @@ export default function DivulgacaoPage() {
             </div>
             <Card><CardContent className="overflow-x-auto p-0">
               <table className="w-full min-w-[760px] text-sm">
-                <thead><tr className="border-b bg-slate-50 text-left text-slate-600"><th className="px-4 py-3">TÃ­tulo</th><th className="px-4 py-3">ConteÃºdo</th><th className="px-4 py-3">Status</th><th className="px-4 py-3">AÃ§Ãµes</th></tr></thead>
+                <thead><tr className="border-b bg-slate-50 text-left text-slate-600"><th className="px-4 py-3">Título</th><th className="px-4 py-3">Conteúdo</th><th className="px-4 py-3">Status</th><th className="px-4 py-3">Ações</th></tr></thead>
                 <tbody>
                   {infoItems.map((ann) => (
                     <tr key={ann.id} className="border-b last:border-0">
-                      <td className="px-4 py-3 font-semibold">{ann.title || "Sem tÃ­tulo"}</td>
+                      <td className="px-4 py-3 font-semibold">{ann.title || "Sem título"}</td>
                       <td className="px-4 py-3">{ann.body_text || "-"}</td>
                       <td className="px-4 py-3"><span className={`rounded-full px-3 py-1 text-xs font-semibold ${ann.is_active ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>{ann.is_active ? "Ativo" : "Inativo"}</span></td>
                       <td className="px-4 py-3">
@@ -1137,7 +1137,7 @@ export default function DivulgacaoPage() {
           <DialogHeader><DialogTitle>{editingProdutoId ? "Editar Camiseta" : "Nova Camiseta"}</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <div className="space-y-1"><Label>Nome *</Label><Input value={produtoForm.name} onChange={(e) => setProdutoForm((p) => ({ ...p, name: e.target.value }))} /></div>
-            <div className="space-y-1"><Label>DescriÃ§Ã£o</Label><Textarea value={produtoForm.description} onChange={(e) => setProdutoForm((p) => ({ ...p, description: e.target.value }))} /></div>
+            <div className="space-y-1"><Label>Descrição</Label><Textarea value={produtoForm.description} onChange={(e) => setProdutoForm((p) => ({ ...p, description: e.target.value }))} /></div>
             <div className="space-y-2">
               <Label>Imagens da Camiseta</Label>
               {produtoForm.image_urls.length > 0 ? (
@@ -1162,12 +1162,12 @@ export default function DivulgacaoPage() {
                   {produtoForm.image_urls.length > 0 ? "Adicionar mais fotos" : "Selecionar fotos"}
                 </Label>
                 <input id="produto-file" type="file" multiple accept="image/*" className="hidden" onChange={onSelectProdutoFile} />
-                <span className="mt-2 block text-xs text-slate-500">{uploadingProduto ? "Enviando..." : "MÃºltiplas fotos permitidas"}</span>
+                <span className="mt-2 block text-xs text-slate-500">{uploadingProduto ? "Enviando..." : "Múltiplas fotos permitidas"}</span>
               </div>
             </div>
-            <div className="space-y-1"><Label>PreÃ§o *</Label><Input type="number" value={produtoForm.price} onChange={(e) => setProdutoForm((p) => ({ ...p, price: e.target.value }))} /></div>
+            <div className="space-y-1"><Label>Preço *</Label><Input type="number" value={produtoForm.price} onChange={(e) => setProdutoForm((p) => ({ ...p, price: e.target.value }))} /></div>
             <Button className="w-full bg-[#232b7a] text-white hover:bg-[#1b2367]" onClick={() => createProduto.mutate()} disabled={createProduto.isPending || !produtoForm.name.trim()}>
-              {createProduto.isPending ? "Salvando..." : editingProdutoId ? "Salvar alteraÃ§Ãµes" : "Criar Camiseta"}
+              {createProduto.isPending ? "Salvando..." : editingProdutoId ? "Salvar alterações" : "Criar Camiseta"}
             </Button>
           </div>
         </DialogContent>
@@ -1193,7 +1193,7 @@ export default function DivulgacaoPage() {
               <div className="space-y-1"><Label>Estoque</Label><Input type="number" value={tamanhoForm.stock} onChange={(e) => setTamanhoForm((p) => ({ ...p, stock: e.target.value }))} /></div>
             </div>
             <Button className="w-full bg-[#232b7a] text-white hover:bg-[#1b2367]" onClick={() => createTamanho.mutate()} disabled={createTamanho.isPending || !tamanhoForm.product_id || !tamanhoForm.size}>
-              {createTamanho.isPending ? "Salvando..." : editingTamanhoId ? "Salvar alteraÃ§Ãµes" : "Criar Tamanho"}
+              {createTamanho.isPending ? "Salvando..." : editingTamanhoId ? "Salvar alterações" : "Criar Tamanho"}
             </Button>
           </div>
         </DialogContent>
@@ -1203,14 +1203,14 @@ export default function DivulgacaoPage() {
         <DialogContent className="max-w-2xl">
           <DialogHeader><DialogTitle>{editingEventoId ? "Editar Evento" : "Novo Evento"}</DialogTitle></DialogHeader>
           <div className="space-y-3">
-            <div className="space-y-1"><Label>TÃ­tulo *</Label><Input value={eventoForm.title} onChange={(e) => setEventoForm((p) => ({ ...p, title: e.target.value }))} /></div>
-            <div className="space-y-1"><Label>DescriÃ§Ã£o</Label><Textarea value={eventoForm.description} onChange={(e) => setEventoForm((p) => ({ ...p, description: e.target.value }))} /></div>
+            <div className="space-y-1"><Label>Título *</Label><Input value={eventoForm.title} onChange={(e) => setEventoForm((p) => ({ ...p, title: e.target.value }))} /></div>
+            <div className="space-y-1"><Label>Descrição</Label><Textarea value={eventoForm.description} onChange={(e) => setEventoForm((p) => ({ ...p, description: e.target.value }))} /></div>
             <div className="space-y-2">
               <Label>URL do banner</Label>
               <Input value={eventoForm.banner_url} onChange={(e) => setEventoForm((p) => ({ ...p, banner_url: e.target.value }))} />
               {eventoForm.banner_url ? (
                 <div className="relative overflow-hidden rounded-lg border">
-                  <img src={eventoForm.banner_url} alt="PrÃ©-visualizaÃ§Ã£o do evento" className="max-h-72 w-full object-cover" />
+                  <img src={eventoForm.banner_url} alt="Pré-visualização do evento" className="max-h-72 w-full object-cover" />
                   <button
                     type="button"
                     className="absolute right-2 top-2 rounded-full bg-white/90 px-2 py-1 text-xs text-rose-600"
@@ -1230,11 +1230,11 @@ export default function DivulgacaoPage() {
             </div>
             <div className="max-w-xs space-y-1"><Label>Ordem</Label><Input type="number" value={eventoForm.sort_order} onChange={(e) => setEventoForm((p) => ({ ...p, sort_order: e.target.value }))} /></div>
             <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1"><Label>InÃ­cio</Label><Input type="date" value={eventoForm.start_date} onChange={(e) => setEventoForm((p) => ({ ...p, start_date: e.target.value }))} /></div>
+              <div className="space-y-1"><Label>Início</Label><Input type="date" value={eventoForm.start_date} onChange={(e) => setEventoForm((p) => ({ ...p, start_date: e.target.value }))} /></div>
               <div className="space-y-1"><Label>Fim</Label><Input type="date" value={eventoForm.end_date} onChange={(e) => setEventoForm((p) => ({ ...p, end_date: e.target.value }))} /></div>
             </div>
             <Button className="w-full bg-[#232b7a] text-white hover:bg-[#1b2367]" onClick={() => createEvento.mutate()} disabled={createEvento.isPending || !eventoForm.title.trim()}>
-              {createEvento.isPending ? "Salvando..." : editingEventoId ? "Salvar alteraÃ§Ãµes" : "Criar Evento"}
+              {createEvento.isPending ? "Salvando..." : editingEventoId ? "Salvar alterações" : "Criar Evento"}
             </Button>
           </div>
         </DialogContent>
@@ -1244,14 +1244,14 @@ export default function DivulgacaoPage() {
         <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
           <DialogHeader><DialogTitle>{editingInformativoId ? "Editar Informativo" : "Novo Informativo"}</DialogTitle></DialogHeader>
           <div className="space-y-3">
-            <div className="space-y-1"><Label>TÃ­tulo *</Label><Input value={informativoForm.title} onChange={(e) => setInformativoForm((p) => ({ ...p, title: e.target.value }))} /></div>
-            <div className="space-y-1"><Label>DescriÃ§Ã£o</Label><Textarea value={informativoForm.body_text} onChange={(e) => setInformativoForm((p) => ({ ...p, body_text: e.target.value }))} /></div>
+            <div className="space-y-1"><Label>Título *</Label><Input value={informativoForm.title} onChange={(e) => setInformativoForm((p) => ({ ...p, title: e.target.value }))} /></div>
+            <div className="space-y-1"><Label>Descrição</Label><Textarea value={informativoForm.body_text} onChange={(e) => setInformativoForm((p) => ({ ...p, body_text: e.target.value }))} /></div>
             <div className="space-y-2">
               <Label>Imagem / Banner</Label>
               <Input value={informativoForm.media_url} onChange={(e) => setInformativoForm((p) => ({ ...p, media_url: e.target.value }))} />
               {informativoForm.media_url ? (
                 <div className="relative overflow-hidden rounded-lg border">
-                  <img src={informativoForm.media_url} alt="PrÃ©-visualizaÃ§Ã£o do informativo" className="max-h-72 w-full object-cover" />
+                  <img src={informativoForm.media_url} alt="Pré-visualização do informativo" className="max-h-72 w-full object-cover" />
                   <button
                     type="button"
                     className="absolute right-2 top-2 rounded-full bg-white/90 px-2 py-1 text-xs text-rose-600"
@@ -1269,13 +1269,13 @@ export default function DivulgacaoPage() {
                 <span className="mt-2 block text-xs text-slate-500">{uploadingInformativo ? "Enviando..." : "JPG, PNG ou WEBP"}</span>
               </div>
             </div>
-            <div className="space-y-1"><Label>PosiÃ§Ã£o</Label><Input type="number" value={informativoForm.position} onChange={(e) => setInformativoForm((p) => ({ ...p, position: e.target.value }))} /></div>
+            <div className="space-y-1"><Label>Posição</Label><Input type="number" value={informativoForm.position} onChange={(e) => setInformativoForm((p) => ({ ...p, position: e.target.value }))} /></div>
             <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1"><Label>InÃ­cio</Label><Input type="date" value={informativoForm.start_date} onChange={(e) => setInformativoForm((p) => ({ ...p, start_date: e.target.value }))} /></div>
+              <div className="space-y-1"><Label>Início</Label><Input type="date" value={informativoForm.start_date} onChange={(e) => setInformativoForm((p) => ({ ...p, start_date: e.target.value }))} /></div>
               <div className="space-y-1"><Label>Fim</Label><Input type="date" value={informativoForm.end_date} onChange={(e) => setInformativoForm((p) => ({ ...p, end_date: e.target.value }))} /></div>
             </div>
             <Button className="w-full bg-[#232b7a] text-white hover:bg-[#1b2367]" onClick={() => createInformativo.mutate()} disabled={createInformativo.isPending || !informativoForm.title.trim()}>
-              {createInformativo.isPending ? "Salvando..." : editingInformativoId ? "Salvar alteraÃ§Ãµes" : "Criar Informativo"}
+              {createInformativo.isPending ? "Salvando..." : editingInformativoId ? "Salvar alterações" : "Criar Informativo"}
             </Button>
           </div>
         </DialogContent>
@@ -1317,7 +1317,7 @@ export default function DivulgacaoPage() {
                   <span className="text-lg font-bold text-slate-900">Total</span>
                   <span className="text-3xl font-bold text-red-600">{formatMoney(orderDetail.total_amount)}</span>
                 </div>
-                {orderDetail.notes ? <p className="text-sm text-slate-700">ObservaÃ§Ã£o: {orderDetail.notes}</p> : null}
+                {orderDetail.notes ? <p className="text-sm text-slate-700">Observação: {orderDetail.notes}</p> : null}
               </div>
 
               <div className="border-t pt-3">
@@ -1346,6 +1346,7 @@ export default function DivulgacaoPage() {
     </ManagementShell>
   );
 }
+
 
 
 
