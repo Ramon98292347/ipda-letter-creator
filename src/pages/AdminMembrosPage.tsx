@@ -128,7 +128,6 @@ export default function AdminMembrosPage() {
         church_totvs_id: selectedChurchTotvs || undefined,
         is_active: false,
       }),
-    staleTime: 60_000,
   });
   const inativosCount = Number(inativosData?.total || 0);
 

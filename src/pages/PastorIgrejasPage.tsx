@@ -59,7 +59,6 @@ export default function PastorIgrejasPage() {
     queryKey: ["pastor-igrejas-page", page, pageSize, activeTotvsId],
     queryFn: () => listChurchesInScopePaged(page, pageSize, scopeRootTotvsId),
     enabled: Boolean(activeTotvsId),
-    staleTime: 30_000,
   });
 
   const rows = pageData?.churches || [];
@@ -102,7 +101,6 @@ export default function PastorIgrejasPage() {
     void queryClient.prefetchQuery({
       queryKey: ["pastor-igrejas-page", nextPage, pageSize, activeTotvsId],
       queryFn: () => listChurchesInScopePaged(nextPage, pageSize, scopeRootTotvsId),
-      staleTime: 30_000,
     });
   }, [page, totalPages, pageSize, activeTotvsId, scopeRootTotvsId, queryClient]);
 

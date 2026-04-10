@@ -236,7 +236,6 @@ export default function UsuarioDashboard() {
     queryKey: ["member-docs-status", userId],
     queryFn: () => getMemberDocsStatus({ member_id: userId }),
     enabled: Boolean(userId),
-    staleTime: 60_000,
   });
 
   const [fichaAlertShown, setFichaAlertShown] = useState(false);

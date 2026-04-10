@@ -22,7 +22,6 @@ import { UserProvider, useUser } from "./context/UserContext";
 import { FinanceProvider } from "./contexts/FinanceContext";
 import { registerDefaultOfflineHandlers } from "@/lib/offline/registerDefaultHandlers";
 import { startOfflineSyncLoop } from "@/lib/offline/syncEngine";
-import { clearEntityCaches } from "@/lib/offline/repository";
 import { DATA_MUTATED_EVENT } from "@/lib/api";
 
 const queryClient = new QueryClient({
@@ -52,6 +51,84 @@ const queryPersister =
         key: "ipda_rq_cache_v1",
       })
     : undefined;
+
+// Comentario: mapeia mutacao (fnName ou action) para as queryKeys afetadas.
+// Evita invalidar todas as queries do sistema quando so uma area mudou.
+const MUTATION_TO_KEYS: Record<string, string[]> = {
+  // Cartas
+  "create-letter": ["pastor-letters", "cartas-dashboard-letters", "cartas-dashboard-metrics", "pastor-metrics", "worker-dashboard", "notifications"],
+  "set-letter-status": ["pastor-letters", "cartas-dashboard-letters", "cartas-dashboard-metrics", "pastor-metrics", "worker-dashboard", "notifications"],
+  "approve-release": ["pastor-letters", "cartas-dashboard-letters", "cartas-dashboard-metrics", "pastor-metrics", "worker-dashboard", "notifications"],
+  // Membros e usuarios
+  "create-user": ["pastor-panel-data", "admin-membros-kpi", "admin-membros-inativos-count", "workers", "pastor-obreiros", "notifications"],
+  "set-user-registration-status": ["pastor-panel-data", "workers", "pastor-obreiros", "pastor-metrics", "notifications"],
+  "toggle-worker-active": ["workers", "pastor-obreiros", "pastor-metrics", "admin-membros-kpi"],
+  "set-worker-direct-release": ["workers", "pastor-obreiros"],
+  "set-user-payment-status": ["workers", "pastor-obreiros", "notifications"],
+  "delete-user": ["workers", "pastor-obreiros", "pastor-metrics", "admin-membros-kpi"],
+  "update-member-avatar": ["worker-dashboard", "workers"],
+  // Igrejas
+  "create-church": ["churches-in-scope", "admin-church-summary", "pastor-igrejas-page", "admin-igrejas-page"],
+  "set-church-pastor": ["churches-in-scope", "admin-church-summary", "pastor-igrejas-page", "admin-igrejas-page"],
+  // Documentos de membros
+  "generate-member-docs": ["worker-docs-status", "ready-carteirinhas"],
+  "member-docs-finish": ["worker-docs-status", "ready-carteirinhas"],
+  "member-docs-api": ["worker-docs-status", "ready-carteirinhas"],
+  // Financeiro
+  "fin-api": ["fin-summary", "fin-entries", "fin-categories", "pastor-financeiro"],
+  // Notificacoes
+  "mark-notification-read": ["notifications"],
+  "mark-all-notifications-read": ["notifications"],
+  // Caravanas
+  "caravanas-api": ["caravanas", "events"],
+  // Divulgacao e camisas
+  "announcements-api": ["div-ann"],
+  "upsert-product": ["div-products", "div-sizes"],
+  "upsert-product-size": ["div-sizes"],
+  // Deposito/estoque
+  "deposit-api": ["deposit-stock", "deposit-summary", "deposit-movements", "deposit-products"],
+  // Feedback
+  "feedback-api": ["admin-feedback"],
+  // Church docs
+  "church-docs-api": ["church-docs"],
+  "upsert-church-remanejamento": ["church-docs"],
+  "upsert-church-contrato": ["church-docs"],
+  "upsert-church-laudo": ["church-docs"],
+  // Reunioes ministeriais
+  "create-ministerial-meeting": ["ministerial-meetings"],
+  "manage-ministerial-meeting": ["ministerial-meetings"],
+  "save-ministerial-attendance": ["ministerial-meetings"],
+};
+
+// Comentario: actions dentro de functions compostas (ex: members-api action=update)
+const ACTION_TO_KEYS: Record<string, string[]> = {
+  "update": ["workers", "pastor-obreiros", "worker-dashboard", "pastor-panel-data"],
+  "update-profile": ["worker-dashboard"],
+  "generate": ["worker-docs-status", "ready-carteirinhas"],
+  "finish": ["worker-docs-status", "ready-carteirinhas"],
+  "delete-docs": ["worker-docs-status", "ready-carteirinhas"],
+  "mark-printed": ["ready-carteirinhas"],
+  "generate-print-batch": ["ready-carteirinhas"],
+  "upsert": ["div-ann", "div-products", "div-sizes"],
+  "delete": ["div-ann", "div-products", "div-sizes", "div-orders"],
+  "create": ["caravanas", "events", "deposit-stock", "deposit-summary"],
+  "entry": ["deposit-stock", "deposit-summary", "deposit-movements"],
+  "exit": ["deposit-stock", "deposit-summary", "deposit-movements"],
+};
+
+function resolveAffectedQueryKeys(fnName: string, action: string): string[] {
+  const keys = new Set<string>();
+
+  // Comentario: tenta achar pelo nome da function
+  const fnKeys = MUTATION_TO_KEYS[fnName];
+  if (fnKeys) fnKeys.forEach((k) => keys.add(k));
+
+  // Comentario: tenta achar pela action
+  const actKeys = ACTION_TO_KEYS[action];
+  if (actKeys) actKeys.forEach((k) => keys.add(k));
+
+  return Array.from(keys);
+}
 
 const pageFallback = <PageLoading title="Carregando" description="Aguarde..." />;
 
@@ -591,28 +668,32 @@ function AppBootstrap() {
     if (typeof window === "undefined") return;
 
     let timer: number | null = null;
-    const handleDataMutation = () => {
+    const handleDataMutation = (evt: Event) => {
+      const detail = (evt as CustomEvent).detail as { fnName?: string; action?: string } | undefined;
+      const fnName = String(detail?.fnName || "").toLowerCase();
+      const action = String(detail?.action || "").toLowerCase();
+
       // Comentario: consolida mutacoes em lote para evitar cascata de refetch.
       if (timer) window.clearTimeout(timer);
       timer = window.setTimeout(async () => {
-        try {
-          // Comentario: remove snapshot persistido para garantir cache novo apos mutacao.
-          localStorage.removeItem("ipda_rq_cache_v1");
-        } catch {
-          // Falha de storage nao deve bloquear a sincronizacao.
-        }
-        try {
-          // Comentario: limpa cache offline (IndexedDB) para evitar exibir registros antigos.
-          await clearEntityCaches();
-        } catch {
-          // Falha de limpeza offline nao deve bloquear o refetch.
+        // Comentario: mapa de mutacao → queries afetadas.
+        // Invalida apenas as queries relacionadas, nao o sistema inteiro.
+        const affectedKeys = resolveAffectedQueryKeys(fnName, action);
+
+        if (affectedKeys.length === 0) {
+          // Comentario: mutacao desconhecida — invalida apenas queries ativas como fallback seguro.
+          await queryClient.invalidateQueries({ type: "active" }, { cancelRefetch: false });
+          await queryClient.refetchQueries({ type: "active" });
+          return;
         }
 
-        await queryClient.cancelQueries();
-        await queryClient.invalidateQueries({}, { cancelRefetch: false });
+        // Comentario: invalida apenas as queries afetadas pela mutacao
+        for (const key of affectedKeys) {
+          await queryClient.invalidateQueries({ queryKey: [key] }, { cancelRefetch: false });
+        }
+        // Comentario: refaz apenas queries ativas (visiveis na tela)
         await queryClient.refetchQueries({ type: "active" });
-        queryClient.removeQueries({ predicate: (q) => q.getObserversCount() === 0 });
-      }, 120);
+      }, 150);
     };
 
     window.addEventListener(DATA_MUTATED_EVENT, handleDataMutation as EventListener);

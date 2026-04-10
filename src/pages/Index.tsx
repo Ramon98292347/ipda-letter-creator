@@ -144,7 +144,6 @@ const Index = () => {
     queryKey: ["churches-letter-form-own", activeTotvsForPastor],
     queryFn: () => listChurchesInScope(1, 1000, activeTotvsForPastor || undefined),
     enabled: role === "admin" || Boolean(activeTotvsForPastor),
-    staleTime: 60_000,
   });
   // Converte para o tipo Church usado nos selects do formulario
   const churches = useMemo(() => rawOwnChurches.map(apiToChurch), [rawOwnChurches]);
@@ -161,7 +160,6 @@ const Index = () => {
     queryKey: ["churches-letter-form-parent", parentTotvsId],
     queryFn: () => listChurchesInScope(1, 1000, parentTotvsId || undefined),
     enabled: (role === "admin" || Boolean(activeTotvsForPastor)) && Boolean(parentTotvsId),
-    staleTime: 60_000,
   });
   const parentScopeChurches = useMemo(() => rawParentChurches.map(apiToChurch), [rawParentChurches]);
 
@@ -175,7 +173,6 @@ const Index = () => {
       return found ? apiToChurch(found, 0) : null;
     },
     enabled: Boolean(parentTotvsId) && parentScopeChurches.length === 0,
-    staleTime: 60_000,
   });
 
   const grandParentTotvsId = useMemo(() => {
@@ -188,7 +185,6 @@ const Index = () => {
     queryKey: ["churches-letter-form-grandparent", grandParentTotvsId],
     queryFn: () => listChurchesInScope(1, 1000, grandParentTotvsId || undefined),
     enabled: (role === "admin" || Boolean(activeTotvsForPastor)) && Boolean(grandParentTotvsId),
-    staleTime: 60_000,
   });
   const grandParentScopeChurches = useMemo(() => rawGrandParentChurches.map(apiToChurch), [rawGrandParentChurches]);
 
@@ -207,7 +203,6 @@ const Index = () => {
     queryKey: ["churches-outros-search", outrosDebounced],
     queryFn: () => searchChurchesPublic(outrosDebounced, 8),
     enabled: outrosDebounced.trim().length >= 2,
-    staleTime: 30_000,
   });
 
   // Fonte de igrejas para o campo destino: escopo da avo > mae > proprio.
@@ -259,7 +254,6 @@ const Index = () => {
       return data.workers;
     },
     enabled: Boolean(session?.totvs_id),
-    staleTime: 60_000,
   });
   const origemTotvsSelecionada = String(igrejaOrigem?.codigoTotvs || activeTotvsForPastor || "").trim();
 

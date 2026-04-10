@@ -251,7 +251,6 @@ export function ObreirosTab({
     queryKey: ["members-transfer-churches", activeTotvsId, roleLower],
     queryFn: () => listChurchesInScope(1, 1000, activeTotvsId || undefined),
     enabled: Boolean(activeTotvsId && (openChurchModal || openAccessModal) && (roleLower === "admin" || roleLower === "pastor")),
-    staleTime: 60_000,
   });
 
   const workers = useMemo(() => data?.workers || [], [data?.workers]);

@@ -63,7 +63,6 @@ export default function AdminIgrejasPage() {
     queryKey: ["admin-igrejas-page", page, pageSize, activeTotvsId],
     queryFn: () => listChurchesInScopePaged(page, pageSize, activeTotvsId || undefined),
     enabled: isAdmin || Boolean(activeTotvsId),
-    staleTime: 30_000,
   });
 
   const rows = pageData?.churches || [];
@@ -106,7 +105,6 @@ export default function AdminIgrejasPage() {
     void queryClient.prefetchQuery({
       queryKey: ["admin-igrejas-page", nextPage, pageSize, activeTotvsId],
       queryFn: () => listChurchesInScopePaged(nextPage, pageSize, activeTotvsId || undefined),
-      staleTime: 30_000,
     });
   }, [page, totalPages, pageSize, activeTotvsId, queryClient]);
 

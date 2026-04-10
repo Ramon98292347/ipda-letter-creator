@@ -80,7 +80,6 @@ export function PastorLetterDialog({ open, onOpenChange, letterTarget, onSuccess
     queryKey: ["churches-dialog-own", letterTarget?.churchTotvsId],
     queryFn: () => listChurchesInScope(1, 1000, letterTarget?.churchTotvsId || undefined),
     enabled: open && Boolean(letterTarget?.churchTotvsId),
-    staleTime: 60_000,
     refetchInterval: 10000,
   });
   const ownScopeChurches = useMemo(() => ownScopeRaw.map(apiToChurch), [ownScopeRaw]);
@@ -99,7 +98,6 @@ export function PastorLetterDialog({ open, onOpenChange, letterTarget, onSuccess
     queryKey: ["churches-dialog-parent", targetParentTotvs],
     queryFn: () => listChurchesInScope(1, 1000, targetParentTotvs || undefined),
     enabled: open && Boolean(targetParentTotvs),
-    staleTime: 60_000,
     refetchInterval: 10000,
   });
   const parentScopeChurches = useMemo(() => parentScopeRaw.map(apiToChurch), [parentScopeRaw]);
@@ -111,7 +109,6 @@ export function PastorLetterDialog({ open, onOpenChange, letterTarget, onSuccess
     queryKey: ["churches-ancestor-chain", letterTarget?.churchTotvsId],
     queryFn: () => fetchAncestorChain(letterTarget?.churchTotvsId || ""),
     enabled: open && Boolean(letterTarget?.churchTotvsId),
-    staleTime: 60_000,
   });
 
   // Mae mais alta com pastor: percorre ancestorChain do final (mais alto) para o inicio.
@@ -163,7 +160,6 @@ export function PastorLetterDialog({ open, onOpenChange, letterTarget, onSuccess
     queryKey: ["churches-outros-search", outrosDebounced],
     queryFn: () => searchChurchesPublic(outrosDebounced, 10),
     enabled: outrosDebounced.trim().length >= 2,
-    staleTime: 30_000,
   });
 
   // ─── Reset dos campos ao abrir o dialog ─────────────────────────────────────

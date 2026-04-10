@@ -773,7 +773,6 @@ export default function PastorMembrosPage() {
         church_totvs_id: membersChurchTotvsFilter,
         is_active: filterActive,
     }),
-    staleTime: 30_000,
   });
 
   const workers = data?.workers || [];
@@ -809,7 +808,6 @@ export default function PastorMembrosPage() {
       return all;
     },
     enabled: Boolean(activeTotvsId) && (tab === "ficha_membro" || tab === "carteirinha" || tab === "ficha_obreiro" || tab === "impressao"),
-    staleTime: 60_000,
   });
 
   // Comentario: busca a contagem de membros inativos para exibir no card
@@ -823,7 +821,6 @@ export default function PastorMembrosPage() {
         church_totvs_id: membersChurchTotvsFilter,
         is_active: false,
       }),
-    staleTime: 60_000,
   });
   const inativosCount = Number(inativosData?.total || 0);
 
@@ -1090,7 +1087,6 @@ export default function PastorMembrosPage() {
           church_totvs_id: membersChurchTotvsFilter,
           is_active: filterActive,
         }),
-      staleTime: 30_000,
     });
   }, [membersPage, membersPageSize, membersTotalPages, filterTotvs, filterActive, churchClass, activeTotvsId, membersChurchTotvsFilter, queryClient]);
 
