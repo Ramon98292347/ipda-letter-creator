@@ -238,7 +238,169 @@ function findFirstAncestorWithPastor(startTotvs: string, churches: ChurchNode[])
   return null;
 }
 
-// Regras de assinatura:
+// Comentario: monta a cadeia de ancestrais ordenada (do proprio no ate a raiz).
+// Retorna array de ChurchNode: [propria, mae, avo, bisavo, ...raiz]
+function getAncestorChain(startTotvs: string, churches: ChurchNode[]): ChurchNode[] {
+  const byId = mapById(churches);
+  const chain: ChurchNode[] = [];
+  let cur: string | null = startTotvs;
+  const seen = new Set<string>();
+
+  while (cur && !seen.has(cur)) {
+    seen.add(cur);
+    const row = byId.get(cur);
+    if (!row) break;
+    chain.push(row);
+    cur = row.parent_totvs_id || null;
+  }
+  return chain;
+}
+
+// Comentario: verifica se a classe pode emitir carta (Central, Setorial ou Estadual).
+function canEmit(cls: ChurchClass | null): boolean {
+  return cls === "central" || cls === "setorial" || cls === "estadual";
+}
+
+// Comentario: sobe a partir de um no ate encontrar a primeira igreja que pode emitir.
+// Regional/Local nunca emitem — retorna a Central mae (ou acima).
+function elevateToEmitter(startTotvs: string, churches: ChurchNode[]): ChurchNode | null {
+  const byId = mapById(churches);
+  const start = byId.get(startTotvs);
+  if (!start) return null;
+  // Se a propria ja pode emitir, retorna ela mesma
+  if (canEmit(start.class)) return start;
+  // Senao sobe ate encontrar uma que pode
+  let cur = start.parent_totvs_id || null;
+  const seen = new Set<string>();
+  while (cur && !seen.has(cur)) {
+    seen.add(cur);
+    const row = byId.get(cur);
+    if (!row) return null;
+    if (canEmit(row.class)) return row;
+    cur = row.parent_totvs_id || null;
+  }
+  return null;
+}
+
+// Comentario: encontra a menor autoridade comum (LCA) entre origem e destino.
+// Ambos os lados sao primeiro elevados para nivel que pode emitir (Central+).
+// Depois compara as cadeias para achar o ancestral comum mais baixo.
+type EmissoraResult = {
+  emissora: ChurchNode;
+  emissora_inicial: ChurchNode;
+  regra_aplicada: string;
+  motivo_subida: string;
+};
+
+function resolveEmissora(
+  originTotvs: string,
+  destinationTotvs: string,
+  churches: ChurchNode[],
+): EmissoraResult | null {
+  const byId = mapById(churches);
+
+  // Passo 1: elevar origem e destino para nivel que pode emitir
+  const effectiveOrigin = elevateToEmitter(originTotvs, churches);
+  if (!effectiveOrigin) return null;
+
+  const effectiveDest = elevateToEmitter(destinationTotvs, churches);
+  if (!effectiveDest) return null;
+
+  // Passo 2: se sao a mesma igreja, emissora = propria origem efetiva
+  if (effectiveOrigin.totvs_id === effectiveDest.totvs_id) {
+    return escalateForPastor(effectiveOrigin, effectiveOrigin, "mesma_igreja", "Origem e destino na mesma jurisdicao", churches);
+  }
+
+  // Passo 3: montar cadeia de ancestrais dos dois lados
+  const chainOrigin = getAncestorChain(effectiveOrigin.totvs_id, churches);
+  const chainDest = getAncestorChain(effectiveDest.totvs_id, churches);
+
+  // Set dos ancestrais do destino para busca rapida
+  const destAncestorSet = new Set(chainDest.map((c) => c.totvs_id));
+
+  // Passo 4: verificar se sao irmas (mesma mae direta)
+  const originParent = effectiveOrigin.parent_totvs_id;
+  const destParent = effectiveDest.parent_totvs_id;
+  if (originParent && originParent === destParent) {
+    // Irmas: emissora = propria origem efetiva
+    return escalateForPastor(effectiveOrigin, effectiveOrigin, "irmas", "Igrejas irmas (mesma mae)", churches);
+  }
+
+  // Passo 5: verificar se destino e "tia" (destino e irma da mae da origem)
+  if (originParent) {
+    const maeOrigem = byId.get(originParent);
+    if (maeOrigem && maeOrigem.parent_totvs_id === destParent) {
+      // Destino e tia: emissora = mae da origem
+      return escalateForPastor(maeOrigem, effectiveOrigin, "tia", "Destino e tia da origem", churches);
+    }
+  }
+
+  // Passo 6: encontrar LCA — percorre cadeia da origem e encontra o primeiro que esta na cadeia do destino
+  let lca: ChurchNode | null = null;
+  for (const node of chainOrigin) {
+    if (destAncestorSet.has(node.totvs_id)) {
+      lca = node;
+      break;
+    }
+  }
+
+  if (lca && canEmit(lca.class)) {
+    return escalateForPastor(lca, effectiveOrigin, "autoridade_comum", `LCA: ${lca.class} ${lca.totvs_id}`, churches);
+  }
+
+  // Passo 7: se LCA nao pode emitir, sobe a partir do LCA ate achar quem pode
+  if (lca) {
+    const emitter = elevateToEmitter(lca.totvs_id, churches);
+    if (emitter) {
+      return escalateForPastor(emitter, effectiveOrigin, "autoridade_comum_elevada", `LCA elevado de ${lca.class} para ${emitter.class}`, churches);
+    }
+  }
+
+  // Fallback: sobe da origem ate achar qualquer igreja com pastor
+  const fallback = findFirstAncestorWithPastor(originTotvs, churches);
+  if (fallback) {
+    return {
+      emissora: fallback,
+      emissora_inicial: effectiveOrigin,
+      regra_aplicada: "fallback",
+      motivo_subida: "Nenhuma autoridade comum encontrada, usando ancestral com pastor",
+    };
+  }
+
+  return null;
+}
+
+// Comentario: se a emissora definida nao tem pastor, sobe na hierarquia ate encontrar.
+// Regra 12/13 do documento de regras.
+function escalateForPastor(
+  emissora: ChurchNode,
+  emissoraInicial: ChurchNode,
+  regra: string,
+  motivo: string,
+  churches: ChurchNode[],
+): EmissoraResult {
+  // Se a emissora ja tem pastor, retorna direto
+  if (String(emissora.pastor_user_id || "").trim()) {
+    return { emissora, emissora_inicial: emissoraInicial, regra_aplicada: regra, motivo_subida: motivo };
+  }
+
+  // Senao, sobe ate encontrar pastor
+  const comPastor = findFirstAncestorWithPastor(emissora.totvs_id, churches);
+  if (comPastor) {
+    return {
+      emissora: comPastor,
+      emissora_inicial: emissoraInicial,
+      regra_aplicada: `${regra}_escalada_pastor`,
+      motivo_subida: `${motivo}. Emissora ${emissora.totvs_id} sem pastor, subiu para ${comPastor.totvs_id}`,
+    };
+  }
+
+  // Ultimo fallback: retorna a emissora mesmo sem pastor (erro sera tratado depois)
+  return { emissora, emissora_inicial: emissoraInicial, regra_aplicada: regra, motivo_subida: motivo };
+}
+
+// Comentario: mantida para compatibilidade com outros fluxos que nao usam destino.
+// Regras de assinatura legada (sem considerar destino):
 // estadual -> pastor estadual
 // setorial -> pastor setorial
 // central -> pastor central
@@ -263,7 +425,6 @@ function resolveSignerChurch(activeTotvsId: string, churches: ChurchNode[]): Chu
 
   if (String(active.pastor_user_id || "").trim()) return active;
 
-  // fallback: tentar encontrar acima da mesma classe (se existir no seu desenho)
   let cur = active.parent_totvs_id || null;
   const seen = new Set<string>();
   while (cur && !seen.has(cur)) {
@@ -423,12 +584,14 @@ Deno.serve(async (req) => {
       }, 403);
     }
 
-    // Resolve assinante pela regra fixa de classe
-    const signerChurch = resolveSignerChurch(church_totvs_id, churches);
-    if (!signerChurch) return json({ ok: false, error: "signer_not_found_for_class_rule" }, 409);
+    // Comentario: resolve a emissora pela regra de hierarquia (LCA entre origem e destino).
+    // Considera parentesco (irmas, tias, primas) e escala por falta de pastor.
+    const emissoraResult = resolveEmissora(church_totvs_id, destinationTotvs, churches);
+    if (!emissoraResult) return json({ ok: false, error: "emissora_not_found", detail: "Nao foi possivel determinar a igreja emissora pela hierarquia." }, 409);
 
+    const signerChurch = emissoraResult.emissora;
     const signerPastorId = String(signerChurch.pastor_user_id || "").trim();
-    if (!signerPastorId) return json({ ok: false, error: "signer_pastor_not_defined" }, 409);
+    if (!signerPastorId) return json({ ok: false, error: "signer_pastor_not_defined", detail: `Igreja ${signerChurch.totvs_id} (${signerChurch.church_name}) nao possui pastor cadastrado.` }, 409);
 
     const { data: pastorUser, error: pErr } = await sb
       .from("users")
@@ -590,6 +753,10 @@ Deno.serve(async (req) => {
         status,
         signer_user_id: signerPastorId,
         signer_totvs_id: signerChurch.totvs_id,
+        // Comentario: campos de auditoria da regra de hierarquia
+        emissora_inicial_totvs_id: emissoraResult.emissora_inicial.totvs_id,
+        regra_aplicada: emissoraResult.regra_aplicada,
+        motivo_subida_hierarquia: emissoraResult.motivo_subida,
       })
       .select("id, church_totvs_id, preacher_user_id, preacher_name, minister_role, preach_date, preach_period, church_origin, church_destination, status, created_at")
       .single();
