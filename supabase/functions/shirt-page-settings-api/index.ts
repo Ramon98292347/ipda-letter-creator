@@ -135,13 +135,24 @@ Deno.serve(async (req) => {
         .eq("page_totvs_id", churchTotvsId)
         .maybeSingle();
 
-      if (error) return json({ ok: false, error: "db_error_get_settings" }, 500);
+      if (error) {
+        // Se a migration ainda não foi aplicada no ambiente, evita quebrar o painel.
+        if (String((error as { code?: string }).code || "") === "42P01") {
+          return json({ ok: true, setting: null, warning: "missing_table_public_shirt_page_settings" }, 200);
+        }
+        return json({ ok: false, error: "db_error_get_settings", detail: String((error as { message?: string }).message || "erro interno") }, 500);
+      }
       return json({ ok: true, setting: data || null });
     }
 
     if (action === "clear-page-settings") {
       const { error } = await sb.from("public_shirt_page_settings").delete().eq("page_totvs_id", churchTotvsId);
-      if (error) return json({ ok: false, error: "db_error_clear_settings" }, 500);
+      if (error) {
+        if (String((error as { code?: string }).code || "") === "42P01") {
+          return json({ ok: false, error: "missing_table_public_shirt_page_settings", detail: "Aplique a migration 20260410_public_shirt_page_settings.sql" }, 500);
+        }
+        return json({ ok: false, error: "db_error_clear_settings", detail: String((error as { message?: string }).message || "erro interno") }, 500);
+      }
       return json({ ok: true });
     }
 
@@ -176,7 +187,12 @@ Deno.serve(async (req) => {
         .select("id,page_totvs_id,responsavel_user_id,responsavel_nome,responsavel_telefone,responsavel_email,is_active,updated_at")
         .single();
 
-      if (error) return json({ ok: false, error: "db_error_upsert_settings" }, 500);
+      if (error) {
+        if (String((error as { code?: string }).code || "") === "42P01") {
+          return json({ ok: false, error: "missing_table_public_shirt_page_settings", detail: "Aplique a migration 20260410_public_shirt_page_settings.sql" }, 500);
+        }
+        return json({ ok: false, error: "db_error_upsert_settings", detail: String((error as { message?: string }).message || "erro interno") }, 500);
+      }
       return json({ ok: true, setting: data });
     }
 
