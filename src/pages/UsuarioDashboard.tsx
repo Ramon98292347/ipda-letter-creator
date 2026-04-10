@@ -456,12 +456,19 @@ async function openPdf(letter: PastorLetter) {
   async function excluirCarta(letter: PastorLetter) {
     // Confirmação antes de excluir
     if (!window.confirm(`Excluir a carta para "${letter.church_destination || "destino"}"? Esta acao nao pode ser desfeita.`)) return;
+    // Remoção otimista: remove do cache local imediatamente para feedback instantâneo
+    queryClient.setQueryData(["worker-dashboard", userId], (old: Record<string, unknown> | undefined) => {
+      if (!old) return old;
+      return { ...old, letters: ((old.letters as PastorLetter[]) || []).filter((l) => l.id !== letter.id) };
+    });
     try {
       await softDeleteLetter(letter.id);
       toast.success("Carta excluida.");
       await queryClient.invalidateQueries({ queryKey: ["worker-dashboard"] });
     } catch {
       toast.error("Falha ao excluir carta.");
+      // Reverte: revalida para restaurar o estado real
+      await queryClient.invalidateQueries({ queryKey: ["worker-dashboard"] });
     }
   }
 

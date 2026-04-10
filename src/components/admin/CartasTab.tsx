@@ -279,12 +279,22 @@ export function CartasTab({
 
   async function remove(letter: PastorLetter) {
     if (!window.confirm("Marcar carta como EXCLUÍDA?")) return;
+    // Remoção otimista: remove do cache local para feedback instantâneo no PWA/app
+    const filterLetter = (old: unknown) => {
+      if (!old || !Array.isArray((old as { letters?: unknown }).letters)) return old;
+      const d = old as { letters: PastorLetter[] };
+      return { ...d, letters: d.letters.filter((l) => l.id !== letter.id) };
+    };
+    queryClient.setQueriesData({ queryKey: ["pastor-letters"] }, filterLetter);
+    queryClient.setQueriesData({ queryKey: ["cartas-dashboard-letters"] }, filterLetter);
+    queryClient.setQueriesData({ queryKey: ["worker-dashboard"] }, filterLetter);
     try {
       await softDeleteLetter(letter.id);
       addAuditLog("letter_status_changed", { letter_id: letter.id, status: "EXCLUIDA" });
       await refresh();
     } catch (err: unknown) {
       toast.error(getFriendlyError(err, "letters"));
+      await refresh();
     }
   }
 
