@@ -113,8 +113,9 @@ export default function CartasDashboardPage() {
   const { data: letters = [], isLoading: loadingLetters, isFetching: fetchingLetters } = useQuery({
     queryKey: ["cartas-dashboard-letters", selectedScopeForLetters.join("|"), roleMode, selectedChurchTotvs, lettersPageSize],
     queryFn: async () => {
-      // Comentario: para pastor, uma consulta unica ja traz escopo + cartas proprias (preacher_user_id).
-      if (roleMode === "pastor") {
+      // Comentario: uma unica consulta ja traz todo o escopo da igreja ativa da sessao.
+      // Evita N chamadas (uma por igreja) quando admin escolhe "todas as igrejas".
+      if (roleMode === "pastor" || (roleMode === "admin" && selectedChurchTotvs === "all")) {
         return listPastorLetters("", {
           period: "custom",
           pageSize: lettersPageSize,
@@ -122,18 +123,12 @@ export default function CartasDashboardPage() {
         });
       }
 
-      const data = await Promise.all(
-        selectedScopeForLetters.map((totvs) =>
-          listPastorLetters(totvs, {
-            period: "custom",
-            pageSize: lettersPageSize,
-            onlyNewSinceCache: true,
-          }),
-        ),
-      );
-      const map = new Map<string, (typeof data)[number][number]>();
-      data.flat().forEach((item) => map.set(item.id, item));
-      return Array.from(map.values());
+      // Comentario: quando admin filtra por uma igreja especifica, aplica filtro server-side por church_totvs_id.
+      return listPastorLetters(selectedChurchTotvs, {
+        period: "custom",
+        pageSize: lettersPageSize,
+        onlyNewSinceCache: true,
+      });
     },
     enabled: selectedScopeForLetters.length > 0,
   });
