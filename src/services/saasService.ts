@@ -4,7 +4,7 @@ import { supabase, supabaseAnon } from "@/lib/supabase";
 import { apiFetch } from "@/services/api";
 import type { AppSession, PendingChurch } from "@/context/UserContext";
 import { isValidCpf } from "@/lib/cpf";
-import { enqueueOfflineOperation, getChurchesCache, getLettersCache, getMembersCache, saveChurchesCache, saveLettersCache, saveMembersCache } from "@/lib/offline/repository";
+import { enqueueOfflineOperation, getChurchesCache, getLettersCache, getMembersCache, markLetterDeletedInCache, saveChurchesCache, saveLettersCache, saveMembersCache } from "@/lib/offline/repository";
 
 function isRetryableOfflineError(error: unknown) {
   return error instanceof ApiError && (error.code === "network_error" || error.code === "request_timeout" || error.status === 0 || error.status === 408);
@@ -2759,6 +2759,8 @@ export async function setLetterStatus(letterId: string, status: string, options?
 }
 
 export async function softDeleteLetter(letterId: string) {
+  // Marca como excluída no cache offline para não reaparecer ao recarregar
+  void markLetterDeletedInCache(letterId).catch(() => {});
   return setLetterStatus(letterId, "EXCLUIDA");
 }
 

@@ -280,14 +280,19 @@ export function CartasTab({
   async function remove(letter: PastorLetter) {
     if (!window.confirm("Marcar carta como EXCLUÍDA?")) return;
     // Remoção otimista: remove do cache local para feedback instantâneo no PWA/app
-    const filterLetter = (old: unknown) => {
-      if (!old || !Array.isArray((old as { letters?: unknown }).letters)) return old;
-      const d = old as { letters: PastorLetter[] };
-      return { ...d, letters: d.letters.filter((l) => l.id !== letter.id) };
+    const filterArr = (old: unknown) => {
+      if (Array.isArray(old)) return old.filter((l: PastorLetter) => l.id !== letter.id);
+      return old;
     };
-    queryClient.setQueriesData({ queryKey: ["pastor-letters"] }, filterLetter);
-    queryClient.setQueriesData({ queryKey: ["cartas-dashboard-letters"] }, filterLetter);
-    queryClient.setQueriesData({ queryKey: ["worker-dashboard"] }, filterLetter);
+    const filterObj = (old: unknown) => {
+      if (!old || typeof old !== "object") return old;
+      const d = old as Record<string, unknown>;
+      if (Array.isArray(d.letters)) return { ...d, letters: (d.letters as PastorLetter[]).filter((l) => l.id !== letter.id) };
+      return old;
+    };
+    queryClient.setQueriesData({ queryKey: ["pastor-letters"] }, filterArr);
+    queryClient.setQueriesData({ queryKey: ["cartas-dashboard-letters"] }, filterArr);
+    queryClient.setQueriesData({ queryKey: ["worker-dashboard"] }, filterObj);
     try {
       await softDeleteLetter(letter.id);
       addAuditLog("letter_status_changed", { letter_id: letter.id, status: "EXCLUIDA" });

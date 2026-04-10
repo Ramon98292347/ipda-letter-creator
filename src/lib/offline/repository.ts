@@ -55,10 +55,20 @@ export async function saveLettersCache(churchTotvsId: string, letters: Record<st
   await upsertMany("letters_cache", rows);
 }
 
+export async function markLetterDeletedInCache(letterId: string) {
+  const rows = await getAllFromStore<Record<string, unknown>>("letters_cache");
+  const target = rows.find((r) => String(r.id || "") === letterId);
+  if (target) {
+    target.status = "EXCLUIDA";
+    await upsertMany("letters_cache", [target]);
+  }
+}
+
 export async function getLettersCache(churchTotvsId?: string) {
   const rows = await getAllFromStore<Record<string, unknown>>("letters_cache");
-  if (!churchTotvsId) return rows;
-  return rows.filter((row) => String(row.church_totvs_id || "") === churchTotvsId);
+  const active = rows.filter((row) => String(row.status || "").toUpperCase() !== "EXCLUIDA");
+  if (!churchTotvsId) return active;
+  return active.filter((row) => String(row.church_totvs_id || "") === churchTotvsId);
 }
 
 export async function clearEntityCaches() {
