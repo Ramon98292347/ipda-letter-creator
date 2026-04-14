@@ -808,14 +808,14 @@ export function ObreirosTab({
           ) : null}
 
           {/* Comentario: overflow-x-auto no wrapper externo = scroll horizontal em mobile/tablet */}
-          <div className="hidden overflow-x-auto rounded-xl border border-slate-200 md:block">
+          <div className="hidden rounded-xl border border-slate-200 md:block">
             {/* Comentario: overflow-y-auto + max-h aqui = scroll vertical com header fixo */}
-            <div className="min-w-[1420px] overflow-y-auto" style={{ maxHeight: "70vh" }}>
+            <div className="overflow-y-auto" style={{ maxHeight: "70vh" }}>
               {/* Comentario: sticky top-0 mantém o cabeçalho visível ao rolar verticalmente */}
-              <div className="sticky top-0 z-10 grid grid-cols-[92px_200px_150px_140px_140px_120px_120px_140px_120px_140px_120px_140px] border-b bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700">
+              <div className="sticky top-0 z-10 grid grid-cols-12 gap-2 border-b bg-slate-50 px-3 py-3 text-xs font-semibold text-slate-700 lg:text-sm">
                 <span>Avatar</span>
                 <span>Nome</span>
-                <span>CPF</span>
+                <span>TOTVS</span>
                 <span>Telefone</span>
                 <span>Cargo</span>
                 <span>Tipo</span>
@@ -829,33 +829,33 @@ export function ObreirosTab({
               {isLoading ? <div className="px-4 py-4 text-sm text-slate-500">Carregando...</div> : null}
               {!isLoading && workers.length === 0 ? <div className="px-4 py-4 text-sm text-slate-500">Nenhum membro encontrado.</div> : null}
               {workers.map((w) => (
-                <div key={w.id} className="grid grid-cols-[92px_200px_150px_140px_140px_120px_120px_140px_120px_140px_120px_140px] items-center border-b px-4 py-3 text-sm">
-                  <span>
+                <div key={w.id} className="grid grid-cols-12 gap-2 items-center border-b px-3 py-3 text-xs lg:text-sm">
+                  <span className="min-w-0">
                     <AvatarWithFallback
                       src={w.avatar_url || null}
                       alt={`Avatar de ${w.full_name}`}
-                      className="h-10 w-10 rounded-full object-cover object-[center_top]"
+                      className="h-9 w-9 rounded-full object-cover object-[center_top] lg:h-10 lg:w-10"
                     />
                   </span>
-                  <span className="truncate">{w.full_name}</span>
-                  <span>{maskCpf(w.cpf || "")}</span>
-                  <span>{w.phone || "-"}</span>
-                  <span>{w.minister_role || "-"}</span>
-                  <span className="capitalize">{w.role || "-"}</span>
-                  <span className={`inline-flex w-fit rounded-full px-2 py-1 text-xs ${w.is_active === false ? "bg-rose-100 text-rose-700" : "bg-emerald-100 text-emerald-700"}`}>
+                  <span className="min-w-0 truncate" title={w.full_name || ""}>{w.full_name}</span>
+                  <span className="min-w-0 truncate" title={String(w.default_totvs_id || "-")}>{w.default_totvs_id || "-"}</span>
+                  <span className="min-w-0 truncate" title={w.phone || "-"}>{w.phone || "-"}</span>
+                  <span className="min-w-0 truncate" title={w.minister_role || "-"}>{w.minister_role || "-"}</span>
+                  <span className="min-w-0 truncate capitalize" title={w.role || "-"}>{w.role || "-"}</span>
+                  <span className={`inline-flex w-fit rounded-full px-2 py-1 text-[11px] lg:text-xs ${w.is_active === false ? "bg-rose-100 text-rose-700" : "bg-emerald-100 text-emerald-700"}`}>
                     {w.is_active === false ? "Inativo" : "Ativo"}
                   </span>
-                  <span className={`inline-flex w-fit rounded-full px-2 py-1 text-xs ${getAttendanceTone(w)}`} title={getAttendanceTitle(w)}>
+                  <span className={`inline-flex w-fit rounded-full px-2 py-1 text-[11px] lg:text-xs ${getAttendanceTone(w)}`} title={getAttendanceTitle(w)}>
                     {getAttendanceLabel(w)}
                   </span>
-                  <span className={`inline-flex w-fit rounded-full px-2 py-1 text-xs ${w.can_create_released_letter ? "bg-blue-100 text-blue-700" : "bg-rose-100 text-rose-700"}`}>
+                  <span className={`inline-flex w-fit rounded-full px-2 py-1 text-[11px] lg:text-xs ${w.can_create_released_letter ? "bg-blue-100 text-blue-700" : "bg-rose-100 text-rose-700"}`}>
                     {w.can_create_released_letter ? "Liberado" : "Bloqueado"}
                   </span>
-                  <span className={`inline-flex w-fit rounded-full px-2 py-1 text-xs ${String(w.payment_status || "ATIVO").toUpperCase() === "BLOQUEADO_PAGAMENTO" ? "bg-rose-100 text-rose-700" : "bg-emerald-100 text-emerald-700"}`}>
+                  <span className={`inline-flex w-fit rounded-full px-2 py-1 text-[11px] lg:text-xs ${String(w.payment_status || "ATIVO").toUpperCase() === "BLOQUEADO_PAGAMENTO" ? "bg-rose-100 text-rose-700" : "bg-emerald-100 text-emerald-700"}`}>
                     {String(w.payment_status || "ATIVO").toUpperCase() === "BLOQUEADO_PAGAMENTO" ? "Bloqueado" : "Ativo"}
                   </span>
-                  <div><Button size="sm" variant="outline" onClick={() => openView(w)}>Visualizar</Button></div>
-                  <div>{renderWorkerActions(w)}</div>
+                  <div className="min-w-0"><Button size="sm" variant="outline" className="h-8 px-2 text-xs lg:text-sm" onClick={() => openView(w)}>Visualizar</Button></div>
+                  <div className="min-w-0">{renderWorkerActions(w)}</div>
                 </div>
               ))}
             </div>
@@ -875,7 +875,7 @@ export function ObreirosTab({
                     />
                     <div className="min-w-0 space-y-1 text-sm">
                       <p className="truncate font-semibold text-slate-900">{w.full_name}</p>
-                      <p className="text-slate-600">CPF: {maskCpf(w.cpf || "")}</p>
+                      <p className="text-slate-600">TOTVS: {w.default_totvs_id || "-"}</p>
                       <p className="text-slate-600">Telefone: {w.phone || "-"}</p>
                       <p className="text-slate-600">Cargo: {w.minister_role || "-"}</p>
                       <p className="text-slate-600" title={getAttendanceTitle(w)}>Presença: {getAttendanceLabel(w)}</p>
