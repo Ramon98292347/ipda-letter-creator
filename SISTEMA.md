@@ -711,3 +711,31 @@ Decisao registrada para evitar atualizacao repetitiva no app:
 
 Arquivo de referencia:
 - `src/components/shared/PwaUpdater.tsx`
+
+---
+
+## 24. Escopo por Role + Cards Igrejas (2026-04-14)
+
+Atualizacoes aplicadas nesta rodada:
+- Escopo de `pastor` reforcado no backend: cada pastor enxerga somente sua arvore (igreja com `pastor_user_id = session.user_id` e descendentes).
+- Escopo de `membros`, `igrejas` e `cartas` alinhado para nao subir para niveis acima e nao cruzar escopo de outro pastor.
+- Compatibilidade adicionada no `list-churches-in-scope`: quando `root_totvs_id` vier fora do escopo permitido, a API ignora o root invalido e retorna apenas o escopo permitido (sem abrir permissao).
+- `churches-api` 403 em telas de pastor mitigado com fallback seguro para `root_totvs_id` invalido.
+- Cards de `Dashboard` e `Igrejas` ajustados para refletir o mesmo escopo da tabela:
+  - query keys incluem identificador do usuario logado;
+  - versao de chave incrementada para evitar cache antigo;
+  - `staleTime: 0` e `refetchOnMount: "always"` para refletir escopo atual.
+- Hotfix aplicado para nao travar carregamento quando `session.user_id` nao existir no contexto:
+  - usa `usuario.id` como chave de cache por usuario;
+  - `enabled` das queries depende apenas de `activeTotvsId`.
+
+Arquivos impactados:
+- `supabase/functions/members-api/index.ts`
+- `supabase/functions/letters-api/index.ts`
+- `supabase/functions/list-churches-in-scope/index.ts`
+- `src/pages/PastorDashboardPage.tsx`
+- `src/pages/PastorIgrejasPage.tsx`
+
+Deploy realizado nesta rodada:
+- `npx supabase functions deploy members-api letters-api list-churches-in-scope --project-ref idipilrcaqittmnapmbq`
+- `npx supabase functions deploy list-churches-in-scope --project-ref idipilrcaqittmnapmbq`
