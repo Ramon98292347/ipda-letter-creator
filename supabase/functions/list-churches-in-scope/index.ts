@@ -297,10 +297,13 @@ Deno.serve(async (req) => {
       }
 
       if (requestedRoot) {
-        if (!allowed.has(requestedRoot)) {
-          return json({ ok: false, error: "forbidden_church_out_of_scope" }, 403);
+        if (allowed.has(requestedRoot)) {
+          scopeList = [...computeScope(requestedRoot, allRows)];
+        } else {
+          // Comentario: compatibilidade com front antigo que envia root fora do escopo.
+          // Mantemos seguranca: ignora root invalido e retorna apenas escopo permitido.
+          scopeList = [...allowed];
         }
-        scopeList = [...computeScope(requestedRoot, allRows)];
       } else {
         scopeList = [...allowed];
       }
@@ -309,10 +312,9 @@ Deno.serve(async (req) => {
       // usando findObreiroScopeRoot, igual ao telas-cartas.
       const obreiroScopeRoot = findObreiroScopeRoot(session.active_totvs_id, allRows);
       const baseScope = computeScope(obreiroScopeRoot, allRows);
-      if (requestedRoot && !baseScope.has(requestedRoot)) {
-        return json({ ok: false, error: "forbidden_church_out_of_scope" }, 403);
-      }
-      const effectiveRoot = requestedRoot || obreiroScopeRoot;
+      const effectiveRoot = requestedRoot && baseScope.has(requestedRoot)
+        ? requestedRoot
+        : obreiroScopeRoot;
       scopeList = [...computeScope(effectiveRoot, allRows)];
     } else {
       // Comentario: secretario/financeiro usam escopo real (totvs_access/default_totvs_id)
@@ -336,10 +338,12 @@ Deno.serve(async (req) => {
       }
 
       if (requestedRoot) {
-        if (!allowed.has(requestedRoot)) {
-          return json({ ok: false, error: "forbidden_church_out_of_scope" }, 403);
+        if (allowed.has(requestedRoot)) {
+          scopeList = [...computeScope(requestedRoot, allRows)];
+        } else {
+          // Comentario: root invalido para o role atual — cai para escopo permitido.
+          scopeList = [...allowed];
         }
-        scopeList = [...computeScope(requestedRoot, allRows)];
       } else {
         scopeList = [...allowed];
       }
