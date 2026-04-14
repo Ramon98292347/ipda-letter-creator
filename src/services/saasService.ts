@@ -183,6 +183,7 @@ export type MemberListParams = {
   roles?: Array<"pastor" | "obreiro" | "secretario" | "financeiro">;
   church_totvs_id?: string;
   exact_church?: boolean;
+  updated_after?: string;
   page?: number;
   page_size?: number;
 };
@@ -717,13 +718,13 @@ export async function loginWithCpfPassword(cpfInput: string, password: string): 
   const directUser = data?.user || data?.usuario;
   const directSession = data?.session;
   if (directToken && directUser && directSession) {
-    return {
+      return {
       mode: "authenticated",
       token: String(directToken),
       rls_token: data?.rls_token ? String(data.rls_token) : undefined,
       user: mapUserLike(directUser),
       session: mapSessionLike(directSession),
-    };
+      };
   }
 
   const churchesRaw = data?.churches || data?.available_churches || data?.totvs_options || [];
@@ -754,38 +755,53 @@ export async function selectChurchSession(cpfInput: string, totvsId: string): Pr
 }
 
 export async function getPastorMetrics(): Promise<PastorMetrics> {
-  if (!isMockMode() && false && supabase && getRlsToken()) {
-    const session = getSession();
-    const scope = Array.isArray(session?.scope_totvs_ids) ? session?.scope_totvs_ids.filter(Boolean) : [];
-    const today = new Date();
-    const startToday = new Date(today.getFullYear(), today.getMonth(), today.getDate()).toISOString();
-    const start7 = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  if (!isMockMode() && supabase && getRlsToken()) {
+    try {
+      const session = getSession();
+      const scope = Array.isArray(session?.scope_totvs_ids) ? session?.scope_totvs_ids.filter(Boolean) : [];
+      const today = new Date();
+      const startToday = new Date(today.getFullYear(), today.getMonth(), today.getDate()).toISOString();
+      const start7 = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
-    const buildLettersQuery = () => {
-      let q = supabase.from("letters").select("id", { count: "exact", head: true }).neq("status", "EXCLUIDA");
-      if (scope.length > 0) q = q.in("church_totvs_id", scope);
-      return q;
-    };
+      const buildLettersQuery = () => {
+        let q = supabase.from("letters").select("id", { count: "exact", head: true }).neq("status", "EXCLUIDA");
+        if (scope.length > 0) q = q.in("church_totvs_id", scope);
+        return q;
+      };
 
-    const [{ count: totalLetters }, { count: todayLetters }, { count: last7Letters }, { count: pendingRelease }] =
-      await Promise.all([
+      const results = await Promise.all([
         buildLettersQuery(),
         buildLettersQuery().gte("created_at", startToday),
         buildLettersQuery().gte("created_at", start7),
         buildLettersQuery().eq("status", "AGUARDANDO_LIBERACAO"),
       ]);
 
-    let usersQuery = supabase.from("users").select("id", { count: "exact", head: true }).eq("is_active", true);
-    if (scope.length > 0) usersQuery = usersQuery.in("default_totvs_id", scope);
-    const { count: totalWorkers } = await usersQuery;
+      // Verifica se alguma query RLS retornou erro
+      const firstError = results.find((r) => r.error);
+      if (firstError?.error) {
+        console.warn("[getPastorMetrics] RLS direto falhou, seguindo com fallback por function:", firstError.error.message || firstError.error);
+      } else {
+        const [{ count: totalLetters }, { count: todayLetters }, { count: last7Letters }, { count: pendingRelease }] = results;
 
-    return {
-      totalCartas: Number(totalLetters || 0),
-      cartasHoje: Number(todayLetters || 0),
-      ultimos7Dias: Number(last7Letters || 0),
-      totalObreiros: Number(totalWorkers || 0),
-      pendentesLiberacao: Number(pendingRelease || 0),
-    };
+        let usersQuery = supabase.from("users").select("id", { count: "exact", head: true }).eq("is_active", true);
+        if (scope.length > 0) usersQuery = usersQuery.in("default_totvs_id", scope);
+        const { count: totalWorkers, error: usersErr } = await usersQuery;
+
+        if (usersErr) {
+          console.warn("[getPastorMetrics] RLS users falhou, seguindo com fallback:", usersErr.message || usersErr);
+        } else {
+          return {
+            totalCartas: Number(totalLetters || 0),
+            cartasHoje: Number(todayLetters || 0),
+            ultimos7Dias: Number(last7Letters || 0),
+            totalObreiros: Number(totalWorkers || 0),
+            pendentesLiberacao: Number(pendingRelease || 0),
+          };
+        }
+      }
+    } catch (err) {
+      console.warn("[getPastorMetrics] RLS exception, seguindo com fallback:", err);
+    }
   }
 
   if (!isMockMode()) {
@@ -818,7 +834,9 @@ export async function getPastorMetrics(): Promise<PastorMetrics> {
 }
 
 export async function listPastorLetters(_activeTotvsId: string, filters: PastorFilters): Promise<PastorLetter[]> {
-  if (!isMockMode() && false && supabase && getRlsToken()) {
+  // Comentario: RLS direto desativado — sempre via Edge Function listLetters
+  // para manter fonte unica da verdade (igual a pagina Membros).
+  if (false && !isMockMode() && supabase && getRlsToken()) {
     const page = filters.page || 1;
     const pageSize = filters.pageSize || 500;
     const from = (page - 1) * pageSize;
@@ -827,7 +845,7 @@ export async function listPastorLetters(_activeTotvsId: string, filters: PastorF
     let query = supabase
       .from("letters")
       .select(
-        "id, church_totvs_id, preacher_user_id, preacher_name, minister_role, preach_date, church_origin, church_destination, status, storage_path, url_carta, url_pronta, phone, block_reason, created_at",
+        "id, church_totvs_id, preacher_user_id, preacher_name, minister_role, preach_date, church_origin, church_destination, status, storage_path, url_carta, url_pronta, phone, created_at",
       )
       .neq("status", "EXCLUIDA")
       .order("created_at", { ascending: false });
@@ -879,21 +897,15 @@ export async function listPastorLetters(_activeTotvsId: string, filters: PastorF
     }
 
     const { data: rowsRaw, error } = await query.range(from, to);
-    if (error) throw new Error(error.message || "Erro ao listar cartas.");
-    const rows = Array.isArray(rowsRaw) ? rowsRaw : [];
-    return rows.map((row) => mapLetterLike(row as Record<string, unknown>));
+    if (error) {
+      console.warn("[listPastorLetters] RLS direto falhou, seguindo com fallback por function:", error.message || error);
+    } else {
+      const rows = Array.isArray(rowsRaw) ? rowsRaw : [];
+      return rows.map((row) => mapLetterLike(row as Record<string, unknown>));
+    }
   }
 
   if (!isMockMode()) {
-    const isDefaultListing =
-      filters.period === "custom" &&
-      !filters.dateStart &&
-      !filters.dateEnd &&
-      (!filters.status || filters.status === "all") &&
-      (!filters.role || filters.role === "all") &&
-      !String(filters.q || "").trim();
-
-    const shouldUseDelta = Boolean(filters.onlyNewSinceCache) && isDefaultListing;
     const cacheScopeTotvs = String(_activeTotvsId || "").trim();
     const cachedRowsRaw = await getLettersCache(cacheScopeTotvs || undefined);
     const cachedRows = (cachedRowsRaw || []) as Record<string, unknown>[];
@@ -926,21 +938,6 @@ export async function listPastorLetters(_activeTotvsId: string, filters: PastorF
         .sort((a, b) => String(b.created_at || "").localeCompare(String(a.created_at || "")));
     };
 
-    const mergeRowsById = (baseRows: Record<string, unknown>[], deltaRows: Record<string, unknown>[]) => {
-      const byId = new Map<string, Record<string, unknown>>();
-      for (const row of baseRows) {
-        const id = String(row.id || "");
-        if (!id) continue;
-        byId.set(id, row);
-      }
-      for (const row of deltaRows) {
-        const id = String(row.id || "");
-        if (!id) continue;
-        byId.set(id, { ...(byId.get(id) || {}), ...row });
-      }
-      return Array.from(byId.values()).sort((a, b) => String(b.created_at || "").localeCompare(String(a.created_at || "")));
-    };
-
     const persistRowsByChurch = async (rows: Record<string, unknown>[]) => {
       const byChurch = new Map<string, Record<string, unknown>[]>();
       for (const row of rows) {
@@ -968,25 +965,11 @@ export async function listPastorLetters(_activeTotvsId: string, filters: PastorF
     if (filters.role && filters.role !== "all") payload.minister_role = filters.role;
     if (filters.q) payload.search = filters.q;
 
-    if (shouldUseDelta && cachedRows.length > 0) {
-      const latestCreatedAt = cachedRows
-        .map((row) => String(row.created_at || "").trim())
-        .filter(Boolean)
-        .sort((a, b) => b.localeCompare(a))[0];
-      if (latestCreatedAt) {
-        payload.date_start = latestCreatedAt.slice(0, 10);
-      }
-    }
-
+    // Comentario: sem merge delta — Edge Function e fonte unica. O merge
+    // podia somar registros antigos do cache com novos e inflar totais.
     try {
       const data = await api.listLetters(payload);
       const rows = (Array.isArray(data?.letters) ? data.letters : Array.isArray(data?.items) ? data.items : Array.isArray(data) ? data : []) as Record<string, unknown>[];
-
-      if (shouldUseDelta && cachedRows.length > 0) {
-        const merged = mergeRowsById(cachedRows, rows);
-        await persistRowsByChurch(merged);
-        return applyLocalFilters(merged).map(mapLetterLike);
-      }
 
       await persistRowsByChurch(rows);
       return rows.map(mapLetterLike);
@@ -1011,11 +994,60 @@ export async function listObreiros(_scopeTotvsIds: string[]): Promise<UserListIt
   return res.workers;
 }
 
+function normalizeMinisterRoleFilter(value: string | null | undefined): string {
+  return String(value || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^\w]+/g, " ")
+    .trim();
+}
+
+function mapMinisterRoleVariants(value: string | null | undefined): string[] {
+  const normalized = normalizeMinisterRoleFilter(value);
+  if (!normalized) return [];
+
+  const variantsByRole: Record<string, string[]> = {
+    pastor: ["Pastor", "pastor"],
+    presbitero: ["Presbítero", "Presbitero", "presbítero", "presbitero"],
+    diacono: ["Diácono", "Diacono", "diácono", "diacono"],
+    cooperador: ["Cooperador", "cooperador", "Obreiro", "obreiro", "Obreiro cooperador", "obreiro cooperador"],
+    obreiro: ["Cooperador", "cooperador", "Obreiro", "obreiro", "Obreiro cooperador", "obreiro cooperador"],
+    membro: ["Membro", "membro"],
+  };
+
+  const direct = variantsByRole[normalized];
+  if (direct?.length) return direct;
+  return [String(value || "").trim()];
+}
+
+const CHURCHES_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+
+function parseIsoMillis(value: unknown): number | null {
+  const raw = String(value || "").trim();
+  if (!raw) return null;
+  const ms = Date.parse(raw);
+  return Number.isFinite(ms) ? ms : null;
+}
+
+function isCacheFreshByRows(rows: Array<Record<string, unknown>>, ttlMs: number): boolean {
+  if (!rows.length) return false;
+  let newest = 0;
+  for (const row of rows) {
+    const ms = parseIsoMillis((row as Record<string, unknown>).cached_at);
+    if (ms && ms > newest) newest = ms;
+  }
+  if (!newest) return false;
+  return Date.now() - newest <= ttlMs;
+}
+
 export async function listMembers(params: MemberListParams): Promise<WorkerListResponse> {
-  // Comentario: caminho direto via Supabase desativado — o rls_token causa 401.
-  // Usa sempre a edge function via API para evitar erros no console.
-  if (!isMockMode() && false && supabase && getRlsToken()) {
-    const session = getSession();
+  // Comentario: caminho unico via Edge Function (members-api). RLS direto foi
+  // desativado porque inflava o total quando o JWT nao mapeava 1:1 com o
+  // escopo da igreja ativa (ex.: retornava 998 no lugar de 732).
+  const shouldUseRlsDirectRead = false;
+
+  if (shouldUseRlsDirectRead) {
     const page = params.page || 1;
     const pageSize = params.page_size || 20;
     const from = (page - 1) * pageSize;
@@ -1025,7 +1057,7 @@ export async function listMembers(params: MemberListParams): Promise<WorkerListR
       .from("users")
       .select(
         "id, full_name, role, cpf, rg, phone, email, profession, minister_role, birth_date, baptism_date, marital_status, matricula, ordination_date, avatar_url, signature_url, cep, address_street, address_number, address_complement, address_neighborhood, address_city, address_state, default_totvs_id, totvs_access, is_active, can_create_released_letter, payment_status, payment_block_reason",
-        { count: "exact" },
+        { count: "planned" },
       )
       .order("full_name", { ascending: true });
 
@@ -1037,7 +1069,10 @@ export async function listMembers(params: MemberListParams): Promise<WorkerListR
     }
 
     if (params.minister_role?.trim()) {
-      query = query.eq("minister_role", params.minister_role.trim());
+      const roleVariants = mapMinisterRoleVariants(params.minister_role);
+      if (roleVariants.length > 0) {
+        query = query.in("minister_role", roleVariants);
+      }
     }
 
     if (typeof params.is_active === "boolean") {
@@ -1048,7 +1083,6 @@ export async function listMembers(params: MemberListParams): Promise<WorkerListR
       query = query.in("role", params.roles);
     }
 
-    const role = String(session?.role || "").toLowerCase();
     if (role === "admin" && params.church_totvs_id?.trim()) {
       query = query.eq("default_totvs_id", params.church_totvs_id.trim());
     } else if (params.church_totvs_id?.trim()) {
@@ -1057,60 +1091,60 @@ export async function listMembers(params: MemberListParams): Promise<WorkerListR
 
     const { data: rowsRaw, error, count } = await query.range(from, to);
     if (error) {
-      throw new Error(error.message || "Erro ao listar membros.");
+      console.warn("[listMembers] RLS direto falhou, seguindo com fallback por function:", error.message || error);
+    } else {
+      const rows = Array.isArray(rowsRaw) ? rowsRaw : [];
+      return {
+        workers: rows.map((w: Record<string, unknown>) => ({
+          id: String(w?.id || ""),
+          full_name: String(w?.full_name || ""),
+          role: (w?.role || null) as AppRole | null,
+          church_name: w?.church_name || null,
+          cpf: w?.cpf || null,
+          rg: w?.rg || null,
+          phone: w?.phone || null,
+          email: w?.email || null,
+          profession: w?.profession || null,
+          minister_role: w?.minister_role || null,
+          birth_date: w?.birth_date || null,
+          baptism_date: w?.baptism_date || null,
+          marital_status: w?.marital_status || null,
+          matricula: w?.matricula || null,
+          ordination_date: w?.ordination_date || null,
+          avatar_url: w?.avatar_url || null,
+          signature_url: w?.signature_url || null,
+          cep: w?.cep || null,
+          address_street: w?.address_street || null,
+          address_number: w?.address_number || null,
+          address_complement: w?.address_complement || null,
+          address_neighborhood: w?.address_neighborhood || null,
+          address_city: w?.address_city || null,
+          address_state: w?.address_state || null,
+          default_totvs_id: w?.default_totvs_id || null,
+          totvs_access: w?.totvs_access || null,
+          is_active: typeof w?.is_active === "boolean" ? w.is_active : true,
+          can_create_released_letter:
+            typeof w?.can_create_released_letter === "boolean" ? w.can_create_released_letter : false,
+          can_manage: true,
+          registration_status:
+            String(w?.registration_status || "").toUpperCase() === "PENDENTE"
+              ? "PENDENTE"
+              : String(w?.registration_status || "").toUpperCase() === "APROVADO"
+                ? "APROVADO"
+                : resolveRegistrationStatusFromTotvsAccess(w?.totvs_access || null),
+          payment_status:
+            String(w?.payment_status || "").toUpperCase() === "BLOQUEADO_PAGAMENTO" ? "BLOQUEADO_PAGAMENTO" : "ATIVO",
+          payment_block_reason: typeof w?.payment_block_reason === "string" ? w.payment_block_reason : null,
+          attendance_status: typeof w?.attendance_status === "string" ? w.attendance_status : null,
+          attendance_meeting_date: typeof w?.attendance_meeting_date === "string" ? w.attendance_meeting_date : null,
+          attendance_absences_180_days:
+            typeof w?.attendance_absences_180_days === "number" ? w.attendance_absences_180_days : 0,
+        })),
+        total: Number(count || rows.length),
+        page,
+        page_size: pageSize,
+      };
     }
-
-    const rows = Array.isArray(rowsRaw) ? rowsRaw : [];
-    return {
-      workers: rows.map((w: Record<string, unknown>) => ({
-        id: String(w?.id || ""),
-        full_name: String(w?.full_name || ""),
-        role: (w?.role || null) as AppRole | null,
-        church_name: w?.church_name || null,
-        cpf: w?.cpf || null,
-        rg: w?.rg || null,
-        phone: w?.phone || null,
-        email: w?.email || null,
-        profession: w?.profession || null,
-        minister_role: w?.minister_role || null,
-        birth_date: w?.birth_date || null,
-        baptism_date: w?.baptism_date || null,
-        marital_status: w?.marital_status || null,
-        matricula: w?.matricula || null,
-        ordination_date: w?.ordination_date || null,
-        avatar_url: w?.avatar_url || null,
-        signature_url: w?.signature_url || null,
-        cep: w?.cep || null,
-        address_street: w?.address_street || null,
-        address_number: w?.address_number || null,
-        address_complement: w?.address_complement || null,
-        address_neighborhood: w?.address_neighborhood || null,
-        address_city: w?.address_city || null,
-        address_state: w?.address_state || null,
-        default_totvs_id: w?.default_totvs_id || null,
-        totvs_access: w?.totvs_access || null,
-        is_active: typeof w?.is_active === "boolean" ? w.is_active : true,
-        can_create_released_letter:
-          typeof w?.can_create_released_letter === "boolean" ? w.can_create_released_letter : false,
-        can_manage: true,
-        registration_status:
-          String(w?.registration_status || "").toUpperCase() === "PENDENTE"
-            ? "PENDENTE"
-            : String(w?.registration_status || "").toUpperCase() === "APROVADO"
-              ? "APROVADO"
-              : resolveRegistrationStatusFromTotvsAccess(w?.totvs_access || null),
-        payment_status:
-          String(w?.payment_status || "").toUpperCase() === "BLOQUEADO_PAGAMENTO" ? "BLOQUEADO_PAGAMENTO" : "ATIVO",
-        payment_block_reason: typeof w?.payment_block_reason === "string" ? w.payment_block_reason : null,
-        attendance_status: typeof w?.attendance_status === "string" ? w.attendance_status : null,
-        attendance_meeting_date: typeof w?.attendance_meeting_date === "string" ? w.attendance_meeting_date : null,
-        attendance_absences_180_days:
-          typeof w?.attendance_absences_180_days === "number" ? w.attendance_absences_180_days : 0,
-      })),
-      total: Number(count || rows.length),
-      page,
-      page_size: pageSize,
-    };
   }
 
   if (!isMockMode()) {
@@ -1158,24 +1192,28 @@ export async function listMembers(params: MemberListParams): Promise<WorkerListR
         typeof w?.attendance_absences_180_days === "number" ? w.attendance_absences_180_days : 0,
     });
 
-    try {
-      const data = await api.listMembers({
-        search: params.search || undefined,
-        minister_role: params.minister_role || undefined,
-        is_active: typeof params.is_active === "boolean" ? params.is_active : undefined,
-        roles: params.roles?.length ? params.roles : undefined,
-        church_totvs_id: params.church_totvs_id || undefined,
-        exact_church: params.exact_church || undefined,
-        page: params.page || 1,
-        page_size: params.page_size || 20,
-      });
+    // Comentario: cache IndexedDB por igreja ativa — grava apos resposta OK da
+    // Edge Function e usa como fallback offline. SEM merge delta (cada resposta
+    // sobrescreve o cache daquela igreja), evitando inflar totais.
+    const cacheChurchTotvs = String(params.church_totvs_id || getSession()?.totvs_id || "").trim();
+    const cacheOwnerUserId = String(getSession()?.user_id || "").trim();
+    const payload: Record<string, unknown> = {
+      search: params.search || undefined,
+      minister_role: params.minister_role || undefined,
+      is_active: typeof params.is_active === "boolean" ? params.is_active : undefined,
+      roles: params.roles?.length ? params.roles : undefined,
+      church_totvs_id: params.church_totvs_id || undefined,
+      exact_church: typeof params.exact_church === "boolean" ? params.exact_church : undefined,
+      page: params.page || 1,
+      page_size: params.page_size || 20,
+    };
 
-      const rows = Array.isArray(data?.members) ? data.members : [];
-      if (rows.length > 0) {
-        const cacheChurchTotvs = String(params.church_totvs_id || getSession()?.totvs_id || "");
-        if (cacheChurchTotvs) {
-          await saveMembersCache(cacheChurchTotvs, rows as Record<string, unknown>[]);
-        }
+    try {
+      const data = await api.listMembers({ ...(payload as Record<string, unknown>) });
+      const rows = (Array.isArray(data?.members) ? data.members : []) as Record<string, unknown>[];
+
+      if (rows.length > 0 && cacheChurchTotvs) {
+        void saveMembersCache(cacheChurchTotvs, rows, cacheOwnerUserId || undefined);
       }
 
       return {
@@ -1194,10 +1232,12 @@ export async function listMembers(params: MemberListParams): Promise<WorkerListR
             }
           : undefined,
       };
-    } catch {
-      const cacheChurchTotvs = String(params.church_totvs_id || getSession()?.totvs_id || "");
-      const cachedRows = await getMembersCache(cacheChurchTotvs || undefined);
-      let filtered = cachedRows as Record<string, unknown>[];
+    } catch (err) {
+      // Comentario: offline / falha de rede — serve do cache local como fallback,
+      // aplicando filtros e paginacao em memoria. Metrics fica indefinido para
+      // nao exibir total fake.
+      const cached = cacheChurchTotvs ? await getMembersCache(cacheChurchTotvs, cacheOwnerUserId || undefined) : [];
+      let filtered = (cached || []) as Record<string, unknown>[];
 
       if (params.roles?.length) {
         filtered = filtered.filter((w) => params.roles?.includes(String(w.role || "") as AppRole));
@@ -1206,7 +1246,8 @@ export async function listMembers(params: MemberListParams): Promise<WorkerListR
         filtered = filtered.filter((w) => Boolean(w.is_active) === params.is_active);
       }
       if (params.minister_role?.trim()) {
-        filtered = filtered.filter((w) => String(w.minister_role || "") === params.minister_role);
+        const wanted = normalizeMinisterRoleFilter(params.minister_role);
+        filtered = filtered.filter((w) => normalizeMinisterRoleFilter(String(w.minister_role || "")) === wanted);
       }
       if (params.search?.trim()) {
         const q = params.search.trim().toLowerCase();
@@ -1217,12 +1258,14 @@ export async function listMembers(params: MemberListParams): Promise<WorkerListR
           String(w.email || "").toLowerCase().includes(q),
         );
       }
-      filtered = filtered.sort((a, b) => String(a.full_name || "").localeCompare(String(b.full_name || "")));
+      filtered.sort((a, b) => String(a.full_name || "").localeCompare(String(b.full_name || "")));
 
       const page = Number(params.page || 1);
       const pageSize = Number(params.page_size || 20);
       const start = (page - 1) * pageSize;
       const end = start + pageSize;
+
+      if (filtered.length === 0) throw err;
 
       return {
         workers: filtered.slice(start, end).map((w) => mapMemberRow(w)),
@@ -1245,8 +1288,8 @@ export async function listMembers(params: MemberListParams): Promise<WorkerListR
 
 export async function listWorkers(params: WorkerListParams): Promise<WorkerListResponse> {
   // Comentario: caminho direto via Supabase desativado — o rls_token causa 401.
-  // Usa sempre a edge function via API para evitar erros no console.
-  if (!isMockMode() && false && supabase && getRlsToken()) {
+  // Leitura direta via RLS
+  if (!isMockMode() && supabase && getRlsToken()) {
     return listMembers({
       search: params.search,
       minister_role: params.minister_role,
@@ -1446,96 +1489,114 @@ export async function getChurchDetails(totvsId: string): Promise<ChurchDetails |
 }
 
 export async function listChurchesInScope(page = 1, pageSize = 5000, rootTotvsId?: string): Promise<ChurchInScopeItem[]> {
-  // Comentario: caminho direto via Supabase desativado — o rls_token causa 401.
-  // Usa sempre a edge function via API para evitar erros no console.
-  if (false && supabase && getRlsToken()) {
-    const session = getSession();
-    const role = String(session?.role || "").toLowerCase();
+  const session = getSession();
+  const role = String(session?.role || "").toLowerCase();
+  const hasRequestedRoot = Boolean(rootTotvsId?.trim());
+  // Comentario: leitura hierarquica de igrejas via RLS estava gerando timeout (57014) em producao.
+  // Mantemos a function como caminho principal para consultas de escopo.
+  const canUseDirectRlsRead = false;
 
-    const { data: churchesRaw, error: cErr } = await supabase
-      .from("churches")
-      .select(
-        "totvs_id, parent_totvs_id, church_name, class, image_url, stamp_church_url, contact_email, contact_phone, cep, address_street, address_number, address_complement, address_neighborhood, address_city, address_state, address_country, is_active, pastor_user_id",
-      )
-      .order("church_name", { ascending: true });
-
-    if (cErr) throw new Error(cErr.message || "Erro ao listar igrejas.");
-    let churchesAll = (Array.isArray(churchesRaw) ? churchesRaw : []) as Array<Record<string, unknown>>;
-
-    if (rootTotvsId?.trim() && role === "admin") {
-      const root = rootTotvsId.trim();
-      const children = new Map<string, string[]>();
-      for (const item of churchesAll) {
-        const parent = String(item.parent_totvs_id || "");
-        const id = String(item.totvs_id || "");
-        if (!children.has(parent)) children.set(parent, []);
-        children.get(parent)!.push(id);
+  // Leitura direta via RLS — policies filtram pelo escopo do JWT automaticamente
+  if (canUseDirectRlsRead) {
+    try {
+      const selectCols =
+        "totvs_id, parent_totvs_id, church_name, class, image_url, stamp_church_url, contact_email, contact_phone, cep, address_street, address_number, address_complement, address_neighborhood, address_city, address_state, address_country, is_active, pastor_user_id";
+      const chunkSize = 1000;
+      let churchesAll: Array<Record<string, unknown>> = [];
+      let from = 0;
+      while (true) {
+        const to = from + chunkSize - 1;
+        const { data: churchesRaw, error: cErr } = await supabase
+          .from("churches")
+          .select(selectCols)
+          .order("church_name", { ascending: true })
+          .range(from, to);
+        if (cErr) throw new Error(cErr.message || "Erro ao listar igrejas.");
+        const rows = (Array.isArray(churchesRaw) ? churchesRaw : []) as Array<Record<string, unknown>>;
+        if (!rows.length) break;
+        churchesAll.push(...rows);
+        if (rows.length < chunkSize) break;
+        from += chunkSize;
       }
-      const scope = new Set<string>();
-      const queue = [root];
-      while (queue.length) {
-        const cur = queue.shift()!;
-        if (scope.has(cur)) continue;
-        scope.add(cur);
-        for (const k of children.get(cur) || []) queue.push(k);
+
+      if (hasRequestedRoot && role === "admin") {
+        const root = rootTotvsId.trim();
+        const children = new Map<string, string[]>();
+        for (const item of churchesAll) {
+          const parent = String(item.parent_totvs_id || "");
+          const id = String(item.totvs_id || "");
+          if (!children.has(parent)) children.set(parent, []);
+          children.get(parent)!.push(id);
+        }
+        const scope = new Set<string>();
+        const queue = [root];
+        while (queue.length) {
+          const cur = queue.shift()!;
+          if (scope.has(cur)) continue;
+          scope.add(cur);
+          for (const k of children.get(cur) || []) queue.push(k);
+        }
+        churchesAll = churchesAll.filter((c) => scope.has(String(c.totvs_id || "")));
       }
-      churchesAll = churchesAll.filter((c) => scope.has(String(c.totvs_id || "")));
+
+      const totvsIds = churchesAll.map((c) => String(c.totvs_id || "")).filter(Boolean);
+      const pastorIds = churchesAll.map((c) => String(c.pastor_user_id || "")).filter(Boolean);
+
+      const countsByTotvs = new Map<string, number>();
+      if (totvsIds.length) {
+        const { data: usersRaw } = await supabase.from("users").select("default_totvs_id").in("default_totvs_id", totvsIds);
+        for (const u of usersRaw || []) {
+          const key = String((u as Record<string, unknown>).default_totvs_id || "");
+          if (!key) continue;
+          countsByTotvs.set(key, (countsByTotvs.get(key) || 0) + 1);
+        }
+      }
+
+      const pastorById = new Map<string, Record<string, unknown>>();
+      if (pastorIds.length) {
+        const { data: pastorsRaw } = await supabase.from("users").select("id, full_name").in("id", pastorIds);
+        for (const p of pastorsRaw || []) {
+          const row = p as Record<string, unknown>;
+          pastorById.set(String(row.id || ""), row);
+        }
+      }
+
+      return churchesAll.map((item) => {
+        const pastorId = String(item.pastor_user_id || "");
+        const pastor = pastorId ? pastorById.get(pastorId) : null;
+        const totvsId = String(item.totvs_id || "");
+        return {
+          totvs_id: totvsId,
+          church_name: String(item.church_name || item.name || "-"),
+          church_class: item.class || null,
+          parent_totvs_id: item.parent_totvs_id || null,
+          image_url: item.image_url || item.photo_url || item.cover_url || null,
+          stamp_church_url: item.stamp_church_url || null,
+          contact_email: item.contact_email || null,
+          contact_phone: item.contact_phone || null,
+          cep: item.cep || null,
+          address_street: item.address_street || null,
+          address_number: item.address_number || null,
+          address_complement: item.address_complement || null,
+          address_neighborhood: item.address_neighborhood || null,
+          address_city: item.address_city || null,
+          address_state: item.address_state || null,
+          address_country: item.address_country || null,
+          is_active: typeof item.is_active === "boolean" ? item.is_active : true,
+          workers_count: countsByTotvs.get(totvsId) || 0,
+          pastor_user_id: pastorId || null,
+          pastor: pastor
+            ? {
+                id: String(pastor.id || ""),
+                full_name: String(pastor.full_name || ""),
+              }
+            : null,
+        } as ChurchInScopeItem;
+      });
+    } catch (err) {
+      // Comentario: fallback para function quando a leitura RLS falhar (ex.: erro 500 de policy).
+      console.warn("[listChurchesInScope] RLS read failed; falling back to function API:", err);
     }
-
-    const totvsIds = churchesAll.map((c) => String(c.totvs_id || "")).filter(Boolean);
-    const pastorIds = churchesAll.map((c) => String(c.pastor_user_id || "")).filter(Boolean);
-
-    const countsByTotvs = new Map<string, number>();
-    if (totvsIds.length) {
-      const { data: usersRaw } = await supabase.from("users").select("default_totvs_id").in("default_totvs_id", totvsIds);
-      for (const u of usersRaw || []) {
-        const key = String((u as Record<string, unknown>).default_totvs_id || "");
-        if (!key) continue;
-        countsByTotvs.set(key, (countsByTotvs.get(key) || 0) + 1);
-      }
-    }
-
-    const pastorById = new Map<string, Record<string, unknown>>();
-    if (pastorIds.length) {
-      const { data: pastorsRaw } = await supabase.from("users").select("id, full_name").in("id", pastorIds);
-      for (const p of pastorsRaw || []) {
-        const row = p as Record<string, unknown>;
-        pastorById.set(String(row.id || ""), row);
-      }
-    }
-
-    return churchesAll.map((item) => {
-      const pastorId = String(item.pastor_user_id || "");
-      const pastor = pastorId ? pastorById.get(pastorId) : null;
-      const totvsId = String(item.totvs_id || "");
-      return {
-        totvs_id: totvsId,
-        church_name: String(item.church_name || item.name || "-"),
-        church_class: item.class || null,
-        parent_totvs_id: item.parent_totvs_id || null,
-        image_url: item.image_url || item.photo_url || item.cover_url || null,
-        stamp_church_url: item.stamp_church_url || null,
-        contact_email: item.contact_email || null,
-        contact_phone: item.contact_phone || null,
-        cep: item.cep || null,
-        address_street: item.address_street || null,
-        address_number: item.address_number || null,
-        address_complement: item.address_complement || null,
-        address_neighborhood: item.address_neighborhood || null,
-        address_city: item.address_city || null,
-        address_state: item.address_state || null,
-        address_country: item.address_country || null,
-        is_active: typeof item.is_active === "boolean" ? item.is_active : true,
-        workers_count: countsByTotvs.get(totvsId) || 0,
-        pastor_user_id: pastorId || null,
-        pastor: pastor
-          ? {
-              id: String(pastor.id || ""),
-              full_name: String(pastor.full_name || ""),
-            }
-          : null,
-      } as ChurchInScopeItem;
-    });
   }
 
   const mapChurch = (item: Record<string, unknown>) => ({
@@ -1567,18 +1628,52 @@ export async function listChurchesInScope(page = 1, pageSize = 5000, rootTotvsId
   });
 
   try {
-    const data = await api.listChurchesInScope({ page, page_size: pageSize, root_totvs_id: rootTotvsId });
-    const rows = Array.isArray(data?.churches)
-      ? data.churches
-      : Array.isArray(data?.items)
-        ? data.items
-        : Array.isArray(data)
-          ? data
-          : [];
-    if (rows.length > 0) {
-      await saveChurchesCache(rows as Record<string, unknown>[]);
+    const safePage = Math.max(1, Number(page || 1));
+    const safePageSize = Math.max(1, Number(pageSize || 20));
+    const startIndex = (safePage - 1) * safePageSize;
+    const endExclusive = startIndex + safePageSize;
+    const apiChunkSize = 1000;
+
+    // Comentario: a edge function limita page_size em 1000.
+    // Para requests maiores (ex.: 5000 nas telas de filtro), acumulamos paginas internamente.
+    if (safePageSize <= apiChunkSize && safePage === 1) {
+      const data = await api.listChurchesInScope({ page: safePage, page_size: safePageSize, root_totvs_id: rootTotvsId });
+      const rows = Array.isArray(data?.churches)
+        ? data.churches
+        : Array.isArray(data?.items)
+          ? data.items
+          : Array.isArray(data)
+            ? data
+            : [];
+      if (rows.length > 0) {
+        await saveChurchesCache(rows as Record<string, unknown>[]);
+      }
+      return rows.map((item: Record<string, unknown>) => mapChurch(item));
     }
-    return rows.map((item: Record<string, unknown>) => mapChurch(item));
+
+    const acc: Record<string, unknown>[] = [];
+    let apiPage = 1;
+    let total = Number.POSITIVE_INFINITY;
+
+    while (acc.length < endExclusive && (apiPage - 1) * apiChunkSize < total) {
+      const data = await api.listChurchesInScope({ page: apiPage, page_size: apiChunkSize, root_totvs_id: rootTotvsId });
+      const rows = Array.isArray(data?.churches)
+        ? data.churches
+        : Array.isArray(data?.items)
+          ? data.items
+          : Array.isArray(data)
+            ? data
+            : [];
+      total = Number(data?.total || rows.length || total);
+      if (!rows.length) break;
+      acc.push(...(rows as Record<string, unknown>[]));
+      apiPage += 1;
+    }
+
+    if (acc.length > 0) {
+      await saveChurchesCache(acc);
+    }
+    return acc.slice(startIndex, endExclusive).map((item: Record<string, unknown>) => mapChurch(item));
   } catch {
     const cached = await getChurchesCache();
     const cachedChurches = cached.map((item) => mapChurch(item as Record<string, unknown>));
@@ -1639,27 +1734,82 @@ export async function fetchAncestorChain(rootTotvsId: string): Promise<AncestorC
   }));
 }
 
-export async function listChurchesInScopePaged(page = 1, pageSize = 20, rootTotvsId?: string): Promise<{ churches: ChurchInScopeItem[]; total: number; page: number; page_size: number }> {
-  if (false && supabase && getRlsToken()) {
+export async function listChurchesInScopePaged(page = 1, pageSize = 20, rootTotvsId?: string, opts?: { church_class?: string; search?: string }): Promise<{ churches: ChurchInScopeItem[]; total: number; page: number; page_size: number }> {
+  const canUse24hChurchCache =
+    !rootTotvsId?.trim() &&
+    !String(opts?.church_class || "").trim() &&
+    !String(opts?.search || "").trim();
+
+  if (canUse24hChurchCache) {
+    const rawCached = await getChurchesCache();
+    const cachedRows = (rawCached || []) as Array<Record<string, unknown>>;
+    if (isCacheFreshByRows(cachedRows, CHURCHES_CACHE_TTL_MS)) {
+      const mapped = cachedRows.map((item) => ({
+        totvs_id: String(item?.totvs_id || ""),
+        church_name: String(item?.church_name || item?.name || "-"),
+        church_class: item?.church_class || item?.class || null,
+        parent_totvs_id: item?.parent_totvs_id || null,
+        image_url: item?.image_url || item?.photo_url || item?.cover_url || null,
+        stamp_church_url: item?.stamp_church_url || null,
+        contact_email: item?.contact_email || null,
+        contact_phone: item?.contact_phone || null,
+        cep: item?.cep || null,
+        address_street: item?.address_street || null,
+        address_number: item?.address_number || null,
+        address_complement: item?.address_complement || null,
+        address_neighborhood: item?.address_neighborhood || null,
+        address_city: item?.address_city || null,
+        address_state: item?.address_state || null,
+        address_country: item?.address_country || null,
+        is_active: typeof item?.is_active === "boolean" ? item.is_active : true,
+        workers_count: Number(item?.workers_count || 0),
+        pastor_user_id: item?.pastor_user_id || item?.pastor?.id || null,
+        pastor: item?.pastor
+          ? {
+              id: item.pastor?.id || null,
+              full_name: item.pastor?.full_name || item.pastor?.name || null,
+            }
+          : null,
+      })) as ChurchInScopeItem[];
+      const start = (Math.max(1, page) - 1) * pageSize;
+      const end = start + pageSize;
+      return {
+        churches: mapped.slice(start, end),
+        total: mapped.length,
+        page,
+        page_size: pageSize,
+      };
+    }
+  }
+
+  if (supabase && getRlsToken()) {
     // Sem filtro de hierarquia: usa paginação real no banco (range + count).
     // O RLS já garante que só as igrejas do escopo do usuário são retornadas.
-    // Isso evita o anti-padrão anterior de buscar 5000 igrejas e fatiar em memória.
     if (!rootTotvsId?.trim()) {
       const from = (page - 1) * pageSize;
       const to = from + pageSize - 1;
 
-      const { data: churchesRaw, count, error: cErr } = await supabase
+      let query = supabase
         .from("churches")
         .select(
           "totvs_id, parent_totvs_id, church_name, class, image_url, stamp_church_url, contact_email, contact_phone, cep, address_street, address_number, address_complement, address_neighborhood, address_city, address_state, address_country, is_active, pastor_user_id",
-          { count: "exact" },
-        )
+          { count: "planned" },
+        );
+      if (opts?.church_class) query = query.eq("class", opts.church_class);
+      if (opts?.search && opts.search.trim().length >= 2) {
+        const q = opts.search.trim();
+        query = query.or(`church_name.ilike.%${q}%,totvs_id.ilike.%${q}%`);
+      }
+      const { data: churchesRaw, count, error: cErr } = await query
         .order("church_name", { ascending: true })
         .range(from, to);
 
-      if (cErr) throw new Error(cErr.message || "Erro ao listar igrejas paginadas.");
-      const churches = (Array.isArray(churchesRaw) ? churchesRaw : []) as Array<Record<string, unknown>>;
-      const total = count ?? churches.length;
+      if (cErr) {
+        console.warn("[listChurchesInScopePaged] RLS direto falhou, seguindo com fallback por function:", cErr.message || cErr);
+      } else {
+      const churches = ((Array.isArray(churchesRaw) ? churchesRaw : []) as Array<Record<string, unknown>>)
+        .sort((a, b) => String(a.church_name || "").localeCompare(String(b.church_name || ""), "pt-BR"));
+      const total = Number(count ?? churches.length);
 
       // Busca nomes dos pastores apenas para as igrejas desta página (muito mais leve).
       const pastorIds = churches.map((c) => String(c.pastor_user_id || "")).filter(Boolean);
@@ -1724,11 +1874,23 @@ export async function listChurchesInScopePaged(page = 1, pageSize = 20, rootTotv
         page,
         page_size: pageSize,
       };
+      }
     }
 
-    // Com rootTotvsId (filtro de hierarquia, admin): mantém comportamento atual.
-    // Ainda precisa calcular o escopo da árvore antes de paginar.
-    const all = await listChurchesInScope(1, 5000, rootTotvsId);
+    // Com rootTotvsId (filtro de hierarquia): calcula a árvore e aplica filtros localmente
+    // antes da paginação para manter os contadores/consulta consistentes.
+    let all = await listChurchesInScope(1, 5000, rootTotvsId);
+    if (opts?.church_class) {
+      const cls = String(opts.church_class || "").toLowerCase();
+      all = all.filter((c) => String(c.church_class || "").toLowerCase() === cls);
+    }
+    if (opts?.search && opts.search.trim().length >= 2) {
+      const q = opts.search.trim().toLowerCase();
+      all = all.filter((c) =>
+        String(c.church_name || "").toLowerCase().includes(q) ||
+        String(c.totvs_id || "").toLowerCase().includes(q),
+      );
+    }
     const start = (page - 1) * pageSize;
     const end = start + pageSize;
     return {
@@ -1740,7 +1902,13 @@ export async function listChurchesInScopePaged(page = 1, pageSize = 20, rootTotv
   }
 
   try {
-    const data = await api.listChurchesInScope({ page, page_size: pageSize, root_totvs_id: rootTotvsId });
+    const data = await api.listChurchesInScope({
+      page,
+      page_size: pageSize,
+      root_totvs_id: rootTotvsId,
+      church_class: opts?.church_class,
+      search: opts?.search,
+    });
     const rows = Array.isArray(data?.churches)
       ? data.churches
       : Array.isArray(data?.items)
@@ -1783,7 +1951,18 @@ export async function listChurchesInScopePaged(page = 1, pageSize = 20, rootTotv
       page_size: Number(data?.page_size || pageSize),
     };
   } catch {
-    const all = await listChurchesInScope(1, 5000, rootTotvsId);
+    let all = await listChurchesInScope(1, 5000, rootTotvsId);
+    if (opts?.church_class) {
+      const cls = String(opts.church_class || "").toLowerCase();
+      all = all.filter((c) => String(c.church_class || "").toLowerCase() === cls);
+    }
+    if (opts?.search && opts.search.trim().length >= 2) {
+      const q = opts.search.trim().toLowerCase();
+      all = all.filter((c) =>
+        String(c.church_name || "").toLowerCase().includes(q) ||
+        String(c.totvs_id || "").toLowerCase().includes(q),
+      );
+    }
     const start = (page - 1) * pageSize;
     const end = start + pageSize;
     return {
@@ -2108,7 +2287,7 @@ export async function sendAdminCommunication(payload: {
 }
 
 export async function listAnnouncements(limit = 10): Promise<AnnouncementItem[]> {
-  if (!isMockMode() && false && supabase && getRlsToken()) {
+  if (!isMockMode() && supabase && getRlsToken()) {
     const nowIso = new Date().toISOString();
     const safeLimit = Math.max(1, Math.min(100, Number(limit || 10)));
     const { data: rowsRaw, error } = await supabase
@@ -2122,21 +2301,22 @@ export async function listAnnouncements(limit = 10): Promise<AnnouncementItem[]>
       .limit(safeLimit);
 
     if (error) {
-      throw new Error(error.message || "Erro ao listar divulgações.");
+      console.warn("[listAnnouncements] RLS direto falhou, seguindo com fallback por function:", error.message || error);
+    } else {
+      const rows = Array.isArray(rowsRaw) ? rowsRaw : [];
+      return rows.map((item: Record<string, unknown>) => ({
+        id: String(item?.id || ""),
+        title: String(item?.title || "Aviso"),
+        type: (item?.type || "text") as "text" | "image" | "video",
+        body_text: item?.body_text ? String(item.body_text) : "",
+        media_url: toAnnouncementMediaUrl(item?.media_url),
+        link_url: item?.link_url ? String(item.link_url) : "",
+        position: typeof item?.position === "number" ? item.position : null,
+        starts_at: item?.starts_at ? String(item.starts_at) : "",
+        ends_at: item?.ends_at ? String(item.ends_at) : "",
+        is_active: typeof item?.is_active === "boolean" ? item.is_active : true,
+      }));
     }
-    const rows = Array.isArray(rowsRaw) ? rowsRaw : [];
-    return rows.map((item: Record<string, unknown>) => ({
-      id: String(item?.id || ""),
-      title: String(item?.title || "Aviso"),
-      type: (item?.type || "text") as "text" | "image" | "video",
-      body_text: item?.body_text ? String(item.body_text) : "",
-      media_url: toAnnouncementMediaUrl(item?.media_url),
-      link_url: item?.link_url ? String(item.link_url) : "",
-      position: typeof item?.position === "number" ? item.position : null,
-      starts_at: item?.starts_at ? String(item.starts_at) : "",
-      ends_at: item?.ends_at ? String(item.ends_at) : "",
-      is_active: typeof item?.is_active === "boolean" ? item.is_active : true,
-    }));
   }
 
   if (!isMockMode()) {
@@ -2278,12 +2458,35 @@ export async function listAnnouncementsPublicByTotvs(churchTotvsId: string, limi
   const nowIso = new Date().toISOString();
   const safeLimit = Math.max(1, Math.min(30, limit));
 
-  // Tentativa 1: consulta anonima direta (requer politica RLS anon SELECT)
+  // Busca os ancestrais (mae, avo, etc.) para incluir anuncios deles tambem
+  const lineageIds = [totvs];
+  if (supabaseAnon) {
+    const { data: churchesRaw } = await supabaseAnon
+      .from("churches")
+      .select("totvs_id, parent_totvs_id");
+    if (Array.isArray(churchesRaw)) {
+      const parentMap = new Map<string, string>();
+      for (const c of churchesRaw as Array<Record<string, unknown>>) {
+        const id = String(c.totvs_id || "");
+        const parent = String(c.parent_totvs_id || "");
+        if (id && parent) parentMap.set(id, parent);
+      }
+      let cur = totvs;
+      for (let i = 0; i < 10; i++) {
+        const parent = parentMap.get(cur);
+        if (!parent || lineageIds.includes(parent)) break;
+        lineageIds.push(parent);
+        cur = parent;
+      }
+    }
+  }
+
+  // Consulta anonima direta incluindo ancestrais (requer politica RLS anon SELECT)
   if (supabaseAnon) {
     const { data, error } = await supabaseAnon
       .from("announcements")
       .select("id,title,type,body_text,media_url,link_url,position,starts_at,ends_at,is_active,created_at")
-      .eq("church_totvs_id", totvs)
+      .in("church_totvs_id", lineageIds)
       .eq("is_active", true)
       .order("position", { ascending: true })
       .order("created_at", { ascending: false })
@@ -2696,13 +2899,13 @@ export async function publicRegisterMember(payload: {
 }
 
 export async function getMyRegistrationStatus(): Promise<RegistrationStatus> {
-  if (!isMockMode() && false && supabase && getRlsToken()) {
+  if (!isMockMode() && supabase && getRlsToken()) {
     const currentUser = getUser();
     const currentUserId = String(currentUser?.id || "").trim();
     if (currentUserId) {
       const { data, error } = await supabase
         .from("users")
-        .select("registration_status, totvs_access")
+        .select("totvs_access")
         .eq("id", currentUserId)
         .maybeSingle();
 
@@ -2800,7 +3003,7 @@ export async function getPastorByChurch(totvsId: string): Promise<{ full_name: s
 export async function getSignedPdfUrl(value: string) {
   if (!value) return null;
   if (value.startsWith("http")) return value;
-  if (!isMockMode() && false && supabase && getRlsToken()) {
+  if (!isMockMode() && supabase && getRlsToken()) {
     const letterId = String(value || "").trim();
     const { data, error } = await supabase
       .from("letters")
@@ -2852,7 +3055,7 @@ export async function requestRelease(letterId: string, _workerId: string, _churc
 }
 
 export async function workerDashboard(dateStart?: string, dateEnd?: string, page = 1, pageSize = 20): Promise<WorkerDashboardData> {
-  if (!isMockMode() && false && supabase && getRlsToken()) {
+  if (!isMockMode() && supabase && getRlsToken()) {
     const currentUser = getUser();
     const currentSession = getSession();
     const userId = String(currentUser?.id || "").trim();
@@ -2867,7 +3070,7 @@ export async function workerDashboard(dateStart?: string, dateEnd?: string, page
         .from("users")
         .select(
           // Comentario: inclui todos os campos necessarios para a ficha de membro e o dashboard
-          "id, full_name, role, cpf, phone, email, minister_role, birth_date, ordination_date, avatar_url, default_totvs_id, totvs_access, registration_status, payment_status, payment_block_reason, rg, marital_status, baptism_date, matricula, profession, cep, address_street, address_number, address_complement, address_neighborhood, address_city, address_state, can_create_released_letter",
+          "id, full_name, role, cpf, phone, email, minister_role, birth_date, ordination_date, avatar_url, default_totvs_id, totvs_access, payment_status, payment_block_reason, rg, marital_status, baptism_date, matricula, profession, cep, address_street, address_number, address_complement, address_neighborhood, address_city, address_state, can_create_released_letter",
         )
         .eq("id", userId)
         .maybeSingle(),
@@ -2882,8 +3085,9 @@ export async function workerDashboard(dateStart?: string, dateEnd?: string, page
         : Promise.resolve({ data: null, error: null }),
     ]);
 
-    if (userErr) throw new Error(userErr.message || "Erro ao carregar usuario.");
-    if (churchErr) throw new Error(churchErr.message || "Erro ao carregar igreja.");
+    if (userErr || churchErr) {
+      console.warn("[workerDashboard] RLS direto falhou, seguindo com fallback por function:", userErr?.message || churchErr?.message);
+    } else {
 
     const from = (Math.max(1, page) - 1) * Math.max(1, pageSize);
     const to = from + Math.max(1, pageSize) - 1;
@@ -2891,7 +3095,7 @@ export async function workerDashboard(dateStart?: string, dateEnd?: string, page
     let lettersQuery = supabase
       .from("letters")
       .select(
-        "id, church_totvs_id, preacher_user_id, preacher_name, minister_role, preach_date, church_origin, church_destination, status, storage_path, url_carta, url_pronta, phone, block_reason, created_at",
+        "id, church_totvs_id, preacher_user_id, preacher_name, minister_role, preach_date, church_origin, church_destination, status, storage_path, url_carta, url_pronta, phone, created_at",
       )
       .eq("preacher_user_id", userId)
       .neq("status", "EXCLUIDA")
@@ -2906,24 +3110,27 @@ export async function workerDashboard(dateStart?: string, dateEnd?: string, page
     }
 
     const { data: lettersRaw, error: lettersErr } = await lettersQuery;
-    if (lettersErr) throw new Error(lettersErr.message || "Erro ao carregar cartas.");
-
-    return {
-      // Comentario: espalhamos o raw primeiro para preservar campos extras (rg, baptism_date, etc.)
-      // que nao estao no tipo AuthSessionData, mas sao usados na ficha de membro.
-      user: userRaw ? { ...(userRaw as Record<string, unknown>), ...mapUserLike(userRaw as Record<string, unknown>) } as AuthSessionData : null,
-      church: churchRaw
-        ? ({
-            ...churchRaw,
-            pastor_name: null,
-            pastor_phone: (churchRaw as Record<string, unknown>)?.contact_phone || null,
-            pastor_email: (churchRaw as Record<string, unknown>)?.contact_email || null,
-          } as WorkerDashboardData["church"])
-        : null,
-      letters: (Array.isArray(lettersRaw) ? lettersRaw : []).map((item) =>
-        mapLetterLike(item as Record<string, unknown>),
-      ),
-    };
+    if (lettersErr) {
+      console.warn("[workerDashboard] RLS letters falhou, seguindo com fallback:", lettersErr.message);
+    } else {
+      return {
+        // Comentario: espalhamos o raw primeiro para preservar campos extras (rg, baptism_date, etc.)
+        // que nao estao no tipo AuthSessionData, mas sao usados na ficha de membro.
+        user: userRaw ? { ...(userRaw as Record<string, unknown>), ...mapUserLike(userRaw as Record<string, unknown>) } as AuthSessionData : null,
+        church: churchRaw
+          ? ({
+              ...churchRaw,
+              pastor_name: null,
+              pastor_phone: (churchRaw as Record<string, unknown>)?.contact_phone || null,
+              pastor_email: (churchRaw as Record<string, unknown>)?.contact_email || null,
+            } as WorkerDashboardData["church"])
+          : null,
+        letters: (Array.isArray(lettersRaw) ? lettersRaw : []).map((item) =>
+          mapLetterLike(item as Record<string, unknown>),
+        ),
+      };
+    }
+    }
   }
 
   if (!isMockMode()) {

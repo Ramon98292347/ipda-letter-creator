@@ -12,20 +12,27 @@ function buildCacheKey(prefix: string, id: string | number) {
   return `${prefix}:${id}`;
 }
 
-export async function saveMembersCache(churchTotvsId: string, members: Record<string, unknown>[]) {
+export async function saveMembersCache(churchTotvsId: string, members: Record<string, unknown>[], ownerUserId?: string) {
+  const wantedOwner = String(ownerUserId || "").trim();
   const rows = members.map((member) => ({
     ...member,
     church_totvs_id: churchTotvsId,
-    cache_key: buildCacheKey(churchTotvsId, String(member.id || "")),
+    owner_user_id: wantedOwner || null,
+    cache_key: buildCacheKey(`${wantedOwner || "anon"}:${churchTotvsId}`, String(member.id || "")),
     cached_at: new Date().toISOString(),
   }));
   await upsertMany("members_cache", rows);
 }
 
-export async function getMembersCache(churchTotvsId?: string) {
+export async function getMembersCache(churchTotvsId?: string, ownerUserId?: string) {
   const rows = await getAllFromStore<Record<string, unknown>>("members_cache");
-  if (!churchTotvsId) return rows;
-  return rows.filter((row) => String(row.church_totvs_id || "") === churchTotvsId);
+  const wantedChurch = String(churchTotvsId || "").trim();
+  const wantedOwner = String(ownerUserId || "").trim();
+  return rows.filter((row) => {
+    if (wantedChurch && String(row.church_totvs_id || "").trim() !== wantedChurch) return false;
+    if (wantedOwner && String((row as any).owner_user_id || "").trim() !== wantedOwner) return false;
+    return true;
+  });
 }
 
 export async function saveChurchesCache(churches: Record<string, unknown>[]) {
