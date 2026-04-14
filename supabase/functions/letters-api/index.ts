@@ -80,7 +80,7 @@ type ChurchNode = {
 };
 
 /** Estrutura reduzida de Igreja para calculos de escopo */
-type ChurchRow = { totvs_id: string; parent_totvs_id: string | null };
+type ChurchRow = { totvs_id: string; parent_totvs_id: string | null; pastor_user_id?: string | null };
 
 function normalizeClass(v: unknown): ChurchClass | null {
   const s = String(v || "").toLowerCase().trim();
@@ -155,6 +155,48 @@ function computeScope(rootTotvs: string, churches: ChurchNode[]): Set<string> {
   }
 
   return scope;
+}
+
+function computeScopeFromRows(rootTotvs: string, churches: ChurchRow[]): Set<string> {
+  const children = new Map<string, string[]>();
+  for (const c of churches) {
+    const p = String(c.parent_totvs_id || "");
+    if (!children.has(p)) children.set(p, []);
+    children.get(p)!.push(String(c.totvs_id || ""));
+  }
+
+  const scope = new Set<string>();
+  const queue: string[] = [String(rootTotvs || "").trim()].filter(Boolean);
+  while (queue.length) {
+    const cur = queue.shift()!;
+    if (!cur || scope.has(cur)) continue;
+    scope.add(cur);
+    const kids = children.get(cur) || [];
+    for (const k of kids) queue.push(k);
+  }
+  return scope;
+}
+
+function computeSessionScopeFromRows(session: SessionClaims, churches: ChurchRow[]): Set<string> {
+  if (session.role === "admin") {
+    return new Set(churches.map((row) => String(row.totvs_id || "").trim()).filter(Boolean));
+  }
+
+  if (session.role === "pastor") {
+    const roots = churches
+      .filter((row) => String(row.pastor_user_id || "").trim() === session.user_id)
+      .map((row) => String(row.totvs_id || "").trim())
+      .filter(Boolean);
+
+    const scoped = new Set<string>();
+    for (const root of [...new Set(roots)]) {
+      const partial = computeScopeFromRows(root, churches);
+      for (const id of partial) scoped.add(id);
+    }
+    return scoped;
+  }
+
+  return computeScopeFromRows(session.active_totvs_id, churches);
 }
 
 function collectAncestors(startTotvs: string, churches: ChurchNode[]): Set<string> {
@@ -1063,17 +1105,20 @@ async function handleList(session: SessionClaims, body: Record<string, unknown>)
     // 1) escopo base da sessÃ£o
     const { data: allChurches, error: allErr } = await sb
       .from("churches")
-      .select("totvs_id,parent_totvs_id");
+      .select("totvs_id,parent_totvs_id,pastor_user_id");
 
     if (allErr) return json({ ok: false, error: "db_error_scope", details: "erro interno" }, 500);
 
-    const scope = computeScope(session.active_totvs_id, (allChurches || []) as ChurchNode[]);
+    const scope = computeSessionScopeFromRows(session, (allChurches || []) as ChurchRow[]);
+    if (session.role === "pastor" && scope.size === 0) {
+      return json({ ok: false, error: "forbidden_no_scope" }, 403);
+    }
     let scopeList = [...scope];
 
     // 2) se front pedir uma igreja especÃ­fica, valida se estÃ¡ dentro do escopo
     const churchFilter = String(body.church_totvs_id || "").trim();
     if (churchFilter) {
-      if (!scope.has(churchFilter) && session.role !== "admin") {
+      if (!scope.has(churchFilter)) {
         return json({ ok: false, error: "forbidden_church_out_of_scope" }, 403);
       }
       scopeList = [churchFilter];
@@ -1165,51 +1210,6 @@ async function handleList(session: SessionClaims, body: Record<string, unknown>)
 
     if (error) return json({ ok: false, error: "db_error_list_letters", details: "erro interno" }, 500);
 
-    // 5) Regra pastor: sempre incluir cartas dele (preacher_user_id), mesmo quando origem for igreja acima do escopo.
-    if (session.role === "pastor") {
-      let mineQuery = applyFilters(buildQueryByPreacher(session.user_id, true));
-      if (churchFilter) mineQuery = mineQuery.eq("church_totvs_id", churchFilter);
-      let mineResult = await mineQuery.order("created_at", { ascending: false });
-
-      if (
-        mineResult.error &&
-        (
-          String(mineResult.error.message || "").toLowerCase().includes("url_pronta") ||
-          String(mineResult.error.message || "").toLowerCase().includes("url_carta")
-        )
-      ) {
-        let mineFallback = applyFilters(buildQueryByPreacher(session.user_id, false));
-        if (churchFilter) mineFallback = mineFallback.eq("church_totvs_id", churchFilter);
-        mineResult = await mineFallback.order("created_at", { ascending: false });
-      }
-
-      if (mineResult.error) {
-        return json({ ok: false, error: "db_error_list_letters_mine", details: "erro interno" }, 500);
-      }
-
-      const merged = new Map<string, Record<string, unknown>>();
-      for (const row of (data || []) as Record<string, unknown>[]) merged.set(String(row.id || ""), row);
-      for (const row of (mineResult.data || []) as Record<string, unknown>[]) merged.set(String(row.id || ""), row);
-
-      const allRows = [...merged.values()].sort((a, b) =>
-        String(b.created_at || "").localeCompare(String(a.created_at || "")),
-      );
-      const paged = allRows.slice(from, to + 1);
-      const enrichedPaged = await enrichLettersWithPreacherChurch(sb, paged as Record<string, unknown>[]);
-
-      return json(
-        {
-          ok: true,
-          letters: enrichedPaged,
-          total: allRows.length,
-          page,
-          page_size,
-          scope_totvs_ids: scopeList,
-        },
-        200,
-      );
-    }
-
     const enriched = await enrichLettersWithPreacherChurch(sb, (data || []) as Record<string, unknown>[]);
 
     return json(
@@ -1264,10 +1264,13 @@ async function handleGetPdfUrl(session: SessionClaims, body: Record<string, unkn
         return json({ ok: false, error: "forbidden" }, 403);
       }
     } else {
-      const { data: allChurches, error: cErr } = await sb.from("churches").select("totvs_id,parent_totvs_id");
+      const { data: allChurches, error: cErr } = await sb
+        .from("churches")
+        .select("totvs_id,parent_totvs_id,pastor_user_id");
       if (cErr) return json({ ok: false, error: "db_error_scope", details: "erro interno" }, 500);
-      const scope = computeScope(session.active_totvs_id, (allChurches || []) as ChurchRow[]);
-      if (!scope.has(letterChurch) && session.role !== "admin") {
+      const scope = computeSessionScopeFromRows(session, (allChurches || []) as ChurchRow[]);
+      if (session.role === "pastor" && scope.size === 0) return json({ ok: false, error: "forbidden_no_scope" }, 403);
+      if (!scope.has(letterChurch)) {
         return json({ ok: false, error: "forbidden" }, 403);
       }
     }
@@ -1355,15 +1358,16 @@ async function handleSetStatus(session: SessionClaims, body: Record<string, unkn
       return json({ ok: false, error: "forbidden" }, 403);
     }
 
-    // Admin pode tudo. Pastor sÃ³ no escopo (igreja ativa + filhas).
-    if (session.role === "pastor") {
+    // Admin pode tudo. Demais roles so no proprio escopo.
+    if (session.role !== "admin" && session.role !== "obreiro") {
       const { data: allChurches, error: cErr } = await sb
         .from("churches")
-        .select("totvs_id,parent_totvs_id");
+        .select("totvs_id,parent_totvs_id,pastor_user_id");
 
       if (cErr) return json({ ok: false, error: "db_error_scope", details: "erro interno" }, 500);
 
-      const scope = computeScope(session.active_totvs_id, (allChurches || []) as ChurchRow[]);
+      const scope = computeSessionScopeFromRows(session, (allChurches || []) as ChurchRow[]);
+      if (session.role === "pastor" && scope.size === 0) return json({ ok: false, error: "forbidden_no_scope" }, 403);
       if (!scope.has(String(letter.church_totvs_id || ""))) {
         return json({ ok: false, error: "forbidden_wrong_scope" }, 403);
       }

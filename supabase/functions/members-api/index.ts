@@ -138,11 +138,11 @@ async function resolveScopeRootTotvs(
     .eq("pastor_user_id", session.user_id)
     .eq("is_active", true);
 
-  if (error || !data || data.length === 0) return session.active_totvs_id;
+  if (error || !data || data.length === 0) return "";
 
   const pastorChurches = data.map((row: Record<string, unknown>) => String(row.totvs_id || "")).filter(Boolean);
   if (pastorChurches.includes(session.active_totvs_id)) return session.active_totvs_id;
-  return pastorChurches[0];
+  return pastorChurches[0] || "";
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -890,6 +890,7 @@ async function handleListMembers(session: SessionClaims, body: ListMembersBody):
     if (churchTotvsFilter && !scope.has(churchTotvsFilter)) return json({ ok: false, error: "church_not_found" }, 404);
   } else {
     scopeRootTotvs = await resolveScopeRootTotvs(sb, session);
+    if (!scopeRootTotvs) return json({ ok: false, error: "forbidden_no_scope" }, 403);
     scope = computeScope(scopeRootTotvs, churchRows);
     if (churchTotvsFilter && !scope.has(churchTotvsFilter)) {
       return json({ ok: false, error: "forbidden_church_out_of_scope" }, 403);
@@ -1094,6 +1095,7 @@ async function handleChangeMemberChurch(session: SessionClaims, body: ChangeMemb
     scope = churchSet;
   } else {
     scopeRootTotvs = await resolveScopeRootTotvs(sb, session);
+    if (!scopeRootTotvs) return json({ ok: false, error: "forbidden_no_scope" }, 403);
     scope = computeScope(scopeRootTotvs, churchRows);
     if (!currentTotvs || !scope.has(currentTotvs)) return json({ ok: false, error: "forbidden_member_out_of_scope" }, 403);
     if (!scope.has(targetTotvsId)) return json({ ok: false, error: "forbidden_target_out_of_scope" }, 403);
@@ -1158,6 +1160,7 @@ async function handleChangeMemberAccess(session: SessionClaims, body: ChangeMemb
 
   if (session.role !== "admin") {
     const scopeRootTotvs = await resolveScopeRootTotvs(sb, session);
+    if (!scopeRootTotvs) return json({ ok: false, error: "forbidden_no_scope" }, 403);
     const scope = computeScope(scopeRootTotvs, churchRows);
     if (!scope.has(currentTotvs)) return json({ ok: false, error: "forbidden_member_out_of_scope" }, 403);
 

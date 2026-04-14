@@ -29,7 +29,7 @@ function json(obj: any, status = 200) {
   return new Response(JSON.stringify(obj), { status, headers: corsHeaders() });
 }
 
-type Role = "admin" | "pastor" | "obreiro";
+type Role = "admin" | "pastor" | "obreiro" | "secretario" | "financeiro";
 type SessionClaims = { user_id: string; role: Role; active_totvs_id: string };
 type Body = {
   page?: number;
@@ -59,7 +59,12 @@ async function verifySessionJWT(req: Request): Promise<SessionClaims | null> {
   }
 }
 
-type ChurchRow = { totvs_id: string; parent_totvs_id: string | null; class?: string | null };
+type ChurchRow = {
+  totvs_id: string;
+  parent_totvs_id: string | null;
+  class?: string | null;
+  pastor_user_id?: string | null;
+};
 
 // Comentario: cache em memoria por instancia da Edge Function para evitar reler
 // toda a arvore de igrejas em chamadas sequenciais.
@@ -87,7 +92,7 @@ async function loadAllChurchRows(sb: ReturnType<typeof createClient>): Promise<C
     const to = from + pageSize - 1;
     const { data, error } = await sb
       .from("churches")
-      .select("totvs_id, parent_totvs_id, class")
+      .select("totvs_id, parent_totvs_id, class, pastor_user_id")
       .order("totvs_id", { ascending: true })
       .range(from, to);
 
@@ -273,24 +278,45 @@ Deno.serve(async (req) => {
       } else {
         scopeList = allRows.map((c) => String(c.totvs_id)).filter(Boolean);
       }
+    } else if (session.role === "pastor") {
+      // Comentario: pastor so pode enxergar a propria arvore (igreja(s) onde ele e pastor_user_id + filhas).
+      const pastorRoots = allRows
+        .filter((row) => String((row as ChurchRow & { pastor_user_id?: string | null }).pastor_user_id || "").trim() === session.user_id)
+        .map((row) => String(row.totvs_id || "").trim())
+        .filter(Boolean);
+
+      const effectiveRoots = [...new Set(pastorRoots)];
+      if (effectiveRoots.length === 0) {
+        return json({ ok: false, error: "forbidden_no_scope" }, 403);
+      }
+
+      const allowed = new Set<string>();
+      for (const root of effectiveRoots) {
+        const scope = computeScope(root, allRows);
+        for (const id of scope) allowed.add(id);
+      }
+
+      if (requestedRoot) {
+        if (!allowed.has(requestedRoot)) {
+          return json({ ok: false, error: "forbidden_church_out_of_scope" }, 403);
+        }
+        scopeList = [...computeScope(requestedRoot, allRows)];
+      } else {
+        scopeList = [...allowed];
+      }
     } else if (session.role === "obreiro") {
       // Comentario: obreiro nao tem escopo proprio — sobe para a mae (ou avo se mae for "central")
       // usando findObreiroScopeRoot, igual ao telas-cartas.
       const obreiroScopeRoot = findObreiroScopeRoot(session.active_totvs_id, allRows);
       const baseScope = computeScope(obreiroScopeRoot, allRows);
       if (requestedRoot && !baseScope.has(requestedRoot)) {
-        // Comentario: permite subir para mae/avo da igreja ativa (necessario para regional/local).
-        const isAncestorRoot = isAncestorOf(obreiroScopeRoot, requestedRoot, allRows);
-        if (!isAncestorRoot) {
-          return json({ ok: false, error: "forbidden_church_out_of_scope" }, 403);
-        }
+        return json({ ok: false, error: "forbidden_church_out_of_scope" }, 403);
       }
       const effectiveRoot = requestedRoot || obreiroScopeRoot;
-      effectiveRootForAncestors = effectiveRoot;
       scopeList = [...computeScope(effectiveRoot, allRows)];
     } else {
-      // Comentario: pastor/secretario/financeiro usam escopo real (totvs_access/default_totvs_id)
-      // para nao limitar a listagem apenas na igreja ativa da sessao.
+      // Comentario: secretario/financeiro usam escopo real (totvs_access/default_totvs_id)
+      // sem permitir subir para igrejas acima do proprio escopo.
       const { data: meRow } = await sb
         .from("users")
         .select("default_totvs_id, totvs_access")
@@ -301,19 +327,6 @@ Deno.serve(async (req) => {
       const defaultTotvs = String(meRow?.default_totvs_id || "").trim();
       if (defaultTotvs) accessRoots.push(defaultTotvs);
       if (session.active_totvs_id) accessRoots.push(session.active_totvs_id);
-      // Comentario: fallback para casos pontuais de pastor com totvs_access incompleto.
-      // Inclui igrejas em que ele esta vinculado como pastor_user_id.
-      if (session.role === "pastor") {
-        const { data: pastorChurchRows } = await sb
-          .from("churches")
-          .select("totvs_id")
-          .eq("pastor_user_id", session.user_id);
-        for (const row of pastorChurchRows || []) {
-          const id = String((row as { totvs_id?: string | null }).totvs_id || "").trim();
-          if (id) accessRoots.push(id);
-        }
-      }
-
       const roots = [...new Set(accessRoots.filter(Boolean))];
       const effectiveRoots = roots.length > 0 ? roots : [session.active_totvs_id];
       const allowed = new Set<string>();
@@ -323,33 +336,17 @@ Deno.serve(async (req) => {
       }
 
       if (requestedRoot) {
-        // Comentario: compatibilidade com app antigo em cache que envia root_totvs_id
-        // fixo como igreja ativa; nesse caso preserva o escopo completo permitido.
-        const looksLikeLegacyForcedActiveRoot =
-          requestedRoot === session.active_totvs_id &&
-          effectiveRoots.some((root) => root !== requestedRoot);
-        const shouldApplyRequestedRoot = !looksLikeLegacyForcedActiveRoot;
-        if (!shouldApplyRequestedRoot) {
-          scopeList = [...allowed];
-          if (effectiveRoots.length === 1) effectiveRootForAncestors = effectiveRoots[0];
-        } else {
-          const requestedInsideAllowed = allowed.has(requestedRoot);
-          const requestedIsAncestorOfAllowed = effectiveRoots.some((root) => isAncestorOf(root, requestedRoot, allRows));
-          if (!requestedInsideAllowed && !requestedIsAncestorOfAllowed) {
-            return json({ ok: false, error: "forbidden_church_out_of_scope" }, 403);
+        if (!allowed.has(requestedRoot)) {
+          return json({ ok: false, error: "forbidden_church_out_of_scope" }, 403);
         }
-
-        effectiveRootForAncestors = requestedRoot;
         scopeList = [...computeScope(requestedRoot, allRows)];
-        }
       } else {
         scopeList = [...allowed];
-        if (effectiveRoots.length === 1) effectiveRootForAncestors = effectiveRoots[0];
       }
     }
     // Comentario: coleta IDs dos ancestrais acima do effectiveRoot (ex.: estadual).
     // Usa allRows (todas as igrejas) para subir na hierarquia sem restricao de escopo.
-    if (effectiveRootForAncestors) {
+    if (session.role === "admin" && effectiveRootForAncestors) {
       const byId = new Map(allRows.map((r) => [String(r.totvs_id), r]));
       const visitedAnc = new Set<string>([effectiveRootForAncestors]);
       let curAnc = byId.get(effectiveRootForAncestors)?.parent_totvs_id
@@ -466,4 +463,3 @@ Deno.serve(async (req) => {
     return json({ ok: false, error: "exception", details: "erro interno" }, 500);
   }
 });
-
