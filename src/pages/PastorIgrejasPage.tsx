@@ -50,15 +50,19 @@ export default function PastorIgrejasPage() {
   const [pageSize, setPageSize] = useState(20);
 
   const { data: optionsRows = [] } = useQuery({
-    queryKey: ["pastor-igrejas-options", activeTotvsId],
+    queryKey: ["pastor-igrejas-options", activeTotvsId, scopeRootTotvsId, "scope-v2"],
     queryFn: () => listChurchesInScope(1, 5000, scopeRootTotvsId),
     enabled: Boolean(activeTotvsId),
+    staleTime: 0,
+    refetchOnMount: "always",
   });
 
   const { data: pageData, isLoading, isFetching } = useQuery({
-    queryKey: ["pastor-igrejas-page", page, pageSize, activeTotvsId],
+    queryKey: ["pastor-igrejas-page", page, pageSize, activeTotvsId, scopeRootTotvsId, "scope-v2"],
     queryFn: () => listChurchesInScopePaged(page, pageSize, scopeRootTotvsId),
     enabled: Boolean(activeTotvsId),
+    staleTime: 0,
+    refetchOnMount: "always",
   });
 
   const rows = pageData?.churches || [];
@@ -99,7 +103,7 @@ export default function PastorIgrejasPage() {
     if (page >= totalPages) return;
     const nextPage = page + 1;
     void queryClient.prefetchQuery({
-      queryKey: ["pastor-igrejas-page", nextPage, pageSize, activeTotvsId],
+      queryKey: ["pastor-igrejas-page", nextPage, pageSize, activeTotvsId, scopeRootTotvsId, "scope-v2"],
       queryFn: () => listChurchesInScopePaged(nextPage, pageSize, scopeRootTotvsId),
     });
   }, [page, totalPages, pageSize, activeTotvsId, scopeRootTotvsId, queryClient]);

@@ -69,9 +69,11 @@ export default function PastorDashboardPage() {
   });
 
   const { data: churchesRes } = useQuery({
-    queryKey: ["pastor-dashboard-churches", activeTotvsId, scopeRootTotvsId],
+    queryKey: ["pastor-dashboard-churches", activeTotvsId, scopeRootTotvsId, "scope-v2"],
     queryFn: () => listChurchesInScope(1, 5000, scopeRootTotvsId || undefined),
     enabled: Boolean(activeTotvsId),
+    staleTime: 0,
+    refetchOnMount: "always",
   });
 
   const members = membersRes?.workers || [];
