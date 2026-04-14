@@ -48,8 +48,8 @@ function KpiCard({
 
 export default function PastorDashboardPage() {
   const navigate = useNavigate();
-  const { session } = useUser();
-  const sessionUserId = String((session as { user_id?: string } | null)?.user_id || "");
+  const { session, usuario } = useUser();
+  const sessionUserKey = String(usuario?.id || "");
   const activeTotvsId = String(session?.totvs_id || "");
   // Usa a mesma regra da tela de Igrejas:
   // passa root_totvs_id somente quando existir e deixa undefined nos demais casos
@@ -57,7 +57,7 @@ export default function PastorDashboardPage() {
   const scopeRootTotvsId = session?.root_totvs_id ? String(session.root_totvs_id) : undefined;
 
   const { data: membersRes } = useQuery({
-    queryKey: ["pastor-dashboard-members", sessionUserId, activeTotvsId],
+    queryKey: ["pastor-dashboard-members", sessionUserKey || "anon", activeTotvsId],
     queryFn: () =>
       listMembers({
         page: 1,
@@ -66,13 +66,13 @@ export default function PastorDashboardPage() {
         church_totvs_id: activeTotvsId || undefined,
         exact_church: true,
       }),
-    enabled: Boolean(activeTotvsId && sessionUserId),
+    enabled: Boolean(activeTotvsId),
   });
 
   const { data: churchesRes } = useQuery({
-    queryKey: ["pastor-dashboard-churches", sessionUserId, activeTotvsId, scopeRootTotvsId, "scope-v3"],
+    queryKey: ["pastor-dashboard-churches", sessionUserKey || "anon", activeTotvsId, scopeRootTotvsId, "scope-v4"],
     queryFn: () => listChurchesInScope(1, 5000, scopeRootTotvsId || undefined),
-    enabled: Boolean(activeTotvsId && sessionUserId),
+    enabled: Boolean(activeTotvsId),
     staleTime: 0,
     refetchOnMount: "always",
   });
