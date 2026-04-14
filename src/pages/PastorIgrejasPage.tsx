@@ -38,6 +38,7 @@ function KpiCard({
 export default function PastorIgrejasPage() {
   const queryClient = useQueryClient();
   const { session } = useUser();
+  const sessionUserId = String((session as { user_id?: string } | null)?.user_id || "");
   // Comentario: usa root quando existir; sem root, deixa a API resolver o escopo
   // completo do usuario (evita filtrar por uma igreja filha por engano).
   const activeTotvsId = String(session?.totvs_id || "");
@@ -50,17 +51,17 @@ export default function PastorIgrejasPage() {
   const [pageSize, setPageSize] = useState(20);
 
   const { data: optionsRows = [] } = useQuery({
-    queryKey: ["pastor-igrejas-options", activeTotvsId, scopeRootTotvsId, "scope-v2"],
+    queryKey: ["pastor-igrejas-options", sessionUserId, activeTotvsId, scopeRootTotvsId, "scope-v3"],
     queryFn: () => listChurchesInScope(1, 5000, scopeRootTotvsId),
-    enabled: Boolean(activeTotvsId),
+    enabled: Boolean(activeTotvsId && sessionUserId),
     staleTime: 0,
     refetchOnMount: "always",
   });
 
   const { data: pageData, isLoading, isFetching } = useQuery({
-    queryKey: ["pastor-igrejas-page", page, pageSize, activeTotvsId, scopeRootTotvsId, "scope-v2"],
+    queryKey: ["pastor-igrejas-page", sessionUserId, page, pageSize, activeTotvsId, scopeRootTotvsId, "scope-v3"],
     queryFn: () => listChurchesInScopePaged(page, pageSize, scopeRootTotvsId),
-    enabled: Boolean(activeTotvsId),
+    enabled: Boolean(activeTotvsId && sessionUserId),
     staleTime: 0,
     refetchOnMount: "always",
   });
@@ -103,10 +104,10 @@ export default function PastorIgrejasPage() {
     if (page >= totalPages) return;
     const nextPage = page + 1;
     void queryClient.prefetchQuery({
-      queryKey: ["pastor-igrejas-page", nextPage, pageSize, activeTotvsId, scopeRootTotvsId, "scope-v2"],
+      queryKey: ["pastor-igrejas-page", sessionUserId, nextPage, pageSize, activeTotvsId, scopeRootTotvsId, "scope-v3"],
       queryFn: () => listChurchesInScopePaged(nextPage, pageSize, scopeRootTotvsId),
     });
-  }, [page, totalPages, pageSize, activeTotvsId, scopeRootTotvsId, queryClient]);
+  }, [page, totalPages, pageSize, sessionUserId, activeTotvsId, scopeRootTotvsId, queryClient]);
 
   const totals = useMemo(() => {
     return {
