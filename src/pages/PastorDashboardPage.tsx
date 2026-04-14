@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Building2, Church, MessageSquare, UserRound, Users } from "lucide-react";
 import { ManagementShell } from "@/components/layout/ManagementShell";
-import { listChurchesInScopePaged, listMembers } from "@/services/saasService";
+import { listChurchesInScope, listMembers } from "@/services/saasService";
 import { useUser } from "@/context/UserContext";
 import { Button } from "@/components/ui/button";
 
@@ -50,6 +50,10 @@ export default function PastorDashboardPage() {
   const navigate = useNavigate();
   const { session } = useUser();
   const activeTotvsId = String(session?.totvs_id || "");
+  // Usa a mesma regra da tela de Igrejas:
+  // passa root_totvs_id somente quando existir e deixa undefined nos demais casos
+  // para a API resolver o escopo do usuário autenticado.
+  const scopeRootTotvsId = session?.root_totvs_id ? String(session.root_totvs_id) : undefined;
 
   const { data: membersRes } = useQuery({
     queryKey: ["pastor-dashboard-members", activeTotvsId],
@@ -65,13 +69,14 @@ export default function PastorDashboardPage() {
   });
 
   const { data: churchesRes } = useQuery({
-    queryKey: ["pastor-dashboard-churches"],
-    queryFn: () => listChurchesInScopePaged(1, 500),
+    queryKey: ["pastor-dashboard-churches", activeTotvsId, scopeRootTotvsId],
+    queryFn: () => listChurchesInScope(1, 5000, scopeRootTotvsId || undefined),
+    enabled: Boolean(activeTotvsId),
   });
 
   const members = membersRes?.workers || [];
-  const churches = churchesRes?.churches || [];
-  const totalIgrejasEscopo = Number(churchesRes?.total || churches.length || 0);
+  const churches = churchesRes || [];
+  const totalIgrejasEscopo = Number(churches.length || 0);
 
   const counters = useMemo(() => {
     const totalMembers = Number(membersRes?.total || members.length || 0);
