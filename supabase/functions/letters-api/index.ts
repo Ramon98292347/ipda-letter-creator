@@ -669,8 +669,8 @@ async function handleCreate(session: SessionClaims, body: Record<string, unknown
     if (churchesErr) return json({ ok: false, error: "db_error_church_tree", details: "erro interno" }, 500);
 
     const churches: ChurchNode[] = ((churchesRaw || []) as Record<string, unknown>[]).map((r) => ({
-      totvs_id: String(r.totvs_id || ""),
-      parent_totvs_id: r.parent_totvs_id ? String(r.parent_totvs_id) : null,
+      totvs_id: String(r.totvs_id || "").trim(),
+      parent_totvs_id: r.parent_totvs_id ? String(r.parent_totvs_id).trim() : null,
       church_name: r.church_name ? String(r.church_name) : null,
       class: normalizeClass(r.class),
       stamp_church_url: r.stamp_church_url ? String(r.stamp_church_url) : null,
@@ -680,8 +680,9 @@ async function handleCreate(session: SessionClaims, body: Record<string, unknown
     }));
 
     const byId = mapById(churches);
-    const activeChurch = byId.get(session.active_totvs_id) || null;
-    if (!activeChurch) return json({ ok: false, error: "church_not_found" }, 404);
+    const activeTotvs = String(session.active_totvs_id || "").trim();
+    const activeChurch = byId.get(activeTotvs) || null;
+    if (!activeChurch) return json({ ok: false, error: "church_not_found", details: `active_totvs_id=${activeTotvs}` }, 404);
 
     // Comentario: origem permitida segue regra de classe por hierarquia.
     const requestedOriginTotvs = parseTotvsFromText(church_origin) || session.active_totvs_id;
