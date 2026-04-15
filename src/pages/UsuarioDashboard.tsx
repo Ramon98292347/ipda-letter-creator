@@ -783,7 +783,13 @@ async function openPdf(letter: PastorLetter) {
         toast.success("Carta enviada com sucesso.");
       }
       setOpenLetterDialog(false);
-      await queryClient.invalidateQueries({ queryKey: ["worker-dashboard"] });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["worker-dashboard"] }),
+        queryClient.invalidateQueries({ queryKey: ["pastor-letters"] }),
+        queryClient.invalidateQueries({ queryKey: ["cartas-dashboard-letters"] }),
+        queryClient.invalidateQueries({ queryKey: ["pastor-metrics"] }),
+        queryClient.invalidateQueries({ queryKey: ["cartas-dashboard-metrics"] }),
+      ]);
     } catch (err) {
       toast.error(String((err as Error)?.message || "Não foi possível enviar a carta."));
     } finally {

@@ -11,7 +11,7 @@ import { toast } from "sonner";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createLetterByPastor, getPastorByTotvsPublic, listChurchesInScope, listMembers, searchChurchesPublic, type UserListItem } from "@/services/saasService";
 import { format, parse } from "date-fns";
 import { useUser } from "@/context/UserContext";
@@ -52,6 +52,7 @@ type FormData = {
 const Index = () => {
   const { usuario, telefone, session } = useUser();
   const nav = useNavigate();
+  const queryClient = useQueryClient();
   const loc = useLocation();
   const role = String(usuario?.role || session?.role || "").toLowerCase();
   const dashboardRoute = role === "admin" ? "/admin/dashboard" : role === "pastor" ? "/pastor/dashboard" : "/usuario";
@@ -565,6 +566,14 @@ const Index = () => {
       } else {
         toast.success("Carta criada e enviada para geração do PDF.");
       }
+
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["pastor-letters"] }),
+        queryClient.invalidateQueries({ queryKey: ["cartas-dashboard-letters"] }),
+        queryClient.invalidateQueries({ queryKey: ["pastor-metrics"] }),
+        queryClient.invalidateQueries({ queryKey: ["cartas-dashboard-metrics"] }),
+        queryClient.invalidateQueries({ queryKey: ["worker-dashboard"] }),
+      ]);
 
       nav(dashboardRoute);
     } catch (err: unknown) {
