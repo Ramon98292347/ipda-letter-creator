@@ -561,10 +561,8 @@ const Index = () => {
 
       if (Boolean((result as Record<string, unknown>)?.queued)) {
         toast.success("Sem internet. Carta salva na fila e será enviada automaticamente.");
-      } else if (result?.n8n?.ok === false) {
-        toast.warning("Carta criada, mas houve falha ao enviar para geração do PDF.");
       } else {
-        toast.success("Carta criada e enviada para geração do PDF.");
+        toast.success("Carta criada com sucesso.");
       }
 
       await Promise.all([

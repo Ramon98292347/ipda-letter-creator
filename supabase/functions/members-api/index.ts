@@ -952,9 +952,12 @@ async function handleListMembers(session: SessionClaims, body: ListMembersBody):
   const normalizedRoleFilter = body.minister_role ? normalizeMinisterRole(body.minister_role) : null;
   const filtered = (users || []).filter((u: Record<string, unknown>) => {
     const defaultTotvs = String(u.default_totvs_id || "").trim();
-    if (!defaultTotvs) return false;
-    if (!scope.has(defaultTotvs)) return false;
-    if (churchFilterScope && !churchFilterScope.has(defaultTotvs)) return false;
+    const isSessionUser = session.role === "pastor" && String(u.id || "") === session.user_id;
+    if (!defaultTotvs && !isSessionUser) return false;
+    if (!isSessionUser) {
+      if (!scope.has(defaultTotvs)) return false;
+      if (churchFilterScope && !churchFilterScope.has(defaultTotvs)) return false;
+    }
     if (normalizedRoleFilter && normalizeMinisterRole(u.minister_role) !== normalizedRoleFilter) return false;
     return true;
   });

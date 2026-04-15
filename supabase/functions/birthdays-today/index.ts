@@ -99,7 +99,7 @@ Deno.serve(async (req) => {
       return json({ ok: false, error: "unauthorized" }, 401);
     }
 
-    if (!activeTotvsId) return json({ ok: false, error: "church_not_found" }, 404);
+    if (!activeTotvsId) return json({ ok: true, birthdays: [] });
 
     const { data: users, error } = await sb
       .from("users")

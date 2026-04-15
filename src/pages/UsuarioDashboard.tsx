@@ -100,7 +100,11 @@ export default function UsuarioDashboard() {
   const { usuario, session, setUsuario, setTelefone } = useUser();
 
   // Comentario: prepara scope para validacao de hierarquia em notificacoes
-  const userScopeIds = (session?.scope_totvs_ids || usuario?.totvs_access || []).filter(Boolean);
+  const userScopeIds = useMemo(
+    () => (session?.scope_totvs_ids || usuario?.totvs_access || []).filter(Boolean),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [JSON.stringify(session?.scope_totvs_ids || usuario?.totvs_access || [])],
+  );
 
   const { supported: pushSupported, subscribed: pushSubscribed, loading: pushLoading, subscribe: subscribePush, unsubscribe: unsubscribePush } = usePushNotifications(
     session?.id,
@@ -222,13 +226,18 @@ export default function UsuarioDashboard() {
     queryKey: ["worker-dashboard", userId],
     queryFn: () => workerDashboard(undefined, undefined, 1, 200),
     enabled: Boolean(userId),
-    // Atualiza cartas e dados do obreiro automaticamente a cada 60 segundos
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
   });
 
   const { data: pastorFromUsers } = useQuery({
     queryKey: ["pastor-by-totvs", activeTotvs],
     queryFn: () => getPastorByTotvsPublic(activeTotvs),
     enabled: Boolean(activeTotvs),
+    staleTime: 10 * 60 * 1000,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
   });
 
   // Verifica se o usuario tem ficha de membro gerada (necessaria para QR code nas cartas)
@@ -236,6 +245,9 @@ export default function UsuarioDashboard() {
     queryKey: ["member-docs-status", userId],
     queryFn: () => getMemberDocsStatus({ member_id: userId }),
     enabled: Boolean(userId),
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
   });
 
   const [fichaAlertShown, setFichaAlertShown] = useState(false);
@@ -368,12 +380,14 @@ export default function UsuarioDashboard() {
 
   useEffect(() => {
     if (!profile?.phone) return;
+    if (usuario?.telefone === profile.phone) return;
     setTelefone(profile.phone);
     setUsuario({
       ...(usuario || { nome: profile.full_name || "Usuario", telefone: "" }),
       telefone: profile.phone || "",
     });
-  }, [profile?.phone, profile?.full_name, setTelefone, setUsuario, usuario]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile?.phone, profile?.full_name]);
 
   const filteredLetters = useMemo(() => {
     const q = search.trim().toLowerCase();

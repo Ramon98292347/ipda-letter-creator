@@ -177,6 +177,7 @@ const READONLY_ACTIONS = new Set([
   "get-registration-status",
   "get-public",
   "get-pdf-url",
+  "get-pastor-contact",
   "status",
   "dashboard",
   "stats",
@@ -184,6 +185,12 @@ const READONLY_ACTIONS = new Set([
   "select-church",
   "forgot-password",
   "reset-password",
+  "subscribe-push",
+  "subscribe-native-push",
+  "unsubscribe-push",
+  "unsubscribe-native-push",
+  "mark-read",
+  "mark-all-read",
 ]);
 
 const READONLY_FUNCTIONS = new Set([

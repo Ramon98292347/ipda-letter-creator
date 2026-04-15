@@ -3055,7 +3055,7 @@ export async function requestRelease(letterId: string, _workerId: string, _churc
 }
 
 export async function workerDashboard(dateStart?: string, dateEnd?: string, page = 1, pageSize = 20): Promise<WorkerDashboardData> {
-  if (!isMockMode() && supabase && getRlsToken()) {
+  if (false && !isMockMode() && supabase && getRlsToken()) {
     const currentUser = getUser();
     const currentSession = getSession();
     const userId = String(currentUser?.id || "").trim();

@@ -1,4 +1,4 @@
-import { useEffect, useState, type ComponentType, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ComponentType, type ReactNode } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { BarChart2, Building2, Bell, Bus, Calculator, Church, ClipboardList, DollarSign, Download, FileText, Loader2, LogOut, Megaphone, MessageSquare, MoreHorizontal, Package, Settings, TrendingDown, Users } from "lucide-react";
 import { Capacitor } from "@capacitor/core";
@@ -128,7 +128,11 @@ export function ManagementShell({
   const { canInstall, install, isInstalled } = usePwaInstall();
 
   // Comentario: prepara dados para validacao de escopo em notificacoes
-  const userScopeIds = (session?.scope_totvs_ids || usuario?.totvs_access || []).filter(Boolean);
+  const userScopeIds = useMemo<string[]>(
+    () => (session?.scope_totvs_ids || usuario?.totvs_access || []).filter(Boolean).map((v) => String(v)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [JSON.stringify(session?.scope_totvs_ids || usuario?.totvs_access || [])],
+  );
 
   // Comentario: hook de push notifications — passa role e scope para validar hierarquia
   const { supported: pushSupported, subscribed: pushSubscribed, loading: pushLoading, subscribe: subscribePush } = usePushNotifications(

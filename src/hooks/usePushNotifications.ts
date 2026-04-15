@@ -154,20 +154,17 @@ export function usePushNotifications(userId?: string, userRole?: string, scopeTo
     };
 
     void checkSubscription();
-
-    const timerId = setTimeout(() => {
-      void checkSubscription();
-    }, 500);
-
-    return () => clearTimeout(timerId);
-  }, [supported, isNativeApp, persistSubscription, mapNativePermission]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [supported, isNativeApp, userId]);
 
   // Comentario: salva dados do usuario no SW para validar escopo de notificacoes
+  const scopeKey = scopeTotvsIds ? scopeTotvsIds.join(",") : "";
   useEffect(() => {
     if (userRole && scopeTotvsIds) {
       void salvarUserNoSW({ role: userRole, scope_totvs_ids: scopeTotvsIds });
     }
-  }, [userRole, scopeTotvsIds]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userRole, scopeKey]);
 
   const subscribe = useCallback(async () => {
     if (!supported) return;
