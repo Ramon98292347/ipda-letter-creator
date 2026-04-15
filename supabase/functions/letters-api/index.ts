@@ -193,6 +193,16 @@ function computeSessionScopeFromRows(session: SessionClaims, churches: ChurchRow
       const partial = computeScopeFromRows(root, churches);
       for (const id of partial) scoped.add(id);
     }
+    // Comentario: fallback — pastor que ainda nao foi vinculado como
+    // pastor_user_id de nenhuma igreja usa a igreja ativa como raiz do escopo.
+    // Evita 403 forbidden_no_scope em pastores recem-cadastrados.
+    if (scoped.size === 0) {
+      const active = String(session.active_totvs_id || "").trim();
+      if (active) {
+        const partial = computeScopeFromRows(active, churches);
+        for (const id of partial) scoped.add(id);
+      }
+    }
     return scoped;
   }
 
