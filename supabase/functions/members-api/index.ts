@@ -179,6 +179,28 @@ function normalizeMinisterRole(value: unknown): string {
     .trim();
 }
 
+// Comentario: PostgREST limita default a 1000 linhas. Com 2000+ igrejas,
+// precisamos paginar para nao truncar a arvore.
+async function fetchAllChurches<T = Record<string, unknown>>(
+  // deno-lint-ignore no-explicit-any
+  sb: any,
+  columns: string,
+): Promise<T[]> {
+  const CHUNK = 1000;
+  const out: T[] = [];
+  let offset = 0;
+  for (;;) {
+    const { data, error } = await sb.from("churches").select(columns).range(offset, offset + CHUNK - 1);
+    if (error) throw error;
+    const rows = (data || []) as T[];
+    out.push(...rows);
+    if (rows.length < CHUNK) break;
+    offset += CHUNK;
+    if (offset > 50000) break;
+  }
+  return out;
+}
+
 // Comentario: calcula o conjunto de igrejas que o pastor pode gerenciar —
 // a sua própria igreja e todas as filhas, netas etc.
 function computeScope(rootTotvs: string, churches: ChurchRow[]): Set<string> {
@@ -879,10 +901,12 @@ async function handleListMembers(session: SessionClaims, body: ListMembersBody):
   const churchTotvsFilter = String(body.church_totvs_id || "").trim();
 
   const sb = createClient(Deno.env.get("SUPABASE_URL") || "", Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "");
-  const { data: churches, error: churchesErr } = await sb.from("churches").select("totvs_id,parent_totvs_id,church_name,class");
-  if (churchesErr) return json({ ok: false, error: "db_error_churches", details: "erro interno" }, 500);
-
-  const churchRows = (churches || []) as ChurchRow[];
+  let churchRows: ChurchRow[] = [];
+  try {
+    churchRows = await fetchAllChurches<ChurchRow>(sb, "totvs_id,parent_totvs_id,church_name,class");
+  } catch {
+    return json({ ok: false, error: "db_error_churches", details: "erro interno" }, 500);
+  }
   let scopeRootTotvs = session.active_totvs_id;
   let scope: Set<string>;
   if (session.role === "admin") {
@@ -1082,10 +1106,12 @@ async function handleChangeMemberChurch(session: SessionClaims, body: ChangeMemb
   const currentTotvs = String((targetUser as Record<string, unknown>).default_totvs_id || "").trim();
   if (currentTotvs === targetTotvsId) return json({ ok: true, unchanged: true }, 200);
 
-  const { data: churches, error: churchesErr } = await sb.from("churches").select("totvs_id,parent_totvs_id,class");
-  if (churchesErr) return json({ ok: false, error: "db_error_churches", details: "erro interno" }, 500);
-
-  const churchRows = (churches || []) as ChurchRow[];
+  let churchRows: ChurchRow[] = [];
+  try {
+    churchRows = await fetchAllChurches<ChurchRow>(sb, "totvs_id,parent_totvs_id,class");
+  } catch {
+    return json({ ok: false, error: "db_error_churches", details: "erro interno" }, 500);
+  }
   const churchSet = new Set(churchRows.map((church) => String(church.totvs_id)));
   if (!churchSet.has(targetTotvsId)) return json({ ok: false, error: "target_church_not_found" }, 404);
 

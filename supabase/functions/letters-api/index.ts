@@ -135,6 +135,29 @@ function mapById(churches: ChurchNode[]) {
   return byId;
 }
 
+// Comentario: PostgREST limita default a 1000 linhas. Com ~2000+ igrejas,
+// a arvore completa era truncada e lookups por totvs_id falhavam com
+// church_not_found. Paginamos em chunks ate trazer tudo.
+async function fetchAllChurches<T = Record<string, unknown>>(
+  // deno-lint-ignore no-explicit-any
+  sb: any,
+  columns: string,
+): Promise<T[]> {
+  const CHUNK = 1000;
+  const out: T[] = [];
+  let offset = 0;
+  for (;;) {
+    const { data, error } = await sb.from("churches").select(columns).range(offset, offset + CHUNK - 1);
+    if (error) throw error;
+    const rows = (data || []) as T[];
+    out.push(...rows);
+    if (rows.length < CHUNK) break;
+    offset += CHUNK;
+    if (offset > 50000) break; // safety
+  }
+  return out;
+}
+
 function computeScope(rootTotvs: string, churches: ChurchNode[]): Set<string> {
   const children = new Map<string, string[]>();
   for (const c of churches) {
@@ -662,13 +685,17 @@ async function handleCreate(session: SessionClaims, body: Record<string, unknown
 
     const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
-    const { data: churchesRaw, error: churchesErr } = await sb
-      .from("churches")
-      .select("totvs_id,parent_totvs_id,church_name,class,stamp_church_url,pastor_user_id,address_city,address_state");
+    let churchesRaw: Record<string, unknown>[] = [];
+    try {
+      churchesRaw = await fetchAllChurches<Record<string, unknown>>(
+        sb,
+        "totvs_id,parent_totvs_id,church_name,class,stamp_church_url,pastor_user_id,address_city,address_state",
+      );
+    } catch {
+      return json({ ok: false, error: "db_error_church_tree", details: "erro interno" }, 500);
+    }
 
-    if (churchesErr) return json({ ok: false, error: "db_error_church_tree", details: "erro interno" }, 500);
-
-    const churches: ChurchNode[] = ((churchesRaw || []) as Record<string, unknown>[]).map((r) => ({
+    const churches: ChurchNode[] = (churchesRaw as Record<string, unknown>[]).map((r) => ({
       totvs_id: String(r.totvs_id || "").trim(),
       parent_totvs_id: r.parent_totvs_id ? String(r.parent_totvs_id).trim() : null,
       church_name: r.church_name ? String(r.church_name) : null,
@@ -1113,14 +1140,15 @@ async function handleList(session: SessionClaims, body: Record<string, unknown>)
 
     const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
-    // 1) escopo base da sessÃ£o
-    const { data: allChurches, error: allErr } = await sb
-      .from("churches")
-      .select("totvs_id,parent_totvs_id,pastor_user_id");
+    // 1) escopo base da sessao
+    let allChurches: Record<string, unknown>[] = [];
+    try {
+      allChurches = await fetchAllChurches(sb, "totvs_id,parent_totvs_id,pastor_user_id");
+    } catch {
+      return json({ ok: false, error: "db_error_scope", details: "erro interno" }, 500);
+    }
 
-    if (allErr) return json({ ok: false, error: "db_error_scope", details: "erro interno" }, 500);
-
-    const scope = computeSessionScopeFromRows(session, (allChurches || []) as ChurchRow[]);
+    const scope = computeSessionScopeFromRows(session, allChurches as ChurchRow[]);
     if (session.role === "pastor" && scope.size === 0) {
       return json({ ok: false, error: "forbidden_no_scope" }, 403);
     }
@@ -1275,11 +1303,13 @@ async function handleGetPdfUrl(session: SessionClaims, body: Record<string, unkn
         return json({ ok: false, error: "forbidden" }, 403);
       }
     } else {
-      const { data: allChurches, error: cErr } = await sb
-        .from("churches")
-        .select("totvs_id,parent_totvs_id,pastor_user_id");
-      if (cErr) return json({ ok: false, error: "db_error_scope", details: "erro interno" }, 500);
-      const scope = computeSessionScopeFromRows(session, (allChurches || []) as ChurchRow[]);
+      let allChurches: Record<string, unknown>[] = [];
+      try {
+        allChurches = await fetchAllChurches(sb, "totvs_id,parent_totvs_id,pastor_user_id");
+      } catch {
+        return json({ ok: false, error: "db_error_scope", details: "erro interno" }, 500);
+      }
+      const scope = computeSessionScopeFromRows(session, allChurches as ChurchRow[]);
       if (session.role === "pastor" && scope.size === 0) return json({ ok: false, error: "forbidden_no_scope" }, 403);
       if (!scope.has(letterChurch)) {
         return json({ ok: false, error: "forbidden" }, 403);
@@ -1371,13 +1401,14 @@ async function handleSetStatus(session: SessionClaims, body: Record<string, unkn
 
     // Admin pode tudo. Demais roles so no proprio escopo.
     if (session.role !== "admin" && session.role !== "obreiro") {
-      const { data: allChurches, error: cErr } = await sb
-        .from("churches")
-        .select("totvs_id,parent_totvs_id,pastor_user_id");
+      let allChurches: Record<string, unknown>[] = [];
+      try {
+        allChurches = await fetchAllChurches(sb, "totvs_id,parent_totvs_id,pastor_user_id");
+      } catch {
+        return json({ ok: false, error: "db_error_scope", details: "erro interno" }, 500);
+      }
 
-      if (cErr) return json({ ok: false, error: "db_error_scope", details: "erro interno" }, 500);
-
-      const scope = computeSessionScopeFromRows(session, (allChurches || []) as ChurchRow[]);
+      const scope = computeSessionScopeFromRows(session, allChurches as ChurchRow[]);
       if (session.role === "pastor" && scope.size === 0) return json({ ok: false, error: "forbidden_no_scope" }, 403);
       if (!scope.has(String(letter.church_totvs_id || ""))) {
         return json({ ok: false, error: "forbidden_wrong_scope" }, 403);
