@@ -1,4 +1,4 @@
-﻿import { useMemo, useState } from "react";
+﻿import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowLeft, IdCard, Loader2, Send, Trash2 } from "lucide-react";
 import { deleteMemberDocs, generateMemberDocs, getMemberDocsStatus, getPastorByTotvsPublic, workerDashboard } from "@/services/saasService";
+import { supabaseRealtime } from "@/lib/supabaseRealtime";
 import { formatCepBr, formatCpfBr, formatDateBr, formatPhoneBr } from "@/lib/br-format";
 
 type DocTab = "carteirinha" | "ficha";
@@ -192,6 +193,18 @@ export default function UsuarioDocumentosPage() {
     queryFn: () => getMemberDocsStatus({ member_id: userId, church_totvs_id: activeTotvs }),
     enabled: Boolean(userId && activeTotvs),
   });
+
+  const refetchDocsCb = useCallback(() => { void refetchDocsStatus(); }, [refetchDocsStatus]);
+
+  useEffect(() => {
+    if (!userId) return;
+    const channel = supabaseRealtime
+      .channel(`worker-docs-${userId}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "member_ficha_documents" }, refetchDocsCb)
+      .on("postgres_changes", { event: "*", schema: "public", table: "member_carteirinha_documents" }, refetchDocsCb)
+      .subscribe();
+    return () => { void supabaseRealtime.removeChannel(channel); };
+  }, [userId, refetchDocsCb]);
 
   const fichaPronta = Boolean(
     docsStatus?.ficha && String(docsStatus?.ficha?.final_url || "").trim().length > 0,
