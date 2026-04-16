@@ -200,6 +200,7 @@ export type WorkerListResponse = {
     diacono: number;
     obreiro: number;
     membro: number;
+    inativos: number;
   };
 };
 
@@ -1229,6 +1230,7 @@ export async function listMembers(params: MemberListParams): Promise<WorkerListR
               diacono: Number((data.metrics as Record<string, unknown>)?.diacono || 0),
               obreiro: Number((data.metrics as Record<string, unknown>)?.obreiro || 0),
               membro: Number((data.metrics as Record<string, unknown>)?.membro || 0),
+              inativos: Number((data.metrics as Record<string, unknown>)?.inativos || 0),
             }
           : undefined,
       };

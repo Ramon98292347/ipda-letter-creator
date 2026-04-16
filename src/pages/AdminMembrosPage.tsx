@@ -117,19 +117,7 @@ export default function AdminMembrosPage() {
     enabled: true,
   });
 
-  // Comentario: busca contagem de membros inativos para exibir no card
-  const { data: inativosData } = useQuery({
-    queryKey: ["admin-membros-inativos-count", selectedChurchTotvs],
-    queryFn: () =>
-      listMembers({
-        page: 1,
-        page_size: 1,
-        roles: ["pastor", "obreiro", "secretario", "financeiro"],
-        church_totvs_id: selectedChurchTotvs || undefined,
-        is_active: false,
-      }),
-  });
-  const inativosCount = Number(inativosData?.total || 0);
+  const inativosCount = Number(membersRes?.metrics?.inativos || 0);
 
   const showPageLoading =
     loadingChurches ||
@@ -145,7 +133,7 @@ export default function AdminMembrosPage() {
         pastor: Number(metrics.pastor || 0),
         presbitero: Number(metrics.presbitero || 0),
         diacono: Number(metrics.diacono || 0),
-        obreiro: Number(metrics.cooperador || 0),
+        obreiro: Number(metrics.obreiro || 0),
         membrosAtivos: Number(metrics.membro || 0),
       };
     }

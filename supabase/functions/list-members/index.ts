@@ -188,6 +188,9 @@ Deno.serve(async (req) => {
     const sessionChurchClass = normalizeChurchClass(churchRows.find((c) => c.totvs_id === scopeRootTotvs)?.class);
     const churchMap = new Map(churchRows.map((c) => [String(c.totvs_id), c]));
 
+    const scopeArray = Array.from(scope);
+    const sqlFilterTotvs = churchTotvsFilter || (scopeArray.length <= 500 ? null : null);
+
     let q = sb
       .from("users")
       .select(
@@ -196,6 +199,12 @@ Deno.serve(async (req) => {
       )
       .in("role", roles)
       .order("full_name", { ascending: true });
+
+    if (churchTotvsFilter) {
+      q = q.eq("default_totvs_id", churchTotvsFilter);
+    } else if (scopeArray.length <= 500) {
+      q = q.in("default_totvs_id", scopeArray);
+    }
 
     if (typeof body.is_active === "boolean") q = q.eq("is_active", body.is_active);
     if (body.search) {
@@ -206,17 +215,12 @@ Deno.serve(async (req) => {
     const { data: users, error: usersErr } = await q;
     if (usersErr) return json({ ok: false, error: "db_error_users", details: "erro interno" }, 500);
 
-    // Comentario: normaliza o filtro de cargo para comparar sem acento e sem diferenca de maiusculas.
-    // Exemplo: "presbitero" bate com "Presbítero" no banco; "diacono" bate com "Diácono".
     const normalizedRoleFilter = body.minister_role ? normalizeMinisterRole(body.minister_role) : null;
 
     const filtered = (users || []).filter((u: Record<string, unknown>) => {
       const defaultTotvs = String(u.default_totvs_id || "").trim();
       if (!defaultTotvs) return false;
-      if (!scope.has(defaultTotvs)) return false;
-      // Comentario: quando seleciona uma igreja, traz somente membros dessa igreja (sem filhas).
-      if (churchTotvsFilter && defaultTotvs !== churchTotvsFilter) return false;
-      // Comentario: filtra por cargo ministerial normalizando acentos dos dois lados.
+      if (scopeArray.length > 500 && !scope.has(defaultTotvs)) return false;
       if (normalizedRoleFilter && normalizeMinisterRole(u.minister_role) !== normalizedRoleFilter) return false;
       return true;
     });
@@ -284,6 +288,7 @@ Deno.serve(async (req) => {
       diacono: 0,
       obreiro: 0,
       membro: 0,
+      inativos: 0,
     };
     for (const member of mapped as Array<Record<string, unknown>>) {
       const role = normalizeMinisterRole(member.minister_role);
@@ -292,6 +297,7 @@ Deno.serve(async (req) => {
       else if (role === "diacono") metrics.diacono += 1;
       else if (role === "membro") metrics.membro += 1;
       else if (role === "obreiro" || role === "cooperador" || role === "obreiro cooperador") metrics.obreiro += 1;
+      if (member.is_active === false) metrics.inativos += 1;
     }
     const from = (page - 1) * page_size;
     const to = from + page_size;
