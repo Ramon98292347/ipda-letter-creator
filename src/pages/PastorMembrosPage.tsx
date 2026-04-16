@@ -1,4 +1,4 @@
-﻿import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CheckSquare, FileText, Grid2X2, IdCard, List, Loader2, MoreVertical, Printer, Save, Send, Square, Trash2, Users } from "lucide-react";
 import { supabaseRealtime } from "@/lib/supabaseRealtime";
@@ -828,13 +828,16 @@ export default function PastorMembrosPage() {
     queryKey: ["pastor-members-churches-footer", activeTotvsId],
     queryFn: () => listChurchesInScope(1, 400),
     enabled: Boolean(activeTotvsId),
+    // Comentario: igrejas sao usadas apenas para combobox e rodape — podem
+    // carregar em background sem bloquear a tabela principal.
+    staleTime: 5 * 60_000,
   });
 
+  // Comentario: carregamento progressivo — bloqueia so enquanto members principal
+  // nao chegou. Churches carregam em background (usadas so no combobox e rodape).
   const showPageLoading =
     loadingMembers ||
-    (fetchingMembers && workers.length === 0) ||
-    (activeTotvsId && loadingChurches) ||
-    (fetchingChurches && churchesInScope.length === 0 && Boolean(activeTotvsId));
+    (fetchingMembers && workers.length === 0);
   const activeChurch = useMemo(
     () => churchesInScope.find((church) => String(church.totvs_id || "") === activeTotvsId) || null,
     [churchesInScope, activeTotvsId],
@@ -1402,7 +1405,8 @@ export default function PastorMembrosPage() {
                 onChange={(e) => { setSearchChurch(e.target.value); setShowChurchList(true); }}
                 onFocus={() => setShowChurchList(true)}
                 onBlur={() => setTimeout(() => setShowChurchList(false), 200)}
-                placeholder="Buscar igreja por nome ou TOTVS..."
+                placeholder={loadingChurches ? "Carregando igrejas..." : "Buscar igreja por nome ou TOTVS..."}
+                disabled={loadingChurches}
               />
               {/* Comentario: exibe nome da igreja selecionada quando o dropdown esta fechado */}
               {selectedFilterChurch && !showChurchList && (

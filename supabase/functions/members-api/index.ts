@@ -914,40 +914,73 @@ async function handleListMembers(session: SessionClaims, body: ListMembersBody):
   const sessionChurchClass = normalizeChurchClass(churchRows.find((c) => c.totvs_id === scopeRootTotvs)?.class);
   const churchMap = new Map(churchRows.map((c) => [String(c.totvs_id), c]));
 
-  let q = sb
-    .from("users")
-    .select(
-      "id,full_name,role,cpf,rg,phone,email,profession,minister_role,birth_date,baptism_date,marital_status,matricula,ordination_date,avatar_url,signature_url,cep,address_street,address_number,address_complement,address_neighborhood,address_city,address_state,default_totvs_id,totvs_access,is_active,can_create_released_letter,payment_status,payment_block_reason",
-      { count: "exact" },
-    )
-    .in("role", roles)
-    .order("full_name", { ascending: true });
+  const scopeArray = Array.from(scope);
+  let users: Record<string, unknown>[] = [];
 
-  if (typeof body.is_active === "boolean") q = q.eq("is_active", body.is_active);
-  if (body.search) {
-    const safe = String(body.search).replace(/"/g, "").trim();
-    if (safe) q = q.or(`full_name.ilike.%${safe}%,cpf.ilike.%${safe}%,phone.ilike.%${safe}%`);
+  if (churchTotvsFilter && body.exact_church) {
+    let q = sb
+      .from("users")
+      .select(
+        "id,full_name,role,cpf,rg,phone,email,profession,minister_role,birth_date,baptism_date,marital_status,matricula,ordination_date,avatar_url,signature_url,cep,address_street,address_number,address_complement,address_neighborhood,address_city,address_state,default_totvs_id,totvs_access,is_active,can_create_released_letter,payment_status,payment_block_reason"
+      )
+      .in("role", roles)
+      .eq("default_totvs_id", churchTotvsFilter)
+      .order("full_name", { ascending: true });
+
+    if (typeof body.is_active === "boolean") q = q.eq("is_active", body.is_active);
+    if (body.search) {
+      const safe = String(body.search).replace(/"/g, "").trim();
+      if (safe) q = q.or(`full_name.ilike.%${safe}%,cpf.ilike.%${safe}%,phone.ilike.%${safe}%`);
+    }
+
+    const { data, error } = await q;
+    if (error) return json({ ok: false, error: "db_error_users", details: "erro interno" }, 500);
+    users = data || [];
+  } else {
+    const CHUNK_SIZE = 300;
+    const filterScope = churchTotvsFilter ? computeScope(churchTotvsFilter, churchRows) : scope;
+    const arrayToQuery = Array.from(filterScope);
+    const chunks: string[][] = [];
+    for (let i = 0; i < arrayToQuery.length; i += CHUNK_SIZE) {
+      chunks.push(arrayToQuery.slice(i, i + CHUNK_SIZE));
+    }
+
+    try {
+      const promises = chunks.map(async (chunk) => {
+        let q = sb
+          .from("users")
+          .select(
+            "id,full_name,role,cpf,rg,phone,email,profession,minister_role,birth_date,baptism_date,marital_status,matricula,ordination_date,avatar_url,signature_url,cep,address_street,address_number,address_complement,address_neighborhood,address_city,address_state,default_totvs_id,totvs_access,is_active,can_create_released_letter,payment_status,payment_block_reason"
+          )
+          .in("role", roles)
+          .in("default_totvs_id", chunk.map(id => String(id).trim()));
+
+        if (typeof body.is_active === "boolean") q = q.eq("is_active", body.is_active);
+        if (body.search) {
+          const safe = String(body.search).replace(/"/g, "").trim();
+          if (safe) q = q.or(`full_name.ilike.%${safe}%,cpf.ilike.%${safe}%,phone.ilike.%${safe}%`);
+        }
+        const { data, error } = await q;
+        if (error) throw error;
+        return data || [];
+      });
+
+      const results = await Promise.all(promises);
+      users = results.flat();
+      users.sort((a, b) => String(a.full_name || "").localeCompare(String(b.full_name || "")));
+    } catch (err) {
+      return json({ ok: false, error: "db_error_users", details: "erro interno" }, 500);
+    }
   }
-
-  const { data: users, error: usersErr } = await q;
-  if (usersErr) return json({ ok: false, error: "db_error_users", details: "erro interno" }, 500);
 
   // exact_church=true: filtra apenas membros da igreja exata (usado no dashboard do pastor)
   // exact_church=false/omitido: computa sub-escopo (igreja + filhas) para pagina de membros
   const exactChurch = Boolean(body.exact_church);
-  const churchFilterScope = churchTotvsFilter
-    ? (exactChurch ? new Set([churchTotvsFilter]) : computeScope(churchTotvsFilter, churchRows))
-    : null;
-
   const normalizedRoleFilter = body.minister_role ? normalizeMinisterRole(body.minister_role) : null;
-  const filtered = (users || []).filter((u: Record<string, unknown>) => {
+  const filtered = users.filter((u: Record<string, unknown>) => {
     const defaultTotvs = String(u.default_totvs_id || "").trim();
     const isSessionUser = session.role === "pastor" && String(u.id || "") === session.user_id;
     if (!defaultTotvs && !isSessionUser) return false;
-    if (!isSessionUser) {
-      if (!scope.has(defaultTotvs)) return false;
-      if (churchFilterScope && !churchFilterScope.has(defaultTotvs)) return false;
-    }
     if (normalizedRoleFilter && normalizeMinisterRole(u.minister_role) !== normalizedRoleFilter) return false;
     return true;
   });

@@ -33,7 +33,7 @@ function json(data: unknown, status = 200) {
 type Role = "admin" | "pastor" | "obreiro";
 type ChurchClass = "estadual" | "setorial" | "central" | "regional" | "local";
 type SessionClaims = { user_id: string; role: Role; active_totvs_id: string; scope_totvs_ids?: string[] };
-type ChurchRow = { totvs_id: string; parent_totvs_id: string | null; class: string | null };
+type ChurchRow = { totvs_id: string; parent_totvs_id: string | null; class: string | null; pastor_user_id?: string | null };
 type Body = {
   search?: string;
   minister_role?: string;
@@ -62,12 +62,12 @@ function normalizeChurchClass(value: string | null | undefined): ChurchClass | n
 function computeScope(rootTotvs: string, churches: ChurchRow[]): Set<string> {
   const children = new Map<string, string[]>();
   for (const c of churches) {
-    const parent = String(c.parent_totvs_id || "");
+    const parent = String(c.parent_totvs_id || "").trim();
     if (!children.has(parent)) children.set(parent, []);
-    children.get(parent)!.push(String(c.totvs_id));
+    children.get(parent)!.push(String(c.totvs_id).trim());
   }
   const scope = new Set<string>();
-  const queue = [rootTotvs];
+  const queue = [rootTotvs.trim()];
   while (queue.length > 0) {
     const current = queue.shift()!;
     if (scope.has(current)) continue;
@@ -130,23 +130,56 @@ async function verifySessionJWT(req: Request): Promise<SessionClaims | null> {
   }
 }
 
-async function resolveScopeRootTotvs(
-  sb: ReturnType<typeof createClient>,
-  session: SessionClaims,
-): Promise<string> {
-  if (session.role !== "pastor") return session.active_totvs_id;
+// Comentario: PostgREST limita default a 1000 linhas. Com as milhoes de igrejas,
+// a busca simples truncava a arvore. Paginamos em chunks ate trazer tudo.
+async function fetchAllChurches(sb: ReturnType<typeof createClient>): Promise<ChurchRow[]> {
+  const CHUNK = 1000;
+  const out: ChurchRow[] = [];
+  let offset = 0;
+  for (;;) {
+    const { data, error } = await sb
+      .from("churches")
+      .select("totvs_id,parent_totvs_id,class,pastor_user_id")
+      .range(offset, offset + CHUNK - 1);
+    if (error) throw error;
+    const rows = (data || []) as ChurchRow[];
+    out.push(...rows);
+    if (rows.length < CHUNK) break;
+    offset += CHUNK;
+    if (offset > 50000) break; // safety
+  }
+  return out;
+}
 
-  const { data, error } = await sb
-    .from("churches")
-    .select("totvs_id")
-    .eq("pastor_user_id", session.user_id)
-    .eq("is_active", true);
+// Comentario: calcula o escopo de igrejas visiveis ao usuario a partir dos dados
+// de churches ja carregados — elimina roundtrip extra ao banco.
+function computeScopeForPastor(session: SessionClaims, churchRows: ChurchRow[]): Set<string> {
+  if (session.role === "admin") {
+    return new Set(churchRows.map((c) => String(c.totvs_id || "").trim()).filter(Boolean));
+  }
 
-  if (error || !data || data.length === 0) return session.active_totvs_id;
+  if (session.role === "pastor") {
+    // Encontra TODAS as igrejas onde o usuario e pastor_user_id (pode ter mais de uma).
+    const roots = churchRows
+      .filter((c) => String(c.pastor_user_id || "").trim() === session.user_id)
+      .map((c) => String(c.totvs_id || "").trim())
+      .filter(Boolean);
 
-  const pastorChurches = data.map((row: Record<string, unknown>) => String(row.totvs_id || "")).filter(Boolean);
-  if (pastorChurches.includes(session.active_totvs_id)) return session.active_totvs_id;
-  return pastorChurches[0];
+    const scoped = new Set<string>();
+    for (const root of [...new Set(roots)]) {
+      for (const id of computeScope(root, churchRows)) scoped.add(id);
+    }
+
+    // Comentario: fallback — pastor sem pastor_user_id registrado em nenhuma
+    // igreja usa a igreja ativa como raiz de escopo.
+    if (scoped.size === 0) {
+      for (const id of computeScope(session.active_totvs_id, churchRows)) scoped.add(id);
+    }
+    return scoped;
+  }
+
+  // secretario, financeiro, obreiro → escopo restrito a propria igreja ativa
+  return computeScope(session.active_totvs_id, churchRows);
 }
 
 Deno.serve(async (req) => {
@@ -166,61 +199,106 @@ Deno.serve(async (req) => {
 
     const sb = createClient(Deno.env.get("SUPABASE_URL") || "", Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "");
 
-    const { data: churches, error: churchesErr } = await sb.from("churches").select("totvs_id,parent_totvs_id,class");
-    if (churchesErr) return json({ ok: false, error: "db_error_churches", details: "erro interno" }, 500);
-    const churchRows = (churches || []) as ChurchRow[];
+    let churchRows: ChurchRow[];
+    try {
+      churchRows = await fetchAllChurches(sb);
+    } catch {
+      return json({ ok: false, error: "db_error_churches", details: "erro interno" }, 500);
+    }
+
+    // Comentario: escopo calculado em memoria usando churches ja carregados —
+    // elimina o roundtrip extra que existia em resolveScopeRootTotvs.
     let scopeRootTotvs = session.active_totvs_id;
     let scope: Set<string>;
     if (session.role === "admin") {
-      // Comentario: admin enxerga membros de todas as igrejas.
-      scope = new Set(churchRows.map((c) => String(c.totvs_id)).filter(Boolean));
+      scope = computeScopeForPastor(session, churchRows);
       if (churchTotvsFilter && !scope.has(churchTotvsFilter)) {
         return json({ ok: false, error: "church_not_found" }, 404);
       }
     } else {
-      scopeRootTotvs = await resolveScopeRootTotvs(sb, session);
-      // Comentario: escopo sempre calculado da igreja efetiva do pastor (churches.pastor_user_id).
-      scope = computeScope(scopeRootTotvs, churchRows);
+      scope = computeScopeForPastor(session, churchRows);
+      // Comentario: determina a raiz efetiva do escopo para calcular a classe da
+      // igreja do pastor (usada em can_manage). Prefere a igreja ativa se ela
+      // fizer parte do escopo calculado.
+      const rootFromPastor = churchRows
+        .filter((c) => String(c.pastor_user_id || "").trim() === session.user_id)
+        .map((c) => String(c.totvs_id || "").trim())
+        .filter(Boolean);
+      if (rootFromPastor.length > 0) {
+        scopeRootTotvs = rootFromPastor.includes(session.active_totvs_id)
+          ? session.active_totvs_id
+          : rootFromPastor[0];
+      }
       if (churchTotvsFilter && !scope.has(churchTotvsFilter)) {
         return json({ ok: false, error: "forbidden_church_out_of_scope" }, 403);
       }
     }
-    const sessionChurchClass = normalizeChurchClass(churchRows.find((c) => c.totvs_id === scopeRootTotvs)?.class);
-    const churchMap = new Map(churchRows.map((c) => [String(c.totvs_id), c]));
+    const sessionChurchClass = normalizeChurchClass(churchRows.find((c) => String(c.totvs_id).trim() === scopeRootTotvs)?.class);
+    const churchMap = new Map(churchRows.map((c) => [String(c.totvs_id).trim(), c]));
 
     const scopeArray = Array.from(scope);
-    const sqlFilterTotvs = churchTotvsFilter || (scopeArray.length <= 500 ? null : null);
-
-    let q = sb
-      .from("users")
-      .select(
-        "id,full_name,role,cpf,rg,phone,email,profession,minister_role,birth_date,baptism_date,marital_status,matricula,ordination_date,avatar_url,signature_url,cep,address_street,address_number,address_complement,address_neighborhood,address_city,address_state,default_totvs_id,totvs_access,is_active,can_create_released_letter,payment_status,payment_block_reason",
-        { count: "exact" },
-      )
-      .in("role", roles)
-      .order("full_name", { ascending: true });
+    let users: Record<string, unknown>[] = [];
 
     if (churchTotvsFilter) {
-      q = q.eq("default_totvs_id", churchTotvsFilter);
-    } else if (scopeArray.length <= 500) {
-      q = q.in("default_totvs_id", scopeArray);
-    }
+      let q = sb
+        .from("users")
+        .select(
+          "id,full_name,role,cpf,rg,phone,email,profession,minister_role,birth_date,baptism_date,marital_status,matricula,ordination_date,avatar_url,signature_url,cep,address_street,address_number,address_complement,address_neighborhood,address_city,address_state,default_totvs_id,totvs_access,is_active,can_create_released_letter,payment_status,payment_block_reason"
+        )
+        .in("role", roles)
+        .eq("default_totvs_id", churchTotvsFilter)
+        .order("full_name", { ascending: true });
 
-    if (typeof body.is_active === "boolean") q = q.eq("is_active", body.is_active);
-    if (body.search) {
-      const safe = String(body.search).replace(/"/g, "").trim();
-      if (safe) q = q.or(`full_name.ilike.%${safe}%,cpf.ilike.%${safe}%,phone.ilike.%${safe}%`);
-    }
+      if (typeof body.is_active === "boolean") q = q.eq("is_active", body.is_active);
+      if (body.search) {
+        const safe = String(body.search).replace(/"/g, "").trim();
+        if (safe) q = q.or(`full_name.ilike.%${safe}%,cpf.ilike.%${safe}%,phone.ilike.%${safe}%`);
+      }
+      const { data, error } = await q;
+      if (error) return json({ ok: false, error: "db_error_users", details: "erro interno" }, 500);
+      users = data || [];
+    } else {
+      const CHUNK_SIZE = 300;
+      const chunks: string[][] = [];
+      for (let i = 0; i < scopeArray.length; i += CHUNK_SIZE) {
+        chunks.push(scopeArray.slice(i, i + CHUNK_SIZE));
+      }
 
-    const { data: users, error: usersErr } = await q;
-    if (usersErr) return json({ ok: false, error: "db_error_users", details: "erro interno" }, 500);
+      try {
+        const promises = chunks.map(async (chunk) => {
+          let q = sb
+            .from("users")
+            .select(
+              "id,full_name,role,cpf,rg,phone,email,profession,minister_role,birth_date,baptism_date,marital_status,matricula,ordination_date,avatar_url,signature_url,cep,address_street,address_number,address_complement,address_neighborhood,address_city,address_state,default_totvs_id,totvs_access,is_active,can_create_released_letter,payment_status,payment_block_reason"
+            )
+            .in("role", roles)
+            .in("default_totvs_id", chunk);
+
+          if (typeof body.is_active === "boolean") q = q.eq("is_active", body.is_active);
+          if (body.search) {
+            const safe = String(body.search).replace(/"/g, "").trim();
+            if (safe) q = q.or(`full_name.ilike.%${safe}%,cpf.ilike.%${safe}%,phone.ilike.%${safe}%`);
+          }
+          const { data, error } = await q;
+          if (error) throw error;
+          return data || [];
+        });
+
+        const results = await Promise.all(promises);
+        users = results.flat();
+
+        // Sort globally since we fetched in parallel
+        users.sort((a, b) => String(a.full_name || "").localeCompare(String(b.full_name || "")));
+      } catch (err) {
+        return json({ ok: false, error: "db_error_users", details: "erro interno" }, 500);
+      }
+    }
 
     const normalizedRoleFilter = body.minister_role ? normalizeMinisterRole(body.minister_role) : null;
 
-    const filtered = (users || []).filter((u: Record<string, unknown>) => {
+    const filtered = users.filter((u: Record<string, unknown>) => {
       const defaultTotvs = String(u.default_totvs_id || "").trim();
       if (!defaultTotvs) return false;
-      if (scopeArray.length > 500 && !scope.has(defaultTotvs)) return false;
       if (normalizedRoleFilter && normalizeMinisterRole(u.minister_role) !== normalizedRoleFilter) return false;
       return true;
     });
