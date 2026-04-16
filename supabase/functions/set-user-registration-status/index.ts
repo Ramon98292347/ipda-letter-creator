@@ -173,18 +173,20 @@ Deno.serve(async (req) => {
     const scope = computeScope(session.active_totvs_id, rows);
     const sessionClass = normalizeChurchClass(rows.find((c) => c.totvs_id === session.active_totvs_id)?.class);
     const targetTotvs = String(target.default_totvs_id || "").trim();
-    const targetClass = normalizeChurchClass(rows.find((c) => c.totvs_id === targetTotvs)?.class);
 
-    const canManage = canManageMember(
-      session.role,
-      session.active_totvs_id,
-      targetTotvs,
-      sessionClass,
-      targetClass,
-      scope,
-    );
+    const memberTotvsIds: string[] = [];
+    if (targetTotvs) memberTotvsIds.push(targetTotvs);
+    if (Array.isArray(target.totvs_access)) {
+      for (const item of target.totvs_access) {
+        const id = String(typeof item === "string" ? item : (item as Record<string, unknown>)?.totvs_id || "").trim();
+        if (id && !memberTotvsIds.includes(id)) memberTotvsIds.push(id);
+      }
+    }
 
-    if (!canManage) return json({ ok: false, error: "forbidden" }, 403);
+    if (session.role !== "admin") {
+      const inScope = memberTotvsIds.some((id) => scope.has(id));
+      if (!inScope) return json({ ok: false, error: "forbidden" }, 403);
+    }
 
     const nextTotvsAccess = normalizeTotvsAccess(target.totvs_access, status);
 

@@ -36,7 +36,6 @@ function json(data: unknown, status = 200) {
 }
 
 type Role = "admin" | "pastor" | "obreiro";
-type ChurchClass = "estadual" | "setorial" | "central" | "regional" | "local";
 
 type SessionClaims = {
   user_id: string;
@@ -86,14 +85,6 @@ type ChurchRow = {
 
 function onlyDigits(value: string) {
   return String(value || "").replace(/\D+/g, "");
-}
-
-function normalizeChurchClass(value: string | null | undefined): ChurchClass | null {
-  const safe = String(value || "").trim().toLowerCase();
-  if (safe === "estadual" || safe === "setorial" || safe === "central" || safe === "regional" || safe === "local") {
-    return safe;
-  }
-  return null;
 }
 
 function computeScope(rootTotvs: string, churches: ChurchRow[]): Set<string> {
@@ -225,22 +216,18 @@ Deno.serve(async (req) => {
     if (totvsAccess.length === 0) return json({ ok: false, error: "missing_totvs_access" }, 400);
 
     const invalidTotvs = totvsAccess.map((a) => a.totvs_id).filter((id) => !churchSet.has(id));
-    if (invalidTotvs.length > 0) return json({ ok: false, error: "totvs_not_found", invalid_totvs: invalidTotvs }, 400);
+    if (invalidTotvs.length > 0 && !existingUser) return json({ ok: false, error: "totvs_not_found", invalid_totvs: invalidTotvs }, 400);
 
-    // Comentario: valida escopo do pastor para evitar cadastro fora da arvore.
     if (!isAdminByKey && session?.role === "pastor") {
-      const activeClass = normalizeChurchClass(churchRows.find((c) => c.totvs_id === session.active_totvs_id)?.class);
-      if (!activeClass) return json({ ok: false, error: "active_church_invalid_class" }, 403);
-
       const scope = computeScope(session.active_totvs_id, churchRows);
       const outOfScope = totvsAccess.map((a) => a.totvs_id).filter((id) => !scope.has(id));
-      if (outOfScope.length > 0) {
+      if (outOfScope.length > 0 && !existingUser) {
         return json({ ok: false, error: "totvs_out_of_scope", out_of_scope: outOfScope }, 403);
       }
     }
 
     const default_totvs_id = String(body.default_totvs_id || "").trim() || totvsAccess[0].totvs_id;
-    if (!churchSet.has(default_totvs_id)) return json({ ok: false, error: "default_totvs_not_found" }, 400);
+    if (!churchSet.has(default_totvs_id) && !existingUser) return json({ ok: false, error: "default_totvs_not_found" }, 400);
 
     const password = String(body.password || "");
     const password_hash = password ? bcrypt.hashSync(password, 10) : null;
