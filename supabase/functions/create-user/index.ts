@@ -215,19 +215,15 @@ Deno.serve(async (req) => {
     }
     if (totvsAccess.length === 0) return json({ ok: false, error: "missing_totvs_access" }, 400);
 
-    const invalidTotvs = totvsAccess.map((a) => a.totvs_id).filter((id) => !churchSet.has(id));
-    if (invalidTotvs.length > 0 && !existingUser) return json({ ok: false, error: "totvs_not_found", invalid_totvs: invalidTotvs }, 400);
-
     if (!isAdminByKey && session?.role === "pastor") {
       const scope = computeScope(session.active_totvs_id, churchRows);
-      const outOfScope = totvsAccess.map((a) => a.totvs_id).filter((id) => !scope.has(id));
-      if (outOfScope.length > 0 && !existingUser) {
-        return json({ ok: false, error: "totvs_out_of_scope", out_of_scope: outOfScope }, 403);
+      const newTotvs = totvsAccess.map((a) => a.totvs_id).filter((id) => churchSet.has(id) && !scope.has(id));
+      if (newTotvs.length > 0) {
+        return json({ ok: false, error: "totvs_out_of_scope", out_of_scope: newTotvs }, 403);
       }
     }
 
     const default_totvs_id = String(body.default_totvs_id || "").trim() || totvsAccess[0].totvs_id;
-    if (!churchSet.has(default_totvs_id) && !existingUser) return json({ ok: false, error: "default_totvs_not_found" }, 400);
 
     const password = String(body.password || "");
     const password_hash = password ? bcrypt.hashSync(password, 10) : null;
