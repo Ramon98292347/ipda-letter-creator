@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, Navigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CalendarDays, FileText, LineChart, SlidersHorizontal } from "lucide-react";
@@ -104,10 +104,12 @@ export default function CartasDashboardPage() {
     setLettersPageSize(100);
   }, [selectedChurchTotvs, roleMode, selectedScopeForLetters.join("|")]);
 
-  const { data: metrics, isLoading: loadingMetrics, isFetching: fetchingMetrics } = useQuery({
+  const { data: metrics, isFetching: fetchingMetrics } = useQuery({
     queryKey: ["cartas-dashboard-metrics", selectedScopeForLetters.join("|")],
     queryFn: () => getPastorMetrics(),
     enabled: selectedScopeForLetters.length > 0,
+    // Comentario: staleTime de 60s evita refetches desnecessarios ao renavegar para esta pagina.
+    staleTime: 60_000,
   });
 
   const { data: letters = [], isLoading: loadingLetters, isFetching: fetchingLetters } = useQuery({
@@ -131,9 +133,10 @@ export default function CartasDashboardPage() {
       });
     },
     enabled: selectedScopeForLetters.length > 0,
+    staleTime: 30_000,
   });
 
-  const { data: membrosRes, isLoading: loadingMembers, isFetching: fetchingMembers } = useQuery({
+  const { data: membrosRes, isFetching: fetchingMembers } = useQuery({
     queryKey: ["cartas-dashboard-members", selectedScopeForLetters.join("|"), selectedChurchTotvs],
     queryFn: () =>
       listMembers({
@@ -143,16 +146,15 @@ export default function CartasDashboardPage() {
         church_totvs_id: roleMode === "admin" && selectedChurchTotvs !== "all" ? selectedChurchTotvs : undefined,
       }),
     enabled: selectedScopeForLetters.length > 0,
+    staleTime: 60_000,
   });
 
-  const loadingPage =
-    !effectiveScopeTotvsIds.length ||
-    loadingMetrics ||
-    loadingLetters ||
-    loadingMembers ||
-    (fetchingMetrics && !metrics) ||
-    (fetchingLetters && !letters.length) ||
-    (fetchingMembers && !membrosRes);
+  // Comentario: carregamento progressivo — a pagina renderiza imediatamente com skeleton
+  // por secao em vez de bloquear tudo ate todas as queries terminarem.
+  // Apenas aguardamos o escopo inicial (necessario para saber quais igrejas buscar).
+  const loadingScope = !effectiveScopeTotvsIds.length;
+  const loadingKpis = fetchingMetrics && !metrics;
+  const loadingPage = loadingScope;
 
   useEffect(() => {
     if (!selectedScopeForLetters.length) return;
@@ -369,7 +371,7 @@ export default function CartasDashboardPage() {
   if (loadingPage) {
     return (
       <ManagementShell roleMode={roleMode as "admin" | "pastor"}>
-        <PageLoading title="Carregando cartas" description="Buscando indicadores e historico..." />
+        <PageLoading title="Cartas" description="Preparando painel..." />
       </ManagementShell>
     );
   }
@@ -453,19 +455,46 @@ export default function CartasDashboardPage() {
       </section>
 
       {/* Comentario: 2 col no celular e ultimo card ocupa a linha toda quando impar */}
+      {/* Comentario: skeleton nos KPIs enquanto as metricas carregam (loading progressivo) */}
       <section className="grid grid-cols-2 gap-3 md:grid-cols-3">
-        <KpiCard label="Total de cartas" value={totalCartas} icon={FileText} gradient={gradients.total} />
-        <KpiCard label="Cartas hoje" value={cartasHoje} icon={CalendarDays} gradient={gradients.hoje} />
-        <div className="col-span-2 md:col-span-1">
-          <KpiCard label="Últimos 7 dias" value={ultimos7Dias} icon={LineChart} gradient={gradients.seteDias} />
-        </div>
+        {loadingKpis ? (
+          <>
+            {[1,2,3].map((i) => (
+              <div key={i} className="rounded-xl shadow-md bg-gradient-to-br from-slate-300 to-slate-200 p-5 animate-pulse">
+                <div className="h-4 w-24 rounded bg-white/40 mb-3" />
+                <div className="h-10 w-16 rounded bg-white/40" />
+              </div>
+            ))}
+          </>
+        ) : (
+          <>
+            <KpiCard label="Total de cartas" value={totalCartas} icon={FileText} gradient={gradients.total} />
+            <KpiCard label="Cartas hoje" value={cartasHoje} icon={CalendarDays} gradient={gradients.hoje} />
+            <div className="col-span-2 md:col-span-1">
+              <KpiCard label="Últimos 7 dias" value={ultimos7Dias} icon={LineChart} gradient={gradients.seteDias} />
+            </div>
+          </>
+        )}
       </section>
       <section className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-3">
-        <KpiCard label="Cartas liberadas" value={statusStats.liberadas} icon={FileText} gradient={gradients.liberadas} />
-        <KpiCard label="Cartas bloqueadas" value={statusStats.bloqueadas} icon={FileText} gradient={gradients.bloqueadas} />
-        <div className="col-span-2 md:col-span-1">
-          <KpiCard label="Aguardando liberação" value={statusStats.aguardando} icon={FileText} gradient={gradients.aguardando} />
-        </div>
+        {loadingLetters ? (
+          <>
+            {[1,2,3].map((i) => (
+              <div key={i} className="rounded-xl shadow-md bg-gradient-to-br from-slate-300 to-slate-200 p-5 animate-pulse">
+                <div className="h-4 w-24 rounded bg-white/40 mb-3" />
+                <div className="h-10 w-16 rounded bg-white/40" />
+              </div>
+            ))}
+          </>
+        ) : (
+          <>
+            <KpiCard label="Cartas liberadas" value={statusStats.liberadas} icon={FileText} gradient={gradients.liberadas} />
+            <KpiCard label="Cartas bloqueadas" value={statusStats.bloqueadas} icon={FileText} gradient={gradients.bloqueadas} />
+            <div className="col-span-2 md:col-span-1">
+              <KpiCard label="Aguardando liberação" value={statusStats.aguardando} icon={FileText} gradient={gradients.aguardando} />
+            </div>
+          </>
+        )}
       </section>
 
       <div className="mt-5">

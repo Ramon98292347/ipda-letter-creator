@@ -756,55 +756,9 @@ export async function selectChurchSession(cpfInput: string, totvsId: string): Pr
 }
 
 export async function getPastorMetrics(): Promise<PastorMetrics> {
-  if (!isMockMode() && supabase && getRlsToken()) {
-    try {
-      const session = getSession();
-      const scope = Array.isArray(session?.scope_totvs_ids) ? session?.scope_totvs_ids.filter(Boolean) : [];
-      const today = new Date();
-      const startToday = new Date(today.getFullYear(), today.getMonth(), today.getDate()).toISOString();
-      const start7 = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-
-      const buildLettersQuery = () => {
-        let q = supabase.from("letters").select("id", { count: "exact", head: true }).neq("status", "EXCLUIDA");
-        if (scope.length > 0) q = q.in("church_totvs_id", scope);
-        return q;
-      };
-
-      const results = await Promise.all([
-        buildLettersQuery(),
-        buildLettersQuery().gte("created_at", startToday),
-        buildLettersQuery().gte("created_at", start7),
-        buildLettersQuery().eq("status", "AGUARDANDO_LIBERACAO"),
-      ]);
-
-      // Verifica se alguma query RLS retornou erro
-      const firstError = results.find((r) => r.error);
-      if (firstError?.error) {
-        console.warn("[getPastorMetrics] RLS direto falhou, seguindo com fallback por function:", firstError.error.message || firstError.error);
-      } else {
-        const [{ count: totalLetters }, { count: todayLetters }, { count: last7Letters }, { count: pendingRelease }] = results;
-
-        let usersQuery = supabase.from("users").select("id", { count: "exact", head: true }).eq("is_active", true);
-        if (scope.length > 0) usersQuery = usersQuery.in("default_totvs_id", scope);
-        const { count: totalWorkers, error: usersErr } = await usersQuery;
-
-        if (usersErr) {
-          console.warn("[getPastorMetrics] RLS users falhou, seguindo com fallback:", usersErr.message || usersErr);
-        } else {
-          return {
-            totalCartas: Number(totalLetters || 0),
-            cartasHoje: Number(todayLetters || 0),
-            ultimos7Dias: Number(last7Letters || 0),
-            totalObreiros: Number(totalWorkers || 0),
-            pendentesLiberacao: Number(pendingRelease || 0),
-          };
-        }
-      }
-    } catch (err) {
-      console.warn("[getPastorMetrics] RLS exception, seguindo com fallback:", err);
-    }
-  }
-
+  // Comentario: RLS direto removido — vai sempre para a Edge Function dashboard-stats.
+  // O caminho via RLS causava dupla latencia: tentava 5 queries PostgREST e,
+  // quando o rls_token expirava, caia no fallback Edge Function de qualquer forma.
   if (!isMockMode()) {
     const data = await api.dashboardStats();
     const pickNumber = (...values: unknown[]) => {
