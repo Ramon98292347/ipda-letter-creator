@@ -97,25 +97,14 @@ function parseTotvsAccess(raw: unknown): Array<{ totvs_id: string; role: Role }>
 
 function canManageMember(
   sessionRole: Role,
-  sessionActiveTotvs: string,
+  _sessionActiveTotvs: string,
   memberDefaultTotvs: string,
-  sessionChurchClass: ChurchClass | null,
-  memberChurchClass: ChurchClass | null,
+  _sessionChurchClass: ChurchClass | null,
+  _memberChurchClass: ChurchClass | null,
   scope: Set<string>,
 ): boolean {
   if (sessionRole === "admin") return true;
-  if (!scope.has(memberDefaultTotvs)) return false;
-  if (memberDefaultTotvs === sessionActiveTotvs) return true;
-  if (!sessionChurchClass || !memberChurchClass) return false;
-  const rank: Record<ChurchClass, number> = {
-    estadual: 5,
-    setorial: 4,
-    central: 3,
-    regional: 2,
-    local: 1,
-  };
-  // Comentario: pastor nao pode mexer em igreja de nivel acima.
-  return rank[memberChurchClass] <= rank[sessionChurchClass];
+  return scope.has(memberDefaultTotvs);
 }
 
 async function verifySessionJWT(req: Request): Promise<SessionClaims | null> {

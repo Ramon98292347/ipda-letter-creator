@@ -37,12 +37,6 @@ type SessionClaims = { user_id: string; role: Role; active_totvs_id: string };
 type ChurchRow = { totvs_id: string; parent_totvs_id: string | null; class: string | null };
 type Body = { worker_id?: string; can_create_released_letter?: boolean };
 
-function normalizeChurchClass(value: string | null | undefined): ChurchClass | null {
-  const safe = String(value || "").trim().toLowerCase();
-  if (safe === "estadual" || safe === "setorial" || safe === "central" || safe === "regional" || safe === "local") return safe;
-  return null;
-}
-
 function computeScope(rootTotvs: string, churches: ChurchRow[]): Set<string> {
   const children = new Map<string, string[]>();
   for (const c of churches) {
@@ -62,12 +56,6 @@ function computeScope(rootTotvs: string, churches: ChurchRow[]): Set<string> {
   return scope;
 }
 
-function canManage(sessionRole: Role, sessionClass: ChurchClass | null, targetClass: ChurchClass | null): boolean {
-  if (sessionRole === "admin") return true;
-  if (!sessionClass || !targetClass) return false;
-  const rank: Record<ChurchClass, number> = { estadual: 5, setorial: 4, central: 3, regional: 2, local: 1 };
-  return rank[targetClass] <= rank[sessionClass];
-}
 
 async function verifySessionJWT(req: Request): Promise<SessionClaims | null> {
   const auth = req.headers.get("authorization") || "";
@@ -135,16 +123,10 @@ Deno.serve(async (req) => {
 
       const churchRows = (churches || []) as ChurchRow[];
       const scope = computeScope(session.active_totvs_id, churchRows);
-      const map = new Map(churchRows.map((c) => [String(c.totvs_id), c]));
-      const sessionClass = normalizeChurchClass(map.get(session.active_totvs_id)?.class);
       const targetTotvs = String(target.default_totvs_id || "").trim();
-      const targetClass = normalizeChurchClass(map.get(targetTotvs)?.class);
 
       if (!targetTotvs || !scope.has(targetTotvs)) {
         return json({ ok: false, error: "worker_out_of_scope" }, 403);
-      }
-      if (!canManage(session.role, sessionClass, targetClass)) {
-        return json({ ok: false, error: "forbidden_hierarchy" }, 403);
       }
     }
 

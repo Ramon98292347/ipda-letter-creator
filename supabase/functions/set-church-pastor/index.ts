@@ -178,21 +178,6 @@ Deno.serve(async (req) => {
         return json({ ok: false, error: "church_out_of_scope" }, 403);
       }
 
-      // Comentario: pastor nao pode promover acima do proprio nivel.
-      const activeClass = normalizeChurchClass(byTotvs.get(session.active_totvs_id)?.class);
-      const targetClass = normalizeChurchClass(church.class);
-      if (!activeClass || !targetClass) return json({ ok: false, error: "invalid_church_class" }, 400);
-      const allowedChildren: Record<ChurchClass, ChurchClass[]> = {
-        estadual: ["setorial", "central", "regional", "local", "casa_oracao"],
-        setorial: ["central", "regional", "local", "casa_oracao"],
-        central: ["regional", "local", "casa_oracao"],
-        regional: ["local", "casa_oracao"],
-        local: ["casa_oracao"],
-        casa_oracao: [],
-      };
-      if (targetClass !== activeClass && !allowedChildren[activeClass].includes(targetClass)) {
-        return json({ ok: false, error: "forbidden_level_promotion" }, 403);
-      }
     }
 
     const { data: newPastor, error: newPastorErr } = await sb

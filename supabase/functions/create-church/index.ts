@@ -211,50 +211,11 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Comentário: pastor só pode operar no próprio escopo "para baixo".
     if (session.role === "pastor") {
-      if (church_class === "estadual" && !existing) {
-        return json({ ok: false, error: "pastor_cannot_create_estadual" }, 403);
-      }
-
-      const activeChurch = byTotvs.get(session.active_totvs_id);
-      if (!activeChurch) return json({ ok: false, error: "active_church_not_found" }, 403);
-
-      const activeClass = normalizeClass(activeChurch.class);
-      if (!activeClass) return json({ ok: false, error: "active_church_invalid_class" }, 403);
-
-      const allowedChildrenFromActive = childClassMap[activeClass];
-      if (allowedChildrenFromActive.length === 0) {
-        return json({ ok: false, error: "pastor_level_cannot_create_children" }, 403);
-      }
-
       const scope = computeScope(session.active_totvs_id, churches);
-      if (parent_totvs_id) {
-        if (!scope.has(parent_totvs_id)) {
-          return json(
-            {
-              ok: false,
-              error: "parent_out_of_scope",
-              detail: "A igreja mae precisa estar no escopo da igreja logada.",
-            },
-            403,
-          );
-        }
+      if (parent_totvs_id && !scope.has(parent_totvs_id)) {
+        return json({ ok: false, error: "parent_out_of_scope", detail: "A igreja mae precisa estar no escopo da igreja logada." }, 403);
       }
-
-      // Coment?rio: ao criar, o pai precisa ser a igreja do login.
-      if (!existing && parent_totvs_id && parent_totvs_id !== session.active_totvs_id) {
-        return json(
-          {
-            ok: false,
-            error: "parent_must_match_active_church",
-            detail: "Para novo cadastro, a igreja mae precisa ser a igreja do login atual.",
-          },
-          403,
-        );
-      }
-
-      // Coment?rio: para edi??o, o alvo tamb?m precisa estar no escopo.
       if (existing && !scope.has(existing.totvs_id)) {
         return json({ ok: false, error: "church_out_of_scope" }, 403);
       }

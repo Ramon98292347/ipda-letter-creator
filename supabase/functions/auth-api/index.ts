@@ -183,26 +183,14 @@ function normalizeChurchClass(value: string | null | undefined): ChurchClass | n
 // Comentario: verifica se o usuario logado pode gerenciar o membro alvo (hierarquia de igrejas)
 function canManageMember(
   sessionRole: Role,
-  sessionActiveTotvs: string,
+  _sessionActiveTotvs: string,
   memberDefaultTotvs: string,
-  sessionChurchClass: ChurchClass | null,
-  memberChurchClass: ChurchClass | null,
+  _sessionChurchClass: ChurchClass | null,
+  _memberChurchClass: ChurchClass | null,
   scope: string[],
 ): boolean {
   if (sessionRole === "admin") return true;
-  if (!scope.includes(memberDefaultTotvs)) return false;
-  if (memberDefaultTotvs === sessionActiveTotvs) return true;
-  if (!sessionChurchClass || !memberChurchClass) return false;
-
-  const rank: Record<ChurchClass, number> = {
-    estadual: 5,
-    setorial: 4,
-    central: 3,
-    regional: 2,
-    local: 1,
-  };
-
-  return rank[memberChurchClass] <= rank[sessionChurchClass];
+  return scope.includes(memberDefaultTotvs);
 }
 
 async function signAppToken(payload: { sub: string; app_role: string; active_totvs_id: string }) {
