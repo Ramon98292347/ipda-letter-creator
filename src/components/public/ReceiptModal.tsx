@@ -10,12 +10,64 @@ interface ReceiptModalProps {
   data: any; // Using the letter data
 }
 
+const UNIDADES = ["", "um", "dois", "tres", "quatro", "cinco", "seis", "sete", "oito", "nove"];
+const DEZ_A_DEZENOVE = ["dez", "onze", "doze", "treze", "quatorze", "quinze", "dezesseis", "dezessete", "dezoito", "dezenove"];
+const DEZENAS = ["", "", "vinte", "trinta", "quarenta", "cinquenta", "sessenta", "setenta", "oitenta", "noventa"];
+const CENTENAS = ["", "cento", "duzentos", "trezentos", "quatrocentos", "quinhentos", "seiscentos", "setecentos", "oitocentos", "novecentos"];
+
+function numeroAte999PorExtenso(n: number): string {
+  if (n === 0) return "zero";
+  if (n === 100) return "cem";
+
+  const c = Math.floor(n / 100);
+  const d = Math.floor((n % 100) / 10);
+  const u = n % 10;
+  const partes: string[] = [];
+
+  if (c > 0) partes.push(CENTENAS[c]);
+  if (d === 1) {
+    partes.push(DEZ_A_DEZENOVE[u]);
+  } else {
+    if (d > 1) partes.push(DEZENAS[d]);
+    if (u > 0) partes.push(UNIDADES[u]);
+  }
+
+  return partes.filter(Boolean).join(" e ");
+}
+
+function numeroPorExtenso(n: number): string {
+  if (n === 0) return "zero";
+  if (n < 1000) return numeroAte999PorExtenso(n);
+
+  const milhares = Math.floor(n / 1000);
+  const resto = n % 1000;
+  let prefixo = milhares === 1 ? "mil" : `${numeroAte999PorExtenso(milhares)} mil`;
+
+  if (resto === 0) return prefixo;
+  if (resto < 100) return `${prefixo} e ${numeroAte999PorExtenso(resto)}`;
+  return `${prefixo} ${numeroAte999PorExtenso(resto)}`;
+}
+
+function valorEmExtenso(valor: number): string {
+  const inteiro = Math.floor(valor);
+  const centavos = Math.round((valor - inteiro) * 100);
+
+  const reaisTexto = `${numeroPorExtenso(inteiro)} ${inteiro === 1 ? "real" : "reais"}`;
+  if (centavos === 0) return reaisTexto;
+
+  const centavosTexto = `${numeroPorExtenso(centavos)} ${centavos === 1 ? "centavo" : "centavos"}`;
+  return `${reaisTexto} e ${centavosTexto}`;
+}
+
 export function ReceiptModal({ open, onOpenChange, data }: ReceiptModalProps) {
   const [valor, setValor] = useState("");
   const [obs, setObs] = useState("");
   const [docType, setDocType] = useState("CPF");
   const [docNumber, setDocNumber] = useState("");
   const logoRef = useRef<HTMLImageElement | null>(null);
+  const valorNumero = Number.parseFloat(String(valor).replace(",", "."));
+  const valorValido = Number.isFinite(valorNumero) && valorNumero >= 0 ? valorNumero : 0;
+  const valorExtenso = valorEmExtenso(valorValido);
 
   if (!data?.letter) return null;
 
@@ -124,7 +176,7 @@ export function ReceiptModal({ open, onOpenChange, data }: ReceiptModalProps) {
                 </div>
                 <div className="text-center">
                   <span className="block text-xl font-black text-black">
-                    R$ {valor ? parseFloat(valor.replace(",", ".")).toFixed(2) : "0,00"}
+                    R$ {valorValido.toFixed(2)}
                   </span>
                   <span className="block text-[10px] font-bold text-slate-500 mt-1 uppercase tracking-widest">Valor</span>
                 </div>
@@ -136,6 +188,7 @@ export function ReceiptModal({ open, onOpenChange, data }: ReceiptModalProps) {
                 </p>
                 <p>
                   a quantia de <span className="font-bold inline-block border-b border-black/20 min-w-[150px] text-center px-2">R$ {valor || "__________"}</span>
+                  <span className="font-medium"> ({valorExtenso})</span>
                   {obs && <span> referente a <span className="font-bold border-b border-black/20 px-2">{obs}</span></span>}.
                 </p>
                 <p>
