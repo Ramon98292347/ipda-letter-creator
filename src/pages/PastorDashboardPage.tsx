@@ -1,4 +1,4 @@
-﻿import { useMemo } from "react";
+import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Building2, Church, MessageSquare, UserRound, Users } from "lucide-react";
@@ -103,6 +103,13 @@ export default function PastorDashboardPage() {
     return { totalMembers, pastors, obreiros, presbiteros, diaconos, membrosAtivos, byClass };
   }, [membersRes?.total, members, churches]);
 
+  const userClassIndex = useMemo(() => {
+    const order = ["estadual", "setorial", "central", "regional", "local", "casa_oracao"];
+    const cClass = String(session?.church_class || "").toLowerCase();
+    const idx = order.indexOf(cClass);
+    return idx === -1 ? 0 : idx;
+  }, [session?.church_class]);
+
   return (
     <ManagementShell roleMode="pastor">
       <div className="space-y-5 bg-[#F6F8FC] px-2 py-2 sm:px-1 sm:py-1">
@@ -122,13 +129,25 @@ export default function PastorDashboardPage() {
             <h3 className="text-xl font-bold text-slate-900">Membros</h3>
             <p className="text-sm text-slate-500">Indicadores por cargo ministerial. Clique para filtrar.</p>
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <KpiCard title="Total de membros" value={counters.totalMembers} subtitle="cadastros ativos" icon={Users} gradient="from-blue-600 to-blue-500" onClick={() => navigate("/pastor/membros?status=ativo")} />
-            <KpiCard title="Pastor" value={counters.pastors} subtitle="cargo pastor" icon={UserRound} gradient="from-blue-700 to-blue-600" onClick={() => navigate("/pastor/membros?cargo=pastor")} />
-            <KpiCard title="Presbítero" value={counters.presbiteros} subtitle="cargo presbítero" icon={UserRound} gradient="from-purple-600 to-purple-500" onClick={() => navigate("/pastor/membros?cargo=presbitero")} />
-            <KpiCard title="Diácono" value={counters.diaconos} subtitle="cargo diácono" icon={UserRound} gradient="from-emerald-600 to-emerald-500" onClick={() => navigate("/pastor/membros?cargo=diacono")} />
-            <KpiCard title="Cooperador" value={counters.obreiros} subtitle="cargo cooperador" icon={Users} gradient="from-amber-500 to-amber-400" onClick={() => navigate("/pastor/membros?cargo=obreiro")} />
-            <KpiCard title="Membros Ativos" value={counters.membrosAtivos} subtitle="ministério membro" icon={Users} gradient="from-slate-600 to-slate-500" onClick={() => navigate("/pastor/membros?status=ativo")} />
+          <div className="flex flex-wrap gap-3">
+            <div className="flex-1 min-w-[calc(50%-0.75rem)] md:min-w-[calc(33.33%-0.75rem)] lg:min-w-[calc(16%-0.75rem)]">
+              <KpiCard title="Total de membros" value={counters.totalMembers} subtitle="cadastros ativos" icon={Users} gradient="from-blue-600 to-blue-500" onClick={() => navigate("/pastor/membros?status=ativo")} />
+            </div>
+            <div className="flex-1 min-w-[calc(50%-0.75rem)] md:min-w-[calc(33.33%-0.75rem)] lg:min-w-[calc(16%-0.75rem)]">
+              <KpiCard title="Pastor" value={counters.pastors} subtitle="cargo pastor" icon={UserRound} gradient="from-blue-700 to-blue-600" onClick={() => navigate("/pastor/membros?cargo=pastor")} />
+            </div>
+            <div className="flex-1 min-w-[calc(50%-0.75rem)] md:min-w-[calc(33.33%-0.75rem)] lg:min-w-[calc(16%-0.75rem)]">
+              <KpiCard title="Presbítero" value={counters.presbiteros} subtitle="cargo presbítero" icon={UserRound} gradient="from-purple-600 to-purple-500" onClick={() => navigate("/pastor/membros?cargo=presbitero")} />
+            </div>
+            <div className="flex-1 min-w-[calc(50%-0.75rem)] md:min-w-[calc(33.33%-0.75rem)] lg:min-w-[calc(16%-0.75rem)]">
+              <KpiCard title="Diácono" value={counters.diaconos} subtitle="cargo diácono" icon={UserRound} gradient="from-emerald-600 to-emerald-500" onClick={() => navigate("/pastor/membros?cargo=diacono")} />
+            </div>
+            <div className="flex-1 min-w-[calc(50%-0.75rem)] md:min-w-[calc(33.33%-0.75rem)] lg:min-w-[calc(16%-0.75rem)]">
+              <KpiCard title="Cooperador" value={counters.obreiros} subtitle="cargo cooperador" icon={Users} gradient="from-amber-500 to-amber-400" onClick={() => navigate("/pastor/membros?cargo=obreiro")} />
+            </div>
+            <div className="flex-1 min-w-[calc(50%-0.75rem)] md:min-w-[calc(33.33%-0.75rem)] lg:min-w-[calc(16%-0.75rem)]">
+              <KpiCard title="Membros Ativos" value={counters.membrosAtivos} subtitle="ministério membro" icon={Users} gradient="from-slate-600 to-slate-500" onClick={() => navigate("/pastor/membros?status=ativo")} />
+            </div>
           </div>
         </section>
 
@@ -140,14 +159,16 @@ export default function PastorDashboardPage() {
               <p className="text-sm text-slate-500">Distribuicao por classificacao.</p>
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <KpiCard title="Total" value={totalIgrejasEscopo} subtitle="total de igrejas" icon={Church} gradient="from-purple-600 to-purple-500" onClick={() => navigate("/pastor/igrejas")} />
-            <KpiCard title="Estadual" value={counters.byClass.estadual} subtitle="classe estadual" icon={Church} gradient="from-blue-600 to-blue-500" onClick={() => navigate("/pastor/igrejas?class=estadual")} />
-            <KpiCard title="Setorial" value={counters.byClass.setorial} subtitle="classe setorial" icon={Church} gradient="from-amber-500 to-amber-400" onClick={() => navigate("/pastor/igrejas?class=setorial")} />
-            <KpiCard title="Central" value={counters.byClass.central} subtitle="classe central" icon={Church} gradient="from-orange-500 to-orange-400" onClick={() => navigate("/pastor/igrejas?class=central")} />
-            <KpiCard title="Regional" value={counters.byClass.regional} subtitle="classe regional" icon={Church} gradient="from-emerald-600 to-emerald-500" onClick={() => navigate("/pastor/igrejas?class=regional")} />
-            <KpiCard title="Local" value={counters.byClass.local} subtitle="classe local" icon={Church} gradient="from-slate-600 to-slate-500" onClick={() => navigate("/pastor/igrejas?class=local")} />
-            <div className="col-span-2">
+          <div className="flex flex-wrap gap-3">
+            <div className="flex-1 min-w-[calc(50%-0.75rem)] md:min-w-[calc(33.33%-0.75rem)] lg:min-w-[calc(14%-0.75rem)]">
+              <KpiCard title="Total" value={totalIgrejasEscopo} subtitle="total de igrejas" icon={Church} gradient="from-purple-600 to-purple-500" onClick={() => navigate("/pastor/igrejas")} />
+            </div>
+            {userClassIndex <= 0 && <div className="flex-1 min-w-[calc(50%-0.75rem)] md:min-w-[calc(33.33%-0.75rem)] lg:min-w-[calc(14%-0.75rem)]"><KpiCard title="Estadual" value={counters.byClass.estadual} subtitle="classe estadual" icon={Church} gradient="from-blue-600 to-blue-500" onClick={() => navigate("/pastor/igrejas?class=estadual")} /></div>}
+            {userClassIndex <= 1 && <div className="flex-1 min-w-[calc(50%-0.75rem)] md:min-w-[calc(33.33%-0.75rem)] lg:min-w-[calc(14%-0.75rem)]"><KpiCard title="Setorial" value={counters.byClass.setorial} subtitle="classe setorial" icon={Church} gradient="from-amber-500 to-amber-400" onClick={() => navigate("/pastor/igrejas?class=setorial")} /></div>}
+            {userClassIndex <= 2 && <div className="flex-1 min-w-[calc(50%-0.75rem)] md:min-w-[calc(33.33%-0.75rem)] lg:min-w-[calc(14%-0.75rem)]"><KpiCard title="Central" value={counters.byClass.central} subtitle="classe central" icon={Church} gradient="from-orange-500 to-orange-400" onClick={() => navigate("/pastor/igrejas?class=central")} /></div>}
+            {userClassIndex <= 3 && <div className="flex-1 min-w-[calc(50%-0.75rem)] md:min-w-[calc(33.33%-0.75rem)] lg:min-w-[calc(14%-0.75rem)]"><KpiCard title="Regional" value={counters.byClass.regional} subtitle="classe regional" icon={Church} gradient="from-emerald-600 to-emerald-500" onClick={() => navigate("/pastor/igrejas?class=regional")} /></div>}
+            {userClassIndex <= 4 && <div className="flex-1 min-w-[calc(50%-0.75rem)] md:min-w-[calc(33.33%-0.75rem)] lg:min-w-[calc(14%-0.75rem)]"><KpiCard title="Local" value={counters.byClass.local} subtitle="classe local" icon={Church} gradient="from-slate-600 to-slate-500" onClick={() => navigate("/pastor/igrejas?class=local")} /></div>}
+            <div className="flex-1 min-w-[calc(50%-0.75rem)] md:min-w-[calc(33.33%-0.75rem)] lg:min-w-[calc(14%-0.75rem)]">
               <KpiCard title="Casa de oração" value={counters.byClass.casa_oracao} subtitle="classe casa de oração" icon={Church} gradient="from-zinc-700 to-zinc-600" onClick={() => navigate("/pastor/igrejas?class=casa_oracao")} />
             </div>
           </div>

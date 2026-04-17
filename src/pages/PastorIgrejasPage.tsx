@@ -131,6 +131,13 @@ export default function PastorIgrejasPage() {
     casa_oracao: "from-zinc-700 to-zinc-600",
   };
 
+  const userClassIndex = useMemo(() => {
+    const order = ["estadual", "setorial", "central", "regional", "local", "casa_oracao"];
+    const cClass = String(session?.church_class || "").toLowerCase();
+    const idx = order.indexOf(cClass);
+    return idx === -1 ? 0 : idx;
+  }, [session?.church_class]);
+
   return (
     <ManagementShell roleMode="pastor">
       {showPageLoading ? (
@@ -175,14 +182,16 @@ export default function PastorIgrejasPage() {
           </div>
         </section>
 
-        <section className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-7">
-          <KpiCard title="Total" value={totals.total} subtitle="total de igrejas" gradient={gradients.total} />
-          <KpiCard title="Estadual" value={totals.estadual} subtitle="classe estadual" gradient={gradients.estadual} />
-          <KpiCard title="Setorial" value={totals.setorial} subtitle="classe setorial" gradient={gradients.setorial} />
-          <KpiCard title="Central" value={totals.central} subtitle="classe central" gradient={gradients.central} />
-          <KpiCard title="Regional" value={totals.regional} subtitle="classe regional" gradient={gradients.regional} />
-          <KpiCard title="Local" value={totals.local} subtitle="classe local" gradient={gradients.local} />
-          <div className="col-span-2 md:col-span-1">
+        <section className="flex flex-wrap gap-4">
+          <div className="flex-1 min-w-[calc(50%-1rem)] md:min-w-[calc(33.33%-1rem)] lg:min-w-[calc(14%-1rem)]">
+            <KpiCard title="Total" value={totals.total} subtitle="total de igrejas" gradient={gradients.total} />
+          </div>
+          {userClassIndex <= 0 && <div className="flex-1 min-w-[calc(50%-1rem)] md:min-w-[calc(33.33%-1rem)] lg:min-w-[calc(14%-1rem)]"><KpiCard title="Estadual" value={totals.estadual} subtitle="classe estadual" gradient={gradients.estadual} /></div>}
+          {userClassIndex <= 1 && <div className="flex-1 min-w-[calc(50%-1rem)] md:min-w-[calc(33.33%-1rem)] lg:min-w-[calc(14%-1rem)]"><KpiCard title="Setorial" value={totals.setorial} subtitle="classe setorial" gradient={gradients.setorial} /></div>}
+          {userClassIndex <= 2 && <div className="flex-1 min-w-[calc(50%-1rem)] md:min-w-[calc(33.33%-1rem)] lg:min-w-[calc(14%-1rem)]"><KpiCard title="Central" value={totals.central} subtitle="classe central" gradient={gradients.central} /></div>}
+          {userClassIndex <= 3 && <div className="flex-1 min-w-[calc(50%-1rem)] md:min-w-[calc(33.33%-1rem)] lg:min-w-[calc(14%-1rem)]"><KpiCard title="Regional" value={totals.regional} subtitle="classe regional" gradient={gradients.regional} /></div>}
+          {userClassIndex <= 4 && <div className="flex-1 min-w-[calc(50%-1rem)] md:min-w-[calc(33.33%-1rem)] lg:min-w-[calc(14%-1rem)]"><KpiCard title="Local" value={totals.local} subtitle="classe local" gradient={gradients.local} /></div>}
+          <div className="flex-1 min-w-[calc(50%-1rem)] md:min-w-[calc(33.33%-1rem)] lg:min-w-[calc(14%-1rem)]">
             <KpiCard title="Casa de oração" value={totals.casa_oracao} subtitle="classe casa de oração" gradient={gradients.casa_oracao} />
           </div>
         </section>
