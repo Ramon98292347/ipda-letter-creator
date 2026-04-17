@@ -261,7 +261,7 @@ All colors MUST be HSL.
     display: block !important;
     width: 170mm !important; /* Maior e expansivo para se ajustar no A4 */
     max-width: 100% !important;
-    margin: 0 auto !important; /* Centro automático do bloco livre */
+    margin: 1.5cm auto !important; /* Margem superior de 1.5cm e auto nas laterais para abastar a guilhotina do topo */
     padding: 0 !important;
     box-shadow: none !important;
     border: none !important;
