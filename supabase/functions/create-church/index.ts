@@ -66,6 +66,7 @@ type ChurchRow = {
   class: string | null;
   parent_totvs_id: string | null;
   is_active: boolean | null;
+  pastor_user_id?: string | null;
 };
 
 const childClassMap: Record<ChurchClass, ChurchClass[]> = {
@@ -179,7 +180,7 @@ Deno.serve(async (req) => {
     // Comentário: busca todas as igrejas para validar hierarquia/escopo.
     const { data: allRows, error: allErr } = await sb
       .from("churches")
-      .select("totvs_id, church_name, class, parent_totvs_id, is_active");
+      .select("totvs_id, church_name, class, parent_totvs_id, is_active, pastor_user_id");
 
     if (allErr) return json({ ok: false, error: "db_error_list_churches", details: "erro interno" }, 500);
 
@@ -236,7 +237,23 @@ Deno.serve(async (req) => {
     }
 
     if (session.role === "pastor") {
-      const scope = computeScope(session.active_totvs_id, churches);
+      // Comentario: o escopo do pastor deve seguir as igrejas onde ele e pastor_user_id,
+      // igual ao endpoint de listagem em escopo.
+      const pastorRoots = churches
+        .filter((row) => String(row.pastor_user_id || "").trim() === session.user_id)
+        .map((row) => String(row.totvs_id || "").trim())
+        .filter(Boolean);
+
+      const effectiveRoots = [...new Set(pastorRoots)];
+      if (effectiveRoots.length === 0) {
+        return json({ ok: false, error: "forbidden_no_scope" }, 403);
+      }
+
+      const scope = new Set<string>();
+      for (const root of effectiveRoots) {
+        const rootScope = computeScope(root, churches);
+        for (const id of rootScope) scope.add(id);
+      }
       
       if (existing) {
         if (!scope.has(existing.totvs_id)) {
