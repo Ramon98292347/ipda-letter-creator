@@ -120,10 +120,16 @@ All colors MUST be HSL.
 }
 
 @media print {
+  /* Oculta completamente a raiz do app para não gerar fantasma */
+  #root {
+    display: none !important;
+  }
+  /* Reseta body para n dar overflow */
   html, body {
     background: transparent !important;
-    height: 100% !important;
-    overflow: hidden !important;
+    height: auto !important; 
+    min-height: 0 !important;
+    overflow: visible !important; /* Deixa vazar se for o caso p n cortar */
     margin: 0 !important;
     padding: 0 !important;
   }
@@ -134,18 +140,23 @@ All colors MUST be HSL.
     visibility: visible;
   }
   #print-receipt-section {
-    position: fixed !important;
+    position: absolute !important;
     left: 50% !important;
-    top: 5% !important;
-    width: 160mm !important; /* Menor e centralizado */
-    height: auto !important;
+    top: 0 !important;
+    width: 160mm !important; 
+    height: max-content !important;
     margin: 0 !important;
     padding: 24px !important;
     border: none !important;
     box-shadow: none !important;
-    transform: translateX(-50%) !important; /* Centraliza no aso X */
-    page-break-after: avoid !important;
-    page-break-before: avoid !important;
+    transform: translateX(-50%) !important; 
+  }
+  /* Remove overlay do modal radix no print */
+  [data-state="open"] {
+    position: static !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
   }
   @page {
     size: A4 portrait;
