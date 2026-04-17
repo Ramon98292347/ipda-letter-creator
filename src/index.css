@@ -234,15 +234,24 @@ All colors MUST be HSL.
   #root {
     display: none !important;
   }
-  body, html {
+  body,
+  html {
     background: white !important;
-    height: auto !important;
+    width: 210mm !important;
+    height: 297mm !important;
     overflow: visible !important;
     margin: 0 !important;
     padding: 0 !important;
   }
+
+  body {
+    display: grid !important;
+    place-items: center !important;
+  }
+
   /* Remove overlay do modal radix no print */
-  [role="dialog"], [data-state="open"] {
+  [role="dialog"],
+  [data-state="open"] {
     position: static !important;
     transform: none !important;
     height: auto !important;
@@ -253,22 +262,27 @@ All colors MUST be HSL.
     visibility: hidden;
   }
   /* Faz o Receipt limpar o resto */
-  #print-receipt-section, #print-receipt-section * {
+  #print-receipt-section,
+  #print-receipt-section * {
     visibility: visible;
   }
+
   #print-receipt-section {
     position: static !important;
     display: block !important;
-    width: 170mm !important; /* Maior e expansivo para se ajustar no A4 */
-    max-width: 100% !important;
-    margin: 1.5cm auto !important; /* Margem superior de 1.5cm e auto nas laterais para abastar a guilhotina do topo */
-    padding: 0 !important;
+    width: 80mm !important;
+    max-width: 80mm !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 6mm 5mm !important;
+    box-sizing: border-box !important;
     box-shadow: none !important;
     border: none !important;
     transform: none !important;
   }
+
   @page {
     size: A4 portrait;
-    margin: 0.5cm;
+    margin: 0;
   }
 }

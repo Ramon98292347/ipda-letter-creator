@@ -92,7 +92,7 @@ export function ReceiptModal({ open, onOpenChange, data }: ReceiptModalProps) {
           <div className="w-full md:w-2/3 p-4 md:p-6 bg-slate-100 flex flex-col items-center justify-start overflow-auto">
             
             {/* ESTE É O BLOCO QUE SERÁ IMPRESSO (Visualização realista) */}
-            <div id="print-receipt-section" className="bg-white w-full sm:w-[210mm] min-h-[auto] sm:min-h-[148mm] shadow-xl p-5 sm:p-10 border border-slate-200 mx-auto relative transform origin-top sm:scale-[0.70] md:scale-[0.8] lg:scale-90 transition-transform">
+            <div id="print-receipt-section" className="bg-white w-full max-w-[80mm] shadow-xl p-5 border border-slate-200 mx-auto relative">
               
               <div className="flex flex-col sm:flex-row items-center justify-between border-b-2 border-black pb-4 mb-6 gap-3 sm:gap-0">
                 <div className="text-center sm:text-left">
@@ -152,7 +152,7 @@ export function ReceiptModal({ open, onOpenChange, data }: ReceiptModalProps) {
             </div>
 
             {/* BOTÕES DE IMPRESSÃO ABAIXO DO RECIBO */}
-            <div className="mt-6 w-full max-w-[210mm] mx-auto px-4 sm:px-0">
+            <div className="mt-6 w-full max-w-[80mm] mx-auto px-4 sm:px-0">
               <div className="flex items-center gap-3 w-full">
                 <Button onClick={handlePrintA4} className="flex-1 font-bold h-12 shadow-sm bg-blue-600 hover:bg-blue-700">
                   <Printer className="mr-2 h-5 w-5" /> Imprimir A4
