@@ -60,20 +60,6 @@ export function ReceiptModal({ open, onOpenChange, data }: ReceiptModalProps) {
                 onChange={(e) => setObs(e.target.value)}
               />
             </div>
-
-            </div>
-            {/* Botões FIXOS na parte de baixo da coluna esqueda */}
-            <div className="p-6 border-t border-slate-200 mt-auto bg-slate-50 space-y-3">
-              <Button onClick={handlePrintA4} className="w-full font-bold h-12 text-sm shadow-md bg-blue-600 hover:bg-blue-700">
-                <Printer className="mr-2 h-5 w-5" /> Imprimir Recibo A4
-              </Button>
-              <Button variant="outline" className="w-full font-bold h-12 text-sm border-2 border-slate-300 text-slate-700 hover:bg-slate-100">
-                <Bluetooth className="mr-2 h-5 w-5 text-blue-500" /> Bluetooth Térmica
-              </Button>
-              <p className="text-xs text-center text-slate-500 mt-2">
-                * Para conectar via bluetooth, a impressora deve estar ligada e pareada.
-              </p>
-            </div>
           </div>
 
           {/* Lado Direito: Preview do Recibo A4 */}
@@ -95,7 +81,7 @@ export function ReceiptModal({ open, onOpenChange, data }: ReceiptModalProps) {
                 </div>
               </div>
 
-              <div className="space-y-6 text-black text-sm sm:text-base leading-relaxed">
+              <div className="space-y-6 text-black text-sm sm:text-base leading-relaxed text-center">
                 <p>
                   Recebemos de <span className="font-bold uppercase inline-block border-b border-black/20 min-w-full sm:min-w-[300px] text-center px-2">{data.letter.church_destination || "Igreja de Destino"}</span>
                 </p>
@@ -107,7 +93,7 @@ export function ReceiptModal({ open, onOpenChange, data }: ReceiptModalProps) {
                   Para maior clareza formamos o presente.
                 </p>
 
-                <div className="grid grid-cols-2 gap-4 mt-8 pt-4 border-t border-dashed border-slate-300 text-sm">
+                <div className="grid grid-cols-2 gap-4 mt-8 pt-4 border-t border-dashed border-slate-300 text-sm text-left">
                   <div>
                     <span className="font-bold block mb-1">Dados da Carta:</span>
                     Código: <span className="font-mono text-slate-700">{data.letter.id}</span><br/>
@@ -131,6 +117,22 @@ export function ReceiptModal({ open, onOpenChange, data }: ReceiptModalProps) {
               </div>
 
             </div>
+
+            {/* BOTÕES DE IMPRESSÃO ABAIXO DO RECIBO */}
+            <div className="mt-6 w-full max-w-[210mm] mx-auto px-4 sm:px-0">
+              <div className="flex items-center gap-3 w-full">
+                <Button onClick={handlePrintA4} className="flex-1 font-bold h-12 shadow-sm bg-blue-600 hover:bg-blue-700">
+                  <Printer className="mr-2 h-5 w-5" /> Imprimir A4
+                </Button>
+                <Button variant="outline" className="flex-1 font-bold h-12 shadow-sm border-slate-300 text-slate-700 hover:bg-slate-100">
+                  <Bluetooth className="mr-2 h-5 w-5 text-blue-500" /> Bluetooth
+                </Button>
+              </div>
+              <p className="text-xs text-center text-slate-500 mt-2">
+                * Para conectar via bluetooth, a impressora deve estar ligada e pareada.
+              </p>
+            </div>
+
           </div>
         </div>
       </DialogContent>

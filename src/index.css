@@ -131,7 +131,7 @@ All colors MUST be HSL.
     left: 0;
     top: 0;
     width: 210mm !important;
-    min-height: 148mm !important;
+    min-height: auto !important;
     margin: 0 !important;
     padding: 20px !important;
     border: none !important;
@@ -140,6 +140,6 @@ All colors MUST be HSL.
   }
   @page {
     size: A4 portrait;
-    margin: 1cm;
+    margin: 0.5cm;
   }
 }
