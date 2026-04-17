@@ -69,6 +69,8 @@ type ChurchRow = {
   pastor_user_id?: string | null;
 };
 
+type TotvsAccessItem = string | { totvs_id?: string; role?: string };
+
 const childClassMap: Record<ChurchClass, ChurchClass[]> = {
   estadual: ["setorial", "central", "regional", "local", "casa_oracao"],
   setorial: ["central", "regional", "local", "casa_oracao"],
@@ -112,6 +114,22 @@ function computeScope(rootTotvs: string, churches: ChurchRow[]): Set<string> {
   }
 
   return scope;
+}
+
+function normalizeTotvsAccess(arr: unknown): string[] {
+  if (!Array.isArray(arr)) return [];
+  const out: string[] = [];
+  for (const item of arr as TotvsAccessItem[]) {
+    if (typeof item === "string") {
+      const id = String(item || "").trim();
+      if (id) out.push(id);
+      continue;
+    }
+    if (!item || typeof item !== "object") continue;
+    const id = String(item.totvs_id || "").trim();
+    if (id) out.push(id);
+  }
+  return [...new Set(out)];
 }
 
 async function verifySessionJWT(req: Request): Promise<SessionClaims | null> {
@@ -237,14 +255,27 @@ Deno.serve(async (req) => {
     }
 
     if (session.role === "pastor") {
-      // Comentario: o escopo do pastor deve seguir as igrejas onde ele e pastor_user_id,
-      // igual ao endpoint de listagem em escopo.
+      // Comentario: escopo amplo do pastor (sem trava extra de permissao):
+      // - igreja ativa do token
+      // - igrejas em que ele e pastor_user_id
+      // - igrejas em totvs_access/default_totvs_id do usuario
       const pastorRoots = churches
         .filter((row) => String(row.pastor_user_id || "").trim() === session.user_id)
         .map((row) => String(row.totvs_id || "").trim())
         .filter(Boolean);
 
-      const effectiveRoots = [...new Set(pastorRoots)];
+      const { data: meRow } = await sb
+        .from("users")
+        .select("default_totvs_id, totvs_access")
+        .eq("id", session.user_id)
+        .maybeSingle();
+
+      const accessRoots = normalizeTotvsAccess(meRow?.totvs_access);
+      const defaultTotvs = String(meRow?.default_totvs_id || "").trim();
+      if (defaultTotvs) accessRoots.push(defaultTotvs);
+      if (session.active_totvs_id) accessRoots.push(session.active_totvs_id);
+
+      const effectiveRoots = [...new Set([...pastorRoots, ...accessRoots].filter(Boolean))];
       if (effectiveRoots.length === 0) {
         return json({ ok: false, error: "forbidden_no_scope" }, 403);
       }
