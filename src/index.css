@@ -244,6 +244,10 @@ All colors MUST be HSL.
     display: block !important;
   }
 
+  #direct-print-root {
+    display: block !important;
+  }
+
   [role="dialog"],
   [data-state="open"] {
     position: static !important;
@@ -257,15 +261,23 @@ All colors MUST be HSL.
     visibility: hidden;
   }
 
-  #print-receipt-section,
-  #print-receipt-section * {
+  #direct-print-root,
+  #direct-print-root * {
     visibility: visible;
   }
 
-  #print-receipt-section {
-    position: static !important;
+  #direct-print-root {
+    position: fixed !important;
+    inset: 0 !important;
     display: block !important;
-    margin: 0 auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: white !important;
+    z-index: 999999 !important;
+  }
+
+  #direct-print-root > * {
+    position: static !important;
     box-sizing: border-box !important;
     box-shadow: none !important;
     border: none !important;
@@ -273,41 +285,45 @@ All colors MUST be HSL.
     break-inside: avoid !important;
   }
 
-  #print-receipt-section[data-print-mode="a4"] {
+  #direct-print-root[data-print-mode="a4"] {
+    width: 210mm !important;
+    min-height: 297mm !important;
+  }
+
+  #direct-print-root[data-print-mode="a4"] > * {
     width: 182mm !important;
     max-width: 182mm !important;
     min-height: 0 !important;
-    max-height: 285mm !important;
-    margin: 8mm auto 0 !important;
+    margin: 10mm auto 0 !important;
     padding: 12mm !important;
-    overflow: hidden !important;
     page-break-after: avoid !important;
   }
 
-  #print-receipt-section[data-print-mode="thermal"] {
+  #direct-print-root[data-print-mode="thermal"] > * {
     min-height: 0 !important;
     padding: 0 !important;
+    margin: 0 auto !important;
   }
 
-  #print-receipt-section[data-print-mode="thermal"][data-thermal-width="80"] {
+  #direct-print-root[data-print-mode="thermal"][data-thermal-width="80"] > * {
     width: 80mm !important;
     max-width: 80mm !important;
   }
 
-  #print-receipt-section[data-print-mode="thermal"][data-thermal-width="56"] {
+  #direct-print-root[data-print-mode="thermal"][data-thermal-width="56"] > * {
     width: 56mm !important;
     max-width: 56mm !important;
   }
 
-  #print-receipt-section[data-print-mode="thermal"] * {
+  #direct-print-root[data-print-mode="thermal"] * {
     font-size-adjust: none;
   }
 
-  #print-receipt-section[data-print-mode="a4"] * {
+  #direct-print-root[data-print-mode="a4"] * {
     font-size-adjust: none;
   }
 
-  #print-receipt-section[data-print-mode] {
+  #direct-print-root[data-print-mode] > * {
     box-sizing: border-box !important;
   }
 
