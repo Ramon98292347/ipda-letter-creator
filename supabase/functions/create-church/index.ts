@@ -152,7 +152,7 @@ Deno.serve(async (req) => {
     const totvs_id = String(body.totvs_id || "").trim();
     const church_name = String(body.church_name || "").trim();
     const church_class = normalizeClass(body.class);
-    const parent_totvs_id = String(body.parent_totvs_id || "").trim() || null;
+    let parent_totvs_id = String(body.parent_totvs_id || "").trim() || null;
     const image_url = String(body.image_url || "").trim() || null;
     const stamp_church_url = String(body.stamp_church_url || "").trim() || null;
     const contact_email = String(body.contact_email || "").trim() || null;
@@ -187,37 +187,60 @@ Deno.serve(async (req) => {
     const byTotvs = new Map<string, ChurchRow>(churches.map((row) => [String(row.totvs_id), row]));
     const existing = byTotvs.get(totvs_id) || null;
 
+    // Comentário: Se edição, e o frontend não enviou parent_totvs_id (ex: root do escopo do pastor), 
+    // herda do banco se não for estadual.
+    if (!parent_totvs_id && existing && existing.parent_totvs_id && church_class !== "estadual") {
+      parent_totvs_id = existing.parent_totvs_id;
+    }
+
     // Comentário: regra global de hierarquia por pai.
     if (church_class === "estadual") {
       if (parent_totvs_id) return json({ ok: false, error: "estadual_cannot_have_parent" }, 400);
     } else {
-      if (!parent_totvs_id) return json({ ok: false, error: "missing_parent_totvs_id" }, 400);
-      const parent = byTotvs.get(parent_totvs_id);
-      if (!parent) return json({ ok: false, error: "parent_not_found" }, 404);
-      const parentClass = normalizeClass(parent.class);
-      if (!parentClass) return json({ ok: false, error: "parent_invalid_class" }, 400);
-      const allowedChildren = childClassMap[parentClass];
-      if (!allowedChildren.includes(church_class)) {
-        return json(
-          {
-            ok: false,
-            error: "invalid_child_class_for_parent",
-            detail: `Igreja ${parentClass} nao pode cadastrar igreja ${church_class}.`,
-            parent_class: parentClass,
-            child_class: church_class,
-          },
-          403,
-        );
+      if (!parent_totvs_id) {
+        // Se a igreja já existia no banco sem pai, perdoa a validação para permitir alterar outros dados
+        if (existing && !existing.parent_totvs_id) {
+          // bypass
+        } else {
+          return json({ ok: false, error: "missing_parent_totvs_id" }, 400);
+        }
+      } else {
+        const parent = byTotvs.get(parent_totvs_id);
+        if (!parent) return json({ ok: false, error: "parent_not_found" }, 404);
+        const parentClass = normalizeClass(parent.class);
+        if (!parentClass) return json({ ok: false, error: "parent_invalid_class" }, 400);
+        const allowedChildren = childClassMap[parentClass];
+        if (!allowedChildren.includes(church_class)) {
+          return json(
+            {
+              ok: false,
+              error: "invalid_child_class_for_parent",
+              detail: `Igreja ${parentClass} nao pode cadastrar igreja ${church_class}.`,
+              parent_class: parentClass,
+              child_class: church_class,
+            },
+            403,
+          );
+        }
       }
     }
 
     if (session.role === "pastor") {
       const scope = computeScope(session.active_totvs_id, churches);
-      if (parent_totvs_id && !scope.has(parent_totvs_id)) {
-        return json({ ok: false, error: "parent_out_of_scope", detail: "A igreja mae precisa estar no escopo da igreja logada." }, 403);
-      }
-      if (existing && !scope.has(existing.totvs_id)) {
-        return json({ ok: false, error: "church_out_of_scope" }, 403);
+      
+      if (existing) {
+        if (!scope.has(existing.totvs_id)) {
+          return json({ ok: false, error: "church_out_of_scope" }, 403);
+        }
+        // Se tentar mudar para um pai fora do escopo
+        if (parent_totvs_id && parent_totvs_id !== existing.parent_totvs_id && !scope.has(parent_totvs_id)) {
+          return json({ ok: false, error: "parent_out_of_scope", detail: "A nova igreja mae precisa estar no escopo da igreja logada." }, 403);
+        }
+      } else {
+        // Criando nova igreja
+        if (parent_totvs_id && !scope.has(parent_totvs_id)) {
+          return json({ ok: false, error: "parent_out_of_scope", detail: "A igreja mae precisa estar no escopo da igreja logada." }, 403);
+        }
       }
     }
 
