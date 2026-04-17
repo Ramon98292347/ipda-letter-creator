@@ -61,6 +61,7 @@ export function ReceiptModal({ open, onOpenChange, data }: ReceiptModalProps) {
               />
             </div>
           </div>
+          </div>
 
           {/* Lado Direito: Preview do Recibo A4 */}
           <div className="w-full md:w-2/3 p-4 md:p-6 bg-slate-100 flex items-start justify-center overflow-auto">
