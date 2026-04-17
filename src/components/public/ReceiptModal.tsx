@@ -93,6 +93,7 @@ export function ReceiptModal({ open, onOpenChange, data }: ReceiptModalProps) {
   const [qrDataUrl, setQrDataUrl] = useState("");
   const logoRef = useRef<HTMLImageElement | null>(null);
   const qrRef = useRef<HTMLImageElement | null>(null);
+  const printSectionRef = useRef<HTMLDivElement | null>(null);
 
   if (!data?.letter) return null;
 
@@ -125,7 +126,101 @@ export function ReceiptModal({ open, onOpenChange, data }: ReceiptModalProps) {
   const handlePrint = async () => {
     await waitImageLoaded(logoRef.current);
     await waitImageLoaded(qrRef.current);
-    window.print();
+    const receiptNode = printSectionRef.current;
+    if (!receiptNode) return;
+    const styleTags = Array.from(document.querySelectorAll('style, link[rel="stylesheet"]'))
+      .map((node) => node.outerHTML)
+      .join("\n");
+
+    const printWindow = window.open("", "_blank", "noopener,noreferrer,width=900,height=1200");
+    if (!printWindow) return;
+
+    const printStyles = isThermal
+      ? `
+        @page { size: ${thermalPaperWidth} auto; margin: 0; }
+        html, body {
+          margin: 0;
+          padding: 0;
+          width: ${thermalPaperWidth};
+          background: #fff;
+          overflow: visible;
+        }
+        body {
+          display: flex;
+          justify-content: center;
+        }
+        #print-root {
+          width: ${thermalPaperWidth};
+          margin: 0;
+          padding: 0;
+        }
+        #print-root > div {
+          width: ${thermalPaperWidth} !important;
+          max-width: ${thermalPaperWidth} !important;
+          margin: 0 auto !important;
+          border: none !important;
+          box-shadow: none !important;
+        }
+      `
+      : `
+        @page { size: A4 portrait; margin: 8mm 0 10mm 0; }
+        html, body {
+          margin: 0;
+          padding: 0;
+          width: 210mm;
+          min-height: 297mm;
+          background: #fff;
+          overflow: visible;
+        }
+        body {
+          display: block;
+        }
+        #print-root {
+          width: 210mm;
+          min-height: 297mm;
+          margin: 0 auto;
+          padding: 0;
+        }
+        #print-root > div {
+          width: 182mm !important;
+          max-width: 182mm !important;
+          min-height: 0 !important;
+          margin: 0 auto !important;
+          padding: 12mm !important;
+          border: none !important;
+          box-shadow: none !important;
+          box-sizing: border-box !important;
+          break-inside: avoid !important;
+          page-break-inside: avoid !important;
+        }
+      `;
+
+    printWindow.document.open();
+    printWindow.document.write(`
+      <!doctype html>
+      <html lang="pt-BR">
+        <head>
+          <meta charset="UTF-8" />
+          <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+          <title>Recibo</title>
+          ${styleTags}
+          <style>
+            * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            ${printStyles}
+          </style>
+        </head>
+        <body>
+          <div id="print-root">${receiptNode.outerHTML}</div>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+
+    printWindow.onload = () => {
+      printWindow.focus();
+      printWindow.print();
+      printWindow.close();
+    };
   };
 
   const dataAtual = new Date().toLocaleDateString("pt-BR", {
@@ -229,6 +324,7 @@ export function ReceiptModal({ open, onOpenChange, data }: ReceiptModalProps) {
             {!isThermal ? (
               <div
                 id="print-receipt-section"
+                ref={printSectionRef}
                 data-print-mode="a4"
                 className="w-full max-w-[182mm] min-h-[268mm] bg-white border border-slate-300 shadow-xl mx-auto p-[12mm]"
               >
@@ -309,6 +405,7 @@ export function ReceiptModal({ open, onOpenChange, data }: ReceiptModalProps) {
             ) : (
               <div
                 id="print-receipt-section"
+                ref={printSectionRef}
                 data-print-mode="thermal"
                 data-thermal-width={thermalWidth}
                 className={`bg-white border border-slate-300 shadow-xl mx-auto w-full ${thermalWidth === "56" ? "max-w-[56mm]" : "max-w-[80mm]"}`}
