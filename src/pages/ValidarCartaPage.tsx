@@ -18,6 +18,8 @@ import {
   ShieldX,
 } from "lucide-react";
 
+import { ReceiptModal } from "@/components/public/ReceiptModal";
+
 // ─── Tipos ───────────────────────────────────────────────────────────────────
 
 interface LetterData {
@@ -103,6 +105,7 @@ export default function ValidarCartaPage() {
   const [state, setState] = useState<PageState>("idle");
   const [data, setData] = useState<VerifyResponse | null>(null);
   const [errorMsg, setErrorMsg] = useState("");
+  const [isReceiptOpen, setIsReceiptOpen] = useState(false);
 
   const verify = useCallback(async () => {
     if (!letterId) {
@@ -268,8 +271,21 @@ export default function ValidarCartaPage() {
                     </p>
                     <p className="text-xs font-mono text-white/50 break-all">{data.letter.id}</p>
                   </div>
+
+                  {/* Botão de Emissão de Recibo */}
+                  <div className="py-4 border-t border-white/10 mt-2">
+                    <button
+                      onClick={() => setIsReceiptOpen(true)}
+                      className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 px-4 rounded-xl shadow-lg transition-colors flex items-center justify-center gap-2"
+                    >
+                      <FileText className="h-5 w-5" /> Emitir Recibo de Pregação
+                    </button>
+                  </div>
                 </div>
               </div>
+
+              {/* Modal de Recibo */}
+              <ReceiptModal open={isReceiptOpen} onOpenChange={setIsReceiptOpen} data={data} />
 
               {/* ── Seção da Ficha ── */}
               {data.ficha_url ? (
