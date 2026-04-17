@@ -1,4 +1,4 @@
-﻿/**
+/**
  * AvatarCapture.tsx
  * -----------------
  * Componente de captura de foto 3x4 com detecÃ§Ã£o de rosto em tempo real.
@@ -261,10 +261,10 @@ export function AvatarCapture({ onFileReady, disabled = false, currentUrl }: Ava
   // â”€â”€ Marcadores visuais 3x4 no canvas â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   function desenharMarcadores3x4(ctx: CanvasRenderingContext2D) {
     const cx = DISPLAY_WIDTH / 2;
-    const cy = DISPLAY_HEIGHT * 0.38;
-    const rx = DISPLAY_WIDTH * 0.28;
-    const ry = DISPLAY_HEIGHT * 0.30;
-
+    const cy = DISPLAY_HEIGHT * 0.40; // Um pouco mais para baixo para dar espaco acima da cabeca
+    const rx = DISPLAY_WIDTH * 0.20; // Reduzido (antes 0.28) para forcar o usuario a afastar o celular
+    const ry = DISPLAY_HEIGHT * 0.22; // Reduzido (antes 0.30)
+  
     // Mascara escura fora da oval
     ctx.save();
     ctx.fillStyle = "rgba(0,0,0,0.35)";
@@ -274,8 +274,8 @@ export function AvatarCapture({ onFileReady, disabled = false, currentUrl }: Ava
     ctx.ellipse(cx, cy, rx + 8, ry + 8, 0, 0, Math.PI * 2);
     ctx.fill();
     ctx.restore();
-
-    // Oval da cabeÃ§a (tracejada)
+  
+    // Oval da cabeca (tracejada)
     ctx.beginPath();
     ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
     ctx.strokeStyle = "rgba(255,255,255,0.8)";
@@ -283,7 +283,7 @@ export function AvatarCapture({ onFileReady, disabled = false, currentUrl }: Ava
     ctx.setLineDash([8, 4]);
     ctx.stroke();
     ctx.setLineDash([]);
-
+  
     // Linha dos ombros
     const ombrosY = DISPLAY_HEIGHT * 0.78;
     ctx.beginPath();
@@ -298,8 +298,8 @@ export function AvatarCapture({ onFileReady, disabled = false, currentUrl }: Ava
     ctx.font = "10px sans-serif";
     ctx.textAlign = "center";
     ctx.fillText("ombros", cx, ombrosY + 12);
-
-    // Marca topo da cabeÃ§a
+  
+    // Marca topo da cabeca
     const topoY = cy - ry - 12;
     ctx.beginPath();
     ctx.moveTo(cx - 15, topoY);
@@ -307,23 +307,23 @@ export function AvatarCapture({ onFileReady, disabled = false, currentUrl }: Ava
     ctx.strokeStyle = "rgba(255,255,255,0.5)";
     ctx.lineWidth = 1;
     ctx.stroke();
-
-    // Regras no rodapÃ©
+  
+    // Regras no rodape
     ctx.fillStyle = "rgba(255,255,255,0.9)";
     ctx.font = "bold 11px sans-serif";
     ctx.textAlign = "center";
-    ctx.fillText("FOTO 3x4 â€” Individual", cx, DISPLAY_HEIGHT - 28);
+    ctx.fillText("FOTO 3x4 \u2014 Individual", cx, DISPLAY_HEIGHT - 28);
     ctx.font = "10px sans-serif";
     ctx.fillStyle = "rgba(255,255,255,0.7)";
-    ctx.fillText("Rosto, pescoÃ§o e ombros dentro do guia", cx, DISPLAY_HEIGHT - 14);
+    ctx.fillText("Rosto, pescoco e ombros dentro do guia", cx, DISPLAY_HEIGHT - 14);
   }
-
+  
   function verificarRostoDentroOval(box: { x: number; y: number; width: number; height: number }): boolean {
     const cx = DISPLAY_WIDTH / 2;
-    const cy = DISPLAY_HEIGHT * 0.38;
-    const rx = DISPLAY_WIDTH * 0.33;
-    const ry = DISPLAY_HEIGHT * 0.35;
-
+    const cy = DISPLAY_HEIGHT * 0.40;
+    const rx = DISPLAY_WIDTH * 0.28; // Limite de tolerancia maior que o desenho, mas bem menor que antes
+    const ry = DISPLAY_HEIGHT * 0.30;
+  
     const cantos = [
       { x: box.x, y: box.y },
       { x: box.x + box.width, y: box.y },
@@ -335,7 +335,8 @@ export function AvatarCapture({ onFileReady, disabled = false, currentUrl }: Ava
       const normY = (c.y - cy) / ry;
       return normX * normX + normY * normY <= 1;
     });
-    return todosDentro && box.width > DISPLAY_WIDTH * 0.38;
+    // Box precisa ter pelo menos 22% do visor para nÃ£o considerar um rosto muito longe
+    return todosDentro && box.width > DISPLAY_WIDTH * 0.22;
   }
 
   // â”€â”€ Capturar foto do vÃ­deo â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -413,8 +414,8 @@ export function AvatarCapture({ onFileReady, disabled = false, currentUrl }: Ava
           setProcessing(false);
           return;
         }
-        if (rostoPercentual > 0.70) {
-          setStatusMsg("Foto muito aproximada. A foto deve mostrar rosto, pescoÃ§o e ombros.");
+        if (rostoPercentual > 0.55) {
+          setStatusMsg("Foto muito aproximada. A foto deve mostrar rosto, pescoco e ombros.");
           setProcessing(false);
           return;
         }

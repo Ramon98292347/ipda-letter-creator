@@ -35,7 +35,7 @@ export function useBiometric() {
       const NativeBiometric = await getPlugin();
       if (!NativeBiometric) return;
       try {
-        const result = await NativeBiometric.isAvailable();
+        const result = await NativeBiometric.isAvailable({ useFallback: true });
         console.log("[biometric] isAvailable:", result);
         setAvailable(Boolean(result.isAvailable));
       } catch (err) {
