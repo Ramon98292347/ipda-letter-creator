@@ -2026,7 +2026,7 @@ export async function listReleaseRequests(status: "PENDENTE" | "APROVADO" | "NEG
 export async function listNotifications(page = 1, pageSize = 20, unreadOnly = false): Promise<{ notifications: AppNotification[]; unread_count: number; total: number }> {
   if (!isMockMode()) {
     const currentSession = getSession();
-    const churchTotvs = currentSession?.root_totvs_id || currentSession?.totvs_id;
+    const churchTotvs = currentSession?.totvs_id;
     const data = await api.listNotifications({
       page,
       page_size: pageSize,
@@ -2068,7 +2068,7 @@ export async function listNotifications(page = 1, pageSize = 20, unreadOnly = fa
 export async function markNotificationRead(id: string) {
   if (!isMockMode()) {
     const currentSession = getSession();
-    const churchTotvs = currentSession?.root_totvs_id || currentSession?.totvs_id;
+    const churchTotvs = currentSession?.totvs_id;
     try {
       if (typeof navigator !== "undefined" && !navigator.onLine) {
         await enqueueOfflineOperation(
@@ -2111,7 +2111,7 @@ export async function markNotificationRead(id: string) {
 export async function markAllNotificationsRead() {
   if (!isMockMode()) {
     const currentSession = getSession();
-    const churchTotvs = currentSession?.root_totvs_id || currentSession?.totvs_id;
+    const churchTotvs = currentSession?.totvs_id;
     try {
       if (typeof navigator !== "undefined" && !navigator.onLine) {
         await enqueueOfflineOperation(
