@@ -271,9 +271,9 @@ All colors MUST be HSL.
     display: block !important;
     width: 80mm !important;
     max-width: 80mm !important;
-    min-height: 0 !important;
+    min-height: 170mm !important;
     margin: 8mm auto 0 !important;
-    padding: 4mm !important;
+    padding: 8mm 4mm !important;
     box-sizing: border-box !important;
     box-shadow: none !important;
     border: none !important;

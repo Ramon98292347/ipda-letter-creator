@@ -92,11 +92,15 @@ export function ReceiptModal({ open, onOpenChange, data }: ReceiptModalProps) {
           <div className="w-full md:w-2/3 p-4 md:p-6 bg-slate-100 flex flex-col items-center justify-start overflow-auto">
             
             {/* ESTE É O BLOCO QUE SERÁ IMPRESSO (Visualização realista) */}
-            <div id="print-receipt-section" className="bg-white w-full max-w-[80mm] shadow-xl p-5 border border-slate-200 mx-auto relative">
+            <div id="print-receipt-section" className="bg-white w-full max-w-[80mm] min-h-[170mm] shadow-xl p-5 border border-slate-200 mx-auto relative">
               
               <div className="flex flex-col items-center justify-between border-b-2 border-black pb-3 mb-4 gap-2">
                 <div className="text-center">
-                  <h1 className="text-base font-black uppercase text-black font-serif leading-tight">Igreja Pentecostal Deus é Amor</h1>
+                  <img
+                    src="https://idipilrcaqittmnapmbq.supabase.co/storage/v1/object/public/banner/logo/logo%20d.png"
+                    alt="Logo da Igreja"
+                    className="w-full max-w-none h-auto mx-auto object-contain"
+                  />
                   <p className="text-[10px] font-medium text-slate-700 mt-1 uppercase tracking-wide">Recibo de Contribuição / Pregação</p>
                 </div>
                 <div className="text-center">
