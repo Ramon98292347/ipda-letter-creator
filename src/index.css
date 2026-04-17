@@ -274,11 +274,14 @@ All colors MUST be HSL.
   }
 
   #print-receipt-section[data-print-mode="a4"] {
-    width: 210mm !important;
-    max-width: 210mm !important;
-    min-height: 297mm !important;
-    margin: 0 !important;
-    padding: 16mm !important;
+    width: 182mm !important;
+    max-width: 182mm !important;
+    min-height: 0 !important;
+    max-height: 285mm !important;
+    margin: 8mm auto 0 !important;
+    padding: 12mm !important;
+    overflow: hidden !important;
+    page-break-after: avoid !important;
   }
 
   #print-receipt-section[data-print-mode="thermal"] {
@@ -309,7 +312,7 @@ All colors MUST be HSL.
   }
 
   @page {
-    size: auto;
+    size: A4 portrait;
     margin: 0;
   }
 }
