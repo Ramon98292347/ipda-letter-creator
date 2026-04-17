@@ -140,10 +140,11 @@ All colors MUST be HSL.
     visibility: visible;
   }
   #print-receipt-section {
-    position: absolute !important;
-    left: 0 !important;
-    right: 0 !important;
-    top: 0 !important;
+    display: block !important;
+    position: relative !important;
+    left: auto !important;
+    right: auto !important;
+    top: auto !important;
     width: 160mm !important; 
     height: max-content !important;
     margin: 0 auto !important;
