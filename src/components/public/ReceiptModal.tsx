@@ -72,27 +72,27 @@ export function ReceiptModal({ open, onOpenChange, data }: ReceiptModalProps) {
           </div>
 
           {/* Lado Direito: Preview do Recibo A4 */}
-          <div className="w-full md:w-2/3 p-6 bg-slate-100 flex items-start justify-center overflow-y-auto">
+          <div className="w-full md:w-2/3 p-4 md:p-6 bg-slate-100 flex items-start justify-center overflow-auto">
             
             {/* ESTE É O BLOCO QUE SERÁ IMPRESSO (Visualização realista) */}
-            <div id="print-receipt-section" className="bg-white w-[210mm] min-h-[148mm] shadow-xl p-10 border border-slate-200 mx-auto relative transform origin-top md:scale-[0.8] lg:scale-90 transition-transform">
+            <div id="print-receipt-section" className="bg-white w-full sm:w-[210mm] min-h-[auto] sm:min-h-[148mm] shadow-xl p-5 sm:p-10 border border-slate-200 mx-auto relative transform origin-top sm:scale-[0.70] md:scale-[0.8] lg:scale-90 transition-transform">
               
-              <div className="flex items-center justify-between border-b-2 border-black pb-4 mb-6">
-                <div>
-                  <h1 className="text-2xl font-black uppercase text-black font-serif">Igreja Pentecostal Deus é Amor</h1>
+              <div className="flex flex-col sm:flex-row items-center justify-between border-b-2 border-black pb-4 mb-6 gap-3 sm:gap-0">
+                <div className="text-center sm:text-left">
+                  <h1 className="text-xl sm:text-2xl font-black uppercase text-black font-serif">Igreja Pentecostal Deus é Amor</h1>
                   <p className="text-sm font-medium text-slate-700 mt-1 uppercase tracking-wider">Recibo de Contribuição / Pregação</p>
                 </div>
-                <div className="text-right">
-                  <span className="block text-3xl font-black text-black">
+                <div className="text-center sm:text-right">
+                  <span className="block text-2xl sm:text-3xl font-black text-black">
                     R$ {valor ? parseFloat(valor.replace(",", ".")).toFixed(2) : "0,00"}
                   </span>
                   <span className="block text-xs font-bold text-slate-500 mt-1 uppercase tracking-widest">Valor</span>
                 </div>
               </div>
 
-              <div className="space-y-6 text-black text-base leading-relaxed">
+              <div className="space-y-6 text-black text-sm sm:text-base leading-relaxed">
                 <p>
-                  Recebemos de <span className="font-bold uppercase inline-block border-b border-black/20 min-w-[300px] text-center px-2">{data.letter.church_destination || "Igreja de Destino"}</span>
+                  Recebemos de <span className="font-bold uppercase inline-block border-b border-black/20 min-w-full sm:min-w-[300px] text-center px-2">{data.letter.church_destination || "Igreja de Destino"}</span>
                 </p>
                 <p>
                   a quantia de <span className="font-bold inline-block border-b border-black/20 min-w-[150px] text-center px-2">R$ {valor || "__________"}</span>
