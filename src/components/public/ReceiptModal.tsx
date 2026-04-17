@@ -31,14 +31,17 @@ export function ReceiptModal({ open, onOpenChange, data }: ReceiptModalProps) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl p-0 overflow-hidden bg-slate-50 border-slate-200">
         <DialogHeader className="px-6 py-4 bg-white border-b border-slate-200">
-          <DialogTitle className="text-xl font-bold flex items-center gap-2 text-slate-800">
-            <FileText className="h-5 w-5 text-blue-600" /> Emissão de Recibo
+          <DialogTitle className="text-xl font-bold flex items-center justify-between gap-2 text-slate-800 flex-wrap">
+            <span className="flex items-center gap-2">
+              <FileText className="h-5 w-5 text-blue-600" /> Emissão de Recibo
+            </span>
           </DialogTitle>
         </DialogHeader>
 
-        <div className="flex flex-col md:flex-row h-[70vh] max-h-[800px]">
+        <div className="flex flex-col md:flex-row md:h-[70vh] max-h-[80vh] md:max-h-[800px] overflow-y-auto md:overflow-hidden">
           {/* Lado Esquerdo: Formulário */}
-          <div className="w-full md:w-1/3 p-6 border-r border-slate-200 bg-white flex flex-col gap-6 overflow-y-auto">
+          <div className="w-full md:w-1/3 flex flex-col border-r border-slate-200 bg-white">
+            <div className="p-6 flex flex-col gap-6 overflow-y-visible md:overflow-y-auto flex-shrink-0">
             <div>
               <label className="text-sm font-semibold text-slate-700 mb-1.5 block">Valor do Recibo (R$)</label>
               <Input
@@ -58,7 +61,9 @@ export function ReceiptModal({ open, onOpenChange, data }: ReceiptModalProps) {
               />
             </div>
 
-            <div className="mt-auto space-y-3">
+            </div>
+            {/* Botões FIXOS na parte de baixo da coluna esqueda */}
+            <div className="p-6 border-t border-slate-200 mt-auto bg-slate-50 space-y-3">
               <Button onClick={handlePrintA4} className="w-full font-bold h-12 text-sm shadow-md bg-blue-600 hover:bg-blue-700">
                 <Printer className="mr-2 h-5 w-5" /> Imprimir Recibo A4
               </Button>
