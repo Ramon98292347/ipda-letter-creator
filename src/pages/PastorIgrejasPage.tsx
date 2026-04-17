@@ -42,7 +42,8 @@ export default function PastorIgrejasPage() {
   // Comentario: usa root quando existir; sem root, deixa a API resolver o escopo
   // completo do usuario (evita filtrar por uma igreja filha por engano).
   const activeTotvsId = String(session?.totvs_id || "");
-  const scopeRootTotvsId = session?.root_totvs_id ? String(session.root_totvs_id) : undefined;
+  // Pastor deve ver estritamente o escopo a partir da igreja que ele selecionou para logar
+  const scopeRootTotvsId = activeTotvsId;
   const [filterNome, setFilterNome] = useState("");
   // Comentario: debounce de 400ms evita recalcular o filtro a cada tecla pressionada.
   const debouncedNome = useDebounce(filterNome, 400);

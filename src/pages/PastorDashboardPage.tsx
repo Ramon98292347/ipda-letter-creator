@@ -51,10 +51,8 @@ export default function PastorDashboardPage() {
   const { session, usuario } = useUser();
   const sessionUserKey = String(usuario?.id || "");
   const activeTotvsId = String(session?.totvs_id || "");
-  // Usa a mesma regra da tela de Igrejas:
-  // passa root_totvs_id somente quando existir e deixa undefined nos demais casos
-  // para a API resolver o escopo do usuário autenticado.
-  const scopeRootTotvsId = session?.root_totvs_id ? String(session.root_totvs_id) : undefined;
+  // Pastor deve ver estritamente o escopo a partir da igreja que ele selecionou para logar
+  const scopeRootTotvsId = activeTotvsId;
 
   const { data: membersRes } = useQuery({
     queryKey: ["pastor-dashboard-members", sessionUserKey || "anon", activeTotvsId],
