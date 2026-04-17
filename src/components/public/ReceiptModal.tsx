@@ -13,6 +13,8 @@ interface ReceiptModalProps {
 export function ReceiptModal({ open, onOpenChange, data }: ReceiptModalProps) {
   const [valor, setValor] = useState("");
   const [obs, setObs] = useState("");
+  const [docType, setDocType] = useState("CPF");
+  const [docNumber, setDocNumber] = useState("");
 
   if (!data?.letter) return null;
 
@@ -60,6 +62,29 @@ export function ReceiptModal({ open, onOpenChange, data }: ReceiptModalProps) {
                 onChange={(e) => setObs(e.target.value)}
               />
             </div>
+            
+            <div className="flex gap-3">
+              <div className="w-1/3">
+                <label className="text-sm font-semibold text-slate-700 mb-1.5 block">Documento</label>
+                <select
+                  value={docType}
+                  onChange={(e) => setDocType(e.target.value)}
+                  className="flex h-10 w-full items-center justify-between rounded-md border border-slate-200 bg-white px-3 py-2 text-sm ring-offset-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-slate-950 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <option value="CPF">CPF</option>
+                  <option value="RG">RG</option>
+                </select>
+              </div>
+              <div className="w-2/3">
+                <label className="text-sm font-semibold text-slate-700 mb-1.5 block">Número</label>
+                <Input
+                  placeholder={docType === "CPF" ? "000.000.000-00" : "00.000.000-X"}
+                  value={docNumber}
+                  onChange={(e) => setDocNumber(e.target.value)}
+                />
+              </div>
+            </div>
+
           </div>
           </div>
 
@@ -111,7 +136,14 @@ export function ReceiptModal({ open, onOpenChange, data }: ReceiptModalProps) {
                 <div className="mt-20 pt-8 flex flex-col items-center justify-center">
                   <div className="w-80 border-t-2 border-black text-center pt-2">
                     <p className="font-bold uppercase text-lg">{data.letter.preacher_name}</p>
-                    <p className="text-sm font-medium text-slate-600 uppercase tracking-widest">Assinatura do Recebedor</p>
+                    {docNumber && (
+                      <p className="text-sm font-medium text-slate-800 uppercase mt-0.5">
+                        {docType}: {docNumber}
+                      </p>
+                    )}
+                    <p className="text-xs font-medium text-slate-500 uppercase tracking-widest mt-1">
+                      Assinatura do Recebedor
+                    </p>
                   </div>
                 </div>
 
