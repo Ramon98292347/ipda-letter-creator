@@ -94,20 +94,20 @@ export function ReceiptModal({ open, onOpenChange, data }: ReceiptModalProps) {
             {/* ESTE É O BLOCO QUE SERÁ IMPRESSO (Visualização realista) */}
             <div id="print-receipt-section" className="bg-white w-full max-w-[80mm] shadow-xl p-5 border border-slate-200 mx-auto relative">
               
-              <div className="flex flex-col sm:flex-row items-center justify-between border-b-2 border-black pb-4 mb-6 gap-3 sm:gap-0">
-                <div className="text-center sm:text-left">
-                  <h1 className="text-xl sm:text-2xl font-black uppercase text-black font-serif">Igreja Pentecostal Deus é Amor</h1>
-                  <p className="text-sm font-medium text-slate-700 mt-1 uppercase tracking-wider">Recibo de Contribuição / Pregação</p>
+              <div className="flex flex-col items-center justify-between border-b-2 border-black pb-3 mb-4 gap-2">
+                <div className="text-center">
+                  <h1 className="text-base font-black uppercase text-black font-serif leading-tight">Igreja Pentecostal Deus é Amor</h1>
+                  <p className="text-[10px] font-medium text-slate-700 mt-1 uppercase tracking-wide">Recibo de Contribuição / Pregação</p>
                 </div>
-                <div className="text-center sm:text-right">
-                  <span className="block text-2xl sm:text-3xl font-black text-black">
+                <div className="text-center">
+                  <span className="block text-xl font-black text-black">
                     R$ {valor ? parseFloat(valor.replace(",", ".")).toFixed(2) : "0,00"}
                   </span>
-                  <span className="block text-xs font-bold text-slate-500 mt-1 uppercase tracking-widest">Valor</span>
+                  <span className="block text-[10px] font-bold text-slate-500 mt-1 uppercase tracking-widest">Valor</span>
                 </div>
               </div>
 
-              <div className="space-y-6 text-black text-sm sm:text-base leading-relaxed text-center">
+              <div className="space-y-3 text-black text-xs leading-relaxed text-center">
                 <p>
                   Recebemos de <span className="font-bold uppercase inline-block border-b border-black/20 min-w-full sm:min-w-[300px] text-center px-2">{data.letter.church_destination || "Igreja de Destino"}</span>
                 </p>
@@ -119,7 +119,7 @@ export function ReceiptModal({ open, onOpenChange, data }: ReceiptModalProps) {
                   Para maior clareza formamos o presente.
                 </p>
 
-                <div className="grid grid-cols-2 gap-4 mt-8 pt-4 border-t border-dashed border-slate-300 text-sm text-left">
+                <div className="grid grid-cols-2 gap-3 mt-4 pt-3 border-t border-dashed border-slate-300 text-[10px] text-left">
                   <div>
                     <span className="font-bold block mb-1">Dados da Carta:</span>
                     Código: <span className="font-mono text-slate-700">{data.letter.id}</span><br/>
@@ -133,15 +133,15 @@ export function ReceiptModal({ open, onOpenChange, data }: ReceiptModalProps) {
                 </div>
 
                 {/* LINHA DE ASSINATURA */}
-                <div className="mt-20 pt-8 flex flex-col items-center justify-center">
-                  <div className="w-80 border-t-2 border-black text-center pt-2">
-                    <p className="font-bold uppercase text-lg">{data.letter.preacher_name}</p>
+                <div className="mt-6 pt-4 flex flex-col items-center justify-center">
+                  <div className="w-full max-w-[68mm] border-t-2 border-black text-center pt-2">
+                    <p className="font-bold uppercase text-sm">{data.letter.preacher_name}</p>
                     {docNumber && (
-                      <p className="text-sm font-medium text-slate-800 uppercase mt-0.5">
+                      <p className="text-[10px] font-medium text-slate-800 uppercase mt-0.5">
                         {docType}: {docNumber}
                       </p>
                     )}
-                    <p className="text-xs font-medium text-slate-500 uppercase tracking-widest mt-1">
+                    <p className="text-[9px] font-medium text-slate-500 uppercase tracking-widest mt-1">
                       Assinatura do Recebedor
                     </p>
                   </div>

@@ -245,8 +245,7 @@ All colors MUST be HSL.
   }
 
   body {
-    display: grid !important;
-    place-items: center !important;
+    display: block !important;
   }
 
   /* Remove overlay do modal radix no print */
@@ -273,8 +272,8 @@ All colors MUST be HSL.
     width: 80mm !important;
     max-width: 80mm !important;
     min-height: 0 !important;
-    margin: 0 !important;
-    padding: 6mm 5mm !important;
+    margin: 8mm auto 0 !important;
+    padding: 4mm !important;
     box-sizing: border-box !important;
     box-shadow: none !important;
     border: none !important;
