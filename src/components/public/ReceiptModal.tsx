@@ -64,7 +64,7 @@ export function ReceiptModal({ open, onOpenChange, data }: ReceiptModalProps) {
           </div>
 
           {/* Lado Direito: Preview do Recibo A4 */}
-          <div className="w-full md:w-2/3 p-4 md:p-6 bg-slate-100 flex items-start justify-center overflow-auto">
+          <div className="w-full md:w-2/3 p-4 md:p-6 bg-slate-100 flex flex-col items-center justify-start overflow-auto">
             
             {/* ESTE É O BLOCO QUE SERÁ IMPRESSO (Visualização realista) */}
             <div id="print-receipt-section" className="bg-white w-full sm:w-[210mm] min-h-[auto] sm:min-h-[148mm] shadow-xl p-5 sm:p-10 border border-slate-200 mx-auto relative transform origin-top sm:scale-[0.70] md:scale-[0.8] lg:scale-90 transition-transform">
