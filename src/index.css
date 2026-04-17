@@ -120,6 +120,13 @@ All colors MUST be HSL.
 }
 
 @media print {
+  html, body {
+    background: transparent !important;
+    height: 100% !important;
+    overflow: hidden !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
   body * {
     visibility: hidden;
   }
@@ -127,16 +134,18 @@ All colors MUST be HSL.
     visibility: visible;
   }
   #print-receipt-section {
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 210mm !important;
-    min-height: auto !important;
+    position: fixed !important;
+    left: 50% !important;
+    top: 5% !important;
+    width: 160mm !important; /* Menor e centralizado */
+    height: auto !important;
     margin: 0 !important;
-    padding: 20px !important;
+    padding: 24px !important;
     border: none !important;
     box-shadow: none !important;
-    transform: none !important;
+    transform: translateX(-50%) !important; /* Centraliza no aso X */
+    page-break-after: avoid !important;
+    page-break-before: avoid !important;
   }
   @page {
     size: A4 portrait;
