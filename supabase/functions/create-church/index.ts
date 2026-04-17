@@ -206,21 +206,31 @@ Deno.serve(async (req) => {
         }
       } else {
         const parent = byTotvs.get(parent_totvs_id);
-        if (!parent) return json({ ok: false, error: "parent_not_found" }, 404);
-        const parentClass = normalizeClass(parent.class);
-        if (!parentClass) return json({ ok: false, error: "parent_invalid_class" }, 400);
-        const allowedChildren = childClassMap[parentClass];
-        if (!allowedChildren.includes(church_class)) {
-          return json(
-            {
-              ok: false,
-              error: "invalid_child_class_for_parent",
-              detail: `Igreja ${parentClass} nao pode cadastrar igreja ${church_class}.`,
-              parent_class: parentClass,
-              child_class: church_class,
-            },
-            403,
-          );
+        const isEditingWithSameParent =
+          !!existing &&
+          String(existing.parent_totvs_id || "") !== "" &&
+          parent_totvs_id === String(existing.parent_totvs_id || "");
+
+        // Permite editar dados da igreja mesmo quando o parent legado nao existe mais,
+        // desde que o parent nao esteja sendo alterado nesta edicao.
+        if (!parent) {
+          if (!isEditingWithSameParent) return json({ ok: false, error: "parent_not_found" }, 404);
+        } else {
+          const parentClass = normalizeClass(parent.class);
+          if (!parentClass) return json({ ok: false, error: "parent_invalid_class" }, 400);
+          const allowedChildren = childClassMap[parentClass];
+          if (!allowedChildren.includes(church_class)) {
+            return json(
+              {
+                ok: false,
+                error: "invalid_child_class_for_parent",
+                detail: `Igreja ${parentClass} nao pode cadastrar igreja ${church_class}.`,
+                parent_class: parentClass,
+                child_class: church_class,
+              },
+              403,
+            );
+          }
         }
       }
     }
