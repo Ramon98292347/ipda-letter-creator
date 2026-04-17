@@ -267,21 +267,25 @@ All colors MUST be HSL.
   }
 
   #print-receipt-section {
-    position: static !important;
+    position: fixed !important;
+    top: 16mm !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
     display: block !important;
     width: 80mm !important;
     max-width: 80mm !important;
-    min-height: 170mm !important;
-    margin: 16mm auto 0 !important;
+    min-height: 0 !important;
+    margin: 0 !important;
     padding: 8mm 4mm !important;
     box-sizing: border-box !important;
     box-shadow: none !important;
     border: none !important;
-    transform: none !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
   }
 
   @page {
     size: A4 portrait;
-    margin: 6mm 0 0 0;
+    margin: 0;
   }
 }

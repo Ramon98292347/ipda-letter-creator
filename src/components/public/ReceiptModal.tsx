@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Printer, Bluetooth, FileText } from "lucide-react";
@@ -15,11 +15,29 @@ export function ReceiptModal({ open, onOpenChange, data }: ReceiptModalProps) {
   const [obs, setObs] = useState("");
   const [docType, setDocType] = useState("CPF");
   const [docNumber, setDocNumber] = useState("");
+  const logoRef = useRef<HTMLImageElement | null>(null);
 
   if (!data?.letter) return null;
 
-  const handlePrintA4 = () => {
-    // A4 printing logic triggered here
+  const handlePrintA4 = async () => {
+    const logo = logoRef.current;
+    if (logo && !logo.complete) {
+      await new Promise<void>((resolve) => {
+        const done = () => resolve();
+        logo.addEventListener("load", done, { once: true });
+        logo.addEventListener("error", done, { once: true });
+        setTimeout(done, 2000);
+      });
+    }
+
+    if (logo && logo.complete && "decode" in logo) {
+      try {
+        await logo.decode();
+      } catch {
+        // Mantem a impressão mesmo se o decode falhar
+      }
+    }
+
     window.print();
   };
 
@@ -97,7 +115,8 @@ export function ReceiptModal({ open, onOpenChange, data }: ReceiptModalProps) {
               <div className="flex flex-col items-center justify-between border-b-2 border-black pb-3 mb-4 gap-2">
                 <div className="text-center">
                   <img
-                    src="https://idipilrcaqittmnapmbq.supabase.co/storage/v1/object/public/banner/logo/logo%20d.png"
+                    ref={logoRef}
+                    src="/logo-recibo.png"
                     alt="Logo da Igreja"
                     className="w-full max-w-none h-auto mx-auto object-contain"
                   />
