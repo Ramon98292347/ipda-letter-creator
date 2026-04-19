@@ -110,30 +110,26 @@ export function PastorLetterDialog({ open, onOpenChange, letterTarget, onSuccess
   });
 
   const targetGrandparentTotvs = useMemo(() => {
-    const directParent = ancestorChain[0];
-    const grandparent = ancestorChain[1];
-    if (directParent?.totvs_id && directParent.totvs_id === targetParentTotvs) {
-      return String(grandparent?.totvs_id || "");
-    }
-    return String(directParent?.parent_totvs_id || "");
+    if (!targetParentTotvs) return "";
+    const parentNode = ancestorChain.find((item) => String(item.totvs_id || "") === targetParentTotvs);
+    return String(parentNode?.parent_totvs_id || "");
   }, [ancestorChain, targetParentTotvs]);
 
-  const targetScopeRootTotvs = useMemo(() => {
-    // Para o select de destino, a lista deve vir do escopo mais amplo ja disponivel:
-    // avo > mae > propria igreja. A regra ministerial entra so depois da escolha.
-    if (targetGrandparentTotvs) return targetGrandparentTotvs;
-    if (targetParentTotvs) return targetParentTotvs;
-    return String(letterTarget?.churchTotvsId || "");
-  }, [letterTarget?.churchTotvsId, targetGrandparentTotvs, targetParentTotvs]);
-
-  // diretamente — mesmo formato usado no obreiro (UsuarioDashboard).
   const { data: parentScopeRaw = [] } = useQuery<ChurchInScopeItem[]>({
-    queryKey: ["churches-dialog-parent", targetScopeRootTotvs],
-    queryFn: () => listChurchesInScope(1, 1000, targetScopeRootTotvs || undefined),
-    enabled: open && Boolean(targetScopeRootTotvs),
+    queryKey: ["churches-dialog-parent", targetParentTotvs],
+    queryFn: () => listChurchesInScope(1, 1000, targetParentTotvs || undefined),
+    enabled: open && Boolean(targetParentTotvs),
     refetchInterval: 10000,
   });
   const parentScopeChurches = useMemo(() => parentScopeRaw.map(apiToChurch), [parentScopeRaw]);
+
+  const { data: grandParentScopeRaw = [] } = useQuery<ChurchInScopeItem[]>({
+    queryKey: ["churches-dialog-grandparent", targetGrandparentTotvs],
+    queryFn: () => listChurchesInScope(1, 1000, targetGrandparentTotvs || undefined),
+    enabled: open && Boolean(targetGrandparentTotvs),
+    refetchInterval: 10000,
+  });
+  const grandParentScopeChurches = useMemo(() => grandParentScopeRaw.map(apiToChurch), [grandParentScopeRaw]);
 
   // ─── Ancestrais acima da igreja do alvo (para mae mais alta no campo Outros) ─
   // ancestor_chain retorna [pai, avo, bisavo, ...] — o ULTIMO com pastor e o mais alto.
@@ -163,10 +159,11 @@ export function PastorLetterDialog({ open, onOpenChange, letterTarget, onSuccess
 
     ownScopeRaw.forEach((item) => pushNode(item.totvs_id, item.church_name, item.parent_totvs_id, item.church_class));
     parentScopeRaw.forEach((item) => pushNode(item.totvs_id, item.church_name, item.parent_totvs_id, item.church_class));
+    grandParentScopeRaw.forEach((item) => pushNode(item.totvs_id, item.church_name, item.parent_totvs_id, item.church_class));
     ancestorChain.forEach((item) => pushNode(item.totvs_id, item.church_name, item.parent_totvs_id, item.church_class));
     if (targetChurchRaw) pushNode(targetChurchRaw.totvs_id, targetChurchRaw.church_name, targetChurchRaw.parent_totvs_id, targetChurchRaw.church_class);
     return map;
-  }, [ownScopeRaw, parentScopeRaw, ancestorChain, targetChurchRaw]);
+  }, [ownScopeRaw, parentScopeRaw, grandParentScopeRaw, ancestorChain, targetChurchRaw]);
 
   const findAncestorByClassDialog = (startTotvs: string, targetClass: HierarchyClass) => {
     let current = churchNodeMap.get(startTotvs)?.parent_totvs_id || null;
@@ -234,13 +231,15 @@ export function PastorLetterDialog({ open, onOpenChange, letterTarget, onSuccess
   // ─── Igrejas de destino disponíveis (escopo da mae ou proprio) ───────────────
   // Se o alvo tem mae, usa escopo da mae (mais amplo). Senao usa proprio.
   const destinationSourceChurches = useMemo(() => {
-    // Comentario: ordena pela hierarquia (estadual > setorial > central > regional > local)
-    // e dentro de cada nível, pelo TOTVS numérico crescente.
-    // Usa dados brutos (ChurchInScopeItem com church_class) para ordenar — mesmo formato
-    // que o obreiro (UsuarioDashboard) que funciona corretamente.
+    // Comentario: lista completa do escopo: propria igreja + mae + avo.
+    // A regra da carta so entra depois da escolha do destino.
+    const mergedByTotvs = new Map<string, ChurchInScopeItem>();
+    ownScopeRaw.forEach((item) => mergedByTotvs.set(String(item.totvs_id || ""), item));
+    parentScopeRaw.forEach((item) => mergedByTotvs.set(String(item.totvs_id || ""), item));
+    grandParentScopeRaw.forEach((item) => mergedByTotvs.set(String(item.totvs_id || ""), item));
+
     const classOrder: Record<string, number> = { estadual: 0, setorial: 1, central: 2, regional: 3, local: 4 };
-    const baseRaw = parentScopeRaw.length ? parentScopeRaw : ownScopeRaw;
-    return [...baseRaw]
+    return [...mergedByTotvs.values()]
       .sort((a, b) => {
         const oA = classOrder[String(a.church_class || "").toLowerCase().trim()] ?? 99;
         const oB = classOrder[String(b.church_class || "").toLowerCase().trim()] ?? 99;
@@ -248,7 +247,7 @@ export function PastorLetterDialog({ open, onOpenChange, letterTarget, onSuccess
         return Number(a.totvs_id || 0) - Number(b.totvs_id || 0);
       })
       .map(apiToChurch);
-  }, [parentScopeRaw, ownScopeRaw]);
+  }, [grandParentScopeRaw, ownScopeRaw, parentScopeRaw]);
 
   // Comentario: verifica se um destino esta na sub-arvore de uma igreja raiz,
   // subindo pelos parent_totvs_id (codigoTotvs/parentTotvsId) ate encontrar a raiz.
