@@ -1,5 +1,4 @@
 import React, { useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import QRCode from "qrcode";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -92,7 +91,6 @@ export function ReceiptModal({ open, onOpenChange, data }: ReceiptModalProps) {
   const [receiptMode, setReceiptMode] = useState<ReceiptMode>("a4");
   const [thermalWidth, setThermalWidth] = useState<ThermalWidth>("80");
   const [qrDataUrl, setQrDataUrl] = useState("");
-  const [printMarkup, setPrintMarkup] = useState("");
   const logoRef = useRef<HTMLImageElement | null>(null);
   const qrRef = useRef<HTMLImageElement | null>(null);
   const printSectionRef = useRef<HTMLDivElement | null>(null);
@@ -125,28 +123,139 @@ export function ReceiptModal({ open, onOpenChange, data }: ReceiptModalProps) {
     };
   }, [cartaUrl]);
 
-  useEffect(() => {
-    if (!printMarkup) return;
-
-    const clearPrintMarkup = () => {
-      document.body.classList.remove("printing-receipt");
-      setPrintMarkup("");
-    };
-    window.addEventListener("afterprint", clearPrintMarkup, { once: true });
-    return () => window.removeEventListener("afterprint", clearPrintMarkup);
-  }, [printMarkup]);
-
   const handlePrint = async () => {
     await waitImageLoaded(logoRef.current);
     await waitImageLoaded(qrRef.current);
     const receiptNode = printSectionRef.current;
     if (!receiptNode) return;
-    document.body.classList.add("printing-receipt");
-    setPrintMarkup(receiptNode.outerHTML);
-    await new Promise<void>((resolve) => {
-      requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
-    });
-    window.print();
+
+    const receiptClone = receiptNode.cloneNode(true) as HTMLDivElement;
+    for (const img of Array.from(receiptClone.querySelectorAll("img"))) {
+      const src = img.getAttribute("src") || "";
+      if (src.startsWith("/")) {
+        img.src = `${window.location.origin}${src}`;
+      }
+    }
+
+    const styleTags = Array.from(document.querySelectorAll('style, link[rel="stylesheet"]'))
+      .map((node) => node.outerHTML)
+      .join("\n");
+
+    const iframe = document.createElement("iframe");
+    iframe.setAttribute("aria-hidden", "true");
+    iframe.style.position = "fixed";
+    iframe.style.right = "0";
+    iframe.style.bottom = "0";
+    iframe.style.width = "0";
+    iframe.style.height = "0";
+    iframe.style.border = "0";
+    iframe.style.opacity = "0";
+    document.body.appendChild(iframe);
+
+    const printStyles = isThermal
+      ? `
+        @page { size: ${thermalPaperWidth} auto; margin: 0; }
+        html, body {
+          margin: 0;
+          padding: 0;
+          width: ${thermalPaperWidth};
+          background: #fff;
+          overflow: visible;
+        }
+        body {
+          display: flex;
+          justify-content: center;
+        }
+        #print-root {
+          width: ${thermalPaperWidth};
+          margin: 0 auto;
+          padding: 0;
+        }
+        #print-root > * {
+          width: ${thermalPaperWidth} !important;
+          max-width: ${thermalPaperWidth} !important;
+          margin: 0 auto !important;
+          border: none !important;
+          box-shadow: none !important;
+        }
+      `
+      : `
+        @page { size: A4 portrait; margin: 0; }
+        html, body {
+          margin: 0;
+          padding: 0;
+          width: 210mm;
+          min-height: 297mm;
+          background: #fff;
+          overflow: visible;
+        }
+        body {
+          display: flex;
+          align-items: flex-start;
+          justify-content: center;
+        }
+        #print-root {
+          width: 210mm;
+          min-height: 297mm;
+          margin: 0 auto;
+          padding-top: 10mm;
+          box-sizing: border-box;
+        }
+        #print-root > * {
+          width: 182mm !important;
+          max-width: 182mm !important;
+          min-height: 0 !important;
+          margin: 0 auto !important;
+          padding: 12mm !important;
+          border: none !important;
+          box-shadow: none !important;
+          box-sizing: border-box !important;
+          break-inside: avoid !important;
+          page-break-inside: avoid !important;
+        }
+      `;
+
+    const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
+    if (!iframeDoc) {
+      iframe.remove();
+      return;
+    }
+
+    iframeDoc.open();
+    iframeDoc.write(`
+      <!doctype html>
+      <html lang="pt-BR">
+        <head>
+          <meta charset="UTF-8" />
+          <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+          <title>Recibo</title>
+          ${styleTags}
+          <style>
+            * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            ${printStyles}
+          </style>
+        </head>
+        <body>
+          <div id="print-root">${receiptClone.outerHTML}</div>
+        </body>
+      </html>
+    `);
+    iframeDoc.close();
+
+    const finishPrint = () => {
+      setTimeout(() => iframe.remove(), 800);
+    };
+
+    iframe.onload = () => {
+      const frameWindow = iframe.contentWindow;
+      if (!frameWindow) {
+        finishPrint();
+        return;
+      }
+      frameWindow.focus();
+      frameWindow.print();
+      finishPrint();
+    };
   };
 
   const dataAtual = new Date().toLocaleDateString("pt-BR", {
@@ -411,16 +520,6 @@ export function ReceiptModal({ open, onOpenChange, data }: ReceiptModalProps) {
           </div>
         </div>
       </DialogContent>
-      {typeof document !== "undefined" && printMarkup &&
-        createPortal(
-          <div
-            id="direct-print-root"
-            data-print-mode={receiptMode}
-            data-thermal-width={thermalWidth}
-            dangerouslySetInnerHTML={{ __html: printMarkup }}
-          />,
-          document.body,
-        )}
     </Dialog>
   );
 }
