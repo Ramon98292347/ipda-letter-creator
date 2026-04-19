@@ -435,7 +435,6 @@ export function ReceiptModal({ open, onOpenChange, data }: ReceiptModalProps) {
                   <p className="m-0 mt-[1mm] text-[8pt] uppercase font-bold text-slate-500">Assinatura do Recebedor</p>
                 </div>
 
-                <div className="mt-[8mm] text-center text-[8pt] text-slate-400">Documento gerado automaticamente pelo sistema</div>
               </div>
             ) : (
               <div
@@ -499,7 +498,6 @@ export function ReceiptModal({ open, onOpenChange, data }: ReceiptModalProps) {
                     <p className="m-0 mt-[1mm] text-[8px] uppercase leading-[1.2]">Assinatura do Recebedor</p>
                   </div>
 
-                  <p className="m-0 mt-[3mm] text-[8px] text-center leading-[1.3]">Documento gerado automaticamente pelo sistema</p>
                 </div>
               </div>
             )}
