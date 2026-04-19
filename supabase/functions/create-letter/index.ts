@@ -56,6 +56,7 @@ type Body = {
   preacher_user_id?: string | null;
   phone?: string | null;
   email?: string | null;
+  manual_destination?: boolean | null;
 };
 
 type ChurchNode = {
@@ -147,6 +148,168 @@ function findFirstAncestorByClass(startTotvs: string, churches: ChurchNode[], ta
     cur = row.parent_totvs_id || null;
   }
   return null;
+}
+
+function isInSubtree(rootTotvs: string, targetTotvs: string, churches: ChurchNode[]): boolean {
+  if (!rootTotvs || !targetTotvs) return false;
+  if (rootTotvs === targetTotvs) return true;
+  return computeScope(rootTotvs, churches).has(targetTotvs);
+}
+
+function getRuleOriginBase(startTotvs: string, churches: ChurchNode[]): ChurchNode | null {
+  const byId = mapById(churches);
+  const start = byId.get(startTotvs) || null;
+  if (!start) return null;
+  if (start.class === "local" || start.class === "regional") {
+    return findFirstAncestorByClass(startTotvs, churches, "central") || start;
+  }
+  return start;
+}
+
+function findRuleContexts(startTotvs: string, churches: ChurchNode[]) {
+  const base = getRuleOriginBase(startTotvs, churches);
+  if (!base) return { base: null, setorial: null, estadual: null, original: null };
+  const byId = mapById(churches);
+  const original = byId.get(startTotvs) || null;
+  const setorial = base.class === "setorial" ? base : findFirstAncestorByClass(base.totvs_id, churches, "setorial");
+  const estadual = base.class === "estadual" ? base : findFirstAncestorByClass(base.totvs_id, churches, "estadual");
+  return { base, setorial, estadual, original };
+}
+
+function resolveOriginByLetterRules(
+  requestedOriginTotvs: string,
+  destinationTotvs: string,
+  churches: ChurchNode[],
+  manualDestination: boolean,
+): { origin: ChurchNode; regra: string; motivo: string } | { error: string; detail: string } {
+  const byId = mapById(churches);
+  const destination = byId.get(destinationTotvs);
+  if (!destination) return { error: "destination_church_not_found", detail: "Igreja destino nao encontrada." };
+
+  const { base, setorial, estadual, original } = findRuleContexts(requestedOriginTotvs, churches);
+  if (!base || !original) return { error: "origin_church_not_found", detail: "Igreja de origem nao encontrada." };
+
+  if (manualDestination) {
+    if (estadual) {
+      return {
+        origin: estadual,
+        regra: "outros_estadual",
+        motivo: "Destino informado em Outros: origem sobe para a estadual.",
+      };
+    }
+    return { error: "must_issue_by_estadual", detail: "esta carta tem que ser tirada pela estadual" };
+  }
+
+  if (base.class === "estadual") {
+    return {
+      origin: base,
+      regra: "estadual",
+      motivo: "Origem estadual permanece na propria estadual.",
+    };
+  }
+
+  if (base.class === "setorial") {
+    if (isInSubtree(base.totvs_id, destinationTotvs, churches)) {
+      return {
+        origin: base,
+        regra: "setorial_subarvore",
+        motivo: "Setorial atende a propria subarvore.",
+      };
+    }
+
+    const destinationSetorial =
+      destination.class === "setorial" ? destination : findFirstAncestorByClass(destinationTotvs, churches, "setorial");
+
+    if (
+      destinationSetorial &&
+      base.parent_totvs_id &&
+      destinationSetorial.parent_totvs_id &&
+      base.parent_totvs_id === destinationSetorial.parent_totvs_id
+    ) {
+      return {
+        origin: base,
+        regra: "setorial_irma",
+        motivo: "Setoriais irmas podem tirar carta entre si saindo da setorial de origem.",
+      };
+    }
+
+    if (estadual && isInSubtree(estadual.totvs_id, destinationTotvs, churches)) {
+      return {
+        origin: estadual,
+        regra: "setorial_estadual",
+        motivo: "Destino acima da setorial exige origem na estadual.",
+      };
+    }
+
+    return {
+      error: "destination_out_of_scope_use_parent",
+      detail: "Voce nao pode tirar carta para esse destino a partir desta setorial.",
+    };
+  }
+
+  if (base.class === "central") {
+    if (isInSubtree(base.totvs_id, destinationTotvs, churches)) {
+      return {
+        origin: base,
+        regra: "central_subarvore",
+        motivo: "Central atende a propria subarvore.",
+      };
+    }
+
+    const destinationCentral =
+      destination.class === "central" ? destination : findFirstAncestorByClass(destinationTotvs, churches, "central");
+
+    if (
+      destinationCentral &&
+      base.parent_totvs_id &&
+      destinationCentral.parent_totvs_id &&
+      base.parent_totvs_id === destinationCentral.parent_totvs_id
+    ) {
+      return {
+        origin: base,
+        regra: "central_irma",
+        motivo: "Centrais irmas podem tirar carta entre si saindo da central de origem.",
+      };
+    }
+
+    if (
+      (original.class === "local" || original.class === "regional") &&
+      setorial &&
+      isInSubtree(setorial.totvs_id, destinationTotvs, churches)
+    ) {
+      return {
+        origin: setorial,
+        regra: "local_regional_setorial",
+        motivo: "Local/regional cruzando setoriais irmas sobe para a setorial do escopo.",
+      };
+    }
+
+    if (setorial && (destinationTotvs === setorial.totvs_id || isInSubtree(setorial.totvs_id, destinationTotvs, churches))) {
+      return {
+        origin: setorial,
+        regra: "central_setorial",
+        motivo: "Destino em hierarquia acima da central sobe para a setorial.",
+      };
+    }
+
+    if (estadual && isInSubtree(estadual.totvs_id, destinationTotvs, churches)) {
+      return {
+        origin: estadual,
+        regra: "central_estadual",
+        motivo: "Cruza setorial no meio, entao a origem sobe para a estadual.",
+      };
+    }
+
+    return {
+      error: "destination_out_of_scope_use_parent",
+      detail: "Voce nao pode tirar carta para esse destino a partir desta central.",
+    };
+  }
+
+  return {
+    error: "destination_out_of_scope_use_parent",
+    detail: "Nao foi possivel determinar a origem da carta para esse destino.",
+  };
 }
 
 function resolveAllowedOriginTotvs(session: SessionClaims, activeChurch: ChurchNode, churches: ChurchNode[]): Set<string> {
@@ -566,28 +729,28 @@ Deno.serve(async (req) => {
       }, 403);
     }
 
-    // Destino permitido = escopo (filhas) + ancestrais (mãe, avó, bisavó...)
-    const scope = computeScope(church_totvs_id, churches);
-    const ancestors = collectAncestors(church_totvs_id, churches);
-    const allowedDestinations = new Set<string>([...scope, ...ancestors]);
-
     const destinationTotvs = parseTotvsFromText(church_destination);
     if (!destinationTotvs) {
       return json({ ok: false, error: "destination_totvs_required", detail: "Selecione a igreja destino da lista com TOTVS." }, 400);
     }
 
-    if (!allowedDestinations.has(destinationTotvs)) {
-      return json({
-        ok: false,
-        error: "destination_out_of_scope_use_parent",
-        detail: "Voce nao pode tirar carta para uma classe acima de voce. Procure o pastor da igreja mae.",
-      }, 403);
+    const manualDestination = Boolean(body.manual_destination);
+    const resolvedOrigin = resolveOriginByLetterRules(church_totvs_id, destinationTotvs, churches, manualDestination);
+    if ("error" in resolvedOrigin) {
+      const status = resolvedOrigin.error === "must_issue_by_estadual" ? 409 : resolvedOrigin.error.endsWith("_not_found") ? 404 : 403;
+      return json({ ok: false, error: resolvedOrigin.error, detail: resolvedOrigin.detail }, status);
     }
 
-    // Comentario: resolve a emissora pela regra de hierarquia (LCA entre origem e destino).
-    // Considera parentesco (irmas, tias, primas) e escala por falta de pastor.
-    const emissoraResult = resolveEmissora(church_totvs_id, destinationTotvs, churches);
-    if (!emissoraResult) return json({ ok: false, error: "emissora_not_found", detail: "Nao foi possivel determinar a igreja emissora pela hierarquia." }, 409);
+    church_totvs_id = resolvedOrigin.origin.totvs_id;
+    const church_origin_resolved = `${resolvedOrigin.origin.totvs_id} - ${String(resolvedOrigin.origin.church_name || "").trim()}`;
+
+    const emissoraResult = escalateForPastor(
+      resolvedOrigin.origin,
+      resolvedOrigin.origin,
+      resolvedOrigin.regra,
+      resolvedOrigin.motivo,
+      churches,
+    );
 
     const signerChurch = emissoraResult.emissora;
     const signerPastorId = String(signerChurch.pastor_user_id || "").trim();
@@ -745,7 +908,7 @@ Deno.serve(async (req) => {
         minister_role,
         preach_date: preach_date_str,
         preach_period,
-        church_origin,
+        church_origin: church_origin_resolved,
         church_destination,
         phone: preacher_phone,
         email: preacher_email,

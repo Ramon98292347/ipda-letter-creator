@@ -298,13 +298,16 @@ Deno.serve(async (req) => {
 
       if (requestedRoot) {
         if (allowed.has(requestedRoot)) {
+          effectiveRootForAncestors = requestedRoot;
           scopeList = [...computeScope(requestedRoot, allRows)];
         } else {
           // Comentario: compatibilidade com front antigo que envia root fora do escopo.
           // Mantemos seguranca: ignora root invalido e retorna apenas escopo permitido.
+          effectiveRootForAncestors = effectiveRoots[0] || "";
           scopeList = [...allowed];
         }
       } else {
+        effectiveRootForAncestors = effectiveRoots[0] || "";
         scopeList = [...allowed];
       }
     } else if (session.role === "obreiro") {
@@ -315,6 +318,7 @@ Deno.serve(async (req) => {
       const effectiveRoot = requestedRoot && baseScope.has(requestedRoot)
         ? requestedRoot
         : obreiroScopeRoot;
+      effectiveRootForAncestors = effectiveRoot;
       scopeList = [...computeScope(effectiveRoot, allRows)];
     } else {
       // Comentario: secretario/financeiro usam escopo real (totvs_access/default_totvs_id)
@@ -339,18 +343,21 @@ Deno.serve(async (req) => {
 
       if (requestedRoot) {
         if (allowed.has(requestedRoot)) {
+          effectiveRootForAncestors = requestedRoot;
           scopeList = [...computeScope(requestedRoot, allRows)];
         } else {
           // Comentario: root invalido para o role atual — cai para escopo permitido.
+          effectiveRootForAncestors = effectiveRoots[0] || "";
           scopeList = [...allowed];
         }
       } else {
+        effectiveRootForAncestors = effectiveRoots[0] || "";
         scopeList = [...allowed];
       }
     }
     // Comentario: coleta IDs dos ancestrais acima do effectiveRoot (ex.: estadual).
     // Usa allRows (todas as igrejas) para subir na hierarquia sem restricao de escopo.
-    if (session.role === "admin" && effectiveRootForAncestors) {
+    if (effectiveRootForAncestors) {
       const byId = new Map(allRows.map((r) => [String(r.totvs_id), r]));
       const visitedAnc = new Set<string>([effectiveRootForAncestors]);
       let curAnc = byId.get(effectiveRootForAncestors)?.parent_totvs_id

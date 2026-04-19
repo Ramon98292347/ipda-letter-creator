@@ -12,6 +12,8 @@ import { createLetterByPastor, fetchAncestorChain, listChurchesInScope, searchCh
 import type { AncestorChainItem, ChurchInScopeItem } from "@/services/saasService";
 import type { Church } from "@/components/ChurchSearch";
 
+type HierarchyClass = "estadual" | "setorial" | "central" | "regional" | "local" | "";
+
 // Tipo do pregador alvo da carta
 export type LetterTarget = {
   userId: string;
@@ -55,6 +57,14 @@ function apiToChurch(c: { totvs_id?: string | null; church_name?: string | null;
     classificacao: String(c.church_class || ""),
     parentTotvsId: String(c.parent_totvs_id || "") || undefined,
   };
+}
+
+function normalizeHierarchyClass(value: unknown): HierarchyClass {
+  const safe = String(value || "").toLowerCase().trim();
+  if (safe === "estadual" || safe === "setorial" || safe === "central" || safe === "regional" || safe === "local") {
+    return safe;
+  }
+  return "";
 }
 
 export function PastorLetterDialog({ open, onOpenChange, letterTarget, onSuccess }: Props) {
@@ -113,41 +123,71 @@ export function PastorLetterDialog({ open, onOpenChange, letterTarget, onSuccess
 
   // Mae mais alta com pastor: percorre ancestorChain do final (mais alto) para o inicio.
   // Usada no campo "Outros" — sempre pega estadual > setorial > central.
-  const highestSignerForOthers = useMemo<AncestorChainItem | null>(() => {
-    for (let i = ancestorChain.length - 1; i >= 0; i--) {
-      if (ancestorChain[i].pastor?.full_name) return ancestorChain[i];
-    }
-    return null;
-  }, [ancestorChain]);
-
   // Igreja propria do alvo com dados brutos (inclui pastor info)
   const targetChurchRaw = useMemo(
     () => ownScopeRaw.find((c) => c.totvs_id === letterTarget?.churchTotvsId) || null,
     [ownScopeRaw, letterTarget?.churchTotvsId],
   );
 
-  // Comentario: signerChurch e a mae direta com pastor — assina a carta para destinos normais.
-  // Regra: se a propria igreja do alvo tem pastor, ela assina. Caso contrario, sobe pelo
-  // ancestorChain ate achar o primeiro com pastor (regional/local NUNCA assina).
-  const signerChurch = useMemo<AncestorChainItem | null>(() => {
-    // Verifica se a propria igreja tem pastor
-    if (targetChurchRaw?.pastor?.full_name) {
-      return {
-        totvs_id: targetChurchRaw.totvs_id,
-        church_name: targetChurchRaw.church_name,
-        parent_totvs_id: targetChurchRaw.parent_totvs_id || null,
-        pastor: targetChurchRaw.pastor,
-      };
-    }
-    // Sobe na hierarquia pelo ancestorChain (pai, avo...) ate achar pastor
-    for (const anc of ancestorChain) {
-      if (anc.pastor?.full_name) return anc;
+  const churchNodeMap = useMemo(() => {
+    const map = new Map<string, { totvs_id: string; church_name: string; parent_totvs_id: string | null; church_class: HierarchyClass }>();
+
+    const pushNode = (totvsId: unknown, churchName: unknown, parentTotvsId: unknown, churchClass: unknown) => {
+      const id = String(totvsId || '').trim();
+      if (!id) return;
+      map.set(id, {
+        totvs_id: id,
+        church_name: String(churchName || ''),
+        parent_totvs_id: parentTotvsId ? String(parentTotvsId) : null,
+        church_class: normalizeHierarchyClass(churchClass),
+      });
+    };
+
+    ownScopeRaw.forEach((item) => pushNode(item.totvs_id, item.church_name, item.parent_totvs_id, item.church_class));
+    parentScopeRaw.forEach((item) => pushNode(item.totvs_id, item.church_name, item.parent_totvs_id, item.church_class));
+    ancestorChain.forEach((item) => pushNode(item.totvs_id, item.church_name, item.parent_totvs_id, item.church_class));
+    if (targetChurchRaw) pushNode(targetChurchRaw.totvs_id, targetChurchRaw.church_name, targetChurchRaw.parent_totvs_id, targetChurchRaw.church_class);
+    return map;
+  }, [ownScopeRaw, parentScopeRaw, ancestorChain, targetChurchRaw]);
+
+  const findAncestorByClassDialog = (startTotvs: string, targetClass: HierarchyClass) => {
+    let current = churchNodeMap.get(startTotvs)?.parent_totvs_id || null;
+    const visited = new Set<string>();
+    while (current && !visited.has(current)) {
+      visited.add(current);
+      const row = churchNodeMap.get(current);
+      if (!row) return null;
+      if (row.church_class === targetClass) return row;
+      current = row.parent_totvs_id || null;
     }
     return null;
-  }, [targetChurchRaw, ancestorChain]);
+  };
 
-  // ─── Debounce do campo Outros ────────────────────────────────────────────────
-  // Comentario: igual ao Index.tsx — atualiza outrosDebounced 300ms apos o usuario parar de digitar.
+  const targetChurchNode = useMemo(() => {
+    const targetId = String(letterTarget?.churchTotvsId || '');
+    return targetId ? churchNodeMap.get(targetId) || null : null;
+  }, [churchNodeMap, letterTarget?.churchTotvsId]);
+
+  const baseOriginNode = useMemo(() => {
+    if (!targetChurchNode) return null;
+    if (targetChurchNode.church_class === 'local' || targetChurchNode.church_class === 'regional') {
+      return findAncestorByClassDialog(targetChurchNode.totvs_id, 'central') || targetChurchNode;
+    }
+    return targetChurchNode;
+  }, [targetChurchNode]);
+
+  const setorialOriginNode = useMemo(() => {
+    if (!baseOriginNode) return null;
+    if (baseOriginNode.church_class === 'setorial') return baseOriginNode;
+    return findAncestorByClassDialog(baseOriginNode.totvs_id, 'setorial');
+  }, [baseOriginNode]);
+
+  const estadualOriginNode = useMemo(() => {
+    if (!baseOriginNode) return null;
+    if (baseOriginNode.church_class === 'estadual') return baseOriginNode;
+    return findAncestorByClassDialog(baseOriginNode.totvs_id, 'estadual');
+  }, [baseOriginNode]);
+
   useEffect(() => {
     const t = setTimeout(() => setOutrosDebounced(destinoOutros), 300);
     return () => clearTimeout(t);
@@ -219,56 +259,114 @@ export function PastorLetterDialog({ open, onOpenChange, letterTarget, onSuccess
 
   const computedOrigin = useMemo(() => {
     const manualFilled = !!destinoOutros.trim();
-    // Comentario: campo "Outros" sempre usa a mae mais alta
+    const base = baseOriginNode;
+    if (!base) {
+      return { name: '', totvs: '', blockedMessage: null as string | null };
+    }
+
     if (manualFilled) {
+      if (!estadualOriginNode) {
+        return { name: '', totvs: '', blockedMessage: 'esta carta tem que ser tirada pela estadual' };
+      }
       return {
-        name: highestSignerForOthers?.church_name || signerChurch?.church_name || "",
-        totvs: highestSignerForOthers?.totvs_id || signerChurch?.totvs_id || letterTarget?.churchTotvsId || "",
+        name: estadualOriginNode.church_name || '',
+        totvs: estadualOriginNode.totvs_id || '',
+        blockedMessage: null as string | null,
       };
     }
-    // Comentario: destino selecionado da lista
-    const destId = String(destino?.codigoTotvs || "");
-    if (!destId || !signerChurch) {
-      return {
-        name: signerChurch?.church_name || "",
-        totvs: signerChurch?.totvs_id || letterTarget?.churchTotvsId || "",
-      };
+
+    const destId = String(destino?.codigoTotvs || '');
+    if (!destId) {
+      return { name: base.church_name || '', totvs: base.totvs_id || '', blockedMessage: null as string | null };
     }
-    // Comentario: se destino esta na sub-arvore da mae, usa a mae
-    if (isInSubtreeDialog(destId, signerChurch.totvs_id)) {
-      return { name: signerChurch.church_name, totvs: signerChurch.totvs_id };
+
+    if (base.church_class === 'estadual') {
+      return { name: base.church_name || '', totvs: base.totvs_id || '', blockedMessage: null as string | null };
     }
-    // ─── REGRA DE IRMAS ────────────────────────────────────────────────────────
-    // Comentario: se a origem (signerChurch) e o destino compartilham a MESMA MAE
-    // (mesmo parent_totvs_id), sao irmas na hierarquia.
-    // Nesse caso, a carta sai com a propria igreja (signerChurch) como origem,
-    // sem precisar subir para o ancestral comum.
-    // Ex.: Central A (mae: Estadual X) para Central B (mae: Estadual X) = origem Central A.
-    // Ex.: Setorial Y (mae: Estadual X) para Setorial Z (mae: Estadual X) = origem Setorial Y.
-    const signerParent = String(signerChurch?.parent_totvs_id || "");
-    const destParentId = String(destino?.parentTotvsId || "");
-    if (signerParent && destParentId && signerParent === destParentId) {
-      return { name: signerChurch.church_name, totvs: signerChurch.totvs_id };
-    }
-    // ─── FIM REGRA DE IRMAS ────────────────────────────────────────────────────
-    // Comentario: sobe pela ancestorChain ate achar ancestral que englobe o destino
-    for (const ancestor of ancestorChain) {
-      if (ancestor.pastor?.full_name && isInSubtreeDialog(destId, ancestor.totvs_id)) {
-        return { name: ancestor.church_name, totvs: ancestor.totvs_id };
+
+    if (base.church_class === 'setorial') {
+      const destSetorial =
+        normalizeHierarchyClass(destino?.classificacao) === 'setorial'
+          ? { totvs_id: destId, parent_totvs_id: destino?.parentTotvsId || null }
+          : findAncestorByClassDialog(destId, 'setorial');
+
+      if (isInSubtreeDialog(destId, base.totvs_id)) {
+        return { name: base.church_name || '', totvs: base.totvs_id || '', blockedMessage: null as string | null };
+      }
+
+      if (
+        destSetorial &&
+        base.parent_totvs_id &&
+        destSetorial.parent_totvs_id &&
+        base.parent_totvs_id === destSetorial.parent_totvs_id
+      ) {
+        return { name: base.church_name || '', totvs: base.totvs_id || '', blockedMessage: null as string | null };
+      }
+
+      if (estadualOriginNode && isInSubtreeDialog(destId, estadualOriginNode.totvs_id)) {
+        return {
+          name: estadualOriginNode.church_name || '',
+          totvs: estadualOriginNode.totvs_id || '',
+          blockedMessage: null as string | null,
+        };
       }
     }
-    // Comentario: fallback — mae mais alta
-    return {
-      name: highestSignerForOthers?.church_name || signerChurch?.church_name || "",
-      totvs: highestSignerForOthers?.totvs_id || signerChurch?.totvs_id || letterTarget?.churchTotvsId || "",
-    };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [destino, destinoOutros, signerChurch, highestSignerForOthers, ancestorChain, ownScopeChurches, parentScopeChurches, letterTarget]);
+
+    if (base.church_class === 'central') {
+      const destCentral =
+        normalizeHierarchyClass(destino?.classificacao) === 'central'
+          ? { totvs_id: destId, parent_totvs_id: destino?.parentTotvsId || null }
+          : findAncestorByClassDialog(destId, 'central');
+
+      if (isInSubtreeDialog(destId, base.totvs_id)) {
+        return { name: base.church_name || '', totvs: base.totvs_id || '', blockedMessage: null as string | null };
+      }
+
+      if (
+        destCentral &&
+        base.parent_totvs_id &&
+        destCentral.parent_totvs_id &&
+        base.parent_totvs_id === destCentral.parent_totvs_id
+      ) {
+        return { name: base.church_name || '', totvs: base.totvs_id || '', blockedMessage: null as string | null };
+      }
+
+      if (
+        (targetChurchNode?.church_class === 'local' || targetChurchNode?.church_class === 'regional') &&
+        setorialOriginNode &&
+        isInSubtreeDialog(destId, setorialOriginNode.totvs_id)
+      ) {
+        return {
+          name: setorialOriginNode.church_name || '',
+          totvs: setorialOriginNode.totvs_id || '',
+          blockedMessage: null as string | null,
+        };
+      }
+
+      if (setorialOriginNode && (destId === setorialOriginNode.totvs_id || isInSubtreeDialog(destId, setorialOriginNode.totvs_id))) {
+        return {
+          name: setorialOriginNode.church_name || '',
+          totvs: setorialOriginNode.totvs_id || '',
+          blockedMessage: null as string | null,
+        };
+      }
+
+      if (estadualOriginNode && isInSubtreeDialog(destId, estadualOriginNode.totvs_id)) {
+        return {
+          name: estadualOriginNode.church_name || '',
+          totvs: estadualOriginNode.totvs_id || '',
+          blockedMessage: null as string | null,
+        };
+      }
+    }
+
+    return { name: base.church_name || '', totvs: base.totvs_id || '', blockedMessage: null as string | null };
+  }, [baseOriginNode, destino, destinoOutros, estadualOriginNode, setorialOriginNode, targetChurchNode]);
 
   const displayOriginName = computedOrigin.name;
   const displayOriginTotvs = computedOrigin.totvs;
+  const outrosBlockedMessage = computedOrigin.blockedMessage;
 
-  // ─── Opcoes de destino filtradas pelo texto digitado ────────────────────────
   const filteredDestinoOptions = useMemo(() => {
     const q = destinoSearch.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
     if (q.length < 2) return [];
@@ -294,14 +392,14 @@ export function PastorLetterDialog({ open, onOpenChange, letterTarget, onSuccess
     ? `${destino.codigoTotvs} - ${destino.nome}`
     : destinoOutros.trim() || "-";
 
-  // Comentario: aviso quando a origem subiu na hierarquia (diferente da mae direta)
+  // Comentario: aviso quando a origem subiu na hierarquia (diferente da base da regra)
   const originAdjustedMessage = useMemo(() => {
-    if (!signerChurch) return null;
-    if (displayOriginTotvs !== signerChurch.totvs_id) {
+    if (!baseOriginNode) return null;
+    if (displayOriginTotvs && displayOriginTotvs !== baseOriginNode.totvs_id) {
       return `Origem ajustada para: ${displayOriginTotvs} - ${displayOriginName}.`;
     }
     return null;
-  }, [displayOriginTotvs, displayOriginName, signerChurch]);
+  }, [baseOriginNode, displayOriginTotvs, displayOriginName]);
 
   // ─── Submit ──────────────────────────────────────────────────────────────────
   const handleSubmit = async () => {
@@ -312,6 +410,8 @@ export function PastorLetterDialog({ open, onOpenChange, letterTarget, onSuccess
     // Comentario: validacao do campo "Outros" — deve comecal com numero (codigo TOTVS)
     if (!destino && !normalizeManual(destinoOutros).match(/^\d{3,}/)) { toast.error("O campo 'Outros' deve iniciar com o código da igreja. Ex: 9530 - CAMPO GRANDE"); return; }
 
+    if (outrosBlockedMessage) { toast.error(outrosBlockedMessage); return; }
+    if (!displayOriginTotvs || !displayOriginName) { toast.error("Nao foi possivel determinar a origem da carta."); return; }
     const origemText = displayOriginName
       ? `${displayOriginTotvs} - ${displayOriginName}`
       : displayOriginTotvs;
