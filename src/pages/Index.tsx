@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,7 +12,7 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { createLetterByPastor, getPastorByTotvsPublic, listChurchesInScope, listMembers, searchChurchesPublic, type UserListItem } from "@/services/saasService";
+import { createLetterByPastor, fetchAncestorChain, getPastorByTotvsPublic, listChurchesInScope, listMembers, searchChurchesPublic, type UserListItem } from "@/services/saasService";
 import { format, parse } from "date-fns";
 import { useUser } from "@/context/UserContext";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -149,55 +149,52 @@ const Index = () => {
   // Converte para o tipo Church usado nos selects do formulario
   const churches = useMemo(() => rawOwnChurches.map(apiToChurch), [rawOwnChurches]);
 
-  // Igreja propria do usuario logado (para calcular o pai)
-  const activeChurch = useMemo(
-    () => churches.find((c) => c.codigoTotvs === activeTotvsForPastor) || (churches[0] ?? null),
-    [churches, activeTotvsForPastor],
-  );
-  const parentTotvsId = String(activeChurch?.parentTotvsId || "").trim();
+  // Busca a cadeia de ancestrais (Mae, Avo, Bisavo) de forma robusta e independente de papel
+  const { data: ancestorChain = [] } = useQuery({
+    queryKey: ["church-ancestor-chain", activeTotvsForPastor],
+    queryFn: () => fetchAncestorChain(activeTotvsForPastor),
+    enabled: Boolean(activeTotvsForPastor),
+  });
 
-  // Escopo da mae: guardamos os dados brutos para ter acesso ao pastor_user_id
+  const parentTotvsId = useMemo(() => ancestorChain[0]?.totvs_id || "", [ancestorChain]);
+  const grandParentTotvsId = useMemo(() => ancestorChain[1]?.totvs_id || "", [ancestorChain]);
+  const greatGrandParentTotvsId = useMemo(() => ancestorChain[2]?.totvs_id || "", [ancestorChain]);
+
+  // Escopo da mae
   const { data: rawParentChurches = [] } = useQuery({
     queryKey: ["churches-letter-form-parent", parentTotvsId],
     queryFn: () => listChurchesInScope(1, 1000, parentTotvsId || undefined),
-    enabled: (role === "admin" || Boolean(activeTotvsForPastor)) && Boolean(parentTotvsId),
+    enabled: Boolean(parentTotvsId),
   });
   const parentScopeChurches = useMemo(() => rawParentChurches.map(apiToChurch), [rawParentChurches]);
 
-  // Fallback publico para a igreja mae (especialmente para obreiro)
-  const { data: parentChurchPublic } = useQuery({
-    queryKey: ["churches-letter-form-parent-public", parentTotvsId],
-    queryFn: async () => {
-      if (!parentTotvsId) return null;
-      const results = await searchChurchesPublic(parentTotvsId, 1);
-      const found = results.find((c) => String(c.totvs_id || "") === parentTotvsId) || results[0];
-      return found ? apiToChurch(found, 0) : null;
-    },
-    enabled: Boolean(parentTotvsId) && parentScopeChurches.length === 0,
-  });
-
-  const grandParentTotvsId = useMemo(() => {
-    if (!parentTotvsId) return "";
-    const parentFromScope = parentScopeChurches.find((c) => String(c.codigoTotvs || "") === parentTotvsId);
-    return String(parentFromScope?.parentTotvsId || "").trim();
-  }, [parentScopeChurches, parentTotvsId]);
-
+  // Escopo da avo
   const { data: rawGrandParentChurches = [] } = useQuery({
     queryKey: ["churches-letter-form-grandparent", grandParentTotvsId],
     queryFn: () => listChurchesInScope(1, 1000, grandParentTotvsId || undefined),
-    enabled: (role === "admin" || Boolean(activeTotvsForPastor)) && Boolean(grandParentTotvsId),
+    enabled: Boolean(grandParentTotvsId),
   });
   const grandParentScopeChurches = useMemo(() => rawGrandParentChurches.map(apiToChurch), [rawGrandParentChurches]);
 
-  // Mapa totvs_id -> pastor_user_id montado a partir dos dados brutos ja carregados
+  // Escopo da bisavo
+  const { data: rawGreatGrandParentChurches = [] } = useQuery({
+    queryKey: ["churches-letter-form-greatgrandparent", greatGrandParentTotvsId],
+    queryFn: () => listChurchesInScope(1, 1000, greatGrandParentTotvsId || undefined),
+    enabled: Boolean(greatGrandParentTotvsId),
+  });
+  const greatGrandParentScopeChurches = useMemo(() => rawGreatGrandParentChurches.map(apiToChurch), [rawGreatGrandParentChurches]);
+
+  // Mapa totvs_id -> pastor_user_id montado a partir de todos os dados brutos carregados
   const pastorUserIdByTotvs = useMemo(() => {
     const map: Record<string, string> = {};
-    [...rawOwnChurches, ...rawParentChurches, ...rawGrandParentChurches].forEach((c) => {
+    const allRaw = [...rawOwnChurches, ...rawParentChurches, ...rawGrandParentChurches, ...rawGreatGrandParentChurches];
+    allRaw.forEach((c) => {
       const pid = String(c.pastor_user_id || "").trim();
-      if (pid) map[String(c.totvs_id || "")] = pid;
+      const tid = String(c.totvs_id || "");
+      if (pid && tid) map[tid] = pid;
     });
     return map;
-  }, [rawOwnChurches, rawParentChurches, rawGrandParentChurches]);
+  }, [rawOwnChurches, rawParentChurches, rawGrandParentChurches, rawGreatGrandParentChurches]);
 
   // Busca dinamica no campo Outros usando a edge function search-churches-public
   const { data: outrosSuggestions = [] } = useQuery({
@@ -206,11 +203,17 @@ const Index = () => {
     enabled: outrosDebounced.trim().length >= 2,
   });
 
-  // Fonte de igrejas para o campo destino: escopo da avo > mae > proprio.
-  const destinationSourceChurches = useMemo(
-    () => (grandParentScopeChurches.length ? grandParentScopeChurches : parentScopeChurches.length ? parentScopeChurches : churches),
-    [grandParentScopeChurches, parentScopeChurches, churches],
-  );
+  // Fonte UNIFICADA de igrejas para o campo destino: combina Propria + Mae + Avo + Bisavo
+  const destinationSourceChurches = useMemo(() => {
+    const combined = [...churches, ...parentScopeChurches, ...grandParentScopeChurches, ...greatGrandParentScopeChurches];
+    const seen = new Set<string>();
+    return combined.filter((c) => {
+      const tid = String(c.codigoTotvs || "");
+      if (!tid || seen.has(tid)) return false;
+      seen.add(tid);
+      return true;
+    });
+  }, [churches, parentScopeChurches, grandParentScopeChurches, greatGrandParentScopeChurches]);
 
   // Sets para detectar se o destino esta fora do escopo proprio
   const ownScopeSet = useMemo(
@@ -223,26 +226,68 @@ const Index = () => {
   );
   const grandParentScopeSet = useMemo(
     () => new Set(grandParentScopeChurches.map((c) => c.codigoTotvs).filter(Boolean)),
-    [grandParentScopeChurches],
   );
 
-  // Igreja mae do usuario logado
-  const parentChurch = useMemo(
-    () =>
-      parentTotvsId
-        ? destinationSourceChurches.find((c) => c.codigoTotvs === parentTotvsId) ||
-          parentChurchPublic ||
-          null
-        : null,
-    [destinationSourceChurches, parentTotvsId, parentChurchPublic],
+  const greatGrandParentScopeSet = useMemo(
+    () => new Set(greatGrandParentScopeChurches.map((c) => c.codigoTotvs).filter(Boolean)),
+    [greatGrandParentScopeChurches],
   );
-  const grandParentChurch = useMemo(
-    () =>
-      grandParentTotvsId
-        ? destinationSourceChurches.find((c) => c.codigoTotvs === grandParentTotvsId) || null
-        : null,
-    [destinationSourceChurches, grandParentTotvsId],
-  );
+
+  // Igreja mae do usuario logado (com fallback da cadeia de ancestrais)
+  const parentChurch = useMemo(() => {
+    if (!parentTotvsId) return null;
+    const fromScope = destinationSourceChurches.find((c) => c.codigoTotvs === parentTotvsId);
+    if (fromScope) return fromScope;
+    const fromChain = ancestorChain[0];
+    if (fromChain) return {
+      id: 0,
+      codigoTotvs: fromChain.totvs_id,
+      nome: fromChain.church_name,
+      cidade: "",
+      uf: "",
+      carimboIgreja: "",
+      carimboPastor: "",
+      classificacao: fromChain.church_class || "",
+    } as Church;
+    return null;
+  }, [destinationSourceChurches, parentTotvsId, ancestorChain]);
+
+  const grandParentChurch = useMemo(() => {
+    if (!grandParentTotvsId) return null;
+    const fromScope = destinationSourceChurches.find((c) => c.codigoTotvs === grandParentTotvsId);
+    if (fromScope) return fromScope;
+    const fromChain = ancestorChain[1];
+    if (fromChain) return {
+      id: 0,
+      codigoTotvs: fromChain.totvs_id,
+      nome: fromChain.church_name,
+      cidade: "",
+      uf: "",
+      carimboIgreja: "",
+      carimboPastor: "",
+      classificacao: fromChain.church_class || "",
+    } as Church;
+    return null;
+  }, [destinationSourceChurches, grandParentTotvsId, ancestorChain]);
+
+  const greatGrandParentChurch = useMemo(() => {
+    if (!greatGrandParentTotvsId) return null;
+    const fromScope = destinationSourceChurches.find((c) => c.codigoTotvs === greatGrandParentTotvsId);
+    if (fromScope) return fromScope;
+    const fromChain = ancestorChain[2];
+    if (fromChain) return {
+      id: 0,
+      codigoTotvs: fromChain.totvs_id,
+      nome: fromChain.church_name,
+      cidade: "",
+      uf: "",
+      carimboIgreja: "",
+      carimboPastor: "",
+      classificacao: fromChain.church_class || "",
+    } as Church;
+    return null;
+  }, [destinationSourceChurches, greatGrandParentTotvsId, ancestorChain]);
+
   const { data: preachersInScope = [] } = useQuery({
     queryKey: ["letter-preachers-in-scope", session?.totvs_id, role],
     queryFn: async () => {
@@ -293,14 +338,15 @@ const Index = () => {
     pastorPorId?.phone || pastorPorTotvs?.phone || pastorResponsavelData?.phone || "",
   );
 
-  // Origens permitidas: propria + mae + avo (quando existir).
+  // Origens permitidas: propria + mae + avo + bisavo (quando existir).
   const allowedOriginChurches = useMemo(() => {
     const list: Church[] = [];
     if (activeChurch) list.push(activeChurch);
     if (parentChurch && parentChurch.codigoTotvs !== activeChurch?.codigoTotvs) list.push(parentChurch);
     if (grandParentChurch && !list.some((c) => c.codigoTotvs === grandParentChurch.codigoTotvs)) list.push(grandParentChurch);
+    if (greatGrandParentChurch && !list.some((c) => c.codigoTotvs === greatGrandParentChurch.codigoTotvs)) list.push(greatGrandParentChurch);
     return list.length ? list : churches.slice(0, 3);
-  }, [activeChurch, parentChurch, grandParentChurch, churches]);
+  }, [activeChurch, parentChurch, grandParentChurch, greatGrandParentChurch, churches]);
 
   const shouldUseGrandParentOrigin = useMemo(() => {
     if (!igrejaDestino || !grandParentChurch) return false;
@@ -308,23 +354,32 @@ const Index = () => {
     return grandParentScopeSet.has(d) && !parentScopeSet.has(d) && !ownScopeSet.has(d);
   }, [igrejaDestino, grandParentChurch, grandParentScopeSet, parentScopeSet, ownScopeSet]);
 
+  const shouldUseGreatGrandParentOrigin = useMemo(() => {
+    if (!igrejaDestino || !greatGrandParentChurch) return false;
+    const d = String(igrejaDestino.codigoTotvs || "");
+    return greatGrandParentScopeSet.has(d) && !grandParentScopeSet.has(d) && !parentScopeSet.has(d) && !ownScopeSet.has(d);
+  }, [igrejaDestino, greatGrandParentChurch, greatGrandParentScopeSet, grandParentScopeSet, parentScopeSet, ownScopeSet]);
+
   const shouldUseParentOrigin = useMemo(() => {
     if (!igrejaDestino || !parentChurch) return false;
     const d = String(igrejaDestino.codigoTotvs || "");
     return parentScopeSet.has(d) && !ownScopeSet.has(d);
   }, [igrejaDestino, parentChurch, parentScopeSet, ownScopeSet]);
 
-  // Para campo Outros: sempre sobe para a mae/avo mais alta conhecida.
-  const shouldUseUpperOriginForOthers = Boolean(destinoOutros.trim() && (grandParentChurch || parentChurch));
+  // Para campo Outros: sempre sobe para a mae/avo/bisavo mais alta conhecida.
+  const shouldUseUpperOriginForOthers = Boolean(destinoOutros.trim() && (greatGrandParentChurch || grandParentChurch || parentChurch));
 
   const effectiveOrigin = useMemo(() => {
+    if (shouldUseGreatGrandParentOrigin) return greatGrandParentChurch || grandParentChurch || parentChurch || igrejaOrigem;
     if (shouldUseGrandParentOrigin) return grandParentChurch || parentChurch || igrejaOrigem;
     if (shouldUseParentOrigin) return parentChurch || igrejaOrigem;
     if (shouldUseUpperOriginForOthers) {
-      return grandParentChurch || parentChurch || igrejaOrigem;
+      // Pega a mais alta disponivel entre bisavo, avo e mae
+      return greatGrandParentChurch || grandParentChurch || parentChurch || igrejaOrigem;
     }
     return igrejaOrigem;
-  }, [shouldUseGrandParentOrigin, shouldUseParentOrigin, shouldUseUpperOriginForOthers, grandParentChurch, parentChurch, igrejaOrigem]);
+  }, [shouldUseGreatGrandParentOrigin, shouldUseGrandParentOrigin, shouldUseParentOrigin, shouldUseUpperOriginForOthers, greatGrandParentChurch, grandParentChurch, parentChurch, igrejaOrigem]);
+
   const originAutoAdjusted = Boolean(
     effectiveOrigin?.codigoTotvs &&
     activeChurch?.codigoTotvs &&
@@ -854,23 +909,23 @@ const Index = () => {
                       Data da pregação
                     </Label>
                     {(() => {
-                        const { name, ref, onBlur } = register("dataPregacao");
-                        return (
-                          <Input
-                            id="dataPregacao"
-                            type="date"
-                            name={name}
-                            ref={ref}
-                            onBlur={onBlur}
-                            value={watch("dataPregacao") || ""}
-                            min={todayIso}
-                            onChange={(e) => setValue("dataPregacao", e.target.value, { shouldValidate: true })}
-                            onFocus={(e) => { if (disableByPhone) { toast.info("Digite seu telefone"); e.currentTarget.blur(); } }}
-                            className="h-11 w-full rounded-xl border-slate-300 bg-slate-50 transition-colors focus:border-blue-500 focus:ring-blue-500"
-                            required
-                          />
-                        );
-                      })()}
+                      const { name, ref, onBlur } = register("dataPregacao");
+                      return (
+                        <Input
+                          id="dataPregacao"
+                          type="date"
+                          name={name}
+                          ref={ref}
+                          onBlur={onBlur}
+                          value={watch("dataPregacao") || ""}
+                          min={todayIso}
+                          onChange={(e) => setValue("dataPregacao", e.target.value, { shouldValidate: true })}
+                          onFocus={(e) => { if (disableByPhone) { toast.info("Digite seu telefone"); e.currentTarget.blur(); } }}
+                          className="h-11 w-full rounded-xl border-slate-300 bg-slate-50 transition-colors focus:border-blue-500 focus:ring-blue-500"
+                          required
+                        />
+                      );
+                    })()}
                     {errors.dataPregacao && <p className="text-xs text-destructive">{errors.dataPregacao.message as string}</p>}
                   </div>
 
@@ -961,6 +1016,24 @@ const Index = () => {
         </div>
       )}
     </div>
+  );
+};
+
+export default Index;
+
+
+        </div >
+      </main >
+
+  { savingLetter && (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+      <div className="rounded-xl bg-white px-6 py-5 shadow-xl flex items-center gap-3">
+        <Loader2 className="h-5 w-5 animate-spin text-primary" />
+        <p className="text-sm font-medium text-slate-800">Carta sendo preenchida e enviada...</p>
+      </div>
+    </div>
+  )}
+    </div >
   );
 };
 

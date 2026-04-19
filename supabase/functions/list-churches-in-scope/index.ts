@@ -1,17 +1,17 @@
-﻿/**
+/**
  * list-churches-in-scope
  * ======================
- * O que faz: Lista as igrejas visÃ­veis ao usuÃ¡rio logado com paginaÃ§Ã£o, trazendo dados do pastor
+ * O que faz: Lista as igrejas visíveis ao usuário logado com paginação, trazendo dados do pastor
  *            de cada igreja (via join) e a contagem de obreiros ativos por igreja.
  * Para que serve: Usada na tela de gerenciamento de igrejas para o admin/pastor visualizar
- *                 e navegar pelas igrejas do seu escopo hierÃ¡rquico.
- * Quem pode usar: admin, pastor
+ *                 e navegar pelas igrejas do seu escopo hierárquico.
+ * Quem pode usar: admin, pastor, obreiro
  * Recebe: { page?: number, page_size?: number, root_totvs_id?: string }
  * Retorna: { ok, churches, total, page, page_size }
- *          Cada chiesa inclui: dados bÃ¡sicos, pastor (id, full_name, phone, email, is_active),
- *          workers_count (nÃºmero de obreiros ativos com default_totvs_id naquela igreja).
- * ObservaÃ§Ãµes: Admin pode filtrar por root_totvs_id para ver a sub-Ã¡rvore de qualquer igreja.
- *              Pastor vÃª somente igrejas dentro da prÃ³pria Ã¡rvore hierÃ¡rquica.
+ *          Cada chiesa inclui: dados básicos, pastor (id, full_name, phone, email, is_active),
+ *          workers_count (número de obreiros ativos com default_totvs_id naquela igreja).
+ * Observações: Admin pode filtrar por root_totvs_id para ver a sub-árvore de qualquer igreja.
+ *              Pastor vê somente igrejas dentro da própria árvore hierárquica.
  */
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -228,11 +228,9 @@ Deno.serve(async (req) => {
   try {
     const session = await verifySessionJWT(req);
     if (!session) return json({ ok: false, error: "unauthorized" }, 401);
-    // Comentario: obreiro tambem pode chamar esta funcao para carregar destinos de carta.
-    // Apenas "secretario" e "financeiro" sem restricao especial â€” todos os roles passam.
+    
     const body = (await req.json().catch(() => ({}))) as Body;
     const page = Number.isFinite(body.page) ? Math.max(1, Number(body.page)) : 1;
-    // Comentario: limite maximo reduzido de 5000 para 1000 para evitar sobrecarga de memoria e performance.
     const page_size = Number.isFinite(body.page_size) ? Math.max(1, Math.min(1000, Number(body.page_size))) : 20;
     const from = (page - 1) * page_size;
     const to = from + page_size - 1;
@@ -249,8 +247,6 @@ Deno.serve(async (req) => {
       },
     });
 
-    // 1) Carrega todas as igrejas (para montar escopo) em paginas internas,
-    // evitando limite padrao de 1000 linhas no PostgREST.
     let allRows: ChurchRow[] = [];
     try {
       allRows = await loadAllChurchRows(sb);
@@ -260,16 +256,10 @@ Deno.serve(async (req) => {
     const requestedRoot = String(body.root_totvs_id || "").trim();
 
     let scopeList: string[] = [];
-    // Comentario: effectiveRoot guarda o TOTVS raiz do escopo computado.
-    // Usado para calcular ancestor_chain â€” os ancestrais acima do root
-    // (ex.: estadual acima de setorial) retornados separadamente para o frontend
-    // resolver a mae mais alta com pastor no campo "Outros".
     let effectiveRootForAncestors = "";
-    // Comentario: declarado aqui para ser visivel em todos os branches do if/else abaixo.
     const ancestorIds: string[] = [];
 
     if (session.role === "admin") {
-      // Comentario: admin enxerga todas as igrejas; root_totvs_id vira filtro opcional.
       if (requestedRoot) {
         const hasRoot = allRows.some((c) => String(c.totvs_id) === requestedRoot);
         if (!hasRoot) return json({ ok: false, error: "church_not_found" }, 404);
@@ -279,9 +269,8 @@ Deno.serve(async (req) => {
         scopeList = allRows.map((c) => String(c.totvs_id)).filter(Boolean);
       }
     } else if (session.role === "pastor") {
-      // Comentario: pastor so pode enxergar a propria arvore (igreja(s) onde ele e pastor_user_id + filhas).
       const pastorRoots = allRows
-        .filter((row) => String((row as ChurchRow & { pastor_user_id?: string | null }).pastor_user_id || "").trim() === session.user_id)
+        .filter((row) => String(row.pastor_user_id || "").trim() === session.user_id)
         .map((row) => String(row.totvs_id || "").trim())
         .filter(Boolean);
 
@@ -301,8 +290,6 @@ Deno.serve(async (req) => {
           effectiveRootForAncestors = requestedRoot;
           scopeList = [...computeScope(requestedRoot, allRows)];
         } else {
-          // Comentario: compatibilidade com front antigo que envia root fora do escopo.
-          // Mantemos seguranca: ignora root invalido e retorna apenas escopo permitido.
           effectiveRootForAncestors = effectiveRoots[0] || "";
           scopeList = [...allowed];
         }
@@ -311,18 +298,16 @@ Deno.serve(async (req) => {
         scopeList = [...allowed];
       }
     } else if (session.role === "obreiro") {
-      // Comentario: obreiro nao tem escopo proprio — sobe para a mae (ou avo se mae for "central")
-      // usando findObreiroScopeRoot, igual ao telas-cartas.
       const obreiroScopeRoot = findObreiroScopeRoot(session.active_totvs_id, allRows);
-      const baseScope = computeScope(obreiroScopeRoot, allRows);
-      const effectiveRoot = requestedRoot && baseScope.has(requestedRoot)
+      
+      const isAncestor = requestedRoot ? isAncestorOf(session.active_totvs_id, requestedRoot, allRows) : false;
+      const effectiveRoot = requestedRoot && isAncestor
         ? requestedRoot
         : obreiroScopeRoot;
+        
       effectiveRootForAncestors = effectiveRoot;
       scopeList = [...computeScope(effectiveRoot, allRows)];
     } else {
-      // Comentario: secretario/financeiro usam escopo real (totvs_access/default_totvs_id)
-      // sem permitir subir para igrejas acima do proprio escopo.
       const { data: meRow } = await sb
         .from("users")
         .select("default_totvs_id, totvs_access")
@@ -346,7 +331,6 @@ Deno.serve(async (req) => {
           effectiveRootForAncestors = requestedRoot;
           scopeList = [...computeScope(requestedRoot, allRows)];
         } else {
-          // Comentario: root invalido para o role atual — cai para escopo permitido.
           effectiveRootForAncestors = effectiveRoots[0] || "";
           scopeList = [...allowed];
         }
@@ -355,8 +339,7 @@ Deno.serve(async (req) => {
         scopeList = [...allowed];
       }
     }
-    // Comentario: coleta IDs dos ancestrais acima do effectiveRoot (ex.: estadual).
-    // Usa allRows (todas as igrejas) para subir na hierarquia sem restricao de escopo.
+
     if (effectiveRootForAncestors) {
       const byId = new Map(allRows.map((r) => [String(r.totvs_id), r]));
       const visitedAnc = new Set<string>([effectiveRootForAncestors]);
@@ -373,8 +356,6 @@ Deno.serve(async (req) => {
 
     let scopeTotal = scopeList.length;
 
-    // Comentario: fallback defensivo para casos raros em que o calculo em memoria
-    // retorna apenas a raiz mesmo existindo filhas no banco.
     if (requestedRoot && scopeList.length <= 1) {
       const dbScope = await computeScopeByDbBfs(sb, requestedRoot);
       if (dbScope.size > scopeList.length) {
@@ -383,7 +364,6 @@ Deno.serve(async (req) => {
     }
     scopeTotal = scopeList.length;
 
-    // 2) Busca igrejas do escopo + pastor (join)
     const { data: churches, error: cErr } = await sb
       .from("churches")
       .select(`
@@ -419,7 +399,6 @@ Deno.serve(async (req) => {
 
     if (cErr) return json({ ok: false, error: "db_error_list_churches", details: "erro interno" }, 500);
 
-    // 3) Conta obreiros por igreja (default_totvs_id)
     const churchIdsPage = (churches || []).map((ch: any) => String(ch.totvs_id || "")).filter(Boolean);
     let workers: Array<Record<string, unknown>> = [];
     if (churchIdsPage.length > 0) {
@@ -445,9 +424,6 @@ Deno.serve(async (req) => {
       workers_count: counts.get(String(ch.totvs_id)) || 0,
     }));
 
-    // Comentario: busca ancestrais acima do scope root com info do pastor.
-    // Retornados em ancestor_chain â€” nao sao destinos, apenas para o frontend
-    // resolver a mae mais alta com pastor (estadual > setorial > central).
     let ancestorChain: unknown[] = [];
     if (ancestorIds.length > 0) {
       const { data: ancData } = await sb
