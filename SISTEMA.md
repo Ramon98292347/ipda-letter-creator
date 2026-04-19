@@ -92,6 +92,14 @@ Regra de trabalho para suporte e implantação:
 - sempre separar os blocos por finalidade: `git`, `deploy`, `migração`, `teste`
 - sempre registrar no documento do sistema quando uma nova regra de operação for definida
 
+### Regra operacional — recibo de autenticação no PWA
+
+- o layout A4 do recibo deve permanecer no modelo atual aprovado
+- a impressão A4 deve imprimir somente o recibo, nunca o modal nem o restante da página
+- a impressão é feita por iframe oculto a partir da pré-visualização, pensando no uso via celular/PWA
+- o recibo A4 deve sair centralizado e em folha única
+- o ajuste atual usa redução leve de escala no A4 para caber em uma página
+- o texto Documento gerado automaticamente pelo sistema foi removido do rodapé do recibo para não abrir segunda folha
 ---
 
 ## 4.1 Grouped APIs
@@ -739,3 +747,35 @@ Arquivos impactados:
 Deploy realizado nesta rodada:
 - `npx supabase functions deploy members-api letters-api list-churches-in-scope --project-ref idipilrcaqittmnapmbq`
 - `npx supabase functions deploy list-churches-in-scope --project-ref idipilrcaqittmnapmbq`
+
+---
+
+## 25. Hierarquia de Escopo e Regra das Cartas (2026-04-19)
+
+### Regra de Escopo Unificado (Destino)
+O sistema permite que o emitente escolha igrejas de destino em até 4 níveis:
+1. **Própria**: Congregações e pontos de seu próprio nível.
+2. **Escopo Mãe**: Igrejas sob jurisdição da mãe.
+3. **Escopo Avó**: Igrejas sob jurisdição da avó.
+4. **Escopo Bisavó**: Igrejas sob jurisdição da bisavó.
+
+### Regra de Segurança (Backend)
+- Cargo `obreiro` tem permissão para listar o escopo de qualquer ancestral (via `isAncestorOf`).
+- Função `list-churches-in-scope` foi atualizada para aceitar `root_totvs_id` de ancestrais para Obreiros.
+
+### Regra de Origem Automática
+A origem da carta é ajustada automaticamente baseada na distância do destino:
+- Destino na Própria → Origem Local.
+- Destino na Mãe → Origem Mãe.
+- Destino na Avó → Origem Avó.
+- Destino na Bisavó → Origem Bisavó.
+- Manual (Outros) → Origem mais alta disponível (Bisavó > Avó > Mãe).
+
+### Manutenção Crítica
+- **NUNCA** remover `fetchAncestorChain` no frontend.
+- **NUNCA** restringir ancestrais para Obreiros na Edge Function.
+
+Deploy realizado:
+- `npx supabase functions deploy list-churches-in-scope --project-ref idipilrcaqittmnapmbq`
+- `git commit` do arquivo `Index.tsx` e `list-churches-in-scope/index.ts`.
+
