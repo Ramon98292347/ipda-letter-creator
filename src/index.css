@@ -230,101 +230,64 @@ All colors MUST be HSL.
 }
 
 @media print {
-  body,
-  html {
+  html,
+  body {
     background: white !important;
+    margin: 0 !important;
+    padding: 0 !important;
     width: auto !important;
     height: auto !important;
     overflow: visible !important;
-    margin: 0 !important;
-    padding: 0 !important;
   }
 
-  body {
+  body.printing-receipt > *:not(#direct-print-root) {
+    display: none !important;
+  }
+
+  body.printing-receipt #direct-print-root {
     display: block !important;
-  }
-
-  #direct-print-root {
-    display: block !important;
-  }
-
-  [role="dialog"],
-  [data-state="open"] {
     position: static !important;
-    transform: none !important;
-    height: auto !important;
-    max-height: none !important;
-    overflow: visible !important;
-  }
-
-  body * {
-    visibility: hidden;
-  }
-
-  #direct-print-root,
-  #direct-print-root * {
-    visibility: visible;
-  }
-
-  #direct-print-root {
-    position: fixed !important;
-    inset: 0 !important;
-    display: block !important;
+    inset: auto !important;
     margin: 0 !important;
     padding: 0 !important;
     background: white !important;
-    z-index: 999999 !important;
   }
 
-  #direct-print-root > * {
-    position: static !important;
+  body.printing-receipt #direct-print-root > * {
     box-sizing: border-box !important;
     box-shadow: none !important;
     border: none !important;
-    page-break-inside: avoid !important;
     break-inside: avoid !important;
+    page-break-inside: avoid !important;
   }
 
-  #direct-print-root[data-print-mode="a4"] {
+  body.printing-receipt #direct-print-root[data-print-mode="a4"] {
     width: 210mm !important;
     min-height: 297mm !important;
   }
 
-  #direct-print-root[data-print-mode="a4"] > * {
+  body.printing-receipt #direct-print-root[data-print-mode="a4"] > * {
     width: 182mm !important;
     max-width: 182mm !important;
     min-height: 0 !important;
     margin: 10mm auto 0 !important;
     padding: 12mm !important;
-    page-break-after: avoid !important;
   }
 
-  #direct-print-root[data-print-mode="thermal"] > * {
+  body.printing-receipt #direct-print-root[data-print-mode="thermal"] > * {
     min-height: 0 !important;
-    padding: 0 !important;
     margin: 0 auto !important;
+    padding: 0 !important;
   }
 
-  #direct-print-root[data-print-mode="thermal"][data-thermal-width="80"] > * {
+  body.printing-receipt #direct-print-root[data-print-mode="thermal"][data-thermal-width="80"] > * {
     width: 80mm !important;
     max-width: 80mm !important;
   }
 
-  #direct-print-root[data-print-mode="thermal"][data-thermal-width="56"] > * {
+  body.printing-receipt #direct-print-root[data-print-mode="thermal"][data-thermal-width="56"] > * {
     width: 56mm !important;
     max-width: 56mm !important;
-  }
-
-  #direct-print-root[data-print-mode="thermal"] * {
-    font-size-adjust: none;
-  }
-
-  #direct-print-root[data-print-mode="a4"] * {
-    font-size-adjust: none;
-  }
-
-  #direct-print-root[data-print-mode] > * {
-    box-sizing: border-box !important;
   }
 
   @page {

@@ -128,7 +128,10 @@ export function ReceiptModal({ open, onOpenChange, data }: ReceiptModalProps) {
   useEffect(() => {
     if (!printMarkup) return;
 
-    const clearPrintMarkup = () => setPrintMarkup("");
+    const clearPrintMarkup = () => {
+      document.body.classList.remove("printing-receipt");
+      setPrintMarkup("");
+    };
     window.addEventListener("afterprint", clearPrintMarkup, { once: true });
     return () => window.removeEventListener("afterprint", clearPrintMarkup);
   }, [printMarkup]);
@@ -138,6 +141,7 @@ export function ReceiptModal({ open, onOpenChange, data }: ReceiptModalProps) {
     await waitImageLoaded(qrRef.current);
     const receiptNode = printSectionRef.current;
     if (!receiptNode) return;
+    document.body.classList.add("printing-receipt");
     setPrintMarkup(receiptNode.outerHTML);
     await new Promise<void>((resolve) => {
       requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
@@ -407,7 +411,7 @@ export function ReceiptModal({ open, onOpenChange, data }: ReceiptModalProps) {
           </div>
         </div>
       </DialogContent>
-      {typeof document !== "undefined" &&
+      {typeof document !== "undefined" && printMarkup &&
         createPortal(
           <div
             id="direct-print-root"
