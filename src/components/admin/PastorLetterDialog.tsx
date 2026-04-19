@@ -119,12 +119,19 @@ export function PastorLetterDialog({ open, onOpenChange, letterTarget, onSuccess
   }, [ancestorChain, targetParentTotvs]);
 
   const targetScopeRootTotvs = useMemo(() => {
+    const targetClass = normalizeHierarchyClass(targetChurchRaw?.church_class);
+    if (targetClass === "local" || targetClass === "regional") {
+      const centralAncestor = ancestorChain.find((item) => normalizeHierarchyClass(item.church_class) === "central");
+      if (centralAncestor?.parent_totvs_id) return String(centralAncestor.parent_totvs_id);
+      if (centralAncestor?.totvs_id) return String(centralAncestor.totvs_id);
+    }
+
     const parentClass = normalizeHierarchyClass(ancestorChain[0]?.church_class);
     if (parentClass === "central" && targetGrandparentTotvs) {
       return targetGrandparentTotvs;
     }
     return targetParentTotvs;
-  }, [ancestorChain, targetParentTotvs, targetGrandparentTotvs]);
+  }, [ancestorChain, targetChurchRaw?.church_class, targetGrandparentTotvs, targetParentTotvs]);
 
   // diretamente — mesmo formato usado no obreiro (UsuarioDashboard).
   const { data: parentScopeRaw = [] } = useQuery<ChurchInScopeItem[]>({
