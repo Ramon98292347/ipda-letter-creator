@@ -103,11 +103,34 @@ export function PastorLetterDialog({ open, onOpenChange, letterTarget, onSuccess
   }, [letterTarget, ownScopeChurches]);
 
   // Comentario: mantemos dados brutos (parentScopeRaw) para ordenar por church_class
+  const { data: ancestorChain = [] } = useQuery<AncestorChainItem[]>({
+    queryKey: ["churches-ancestor-chain", letterTarget?.churchTotvsId],
+    queryFn: () => fetchAncestorChain(letterTarget?.churchTotvsId || ""),
+    enabled: open && Boolean(letterTarget?.churchTotvsId),
+  });
+
+  const targetGrandparentTotvs = useMemo(() => {
+    const directParent = ancestorChain[0];
+    const grandparent = ancestorChain[1];
+    if (directParent?.totvs_id && directParent.totvs_id === targetParentTotvs) {
+      return String(grandparent?.totvs_id || "");
+    }
+    return String(directParent?.parent_totvs_id || "");
+  }, [ancestorChain, targetParentTotvs]);
+
+  const targetScopeRootTotvs = useMemo(() => {
+    const parentClass = normalizeHierarchyClass(ancestorChain[0]?.church_class);
+    if (parentClass === "central" && targetGrandparentTotvs) {
+      return targetGrandparentTotvs;
+    }
+    return targetParentTotvs;
+  }, [ancestorChain, targetParentTotvs, targetGrandparentTotvs]);
+
   // diretamente — mesmo formato usado no obreiro (UsuarioDashboard).
   const { data: parentScopeRaw = [] } = useQuery<ChurchInScopeItem[]>({
-    queryKey: ["churches-dialog-parent", targetParentTotvs],
-    queryFn: () => listChurchesInScope(1, 1000, targetParentTotvs || undefined),
-    enabled: open && Boolean(targetParentTotvs),
+    queryKey: ["churches-dialog-parent", targetScopeRootTotvs],
+    queryFn: () => listChurchesInScope(1, 1000, targetScopeRootTotvs || undefined),
+    enabled: open && Boolean(targetScopeRootTotvs),
     refetchInterval: 10000,
   });
   const parentScopeChurches = useMemo(() => parentScopeRaw.map(apiToChurch), [parentScopeRaw]);
@@ -115,11 +138,6 @@ export function PastorLetterDialog({ open, onOpenChange, letterTarget, onSuccess
   // ─── Ancestrais acima da igreja do alvo (para mae mais alta no campo Outros) ─
   // ancestor_chain retorna [pai, avo, bisavo, ...] — o ULTIMO com pastor e o mais alto.
   // Regra: campo "Outros" sempre usa estadual > setorial > central como origem.
-  const { data: ancestorChain = [] } = useQuery<AncestorChainItem[]>({
-    queryKey: ["churches-ancestor-chain", letterTarget?.churchTotvsId],
-    queryFn: () => fetchAncestorChain(letterTarget?.churchTotvsId || ""),
-    enabled: open && Boolean(letterTarget?.churchTotvsId),
-  });
 
   // Mae mais alta com pastor: percorre ancestorChain do final (mais alto) para o inicio.
   // Usada no campo "Outros" — sempre pega estadual > setorial > central.
