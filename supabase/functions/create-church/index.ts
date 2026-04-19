@@ -132,6 +132,31 @@ function normalizeTotvsAccess(arr: unknown): string[] {
   return [...new Set(out)];
 }
 
+async function fetchAllChurches(
+  sb: ReturnType<typeof createClient>,
+): Promise<ChurchRow[]> {
+  const chunk = 1000;
+  const out: ChurchRow[] = [];
+  let from = 0;
+
+  while (true) {
+    const { data, error } = await sb
+      .from("churches")
+      .select("totvs_id, church_name, class, parent_totvs_id, is_active, pastor_user_id")
+      .order("totvs_id", { ascending: true })
+      .range(from, from + chunk - 1);
+
+    if (error) throw error;
+
+    const rows = (data || []) as ChurchRow[];
+    out.push(...rows);
+    if (rows.length < chunk) break;
+    from += chunk;
+  }
+
+  return out;
+}
+
 async function verifySessionJWT(req: Request): Promise<SessionClaims | null> {
   const auth = req.headers.get("authorization") || "";
   const match = auth.match(/^Bearer\s+(.+)$/i);
@@ -196,13 +221,12 @@ Deno.serve(async (req) => {
     );
 
     // Comentário: busca todas as igrejas para validar hierarquia/escopo.
-    const { data: allRows, error: allErr } = await sb
-      .from("churches")
-      .select("totvs_id, church_name, class, parent_totvs_id, is_active, pastor_user_id");
-
-    if (allErr) return json({ ok: false, error: "db_error_list_churches", details: "erro interno" }, 500);
-
-    const churches = (allRows || []) as ChurchRow[];
+    let churches: ChurchRow[] = [];
+    try {
+      churches = await fetchAllChurches(sb);
+    } catch {
+      return json({ ok: false, error: "db_error_list_churches", details: "erro interno" }, 500);
+    }
     const byTotvs = new Map<string, ChurchRow>(churches.map((row) => [String(row.totvs_id), row]));
     const existing = byTotvs.get(totvs_id) || null;
 

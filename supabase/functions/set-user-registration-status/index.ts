@@ -123,6 +123,31 @@ function normalizeTotvsAccess(raw: unknown, status: RegistrationStatus) {
     .filter(Boolean);
 }
 
+async function fetchAllChurches(
+  sb: ReturnType<typeof createClient>,
+): Promise<ChurchRow[]> {
+  const chunk = 1000;
+  const out: ChurchRow[] = [];
+  let from = 0;
+
+  while (true) {
+    const { data, error } = await sb
+      .from("churches")
+      .select("totvs_id,parent_totvs_id,class")
+      .order("totvs_id", { ascending: true })
+      .range(from, from + chunk - 1);
+
+    if (error) throw error;
+
+    const rows = (data || []) as ChurchRow[];
+    out.push(...rows);
+    if (rows.length < chunk) break;
+    from += chunk;
+  }
+
+  return out;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders() });
   if (req.method !== "POST") return json({ ok: false, error: "method_not_allowed" }, 405);
@@ -163,13 +188,12 @@ Deno.serve(async (req) => {
     // A verificacao de hierarquia em canManageMember ja garante que so pode
     // gerenciar membros de nivel igual ou inferior.
 
-    const { data: churches, error: churchesErr } = await sb
-      .from("churches")
-      .select("totvs_id,parent_totvs_id,class");
-
-    if (churchesErr) return json({ ok: false, error: "db_error_churches", details: "erro interno" }, 500);
-
-    const rows = (churches || []) as ChurchRow[];
+    let rows: ChurchRow[] = [];
+    try {
+      rows = await fetchAllChurches(sb);
+    } catch {
+      return json({ ok: false, error: "db_error_churches", details: "erro interno" }, 500);
+    }
     const scope = computeScope(session.active_totvs_id, rows);
     const sessionClass = normalizeChurchClass(rows.find((c) => c.totvs_id === session.active_totvs_id)?.class);
     const targetTotvs = String(target.default_totvs_id || "").trim();
