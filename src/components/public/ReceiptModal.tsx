@@ -198,15 +198,15 @@ export function ReceiptModal({ open, onOpenChange, data }: ReceiptModalProps) {
           width: 210mm;
           min-height: 297mm;
           margin: 0 auto;
-          padding-top: 10mm;
+          padding-top: 8mm;
           box-sizing: border-box;
         }
         #print-root > * {
-          width: 182mm !important;
-          max-width: 182mm !important;
+          width: 176mm !important;
+          max-width: 176mm !important;
           min-height: 0 !important;
           margin: 0 auto !important;
-          padding: 12mm !important;
+          padding: 10mm !important;
           border: none !important;
           box-shadow: none !important;
           box-sizing: border-box !important;
