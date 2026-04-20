@@ -201,6 +201,27 @@ async function fetchAllChurches<T = Record<string, unknown>>(
   return out;
 }
 
+// Comentario: pagina uma query de users para evitar truncamento no limite
+// padrao do PostgREST (~1000 linhas por requisicao).
+async function fetchAllUsersPaged<T = Record<string, unknown>>(
+  // deno-lint-ignore no-explicit-any
+  buildQuery: () => any,
+): Promise<T[]> {
+  const CHUNK = 1000;
+  const out: T[] = [];
+  let offset = 0;
+  for (;;) {
+    const { data, error } = await buildQuery().range(offset, offset + CHUNK - 1);
+    if (error) throw error;
+    const rows = (data || []) as T[];
+    out.push(...rows);
+    if (rows.length < CHUNK) break;
+    offset += CHUNK;
+    if (offset > 500000) break;
+  }
+  return out;
+}
+
 // Comentario: calcula o conjunto de igrejas que o pastor pode gerenciar —
 // a sua própria igreja e todas as filhas, netas etc.
 function computeScope(rootTotvs: string, churches: ChurchRow[]): Set<string> {
@@ -918,24 +939,26 @@ async function handleListMembers(session: SessionClaims, body: ListMembersBody):
   let users: Record<string, unknown>[] = [];
 
   if (churchTotvsFilter && body.exact_church) {
-    let q = sb
-      .from("users")
-      .select(
-        "id,full_name,role,cpf,rg,phone,email,profession,minister_role,birth_date,baptism_date,marital_status,matricula,ordination_date,avatar_url,signature_url,cep,address_street,address_number,address_complement,address_neighborhood,address_city,address_state,default_totvs_id,totvs_access,is_active,can_create_released_letter,payment_status,payment_block_reason"
-      )
-      .in("role", roles)
-      .eq("default_totvs_id", churchTotvsFilter)
-      .order("full_name", { ascending: true });
+    try {
+      const safe = String(body.search || "").replace(/"/g, "").trim();
+      users = await fetchAllUsersPaged<Record<string, unknown>>(() => {
+        let q = sb
+          .from("users")
+          .select(
+            "id,full_name,role,cpf,rg,phone,email,profession,minister_role,birth_date,baptism_date,marital_status,matricula,ordination_date,avatar_url,signature_url,cep,address_street,address_number,address_complement,address_neighborhood,address_city,address_state,default_totvs_id,totvs_access,is_active,can_create_released_letter,payment_status,payment_block_reason"
+          )
+          .in("role", roles)
+          .eq("default_totvs_id", churchTotvsFilter)
+          .order("full_name", { ascending: true })
+          .order("id", { ascending: true });
 
-    if (typeof body.is_active === "boolean") q = q.eq("is_active", body.is_active);
-    if (body.search) {
-      const safe = String(body.search).replace(/"/g, "").trim();
-      if (safe) q = q.or(`full_name.ilike.%${safe}%,cpf.ilike.%${safe}%,phone.ilike.%${safe}%`);
+        if (typeof body.is_active === "boolean") q = q.eq("is_active", body.is_active);
+        if (safe) q = q.or(`full_name.ilike.%${safe}%,cpf.ilike.%${safe}%,phone.ilike.%${safe}%`);
+        return q;
+      });
+    } catch {
+      return json({ ok: false, error: "db_error_users", details: "erro interno" }, 500);
     }
-
-    const { data, error } = await q;
-    if (error) return json({ ok: false, error: "db_error_users", details: "erro interno" }, 500);
-    users = data || [];
   } else {
     const CHUNK_SIZE = 300;
     const filterScope = churchTotvsFilter ? computeScope(churchTotvsFilter, churchRows) : scope;
@@ -947,22 +970,22 @@ async function handleListMembers(session: SessionClaims, body: ListMembersBody):
 
     try {
       const promises = chunks.map(async (chunk) => {
-        let q = sb
-          .from("users")
-          .select(
-            "id,full_name,role,cpf,rg,phone,email,profession,minister_role,birth_date,baptism_date,marital_status,matricula,ordination_date,avatar_url,signature_url,cep,address_street,address_number,address_complement,address_neighborhood,address_city,address_state,default_totvs_id,totvs_access,is_active,can_create_released_letter,payment_status,payment_block_reason"
-          )
-          .in("role", roles)
-          .in("default_totvs_id", chunk.map(id => String(id).trim()));
+        const safe = String(body.search || "").replace(/"/g, "").trim();
+        return fetchAllUsersPaged<Record<string, unknown>>(() => {
+          let q = sb
+            .from("users")
+            .select(
+              "id,full_name,role,cpf,rg,phone,email,profession,minister_role,birth_date,baptism_date,marital_status,matricula,ordination_date,avatar_url,signature_url,cep,address_street,address_number,address_complement,address_neighborhood,address_city,address_state,default_totvs_id,totvs_access,is_active,can_create_released_letter,payment_status,payment_block_reason"
+            )
+            .in("role", roles)
+            .in("default_totvs_id", chunk.map((id) => String(id).trim()))
+            .order("full_name", { ascending: true })
+            .order("id", { ascending: true });
 
-        if (typeof body.is_active === "boolean") q = q.eq("is_active", body.is_active);
-        if (body.search) {
-          const safe = String(body.search).replace(/"/g, "").trim();
+          if (typeof body.is_active === "boolean") q = q.eq("is_active", body.is_active);
           if (safe) q = q.or(`full_name.ilike.%${safe}%,cpf.ilike.%${safe}%,phone.ilike.%${safe}%`);
-        }
-        const { data, error } = await q;
-        if (error) throw error;
-        return data || [];
+          return q;
+        });
       });
 
       const results = await Promise.all(promises);
