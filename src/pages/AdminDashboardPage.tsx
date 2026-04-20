@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Building2, Church, Users } from "lucide-react";
 import { ManagementShell } from "@/components/layout/ManagementShell";
 import { Card, CardContent } from "@/components/ui/card";
-import { listChurchesInScopePaged, listMembers } from "@/services/saasService";
+import { listChurchesInScope, listChurchesInScopePaged, listMembers } from "@/services/saasService";
 
 function StatCard({
   title,
@@ -38,9 +38,16 @@ function StatCard({
 
 // Comentario: dashboard administrativo com indicadores de membros por cargo e igrejas por classificacao.
 export default function AdminDashboardPage() {
-  const { data } = useQuery({
-    queryKey: ["admin-dashboard-churches"],
-    queryFn: () => listChurchesInScopePaged(1, 1000),
+  const { data: churchesPage } = useQuery({
+    queryKey: ["admin-dashboard-churches-total"],
+    queryFn: () => listChurchesInScopePaged(1, 1),
+  });
+  const churchesTotal = Number(churchesPage?.total || 0);
+  const churchesFetchSize = Math.max(5000, churchesTotal || 0);
+  const { data: churches = [] } = useQuery({
+    queryKey: ["admin-dashboard-churches-all", churchesFetchSize],
+    queryFn: () => listChurchesInScope(1, churchesFetchSize),
+    enabled: churchesFetchSize > 0,
   });
   const { data: membersData } = useQuery({
     queryKey: ["admin-dashboard-members-all"],
@@ -52,9 +59,8 @@ export default function AdminDashboardPage() {
       }),
   });
 
-  const churches = data?.churches || [];
   const members = membersData?.workers || [];
-  const totalIgrejasEscopo = Number(data?.total || churches.length || 0);
+  const totalIgrejasEscopo = Number(churchesTotal || churches.length || 0);
 
   const churchCounters = useMemo(() => {
     return {
