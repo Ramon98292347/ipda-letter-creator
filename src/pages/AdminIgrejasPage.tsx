@@ -53,12 +53,6 @@ export default function AdminIgrejasPage() {
   // Para pastor, activeTotvsId eh a church logada
   const isAdmin = roleLower === "admin";
 
-  const { data: optionsRows = [] } = useQuery({
-    queryKey: ["admin-igrejas-options", activeTotvsId],
-    queryFn: () => listChurchesInScope(1, 5000, activeTotvsId || undefined),
-    enabled: isAdmin || Boolean(activeTotvsId),
-  });
-
   const { data: pageData, isLoading, isFetching } = useQuery({
     queryKey: ["admin-igrejas-page", page, pageSize, activeTotvsId],
     queryFn: () => listChurchesInScopePaged(page, pageSize, activeTotvsId || undefined),
@@ -67,8 +61,21 @@ export default function AdminIgrejasPage() {
 
   const rows = pageData?.churches || [];
   const total = Number(pageData?.total || 0);
+  // Comentario: para admin, usa o total oficial da API paginada para alinhar
+  // os cards com o Dashboard (mesma fonte de verdade).
+  const optionsFetchSize = isAdmin ? Math.max(5000, total || 0) : 5000;
 
-  const showPageLoading = isLoading || (isFetching && rows.length === 0);
+  const { data: optionsRows = [], isLoading: loadingOptions, isFetching: fetchingOptions } = useQuery({
+    queryKey: ["admin-igrejas-options", activeTotvsId, optionsFetchSize],
+    queryFn: () => listChurchesInScope(1, optionsFetchSize, activeTotvsId || undefined),
+    enabled: (isAdmin || Boolean(activeTotvsId)) && optionsFetchSize > 0,
+  });
+
+  const showPageLoading =
+    isLoading ||
+    (isFetching && rows.length === 0) ||
+    (loadingOptions && optionsRows.length === 0) ||
+    (fetchingOptions && optionsRows.length === 0);
 
   // Comentario: sem filterTotvs, os contadores usam sempre todas as igrejas do escopo.
   const filteredRowsForCounters = optionsRows;
@@ -109,16 +116,18 @@ export default function AdminIgrejasPage() {
   }, [page, totalPages, pageSize, activeTotvsId, queryClient]);
 
   const totals = useMemo(() => {
+    const totalForCard = hasClientFilter ? (clientFilteredRows?.length ?? 0) : Number(total || filteredRowsForCounters.length || 0);
+    const source = hasClientFilter ? (clientFilteredRows ?? []) : filteredRowsForCounters;
     return {
-      total: filteredRowsForCounters.length,
-      estadual: filteredRowsForCounters.filter((c) => String(c.church_class || "").toLowerCase() === "estadual").length,
-      setorial: filteredRowsForCounters.filter((c) => String(c.church_class || "").toLowerCase() === "setorial").length,
-      central: filteredRowsForCounters.filter((c) => String(c.church_class || "").toLowerCase() === "central").length,
-      regional: filteredRowsForCounters.filter((c) => String(c.church_class || "").toLowerCase() === "regional").length,
-      local: filteredRowsForCounters.filter((c) => String(c.church_class || "").toLowerCase() === "local").length,
-      casa_oracao: filteredRowsForCounters.filter((c) => String(c.church_class || "").toLowerCase() === "casa_oracao").length,
+      total: totalForCard,
+      estadual: source.filter((c) => String(c.church_class || "").toLowerCase() === "estadual").length,
+      setorial: source.filter((c) => String(c.church_class || "").toLowerCase() === "setorial").length,
+      central: source.filter((c) => String(c.church_class || "").toLowerCase() === "central").length,
+      regional: source.filter((c) => String(c.church_class || "").toLowerCase() === "regional").length,
+      local: source.filter((c) => String(c.church_class || "").toLowerCase() === "local").length,
+      casa_oracao: source.filter((c) => String(c.church_class || "").toLowerCase() === "casa_oracao").length,
     };
-  }, [filteredRowsForCounters]);
+  }, [hasClientFilter, clientFilteredRows, total, filteredRowsForCounters]);
 
   const gradients = {
     total: "from-purple-600 to-purple-500",
