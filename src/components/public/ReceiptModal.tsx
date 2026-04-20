@@ -156,17 +156,6 @@ export function ReceiptModal({ open, onOpenChange, data }: ReceiptModalProps) {
       .map((node) => node.outerHTML)
       .join("\n");
 
-    const iframe = document.createElement("iframe");
-    iframe.setAttribute("aria-hidden", "true");
-    iframe.style.position = "fixed";
-    iframe.style.right = "0";
-    iframe.style.bottom = "0";
-    iframe.style.width = "0";
-    iframe.style.height = "0";
-    iframe.style.border = "0";
-    iframe.style.opacity = "0";
-    document.body.appendChild(iframe);
-
     const printStyles = isThermal
       ? `
         @page { size: ${thermalPaperWidth} auto; margin: 0; }
@@ -230,14 +219,7 @@ export function ReceiptModal({ open, onOpenChange, data }: ReceiptModalProps) {
         }
       `;
 
-    const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
-    if (!iframeDoc) {
-      iframe.remove();
-      return;
-    }
-
-    iframeDoc.open();
-    iframeDoc.write(`
+    const printHtml = `
       <!doctype html>
       <html lang="pt-BR">
         <head>
@@ -254,7 +236,40 @@ export function ReceiptModal({ open, onOpenChange, data }: ReceiptModalProps) {
           <div id="print-root">${receiptClone.outerHTML}</div>
         </body>
       </html>
-    `);
+    `;
+
+    // Comentario: no Android/PWA, print via iframe pode imprimir a tela atual.
+    // Abre um documento dedicado para garantir que apenas o recibo seja impresso.
+    const popup = window.open("", "_blank");
+    if (popup && popup.document) {
+      popup.document.open();
+      popup.document.write(printHtml);
+      popup.document.close();
+      popup.onload = () => {
+        popup.focus();
+        popup.print();
+      };
+      return;
+    }
+
+    const iframe = document.createElement("iframe");
+    iframe.setAttribute("aria-hidden", "true");
+    iframe.style.position = "fixed";
+    iframe.style.right = "0";
+    iframe.style.bottom = "0";
+    iframe.style.width = "0";
+    iframe.style.height = "0";
+    iframe.style.border = "0";
+    iframe.style.opacity = "0";
+    document.body.appendChild(iframe);
+
+    const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
+    if (!iframeDoc) {
+      iframe.remove();
+      return;
+    }
+    iframeDoc.open();
+    iframeDoc.write(printHtml);
     iframeDoc.close();
 
     const finishPrint = () => {
