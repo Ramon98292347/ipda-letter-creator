@@ -873,13 +873,18 @@ export default function PastorMembrosPage() {
 
   // Comentario: filtra a lista de igrejas pelo texto digitado (2+ chars) para o combobox de busca.
   const filteredChurchOptions = useMemo(() => {
-    const q = debouncedSearchChurch.trim().toLowerCase();
+    const typed = debouncedSearchChurch.trim();
+    const q = typed.toLowerCase();
+    if (!typed) return churchFilterOptions.slice(0, 10);
+    if (/^\d+$/.test(typed)) {
+      return churchFilterOptions.filter((c) => String(c.totvs_id || "") === typed).slice(0, 1);
+    }
     if (q.length < 2) return churchFilterOptions.slice(0, 10);
     return churchFilterOptions
       .filter(
         (c) =>
           String(c.church_name || "").toLowerCase().includes(q) ||
-          String(c.totvs_id || "").includes(debouncedSearchChurch.trim()),
+          String(c.totvs_id || "").includes(typed),
       )
       .slice(0, 20);
   }, [churchFilterOptions, debouncedSearchChurch]);

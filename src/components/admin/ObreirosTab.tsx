@@ -182,6 +182,7 @@ export function ObreirosTab({
   const churchClass = String(session?.church_class || "").toLowerCase();
   const selectedChurchFilter = String(churchTotvsFilter || "").trim();
   const useScopeList = !selectedChurchFilter && !forceSingleChurchFilter && churchClass === "estadual";
+  const effectiveChurchTotvsFilter = selectedChurchFilter || (useScopeList ? undefined : activeTotvsId || undefined);
   const isAdminUser = roleLower === "admin";
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
@@ -228,7 +229,7 @@ export function ObreirosTab({
   const [savingAccess, setSavingAccess] = useState(false);
 
   const { data, isLoading } = useQuery({
-    queryKey: ["workers", activeTotvsId, debouncedSearch, ministerRole, activeFilter, page, pageSize],
+    queryKey: ["workers", activeTotvsId, effectiveChurchTotvsFilter, debouncedSearch, ministerRole, activeFilter, page, pageSize],
     queryFn: () =>
       listMembers({
         search: debouncedSearch || undefined,
@@ -240,7 +241,8 @@ export function ObreirosTab({
         roles: ministerRole === "all"
           ? ["pastor", "obreiro", "secretario", "financeiro"]
           : ["pastor", "obreiro"],
-        church_totvs_id: selectedChurchFilter || (useScopeList ? undefined : activeTotvsId || undefined),
+        church_totvs_id: effectiveChurchTotvsFilter,
+        exact_church: Boolean(selectedChurchFilter),
         page,
         page_size: pageSize,
       }),
