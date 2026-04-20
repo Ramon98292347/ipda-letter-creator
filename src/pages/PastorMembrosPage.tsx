@@ -764,12 +764,13 @@ export default function PastorMembrosPage() {
   }, [tab, refetchReady, refetchBatchDocs]);
 
   const { data, isLoading: loadingMembers, isFetching: fetchingMembers, refetch: refetchMembers } = useQuery({
-    queryKey: ["pastor-members-page", membersPage, membersPageSize, filterTotvs, filterActive, churchClass, activeTotvsId],
+    queryKey: ["pastor-members-page", membersPage, membersPageSize, filterTotvs, filterCargo, filterActive, churchClass, activeTotvsId],
     queryFn: () =>
       listMembers({
         page: membersPage,
         page_size: membersPageSize,
         roles: ["pastor", "obreiro", "secretario", "financeiro"],
+        minister_role: filterCargo !== "all" ? filterCargo : undefined,
         church_totvs_id: membersChurchTotvsFilter,
         is_active: filterActive,
     }),
@@ -780,7 +781,7 @@ export default function PastorMembrosPage() {
   const membersTotalPages = Math.max(1, Math.ceil(membersTotal / membersPageSize));
 
   const { data: allMembersData = [], refetch: refetchAllMembers } = useQuery({
-    queryKey: ["pastor-members-all", filterTotvs, filterActive, churchClass, activeTotvsId],
+    queryKey: ["pastor-members-all", filterTotvs, filterCargo, filterActive, churchClass, activeTotvsId],
     queryFn: async () => {
       const requestedPageSize = 500;
       let page = 1;
@@ -792,6 +793,7 @@ export default function PastorMembrosPage() {
           page,
           page_size: requestedPageSize,
           roles: ["pastor", "obreiro", "secretario", "financeiro"],
+          minister_role: filterCargo !== "all" ? filterCargo : undefined,
           church_totvs_id: membersChurchTotvsFilter,
           is_active: filterActive,
         });
@@ -812,12 +814,13 @@ export default function PastorMembrosPage() {
 
   // Comentario: busca a contagem de membros inativos para exibir no card
   const { data: inativosData } = useQuery({
-    queryKey: ["pastor-members-inativos-count", filterTotvs, churchClass, activeTotvsId],
+    queryKey: ["pastor-members-inativos-count", filterTotvs, filterCargo, churchClass, activeTotvsId],
     queryFn: () =>
       listMembers({
         page: 1,
         page_size: 1,
         roles: ["pastor", "obreiro", "secretario", "financeiro"],
+        minister_role: filterCargo !== "all" ? filterCargo : undefined,
         church_totvs_id: membersChurchTotvsFilter,
         is_active: false,
       }),
@@ -1112,17 +1115,18 @@ export default function PastorMembrosPage() {
     if (membersPage >= membersTotalPages) return;
     const nextPage = membersPage + 1;
     void queryClient.prefetchQuery({
-      queryKey: ["pastor-members-page", nextPage, membersPageSize, filterTotvs, filterActive, churchClass, activeTotvsId],
+      queryKey: ["pastor-members-page", nextPage, membersPageSize, filterTotvs, filterCargo, filterActive, churchClass, activeTotvsId],
       queryFn: () =>
         listMembers({
           page: nextPage,
           page_size: membersPageSize,
           roles: ["pastor", "obreiro", "secretario", "financeiro"],
+          minister_role: filterCargo !== "all" ? filterCargo : undefined,
           church_totvs_id: membersChurchTotvsFilter,
           is_active: filterActive,
         }),
     });
-  }, [membersPage, membersPageSize, membersTotalPages, filterTotvs, filterActive, churchClass, activeTotvsId, membersChurchTotvsFilter, queryClient]);
+  }, [membersPage, membersPageSize, membersTotalPages, filterTotvs, filterCargo, filterActive, churchClass, activeTotvsId, membersChurchTotvsFilter, queryClient]);
 
   // Comentario: faz upload da foto para o bucket "avatars" e salva a URL no formulario.
   async function uploadFoto(file: File) {
