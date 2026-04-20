@@ -475,7 +475,7 @@ export function CartasTab({
                   nome: String(letter.preacher_name || ""),
                   telefone: String((letter as PastorLetter & { phone?: string }).phone || ""),
                   ministerRole: String(letter.minister_role || "Obreiro"),
-                  churchTotvsId: String(letter.church_totvs_id || "").trim(),
+                  churchTotvsId: String(letter.preacher_church_totvs_id || letter.church_totvs_id || "").trim(),
                 });
                 setLetterDialogOpen(true);
               }}

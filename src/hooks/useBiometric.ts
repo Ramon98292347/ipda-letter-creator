@@ -1,24 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
 import { Capacitor } from "@capacitor/core";
+// O novo plugin lida muito melhor com biometrias mescladas ou devices sem hardware (ou senhas fallback)
+import { BiometricAuth } from '@aparajita/capacitor-biometric-auth';
 
-// Comentario: integracao com plugin capacitor-native-biometric.
-// Importacao dinamica para evitar erro de build no PWA (plugin so existe no nativo).
 type Credentials = { username: string; password: string };
 
-const SERVER = "ipda.sistema.biometric";
 const LS_BIOMETRIC_ENABLED = "ipda_biometric_enabled";
-
-async function getPlugin() {
-  if (!Capacitor.isNativePlatform()) return null;
-  try {
-    const mod = await import("capacitor-native-biometric");
-    return mod.NativeBiometric;
-  } catch (err) {
-    // Comentario: log para diagnosticar se o plugin nao foi instalado/sincronizado
-    console.warn("[biometric] plugin nao disponivel:", err);
-    return null;
-  }
-}
 
 export function useBiometric() {
   const isNative = Capacitor.isNativePlatform();
@@ -28,46 +15,43 @@ export function useBiometric() {
     return localStorage.getItem(LS_BIOMETRIC_ENABLED) === "1";
   });
 
-  // Comentario: verifica se o aparelho tem hardware/biometria cadastrada
+  // Comentario: verifica se o aparelho tem hardware/biometria cadastrada com o novo plugin
   useEffect(() => {
     if (!isNative) return;
     void (async () => {
-      const NativeBiometric = await getPlugin();
-      if (!NativeBiometric) return;
       try {
-        const result = await NativeBiometric.isAvailable({ useFallback: true });
-        console.log("[biometric] isAvailable:", result);
-        setAvailable(Boolean(result.isAvailable));
+        const result = await BiometricAuth.checkBiometry();
+        console.log("[biometric] checkBiometry:", result);
+        setAvailable(result.isAvailable);
       } catch (err) {
-        console.warn("[biometric] erro isAvailable:", err);
+        console.warn("[biometric] erro checkBiometry:", err);
+        // Em caso de erro, nao escondemos o botao de imediato, isso é tratado no PhoneIdentify puxando isNative
         setAvailable(false);
       }
     })();
   }, [isNative]);
 
-  // Comentario: verifica identidade via BiometricPrompt nativo
+  // Comentario: verifica identidade via API nativa oficial de fallback
   const verify = useCallback(async (): Promise<boolean> => {
-    const NativeBiometric = await getPlugin();
-    if (!NativeBiometric) return false;
+    if (!isNative) return false;
     try {
-      await NativeBiometric.verifyIdentity({
-        reason: "Confirme sua identidade para entrar",
-        title: "Login com digital",
-        subtitle: "Use sua biometria para acessar o sistema",
-        description: "Toque o sensor de digital",
+      await BiometricAuth.authenticate({
+        reason: "Confirme sua identidade para acessar o sistema",
+        cancelTitle: "Cancelar",
+        allowDeviceCredential: true, // EXATAMENTE a mesma flag originária do Android DEVICE_CREDENTIAL
       });
       return true;
-    } catch {
+    } catch (err) {
+      console.warn("[biometric] falha na identificacao ou cancelado:", err);
       return false;
     }
-  }, []);
+  }, [isNative]);
 
-  // Comentario: salva credenciais no Keystore protegido por digital
+  // Comentario: salva credenciais (usado LocalStorage codificado em Base64 para bypassar o Keystore nativo que limitava aparelhos)
   const saveCredentials = useCallback(async (username: string, password: string) => {
-    const NativeBiometric = await getPlugin();
-    if (!NativeBiometric) return false;
     try {
-      await NativeBiometric.setCredentials({ username, password, server: SERVER });
+      const payload = btoa(JSON.stringify({ username, password }));
+      localStorage.setItem("ipda_biometric_data", payload);
       localStorage.setItem(LS_BIOMETRIC_ENABLED, "1");
       setEnabled(true);
       return true;
@@ -76,29 +60,22 @@ export function useBiometric() {
     }
   }, []);
 
-  // Comentario: recupera credenciais (so retorna apos verifyIdentity bem sucedido)
+  // Comentario: recupera credenciais para login silencioso
   const loadCredentials = useCallback(async (): Promise<Credentials | null> => {
-    const NativeBiometric = await getPlugin();
-    if (!NativeBiometric) return null;
     try {
-      const creds = await NativeBiometric.getCredentials({ server: SERVER });
-      return { username: creds.username, password: creds.password };
+      const payload = localStorage.getItem("ipda_biometric_data");
+      if (!payload) return null;
+      return JSON.parse(atob(payload));
     } catch {
       return null;
     }
   }, []);
 
-  // Comentario: remove credenciais e desativa biometria
+  // Comentario: desativa digital
   const clearCredentials = useCallback(async () => {
-    const NativeBiometric = await getPlugin();
     localStorage.removeItem(LS_BIOMETRIC_ENABLED);
+    localStorage.removeItem("ipda_biometric_data");
     setEnabled(false);
-    if (!NativeBiometric) return;
-    try {
-      await NativeBiometric.deleteCredentials({ server: SERVER });
-    } catch {
-      // Comentario: ignora erro se nao havia credencial
-    }
   }, []);
 
   return {

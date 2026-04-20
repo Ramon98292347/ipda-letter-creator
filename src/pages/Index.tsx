@@ -1022,21 +1022,3 @@ const Index = () => {
 export default Index;
 
 
-        </div >
-      </main >
-
-  { savingLetter && (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="rounded-xl bg-white px-6 py-5 shadow-xl flex items-center gap-3">
-        <Loader2 className="h-5 w-5 animate-spin text-primary" />
-        <p className="text-sm font-medium text-slate-800">Carta sendo preenchida e enviada...</p>
-      </div>
-    </div>
-  )}
-    </div >
-  );
-};
-
-export default Index;
-
-

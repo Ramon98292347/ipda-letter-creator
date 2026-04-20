@@ -779,3 +779,19 @@ Deploy realizado:
 - `npx supabase functions deploy list-churches-in-scope --project-ref idipilrcaqittmnapmbq`
 - `git commit` do arquivo `Index.tsx` e `list-churches-in-scope/index.ts`.
 
+---
+
+## 26. Autenticação Fixa de Biometria e PIN (2026-04-20)
+
+### Problema Anterior
+O plugin antigo `capacitor-native-biometric` exigia internamente a chave criptográfica `BIOMETRIC_STRONG` do Android Keystore. Aparelhos que não preenchiam os requisitos de hardware rigorosos causavam crash silencioso na API nativa na hora de abrir a janelinha ou de criptografar as credenciais, forçando o login falhar imediatamente.
+
+### Solução Consolidada
+O plugin oficial foi substituído por `@aparajita/capacitor-biometric-auth` que possui paridade com `DEVICE_CREDENTIAL`.
+
+**Regra Essencial da Biometria**:
+1. **Nunca utilize** a opção padrão de salvar dados em Keystore nativo que trave aparelhos básicos. O salvamento e a recuperação acontecem localmente codificados (`ipda_biometric_data` em base64 no localStorage) enquanto o bloqueio/validação em si é comandado **apenas** pela chamada de `BiometricAuth.authenticate`.
+2. O uso do parâmetro `allowDeviceCredential: true` é obrigatório para abrir permissão para PIN/Senha da Tela do Android nas tentativas sem sucesso do digital.
+3. **Escopo isolado no React**: a injeção do delay assíncrono para os estados `cpf` e `senha` antes de realizar o `handleLogin()` foi trocada por passe de parâmetro explicito na closure (ex: `await handleLogin(creds.username, creds.password)`), evitando de apresentar um "form em branco" no React Cycle.
+
+**NÃO REVERTER OS PARÂMETROS EXPLÍCITOS EM `handleBiometricLogin` no `PhoneIdentify.tsx`.**

@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Capacitor } from "@capacitor/core";
@@ -70,7 +70,7 @@ export default function PhoneIdentify() {
   const isNativeAndroid = Capacitor.isNativePlatform() && Capacitor.getPlatform() === "android";
   const biometric = useBiometric();
   // Comentario: controla o dialogo que pergunta se o usuario quer ativar a digital apos primeiro login
-  const [askEnableBiometric, setAskEnableBiometric] = useState<{ cpf: string; senha: string } | null>(null);
+  const [askEnableBiometric, setAskEnableBiometric] = useState<{ cpf: string; senha: string; nextRoute: string } | null>(null);
   const [biometricLoading, setBiometricLoading] = useState(false);
 
   // Comentario: remove senha em texto puro do localStorage (migracao de seguranca).
@@ -152,8 +152,11 @@ export default function PhoneIdentify() {
     enabled: cpfLookup.length === 11 || birthdayTotvsScope.length > 0 || announcementScope.length > 0,
   });
 
-  async function handleLogin() {
-    const cpfRaw = cpf.replace(/\D/g, "");
+  async function handleLogin(overrideCpf?: string, overrideSenha?: string) {
+    const activeCpf = overrideCpf ?? cpf;
+    const activeSenha = overrideSenha ?? senha;
+
+    const cpfRaw = activeCpf.replace(/\D/g, "");
     if (cpfRaw.length !== 11) {
       toast.error("Informe um CPF válido com 11 dígitos.");
       return;
@@ -163,7 +166,7 @@ export default function PhoneIdentify() {
       toast.error("CPF inválido. Verifique os dígitos e tente novamente.");
       return;
     }
-    if (!senha.trim()) {
+    if (!activeSenha.trim()) {
       toast.error("Informe a senha.");
       return;
     }
@@ -180,7 +183,7 @@ export default function PhoneIdentify() {
     }
     setLoading(true);
     try {
-      const result = await loginWithCpfPassword(cpfRaw, senha);
+      const result = await loginWithCpfPassword(cpfRaw, activeSenha);
 
       if (result.mode === "select_church") {
         // Comentario: salva o CPF mesmo quando ha multiplas igrejas, para pre-preencher no proximo acesso.
@@ -213,9 +216,12 @@ export default function PhoneIdentify() {
       // Comentario: salva o CPF no cache para pre-preencher o campo e buscar divulgacoes na proxima abertura.
       localStorage.setItem("ipda_last_cpf", cpfRaw);
       // Comentario: senha removida do localStorage por seguranca. Credenciais ficam no Keystore via biometria.
-      // Comentario: se biometria disponivel e ainda nao ativada, pergunta apos login bem sucedido
-      if (biometric.isNative && biometric.available && !biometric.enabled) {
-        setAskEnableBiometric({ cpf: cpfRaw, senha: senha.trim() });
+      // Comentario: se biometria disponivel e ainda nao ativada, prepara o dialog e guarda a rota destino
+      const targetRoute = routeByRole(result.user.role);
+      let isAskingBiometric = false;
+      if (biometric.isNative && !biometric.enabled) {
+        setAskEnableBiometric({ cpf: cpfRaw, senha: senha.trim(), nextRoute: targetRoute });
+        isAskingBiometric = true;
       }
       setPendingCpf(undefined);
       setAvailableChurches([]);
@@ -274,7 +280,12 @@ export default function PhoneIdentify() {
         // Comentario: erro de aniversariantes nao bloqueia o login.
       }
 
-      nav(routeByRole(result.user.role));
+      // Se nao esta perguntando pela biometria, navega direto.
+      // Se estiver perguntando, a navegacao ocorrera no callback dos botoes do Dialog.
+      if (!isAskingBiometric) {
+        nav(targetRoute);
+      }
+
     } catch (err) {
       const code = (err as { code?: string })?.code || (err as Error)?.message || "";
 
@@ -326,23 +337,33 @@ export default function PhoneIdentify() {
       }
       setCpf(creds.username);
       setSenha(creds.password);
-      // Comentario: aguarda o estado propagar e dispara o login
-      setTimeout(() => void handleLogin(), 50);
+      // Comentario: bypassa o delay do React State e injeta diretamente os parametros na func original
+      await handleLogin(creds.username, creds.password);
     } finally {
       setBiometricLoading(false);
     }
   }
 
-  // Comentario: confirma ativacao da biometria salvando credenciais no Keystore
+  // Comentario: confirma ativacao da biometria salvando credenciais no Keystore e prossegue
   async function confirmEnableBiometric() {
     if (!askEnableBiometric) return;
-    const ok = await biometric.saveCredentials(askEnableBiometric.cpf, askEnableBiometric.senha);
+    const { nextRoute, cpf, senha } = askEnableBiometric;
+    const ok = await biometric.saveCredentials(cpf, senha);
     if (ok) {
       toast.success("Login por digital ativado!");
     } else {
       toast.error("Não foi possível ativar a digital.");
     }
     setAskEnableBiometric(null);
+    nav(nextRoute);
+  }
+
+  // Comentario: recusa ativacao da biometria e prossegue
+  function skipBiometric() {
+    if (!askEnableBiometric) return;
+    const dest = askEnableBiometric.nextRoute;
+    setAskEnableBiometric(null);
+    nav(dest);
   }
 
   async function handleForgotPassword() {
@@ -503,7 +524,9 @@ export default function PhoneIdentify() {
         <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-lg lg:min-h-[700px]">
           <p className="mb-3 text-sm font-semibold text-slate-700">Area de divulgacao</p>
           {/* Comentario: dialog que oferece ativar login por digital apos primeiro login bem sucedido */}
-          <Dialog open={Boolean(askEnableBiometric)} onOpenChange={(o) => !o && setAskEnableBiometric(null)}>
+          <Dialog open={Boolean(askEnableBiometric)} onOpenChange={(o) => {
+            if (!o) skipBiometric();
+          }}>
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>Entrar com digital nas próximas vezes?</DialogTitle>
@@ -512,7 +535,7 @@ export default function PhoneIdentify() {
                 </DialogDescription>
               </DialogHeader>
               <div className="flex gap-2">
-                <Button variant="outline" className="flex-1" onClick={() => setAskEnableBiometric(null)}>
+                <Button variant="outline" className="flex-1" onClick={skipBiometric}>
                   Agora não
                 </Button>
                 <Button className="flex-1" onClick={() => void confirmEnableBiometric()}>
