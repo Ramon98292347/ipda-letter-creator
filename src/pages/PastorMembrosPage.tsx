@@ -1070,6 +1070,19 @@ export default function PastorMembrosPage() {
   }, [allMembersData]);
 
   const counters = useMemo(() => {
+    const selectedCargo = String(filterCargo || "all").toLowerCase();
+    if (selectedCargo !== "all") {
+      const totalFiltered = Number(membersTotal || 0);
+      return {
+        total: totalFiltered,
+        pastor: selectedCargo === "pastor" ? totalFiltered : 0,
+        presbitero: selectedCargo === "presbitero" ? totalFiltered : 0,
+        diacono: selectedCargo === "diacono" ? totalFiltered : 0,
+        obreiro: selectedCargo === "cooperador" ? totalFiltered : 0,
+        batizados: selectedCargo === "membro" ? totalFiltered : 0,
+      };
+    }
+
     if (membersTotal <= membersPageSize) {
       return {
         total: workers.length,
@@ -1109,7 +1122,7 @@ export default function PastorMembrosPage() {
       obreiro: workers.filter((w) => normalizeMinisterRole(w.minister_role) === "cooperador").length,
       batizados: workers.filter((w) => normalizeMinisterRole(w.minister_role) === "membro").length,
     };
-  }, [membersTotal, membersPageSize, uniqueMembersForCounters, data?.metrics, workers]);
+  }, [filterCargo, membersTotal, membersPageSize, uniqueMembersForCounters, data?.metrics, workers]);
 
   useEffect(() => {
     if (membersPage >= membersTotalPages) return;
