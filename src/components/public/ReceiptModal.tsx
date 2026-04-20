@@ -198,7 +198,7 @@ export function ReceiptModal({ open, onOpenChange, data }: ReceiptModalProps) {
           width: 210mm;
           min-height: 297mm;
           margin: 0 auto;
-          padding-top: 8mm;
+          padding-top: 4mm;
           box-sizing: border-box;
         }
         #print-root > * {
@@ -206,7 +206,7 @@ export function ReceiptModal({ open, onOpenChange, data }: ReceiptModalProps) {
           max-width: 176mm !important;
           min-height: 0 !important;
           margin: 0 auto !important;
-          padding: 10mm !important;
+          padding: 8mm !important;
           border: none !important;
           box-shadow: none !important;
           box-sizing: border-box !important;
@@ -361,55 +361,55 @@ export function ReceiptModal({ open, onOpenChange, data }: ReceiptModalProps) {
                 id="receipt-preview-section"
                 ref={printSectionRef}
                 data-print-mode="a4"
-                className="w-full max-w-[182mm] min-h-[268mm] bg-white border border-slate-300 shadow-xl mx-auto p-[12mm]"
+                className="w-full max-w-[182mm] min-h-[268mm] bg-white border border-slate-300 shadow-xl mx-auto p-[10mm]"
               >
-                <div className="text-center border-b border-slate-300 pb-[6mm] mb-[7mm]">
-                  <img ref={logoRef} src="/logo-recibo.png" alt="Logo Igreja" className="mx-auto w-[26mm] h-auto mb-[2mm]" />
-                  <p className="m-0 text-[11pt] font-extrabold uppercase text-[#24388d]">Igreja Pentecostal Deus e Amor</p>
+                <div className="text-center border-b border-slate-300 pb-[5mm] mb-[5mm]">
+                  <img ref={logoRef} src="/logo-recibo.png" alt="Logo Igreja" className="mx-auto w-[34mm] h-auto mb-[1mm]" />
+                  <p className="m-0 text-[12pt] font-extrabold uppercase text-[#24388d]">Igreja Pentecostal Deus e Amor</p>
                   <p className="m-0 mt-[1.2mm] text-[9pt] font-bold text-slate-600">CNPJ: 43.208.040/0001-36</p>
-                  <h2 className="m-0 mt-[3mm] text-[16pt] font-black uppercase text-slate-900">Recibo de Contribuicao / Pregacao</h2>
+                  <h2 className="m-0 mt-[2mm] text-[17pt] font-black uppercase text-slate-900">Recibo de Contribuicao / Pregacao</h2>
                   <p className="m-0 mt-[1.5mm] text-[9pt] uppercase tracking-[0.5px] text-slate-500">Comprovante oficial de recebimento</p>
                 </div>
 
-                <div className="my-[7mm] border border-slate-300 rounded-[3mm] p-[5mm] text-center bg-slate-50">
-                  <div className="text-[9pt] font-bold uppercase text-slate-500 mb-[2mm]">Valor Recebido</div>
-                  <p className="m-0 text-[24pt] font-black text-slate-900">R$ {valorValido.toFixed(2)}</p>
+                <div className="my-[5mm] border border-slate-300 rounded-[3mm] p-[4.5mm] text-center bg-slate-50">
+                  <div className="text-[10pt] font-bold uppercase text-slate-500 mb-[2mm]">Valor Recebido</div>
+                  <p className="m-0 text-[26pt] font-black text-slate-900">R$ {valorValido.toFixed(2)}</p>
                 </div>
 
-                <div className="border border-slate-200 rounded-[3mm] p-[6mm] mb-[7mm]">
-                  <p className="m-0 text-[11pt] leading-[1.7] text-center">
+                <div className="border border-slate-200 rounded-[3mm] p-[5mm] mb-[5mm]">
+                  <p className="m-0 text-[12pt] leading-[1.6] text-center">
                     Recebemos de <strong>{data.letter.church_destination || "Igreja de Destino"}</strong> a quantia de <strong>R$ {valorValido.toFixed(2)}</strong> ({valorExtenso}), referente a <strong>{obs || "Contribuicao"}</strong>.
                   </p>
                 </div>
 
-                <div className="grid grid-cols-[1.25fr_0.75fr] gap-[6mm] mt-[4mm]">
-                  <div className="border border-slate-200 rounded-[3mm] p-[5mm]">
-                    <h3 className="m-0 mb-[4mm] text-[10pt] font-extrabold uppercase text-[#24388d] border-l-4 border-[#24388d] pl-[3mm]">Dados do Recibo</h3>
+                <div className="grid grid-cols-[1.25fr_0.75fr] gap-[5mm] mt-[3mm]">
+                  <div className="border border-slate-200 rounded-[3mm] p-[4.5mm]">
+                    <h3 className="m-0 mb-[3mm] text-[11pt] font-extrabold uppercase text-[#24388d] border-l-4 border-[#24388d] pl-[3mm]">Dados do Recibo</h3>
 
-                    <div className="mb-[3mm]">
+                    <div className="mb-[2.4mm]">
                       <span className="block text-[8pt] text-slate-500 uppercase font-bold mb-[1mm]">Codigo da Carta</span>
-                      <span className="block text-[10pt] font-semibold break-all">{cartaId}</span>
+                      <span className="block text-[10.5pt] font-semibold break-all">{cartaId}</span>
                     </div>
-                    <div className="mb-[3mm]">
+                    <div className="mb-[2.4mm]">
                       <span className="block text-[8pt] text-slate-500 uppercase font-bold mb-[1mm]">Igreja de Origem</span>
-                      <span className="block text-[10pt] font-semibold break-words">{data.letter.church_origin}</span>
+                      <span className="block text-[10.5pt] font-semibold break-words">{data.letter.church_origin}</span>
                     </div>
-                    <div className="mb-[3mm]">
+                    <div className="mb-[2.4mm]">
                       <span className="block text-[8pt] text-slate-500 uppercase font-bold mb-[1mm]">Funcao</span>
-                      <span className="block text-[10pt] font-semibold">{data.letter.minister_role}</span>
+                      <span className="block text-[10.5pt] font-semibold">{data.letter.minister_role}</span>
                     </div>
-                    <div className="mb-[3mm]">
+                    <div className="mb-[2.4mm]">
                       <span className="block text-[8pt] text-slate-500 uppercase font-bold mb-[1mm]">Local e Data</span>
-                      <span className="block text-[10pt] font-semibold capitalize">{dataAtual}</span>
+                      <span className="block text-[10.5pt] font-semibold capitalize">{dataAtual}</span>
                     </div>
                     <div>
                       <span className="block text-[8pt] text-slate-500 uppercase font-bold mb-[1mm]">Referencia</span>
-                      <span className="block text-[10pt] font-semibold break-words">{obs || "Contribuicao"}</span>
+                      <span className="block text-[10.5pt] font-semibold break-words">{obs || "Contribuicao"}</span>
                     </div>
                   </div>
 
                   <div className="text-center">
-                    <div className="border border-slate-200 rounded-[3mm] p-[5mm] bg-white">
+                    <div className="border border-slate-200 rounded-[3mm] p-[4.5mm] bg-white">
                       <img
                         ref={qrRef}
                         src={qrDataUrl}
@@ -422,13 +422,13 @@ export function ReceiptModal({ open, onOpenChange, data }: ReceiptModalProps) {
                   </div>
                 </div>
 
-                <div className="mt-[7mm] border border-dashed border-slate-300 rounded-[3mm] py-[4mm] px-[5mm] bg-slate-50">
+                <div className="mt-[5mm] border border-dashed border-slate-300 rounded-[3mm] py-[3.5mm] px-[4.5mm] bg-slate-50">
                   <p className="m-0 text-[9pt] leading-[1.6] text-center text-slate-600">
                     Para maior clareza, firmamos o presente comprovante de recebimento, servindo este como documento de conferencia e registro.
                   </p>
                 </div>
 
-                <div className="mt-[16mm] text-center">
+                <div className="mt-[11mm] text-center">
                   <div className="w-[85mm] mx-auto mb-[3mm] border-t border-slate-900" />
                   <p className="m-0 text-[11pt] font-extrabold uppercase">{data.letter.preacher_name}</p>
                   {docNumber && <p className="m-0 mt-[1mm] text-[9pt] text-slate-600">{docType}: {docNumber}</p>}
