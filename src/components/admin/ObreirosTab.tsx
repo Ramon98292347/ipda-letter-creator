@@ -181,9 +181,9 @@ export function ObreirosTab({
   const roleLower = String(usuario?.role || session?.role || "").toLowerCase();
   const churchClass = String(session?.church_class || "").toLowerCase();
   const selectedChurchFilter = String(churchTotvsFilter || "").trim();
-  const useScopeList = !selectedChurchFilter && !forceSingleChurchFilter && churchClass === "estadual";
-  const effectiveChurchTotvsFilter = selectedChurchFilter || (useScopeList ? undefined : activeTotvsId || undefined);
   const isAdminUser = roleLower === "admin";
+  const useScopeList = !selectedChurchFilter && !forceSingleChurchFilter && (churchClass === "estadual" || isAdminUser);
+  const effectiveChurchTotvsFilter = selectedChurchFilter || (useScopeList ? undefined : activeTotvsId || undefined);
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const searchValue = typeof externalSearch === "string" ? externalSearch : search;

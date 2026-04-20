@@ -44,7 +44,12 @@ export default function AdminDashboardPage() {
   });
   const { data: membersData } = useQuery({
     queryKey: ["admin-dashboard-members-all"],
-    queryFn: () => listMembers({ page: 1, page_size: 1000, roles: ["pastor", "obreiro"] }),
+    queryFn: () =>
+      listMembers({
+        page: 1,
+        page_size: 1,
+        roles: ["pastor", "obreiro", "secretario", "financeiro"],
+      }),
   });
 
   const churches = data?.churches || [];
@@ -63,6 +68,18 @@ export default function AdminDashboardPage() {
   }, [churches, totalIgrejasEscopo]);
 
   const memberCounters = useMemo(() => {
+    const metrics = membersData?.metrics;
+    if (metrics) {
+      return {
+        total: Number(membersData?.total || metrics.total || 0),
+        pastores: Number(metrics.pastor || 0),
+        obreiros: Number(metrics.obreiro || 0),
+        presbiteros: Number(metrics.presbitero || 0),
+        diaconos: Number(metrics.diacono || 0),
+        membrosAtivos: Number(metrics.membro || 0),
+      };
+    }
+
     const normalized = members.map((m) => ({
       role: String(m.role || "").toLowerCase(),
       minister_role: String(m.minister_role || "")
@@ -80,7 +97,7 @@ export default function AdminDashboardPage() {
       diaconos: normalized.filter((m) => m.minister_role === "diacono").length,
       membrosAtivos: normalized.filter((m) => m.minister_role === "membro" && m.is_active).length,
     };
-  }, [members]);
+  }, [membersData?.metrics, membersData?.total, members]);
 
   return (
     <ManagementShell roleMode="admin">

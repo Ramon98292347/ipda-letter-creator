@@ -116,8 +116,20 @@ export default function AdminMembrosPage() {
     // Comentario: enabled=true permite buscar mesmo sem igreja selecionada (todas as igrejas do escopo).
     enabled: true,
   });
+  const { data: inativosRes } = useQuery({
+    queryKey: ["admin-membros-inativos-kpi", selectedChurchTotvs],
+    queryFn: () =>
+      listMembers({
+        roles: ["pastor", "obreiro", "secretario", "financeiro"],
+        church_totvs_id: selectedChurchTotvs || undefined,
+        is_active: false,
+        page: 1,
+        page_size: 1,
+      }),
+    enabled: true,
+  });
 
-  const inativosCount = Number(membersRes?.metrics?.inativos || 0);
+  const inativosCount = Number(inativosRes?.total || 0);
 
   const showPageLoading =
     loadingChurches ||
@@ -288,8 +300,9 @@ export default function AdminMembrosPage() {
 
         {section === "membros" ? (
           <ObreirosTab
-            activeTotvsId={selectedChurchTotvs}
-            forceSingleChurchFilter
+            activeTotvsId={activeTotvsId}
+            churchTotvsFilter={selectedChurchTotvs || undefined}
+            forceSingleChurchFilter={Boolean(selectedChurchTotvs)}
             filterMinisterRole={filterCargo !== "all" ? filterCargo : undefined}
             initialActiveFilter={filterActive === false ? "inactive" : "all"}
             externalSearch={memberSearch}
