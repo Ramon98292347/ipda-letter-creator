@@ -889,6 +889,32 @@ export default function PastorMembrosPage() {
     () => churchFilterOptions.find((c) => String(c.totvs_id) === filterTotvs) || null,
     [churchFilterOptions, filterTotvs],
   );
+  useEffect(() => {
+    const typed = debouncedSearchChurch.trim();
+    if (!typed) {
+      if (filterTotvs !== "all") {
+        setFilterTotvs("all");
+        setMembersPage(1);
+      }
+      return;
+    }
+
+    if (!/^\d+$/.test(typed)) return;
+
+    const matchedChurch = churchFilterOptions.find((church) => String(church.totvs_id) === typed);
+    if (!matchedChurch) {
+      if (filterTotvs !== "all") {
+        setFilterTotvs("all");
+        setMembersPage(1);
+      }
+      return;
+    }
+
+    if (filterTotvs !== typed) {
+      setFilterTotvs(typed);
+      setMembersPage(1);
+    }
+  }, [debouncedSearchChurch, churchFilterOptions, filterTotvs]);
 
   const rodapeAuto = useMemo(() => churchFooter || form.ficha_rodape || "", [churchFooter, form.ficha_rodape]);
   const docsMembers = allMembersData || workers;
