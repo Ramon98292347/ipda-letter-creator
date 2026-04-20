@@ -37,6 +37,7 @@ interface LetterData {
 interface MemberData {
   id: string | null;
   full_name: string;
+  cpf: string | null;
   phone: string | null;
   email: string | null;
   avatar_url: string | null;

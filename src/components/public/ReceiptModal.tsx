@@ -83,6 +83,12 @@ async function waitImageLoaded(img: HTMLImageElement | null): Promise<void> {
   }
 }
 
+function formatCpf(value: string): string {
+  const digits = String(value || "").replace(/\D/g, "").slice(0, 11);
+  if (digits.length !== 11) return String(value || "");
+  return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9, 11)}`;
+}
+
 export function ReceiptModal({ open, onOpenChange, data }: ReceiptModalProps) {
   const [valor, setValor] = useState("");
   const [obs, setObs] = useState("");
@@ -122,6 +128,15 @@ export function ReceiptModal({ open, onOpenChange, data }: ReceiptModalProps) {
       mounted = false;
     };
   }, [cartaUrl]);
+
+  useEffect(() => {
+    if (!open) return;
+    const rawCpf = String(data?.member?.cpf || "").replace(/\D/g, "");
+    if (rawCpf.length === 11) {
+      setDocType("CPF");
+      setDocNumber(formatCpf(rawCpf));
+    }
+  }, [open, data?.member?.cpf]);
 
   const handlePrint = async () => {
     await waitImageLoaded(logoRef.current);
@@ -364,7 +379,7 @@ export function ReceiptModal({ open, onOpenChange, data }: ReceiptModalProps) {
                 className="w-full max-w-[182mm] min-h-[268mm] bg-white border border-slate-300 shadow-xl mx-auto p-[10mm]"
               >
                 <div className="text-center border-b border-slate-300 pb-[5mm] mb-[5mm]">
-                  <img ref={logoRef} src="/logo-recibo.png" alt="Logo Igreja" className="mx-auto w-[34mm] h-auto mb-[1mm]" />
+                  <img ref={logoRef} src="/logo-recibo.png" alt="Logo Igreja" className="mx-auto w-[80mm] h-auto mb-[1mm]" />
                   <p className="m-0 text-[12pt] font-extrabold uppercase text-[#24388d]">Igreja Pentecostal Deus e Amor</p>
                   <p className="m-0 mt-[1.2mm] text-[9pt] font-bold text-slate-600">CNPJ: 43.208.040/0001-36</p>
                   <h2 className="m-0 mt-[2mm] text-[17pt] font-black uppercase text-slate-900">Recibo de Contribuicao / Pregacao</h2>
@@ -446,7 +461,7 @@ export function ReceiptModal({ open, onOpenChange, data }: ReceiptModalProps) {
               >
                 <div className="p-[4mm]">
                   <div className="text-center">
-                    <img ref={logoRef} src="/logo-recibo.png" alt="Logo Igreja" className="w-[18mm] h-auto mx-auto mb-[2mm]" />
+                    <img ref={logoRef} src="/logo-recibo.png" alt="Logo Igreja" className="w-[22mm] h-auto mx-auto mb-[2mm]" />
                     <p className="m-0 text-[12px] font-extrabold uppercase leading-[1.25]">Igreja Pentecostal Deus e Amor</p>
                     <p className="m-0 mt-[1mm] text-[10px] font-bold leading-[1.2]">CNPJ: 43.208.040/0001-36</p>
                     <p className="m-0 mt-[2mm] text-[11px] font-extrabold uppercase leading-[1.25]">Recibo de Contribuicao / Pregacao</p>

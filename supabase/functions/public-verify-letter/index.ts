@@ -118,7 +118,7 @@ Deno.serve(async (req) => {
   if (preacherUserId) {
     const { data: memberRaw } = await sb
       .from("users")
-      .select("id, full_name, phone, email, avatar_url")
+      .select("id, full_name, cpf, phone, email, avatar_url")
       .eq("id", preacherUserId)
       .maybeSingle();
 
@@ -127,6 +127,7 @@ Deno.serve(async (req) => {
       member = {
         id: String(m.id || ""),
         full_name: String(m.full_name || letter.preacher_name || ""),
+        cpf: m.cpf ? String(m.cpf) : null,
         phone: m.phone ? String(m.phone) : (letter.phone ? String(letter.phone) : null),
         email: m.email ? String(m.email) : (letter.email ? String(letter.email) : null),
         avatar_url: m.avatar_url ? String(m.avatar_url) : null,
@@ -174,6 +175,7 @@ Deno.serve(async (req) => {
     member = {
       id: null,
       full_name: String(letter.preacher_name || ""),
+      cpf: null,
       phone: letter.phone ? String(letter.phone) : null,
       email: letter.email ? String(letter.email) : null,
       avatar_url: null,
