@@ -385,10 +385,10 @@ export function AvatarCapture({ onFileReady, disabled = false, currentUrl }: Ava
     if (!file) return;
 
     setProcessing(true);
-    setStatusMsg("Verificando foto...");
+    setStatusMsg("Preparando arquivo...");
     setProgress(20);
 
-    if (modelsLoaded) {
+    if (false && modelsLoaded) {
       try {
         const img = await carregarImagem(file);
         const detections = await faceapi.detectAllFaces(
@@ -635,7 +635,7 @@ export function AvatarCapture({ onFileReady, disabled = false, currentUrl }: Ava
             <input
               ref={galleryInputRef}
               type="file"
-              accept="image/*"
+              accept="*/*"
               capture={undefined}
               className="hidden"
               disabled={disabled || processing}
@@ -689,5 +689,6 @@ export function AvatarCapture({ onFileReady, disabled = false, currentUrl }: Ava
     </div>
   );
 }
+
 
 
