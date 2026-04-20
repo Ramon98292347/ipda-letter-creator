@@ -795,3 +795,25 @@ O plugin oficial foi substitu√≠do por `@aparajita/capacitor-biometric-auth` que 
 3. **Escopo isolado no React**: a inje√ß√£o do delay ass√≠ncrono para os estados `cpf` e `senha` antes de realizar o `handleLogin()` foi trocada por passe de par√¢metro explicito na closure (ex: `await handleLogin(creds.username, creds.password)`), evitando de apresentar um "form em branco" no React Cycle.
 
 **N√ÉO REVERTER OS PAR√ÇMETROS EXPL√çCITOS EM `handleBiometricLogin` no `PhoneIdentify.tsx`.**
+
+## 4.2 Regra operacional ó cards da p·gina de membros (escopo grande)
+
+- os cards de membros (total, pastor, presbÌtero, di·cono, cooperador, membro) devem refletir o total real do escopo/TOTVS filtrado
+- quando houver mais de 1000 membros no escopo, a `members-api` deve paginar internamente a leitura da tabela `users` para evitar truncamento do PostgREST
+- essa paginaÁ„o interna n„o altera regra de permiss„o, escopo nem filtros; apenas garante contagem completa
+- o frontend da p·gina de membros deve usar as `metrics` retornadas pela `members-api` para os cards do dashboard da tela
+- deploy da correÁ„o: `npx supabase functions deploy members-api --project-ref idipilrcaqittmnapmbq`
+
+## 27. Regra Operacional ó Admin sem limite (2026-04-20)
+
+Escopo desta regra: somente `role admin`.
+
+- Dashboard Admin (Membros): cards devem usar `total/metrics` da `members-api` (nao depender de lista local limitada por pagina).
+- Dashboard Admin (Igrejas): cards devem usar o `total` oficial da API paginada e base completa para contagem por classe.
+- Pagina Admin Membros: filtro de igreja deve aplicar na tabela via `churchTotvsFilter`; quando nao houver igreja selecionada, usar visao de escopo completo do admin.
+- Card Inativos (Admin Membros): contagem deve vir de query dedicada com `is_active=false`.
+- Pagina Admin Igrejas: quantidade dos cards deve ficar alinhada com o Dashboard Admin, sem truncamento por limite fixo.
+
+Comportamento esperado:
+- Quantidades iguais entre Dashboard Admin, Admin Membros e Admin Igrejas para o mesmo contexto/filtro.
+- Sem teto artificial de 100/1000 em cards do admin.
