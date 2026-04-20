@@ -817,3 +817,13 @@ Escopo desta regra: somente `role admin`.
 Comportamento esperado:
 - Quantidades iguais entre Dashboard Admin, Admin Membros e Admin Igrejas para o mesmo contexto/filtro.
 - Sem teto artificial de 100/1000 em cards do admin.
+
+## 28. Regra Operacional — Impressao de Recibo no celular/PWA (2026-04-20)
+
+- na pre-visualizacao o recibo pode aparecer correto, mas no Android/PWA a impressao por `iframe` pode imprimir a tela atual (modal/pagina) em vez do recibo isolado
+- a estrategia padrao da impressao do recibo deve ser: abrir um documento dedicado (`window.open`) contendo apenas o HTML do recibo e chamar `print()` nessa janela
+- manter fallback por `iframe` apenas se popup estiver bloqueado
+- objetivo: garantir que a impressao use o layout do recibo (A4/termica) e nao a pre-visualizacao da pagina
+
+Arquivo de referencia:
+- `src/components/public/ReceiptModal.tsx`
