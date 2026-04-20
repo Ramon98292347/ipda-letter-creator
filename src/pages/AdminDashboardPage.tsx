@@ -116,7 +116,7 @@ export default function AdminDashboardPage() {
             Dashboard Administrativo
           </h2>
           <p className="mt-1 text-sm text-slate-600 sm:text-base">
-            VisÃ£o geral das igrejas e dos membros da organizaÃ§Ã£o
+            Visao geral das igrejas e dos membros da organizacao
           </p>
         </section>
 
@@ -128,25 +128,25 @@ export default function AdminDashboardPage() {
           <div className="mt-4 grid grid-cols-2 gap-3">
             <StatCard title="Total de membros" value={memberCounters.total} subtitle="cadastros ativos" gradient="from-blue-600 to-blue-500" icon="users" />
             <StatCard title="Pastor" value={memberCounters.pastores} subtitle="cargo pastor" gradient="from-blue-700 to-blue-600" icon="users" />
-            <StatCard title="PresbÃ­tero" value={memberCounters.presbiteros} subtitle="cargo presbÃ­tero" gradient="from-purple-600 to-purple-500" icon="users" />
-            <StatCard title="DiÃ¡cono" value={memberCounters.diaconos} subtitle="cargo diÃ¡cono" gradient="from-emerald-600 to-emerald-500" icon="users" />
+            <StatCard title="Presbitero" value={memberCounters.presbiteros} subtitle="cargo presbitero" gradient="from-purple-600 to-purple-500" icon="users" />
+            <StatCard title="Diacono" value={memberCounters.diaconos} subtitle="cargo diacono" gradient="from-emerald-600 to-emerald-500" icon="users" />
             <StatCard title="Cooperador" value={memberCounters.obreiros} subtitle="cargo cooperador" gradient="from-amber-500 to-amber-400" icon="users" />
-            <StatCard title="Membros Ativos" value={memberCounters.membrosAtivos} subtitle="ministÃ©rio membro" gradient="from-slate-600 to-slate-500" icon="users" />
+            <StatCard title="Membros Ativos" value={memberCounters.membrosAtivos} subtitle="ministerio membro" gradient="from-slate-600 to-slate-500" icon="users" />
           </div>
         </section>
 
         {/* â”€â”€ Igrejas â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
         <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
           <h3 className="text-xl font-bold text-slate-900 sm:text-2xl">Igrejas</h3>
-          <p className="mt-1 text-sm text-slate-600">Indicadores por classificaÃ§Ã£o.</p>
+          <p className="mt-1 text-sm text-slate-600">Indicadores por classificacao.</p>
           {/* Comentario: 2 col no celular | 3 no tablet | 6 no desktop */}
           <div className="mt-4 grid grid-cols-2 gap-3">
             <StatCard title="Total" value={churchCounters.total} subtitle="igrejas cadastradas" gradient="from-purple-600 to-purple-500" />
-            <StatCard title="Estadual" value={churchCounters.estadual} subtitle="classificaÃ§Ã£o estadual" gradient="from-blue-600 to-blue-500" />
-            <StatCard title="Setorial" value={churchCounters.setorial} subtitle="classificaÃ§Ã£o setorial" gradient="from-amber-500 to-amber-400" />
-            <StatCard title="Central" value={churchCounters.central} subtitle="classificaÃ§Ã£o central" gradient="from-orange-500 to-orange-400" />
-            <StatCard title="Regional" value={churchCounters.regional} subtitle="classificaÃ§Ã£o regional" gradient="from-emerald-600 to-emerald-500" />
-            <StatCard title="Local" value={churchCounters.local} subtitle="classificaÃ§Ã£o local" gradient="from-slate-600 to-slate-500" />
+            <StatCard title="Estadual" value={churchCounters.estadual} subtitle="classificacao estadual" gradient="from-blue-600 to-blue-500" />
+            <StatCard title="Setorial" value={churchCounters.setorial} subtitle="classificacao setorial" gradient="from-amber-500 to-amber-400" />
+            <StatCard title="Central" value={churchCounters.central} subtitle="classificacao central" gradient="from-orange-500 to-orange-400" />
+            <StatCard title="Regional" value={churchCounters.regional} subtitle="classificacao regional" gradient="from-emerald-600 to-emerald-500" />
+            <StatCard title="Local" value={churchCounters.local} subtitle="classificacao local" gradient="from-slate-600 to-slate-500" />
           </div>
         </section>
 
