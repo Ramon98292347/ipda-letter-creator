@@ -6,7 +6,7 @@ import { ManagementShell } from "@/components/layout/ManagementShell";
 import { CartasTab } from "@/components/admin/CartasTab";
 import { Button } from "@/components/ui/button";
 import { useUser } from "@/context/UserContext";
-import { getPastorMetrics, listChurchesInScope, listMembers, listPastorLetters } from "@/services/saasService";
+import { listChurchesInScope, listMembers, listPastorLetters } from "@/services/saasService";
 import { PageLoading } from "@/components/shared/PageLoading";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabaseRealtime } from "@/lib/supabaseRealtime";
@@ -104,14 +104,6 @@ export default function CartasDashboardPage() {
     setLettersPageSize(100);
   }, [selectedChurchTotvs, roleMode, selectedScopeForLetters.join("|")]);
 
-  const { data: metrics, isFetching: fetchingMetrics } = useQuery({
-    queryKey: ["cartas-dashboard-metrics", selectedScopeForLetters.join("|")],
-    queryFn: () => getPastorMetrics(),
-    enabled: selectedScopeForLetters.length > 0,
-    // Comentario: staleTime de 60s evita refetches desnecessarios ao renavegar para esta pagina.
-    staleTime: 60_000,
-  });
-
   const { data: letters = [], isLoading: loadingLetters, isFetching: fetchingLetters } = useQuery({
     queryKey: ["cartas-dashboard-letters", selectedScopeForLetters.join("|"), roleMode, selectedChurchTotvs, lettersPageSize],
     queryFn: async () => {
@@ -149,11 +141,67 @@ export default function CartasDashboardPage() {
     staleTime: 60_000,
   });
 
+  const { data: kpiStats, isFetching: fetchingKpiStats } = useQuery({
+    queryKey: ["cartas-dashboard-kpis", roleMode, selectedChurchTotvs, selectedScopeForLetters.join("|")],
+    queryFn: async () => {
+      const now = new Date();
+      const todayKey = now.toISOString().slice(0, 10);
+      const sevenDaysAgo = new Date(now);
+      sevenDaysAgo.setDate(now.getDate() - 7);
+      const scopeSet = new Set(selectedScopeForLetters.map(String));
+      const shouldFilterByScopeSet = roleMode === "admin" && selectedChurchTotvs === "all";
+
+      let total = 0;
+      let today = 0;
+      let last7 = 0;
+      let liberadas = 0;
+      let bloqueadas = 0;
+      let aguardando = 0;
+
+      const pageSize = 200;
+      for (let page = 1; page <= 200; page += 1) {
+        const chunk = await listPastorLetters(roleMode === "admin" && selectedChurchTotvs !== "all" ? selectedChurchTotvs : "", {
+          period: "custom",
+          page,
+          pageSize,
+          onlyNewSinceCache: false,
+        });
+        if (!chunk.length) break;
+
+        for (const letter of chunk) {
+          const churchTotvsId = String(letter?.church_totvs_id || "");
+          if (shouldFilterByScopeSet && churchTotvsId && !scopeSet.has(churchTotvsId)) continue;
+
+          const status = String(letter?.status || "").toUpperCase();
+          if (status === "EXCLUIDA") continue;
+
+          total += 1;
+          if (status === "LIBERADA") liberadas += 1;
+          if (status === "BLOQUEADO") bloqueadas += 1;
+          if (status === "AGUARDANDO_LIBERACAO") aguardando += 1;
+
+          const createdAt = String(letter?.created_at || "");
+          const createdDate = createdAt ? new Date(createdAt) : null;
+          const createdKey = createdAt ? createdAt.slice(0, 10) : "";
+
+          if (createdKey === todayKey) today += 1;
+          if (createdDate && !Number.isNaN(createdDate.getTime()) && createdDate >= sevenDaysAgo) last7 += 1;
+        }
+
+        if (chunk.length < pageSize) break;
+      }
+
+      return { total, today, last7, liberadas, bloqueadas, aguardando };
+    },
+    enabled: selectedScopeForLetters.length > 0,
+    staleTime: 30_000,
+  });
+
   // Comentario: carregamento progressivo — a pagina renderiza imediatamente com skeleton
   // por secao em vez de bloquear tudo ate todas as queries terminarem.
   // Apenas aguardamos o escopo inicial (necessario para saber quais igrejas buscar).
   const loadingScope = !effectiveScopeTotvsIds.length;
-  const loadingKpis = fetchingMetrics && !metrics;
+  const loadingKpis = fetchingKpiStats && !kpiStats;
   const loadingPage = loadingScope;
 
   useEffect(() => {
@@ -308,7 +356,7 @@ export default function CartasDashboardPage() {
     aguardando: "from-violet-600 to-violet-500",
   };
 
-  const lettersStats = useMemo(() => {
+  const lettersStatsFallback = useMemo(() => {
     const now = new Date();
     const todayKey = now.toISOString().slice(0, 10);
     const sevenDaysAgo = new Date(now);
@@ -335,7 +383,7 @@ export default function CartasDashboardPage() {
     return { total, today, last7 };
   }, [letters]);
   const canLoadMoreLetters = letters.length >= lettersPageSize;
-  const statusStats = useMemo(() => {
+  const statusStatsFallback = useMemo(() => {
     let liberadas = 0;
     let bloqueadas = 0;
     let aguardando = 0;
@@ -348,25 +396,14 @@ export default function CartasDashboardPage() {
     return { liberadas, bloqueadas, aguardando };
   }, [letters]);
 
-  const useChurchFilteredKpi = roleMode === "admin" && selectedChurchTotvs !== "all";
-  const totalCartas = useChurchFilteredKpi
-    ? lettersStats.total
-    : Number(metrics?.totalCartas || 0) > 0
-      ? Number(metrics?.totalCartas || 0)
-      : lettersStats.total;
-  const cartasHoje = useChurchFilteredKpi
-    ? lettersStats.today
-    : Number(metrics?.cartasHoje || 0) > 0
-      ? Number(metrics?.cartasHoje || 0)
-      : lettersStats.today;
-  const ultimos7Dias = useChurchFilteredKpi
-    ? lettersStats.last7
-    : Number(metrics?.ultimos7Dias || 0) > 0
-      ? Number(metrics?.ultimos7Dias || 0)
-      : lettersStats.last7;
-  const totalMembros = useChurchFilteredKpi
-    ? Number(membrosRes?.total || 0)
-    : Number(metrics?.totalObreiros || 0);
+  const totalCartas = Number(kpiStats?.total ?? lettersStatsFallback.total);
+  const cartasHoje = Number(kpiStats?.today ?? lettersStatsFallback.today);
+  const ultimos7Dias = Number(kpiStats?.last7 ?? lettersStatsFallback.last7);
+  const statusStats = {
+    liberadas: Number(kpiStats?.liberadas ?? statusStatsFallback.liberadas),
+    bloqueadas: Number(kpiStats?.bloqueadas ?? statusStatsFallback.bloqueadas),
+    aguardando: Number(kpiStats?.aguardando ?? statusStatsFallback.aguardando),
+  };
 
   if (loadingPage) {
     return (
