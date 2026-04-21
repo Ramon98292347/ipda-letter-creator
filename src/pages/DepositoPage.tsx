@@ -54,15 +54,15 @@ import {
 
 // Comentario: grupos disponiveis para o cadastro de produtos
 const ALL_GROUPS = [
-  "VOTOS", "FOLHETOS", "FICHAS", "MANUAL", "CERTIFICADOS", "CARTÃƒO",
-  "CARTA", "CARNÃŠS", "LIVRO", "CDs", "BÃBLIAS", "HINÃRIO",
-  "REVISTAS", "VESTUÃRIO", "ACESSÃ“RIOS", "MANUAIS BÃBLICOS", "OUTROS",
+  "VOTOS", "FOLHETOS", "FICHAS", "MANUAL", "CERTIFICADOS", "CARTAO",
+  "CARTA", "CARNES", "LIVRO", "CDs", "BIBLIAS", "HINARIO",
+  "REVISTAS", "VESTUARIO", "ACESSORIOS", "MANUAIS BIBLICOS", "OUTROS",
 ];
 
 // Comentario: tipos de movimentacao disponiveis
 const MOVEMENT_TYPES = [
   { value: "ENTRADA", label: "Entrada", color: "text-emerald-600" },
-  { value: "SAIDA", label: "SaÃ­da", color: "text-rose-600" },
+  { value: "SAIDA", label: "Saida", color: "text-rose-600" },
   { value: "AJUSTE", label: "Ajuste", color: "text-amber-600" },
   { value: "PERDA", label: "Perda / Extravio", color: "text-red-700" },
 ];
@@ -496,7 +496,7 @@ function EstoqueTab({
                 <th className="px-3 py-3">Descrição</th>
                 <th className="px-3 py-3">Grupo</th>
                 <th className="px-3 py-3 text-right">Estoque</th>
-                <th className="px-3 py-3 text-right">MÃ­nimo</th>
+                <th className="px-3 py-3 text-right">Minimo</th>
                 <th className="px-3 py-3 text-right">Valor un.</th>
                 <th className="px-3 py-3 text-right">Valor total</th>
                 <th className="px-3 py-3">Status</th>
@@ -535,11 +535,11 @@ function EstoqueTab({
             </tbody>
           </table>
         </div>
-        {/* PaginaÃ§Ã£o */}
+        {/* Paginacao */}
         {totalPages > 1 && (
           <div className="flex items-center justify-between pt-2">
             <p className="text-xs text-slate-500">
-              Mostrando {((page - 1) * ESTOQUE_PAGE_SIZE) + 1}â€“{Math.min(page * ESTOQUE_PAGE_SIZE, stock.length)} de {formatNumber(stock.length)}
+              Mostrando {((page - 1) * ESTOQUE_PAGE_SIZE) + 1} a {Math.min(page * ESTOQUE_PAGE_SIZE, stock.length)} de {formatNumber(stock.length)}
             </p>
             <div className="flex items-center gap-1">
               <Button size="sm" variant="outline" disabled={page <= 1} onClick={() => setPage(page - 1)} className="h-8 px-3 text-xs">
@@ -568,7 +568,7 @@ function EstoqueTab({
                   )
                 )}
               <Button size="sm" variant="outline" disabled={page >= totalPages} onClick={() => setPage(page + 1)} className="h-8 px-3 text-xs">
-                PrÃ³ximo
+                Proximo
               </Button>
             </div>
           </div>
@@ -654,8 +654,8 @@ function printTransferReceipt(m: DepositMovement, churchNameMap: Map<string, str
   const destinoTotvs = m.church_destination_totvs || "-";
   const origemNome = churchNameMap.get(origemTotvs) || "";
   const destinoNome = churchNameMap.get(destinoTotvs) || "";
-  const origemLabel = origemNome ? `${origemTotvs} â€” ${origemNome}` : origemTotvs;
-  const destinoLabel = destinoNome ? `${destinoTotvs} â€” ${destinoNome}` : destinoTotvs;
+  const origemLabel = origemNome ? `${origemTotvs} - ${origemNome}` : origemTotvs;
+  const destinoLabel = destinoNome ? `${destinoTotvs} - ${destinoNome}` : destinoTotvs;
 
   const html = `<!DOCTYPE html>
 <html lang="pt-BR">
@@ -690,13 +690,13 @@ function printTransferReceipt(m: DepositMovement, churchNameMap: Map<string, str
   <div class="header">
     <h1>Comprovante de Transferência</h1>
     <h2>${produtoNome}</h2>
-    <p>Igreja Pentecostal Deus Ã© Amor</p>
+    <p>Igreja Pentecostal Deus e Amor</p>
   </div>
 
   <div class="section">
     <div class="section-title">Dados da Transferência</div>
     <div class="row"><span class="label">Data:</span><span class="value">${dataFormatada}</span></div>
-    <div class="row"><span class="label">ResponsÃ¡vel:</span><span class="value">${m.responsible_name || "-"}</span></div>
+    <div class="row"><span class="label">Responsavel:</span><span class="value">${m.responsible_name || "-"}</span></div>
     <div class="row"><span class="label">Observação:</span><span class="value">${m.notes || "-"}</span></div>
   </div>
 
@@ -718,12 +718,12 @@ function printTransferReceipt(m: DepositMovement, churchNameMap: Map<string, str
   </div>
 
   <div class="signatures">
-    <div class="sig-line"><div class="line">ResponsÃ¡vel pela entrega</div></div>
-    <div class="sig-line"><div class="line">ResponsÃ¡vel pelo recebimento</div></div>
+    <div class="sig-line"><div class="line">Responsavel pela entrega</div></div>
+    <div class="sig-line"><div class="line">Responsavel pelo recebimento</div></div>
   </div>
 
   <div class="footer">
-    <p>Documento gerado em ${new Date().toLocaleDateString("pt-BR")} Ã s ${new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</p>
+    <p>Documento gerado em ${new Date().toLocaleDateString("pt-BR")} as ${new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</p>
     <p class="id-ref">Ref: ${m.id.slice(0, 8).toUpperCase()}</p>
   </div>
 </body>
@@ -965,7 +965,7 @@ function ProductModal({ open, onClose, product, onSaved }: {
           </div>
           <div>
             <Label>Descrição</Label>
-            <Input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Ex: VOTO DO DÃZIMO" />
+            <Input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Ex: VOTO DO DIZIMO" />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -1075,7 +1075,7 @@ function MovementModal({ open, onClose, products, initialProductId, activeTotvs,
               <SelectTrigger><SelectValue placeholder="Selecione o produto" /></SelectTrigger>
               <SelectContent>
                 {products.filter((p) => p.is_active).map((p) => (
-                  <SelectItem key={p.id} value={p.id}>{p.code} â€” {p.description}</SelectItem>
+                  <SelectItem key={p.id} value={p.id}>{p.code} - {p.description}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -1168,7 +1168,7 @@ function TransferModal({ open, onClose, products, activeTotvs, onSaved }: {
               <SelectTrigger><SelectValue placeholder="Selecione o produto" /></SelectTrigger>
               <SelectContent>
                 {products.filter((p) => p.is_active).map((p) => (
-                  <SelectItem key={p.id} value={p.id}>{p.code} â€” {p.description}</SelectItem>
+                  <SelectItem key={p.id} value={p.id}>{p.code} - {p.description}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
