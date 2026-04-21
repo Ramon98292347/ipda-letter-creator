@@ -345,6 +345,7 @@ export default function DepositoPage() {
             {tab === "cadastro" && (
               <CadastroTab
                 products={products || []}
+                canManageCadastro={roleMode === "admin"}
                 onEdit={(p) => { setEditingProduct(p); setProductModal(true); }}
                 onNew={() => { setEditingProduct(null); setProductModal(true); }}
                 onDelete={async (p) => {
@@ -812,8 +813,9 @@ function TransferenciasTab({
 // ============================================================================
 // ABA: CADASTRO DE MERCADORIAS
 // ============================================================================
-function CadastroTab({ products, onEdit, onNew, onDelete }: {
+function CadastroTab({ products, canManageCadastro, onEdit, onNew, onDelete }: {
   products: DepositProduct[];
+  canManageCadastro: boolean;
   onEdit: (p: DepositProduct) => void;
   onNew: () => void;
   onDelete: (p: DepositProduct) => void;
@@ -862,15 +864,19 @@ function CadastroTab({ products, onEdit, onNew, onDelete }: {
                   </Badge>
                 </td>
                 <td className="px-3 py-2.5">
-                  <div className="flex items-center gap-2">
-                  <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => onEdit(p)}>
-                    <Pencil className="h-3.5 w-3.5" />
-                  </Button>
-                  <Button size="sm" variant="outline" className="h-7 px-2 text-red-600 border-red-200 hover:text-red-700 hover:bg-red-50" onClick={() => onDelete(p)}>
-                    <Trash2 className="mr-1 h-3.5 w-3.5" />
-                    Excluir
-                  </Button>
-                  </div>
+                  {canManageCadastro ? (
+                    <div className="flex items-center gap-2">
+                      <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => onEdit(p)}>
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button size="sm" variant="outline" className="h-7 px-2 text-red-600 border-red-200 hover:text-red-700 hover:bg-red-50" onClick={() => onDelete(p)}>
+                        <Trash2 className="mr-1 h-3.5 w-3.5" />
+                        Excluir
+                      </Button>
+                    </div>
+                  ) : (
+                    <span className="text-xs text-slate-400">-</span>
+                  )}
                 </td>
               </tr>
             ))}
