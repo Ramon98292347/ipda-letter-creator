@@ -827,3 +827,28 @@ Comportamento esperado:
 
 Arquivo de referencia:
 - `src/components/public/ReceiptModal.tsx`
+
+---
+
+## Atualizacao - Ficha de Obreiro (2026-04-22)
+
+- Frontend:
+- reativada a aba `Ficha de obreiro` na pagina de membros para `pastor`
+- envio do formulario da aba para a edge function `ficha-obreiro-webhook`
+- criada area de exibicao do documento pronto na propria aba quando houver `status` pronto e `url` preenchida
+
+- Backend:
+- criada a edge function `ficha-obreiro-webhook` para receber dados da aba, montar payload e enviar ao webhook n8n
+- o payload `dados` remove campos de assinatura (assinaturas manuais)
+- incluido `html_data` para preenchimento de template HTML no n8n
+- persistencia na tabela `public.member_ficha_obreiro_forms` com controle de status, resposta do webhook e `url` final
+
+- Endpoint interno da function:
+- `action: "status"` retorna o status atual da ficha de obreiro sem reenviar webhook
+- resposta normalizada para o front considerar documento pronto com seguranca
+
+- Banco:
+- tabela de formularios: `public.member_ficha_obreiro_forms`
+- coluna de URL final: `url`
+- restricao de status atualmente aceita no banco: `RASCUNHO`, `ENVIADO_WEBHOOK`, `PROCESSADO`, `ERRO`
+- recomendacao de padronizacao futura: incluir `PRONTO` na constraint para alinhar com a UI

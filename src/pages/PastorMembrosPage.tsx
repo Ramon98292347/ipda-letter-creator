@@ -17,7 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { listChurchesInScope, listMembers, type UserListItem, generateMemberDocs, getMemberDocsStatus, deleteMemberDocs, deleteUserPermanently, listReadyCarteirinhas, markCarteirinhasPrinted, generatePrintBatchCarteirinhas, listPrintBatchCarteirinhas, type PrintBatchCarteirinhaItem, type ReadyCarteirinhaItem } from "@/services/saasService";
+import { listChurchesInScope, listMembers, type UserListItem, generateMemberDocs, getMemberDocsStatus, getFichaObreiroStatus, deleteMemberDocs, deleteUserPermanently, listReadyCarteirinhas, markCarteirinhasPrinted, generatePrintBatchCarteirinhas, listPrintBatchCarteirinhas, submitFichaObreiro, type PrintBatchCarteirinhaItem, type ReadyCarteirinhaItem } from "@/services/saasService";
 import { useUser } from "@/context/UserContext";
 import { useDebounce } from "@/hooks/useDebounce";
 import { fetchAddressByCep, maskCep, onlyDigits } from "@/lib/cep";
@@ -680,6 +680,7 @@ export default function PastorMembrosPage() {
   const queryClient = useQueryClient();
   const activeTotvsId = String(session?.totvs_id || usuario?.default_totvs_id || usuario?.totvs || "");
   const churchClass = String(session?.church_class || "").toLowerCase();
+  const roleMode = session?.role === "secretario" ? "secretario" : "pastor";
   const [tab, setTab] = useState<MemberTab>("lista");
   const [view, setView] = useState<MemberView>("lista");
   const [selectedMemberId, setSelectedMemberId] = useState("");
@@ -975,6 +976,7 @@ export default function PastorMembrosPage() {
   );
   const churchName = String(session?.church_name || usuario?.church_name || "");
   const docsTabOpen = tab === "carteirinha" || tab === "ficha_membro";
+  const fichaObreiroTabOpen = tab === "ficha_obreiro";
   // Comentario: usa default_totvs_id do membro selecionado (nao do pastor logado),
   // pois o registro foi salvo com a igreja do membro na edge function.
   const memberChurchTotvsId = String(selectedMember?.default_totvs_id || activeTotvsId);
@@ -983,10 +985,16 @@ export default function PastorMembrosPage() {
     queryFn: () => getMemberDocsStatus({ member_id: selectedMemberId, church_totvs_id: memberChurchTotvsId }),
     enabled: Boolean(docsTabOpen && selectedMemberId && memberChurchTotvsId),
   });
+  const { data: fichaObreiroStatusData, refetch: refetchFichaObreiroStatus, isFetching: fetchingFichaObreiroStatus } = useQuery({
+    queryKey: ["pastor-ficha-obreiro-status", selectedMemberId, memberChurchTotvsId],
+    queryFn: () => getFichaObreiroStatus({ member_id: selectedMemberId, church_totvs_id: memberChurchTotvsId }),
+    enabled: Boolean(fichaObreiroTabOpen && selectedMemberId && memberChurchTotvsId),
+  });
 
   // Comentario: Realtime — escuta mudancas nas tabelas de ficha e carteirinha
   // Substitui o polling de 10s. Quando o webhook atualiza o status, o frontend reage instantaneamente.
   const refetchDocsStatusCb = useCallback(() => { void refetchDocsStatus(); }, [refetchDocsStatus]);
+  const refetchFichaObreiroStatusCb = useCallback(() => { void refetchFichaObreiroStatus(); }, [refetchFichaObreiroStatus]);
   useEffect(() => {
     if (!selectedMemberId || !docsTabOpen) return;
     const channel = supabaseRealtime
@@ -996,6 +1004,14 @@ export default function PastorMembrosPage() {
       .subscribe();
     return () => { void supabaseRealtime.removeChannel(channel); };
   }, [selectedMemberId, docsTabOpen, refetchDocsStatusCb]);
+  useEffect(() => {
+    if (!selectedMemberId || !fichaObreiroTabOpen) return;
+    const channel = supabaseRealtime
+      .channel(`member-ficha-obreiro-${selectedMemberId}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "member_ficha_obreiro_forms" }, refetchFichaObreiroStatusCb)
+      .subscribe();
+    return () => { void supabaseRealtime.removeChannel(channel); };
+  }, [selectedMemberId, fichaObreiroTabOpen, refetchFichaObreiroStatusCb]);
   const fichaPronta = Boolean(
     docsStatus?.ficha &&
       String(docsStatus?.ficha?.final_url || "").trim().length > 0,
@@ -1004,12 +1020,9 @@ export default function PastorMembrosPage() {
     String(docsStatus?.carteirinha?.status || "").toUpperCase() === "PRONTO" ||
     Boolean(docsStatus?.carteirinha && String(docsStatus?.carteirinha?.final_url || "").trim().length > 0);
   const carteirinhaLink = String(docsStatus?.carteirinha?.ficha_url_qr || docsStatus?.carteirinha?.final_url || "").trim();
-
-  useEffect(() => {
-    if (tab === "ficha_obreiro") {
-      setTab("lista");
-    }
-  }, [tab]);
+  const fichaObreiroStatus = String(fichaObreiroStatusData?.ficha_obreiro?.status || "").trim().toUpperCase();
+  const fichaObreiroUrl = String(fichaObreiroStatusData?.ficha_obreiro?.url || "").trim();
+  const fichaObreiroPronta = fichaObreiroStatus === "PRONTO" && fichaObreiroUrl.length > 0;
 
   useEffect(() => {
     if (!selectedMemberId && docsMembers.length > 0) {
@@ -1238,31 +1251,43 @@ export default function PastorMembrosPage() {
       toast.error("Preencha nome, cargo e CPF.");
       return;
     }
+
     setSending(true);
     try {
-      const documentType = tab === "ficha_obreiro" ? "ficha_obreiro" : "ficha_carteirinha";
-      await generateMemberDocs({
-        document_type: documentType,
-        member_id: selectedMemberId,
-        church_totvs_id: activeTotvsId,
-        dados: {
-          ...form,
-          cpf: formatCpfBr(form.cpf),
-          telefone: formatPhoneBrValue(form.telefone),
-          data_nascimento: formatDateBrValue(form.data_nascimento),
-          data_batismo: formatDateBrValue(form.data_batismo),
-          cep_membro: formatCepBr(form.cep_congregacao),
-          cep_congregacao: formatCepBr(form.cep_congregacao),
-          endereco_igreja_completo: rodapeAuto || churchFooter,
-          ficha_rodape: rodapeAuto || churchFooter,
-          pastor_responsavel_nome: pastorDaIgreja?.full_name || "",
-          pastor_responsavel_telefone: formatPhoneBrValue(pastorDaIgreja?.phone || ""),
-        },
-      });
-      await refetchDocsStatus();
-      toast.success("Documento enviado para confecção.");
+      const payloadDados = {
+        ...form,
+        cpf: formatCpfBr(form.cpf),
+        telefone: formatPhoneBrValue(form.telefone),
+        data_nascimento: formatDateBrValue(form.data_nascimento),
+        data_batismo: formatDateBrValue(form.data_batismo),
+        cep_membro: formatCepBr(form.cep_congregacao),
+        cep_congregacao: formatCepBr(form.cep_congregacao),
+        endereco_igreja_completo: rodapeAuto || churchFooter,
+        ficha_rodape: rodapeAuto || churchFooter,
+        pastor_responsavel_nome: pastorDaIgreja?.full_name || "",
+        pastor_responsavel_telefone: formatPhoneBrValue(pastorDaIgreja?.phone || ""),
+      };
+
+      if (tab === "ficha_obreiro") {
+        await submitFichaObreiro({
+          member_id: selectedMemberId,
+          church_totvs_id: activeTotvsId,
+          dados: payloadDados,
+        });
+        await refetchFichaObreiroStatus();
+        toast.success("Ficha de obreiro enviada para o webhook.");
+      } else {
+        await generateMemberDocs({
+          document_type: "ficha_carteirinha",
+          member_id: selectedMemberId,
+          church_totvs_id: activeTotvsId,
+          dados: payloadDados,
+        });
+        await refetchDocsStatus();
+        toast.success("Documento enviado para confeccao.");
+      }
     } catch {
-      toast.error("Falha ao enviar para confecção.");
+      toast.error("Falha ao enviar para confeccao.");
     } finally {
       setSending(false);
     }
@@ -1376,7 +1401,7 @@ export default function PastorMembrosPage() {
   };
 
   return (
-    <ManagementShell roleMode="pastor">
+    <ManagementShell roleMode={roleMode}>
       {showPageLoading ? (
         <PageLoading title="Carregando membros" description="Buscando lista, indicadores e documentos..." />
       ) : (
@@ -1500,7 +1525,17 @@ export default function PastorMembrosPage() {
             <Button className="rounded-none border-b-2 border-transparent px-2" variant="ghost" style={{ borderBottomColor: tab === "carteirinha" ? "#2563EB" : "transparent", color: tab === "carteirinha" ? "#2563EB" : "#6B7280" }} onClick={() => setTab("carteirinha")}>Carteirinha</Button>
             <Button className="rounded-none border-b-2 border-transparent px-2" variant="ghost" style={{ borderBottomColor: tab === "impressao" ? "#2563EB" : "transparent", color: tab === "impressao" ? "#2563EB" : "#6B7280" }} onClick={() => setTab("impressao")}>Impressão</Button>
             <Button className="rounded-none border-b-2 border-transparent px-2" variant="ghost" style={{ borderBottomColor: tab === "presenca" ? "#2563EB" : "transparent", color: tab === "presenca" ? "#2563EB" : "#6B7280" }} onClick={() => setTab("presenca")}>Presença</Button>
-            <Button variant="ghost" disabled className="text-slate-400">Ficha de obreiro (bloqueada)</Button>
+            <Button
+              className="rounded-none border-b-2 border-transparent px-2"
+              variant="ghost"
+              style={{
+                borderBottomColor: tab === "ficha_obreiro" ? "#2563EB" : "transparent",
+                color: tab === "ficha_obreiro" ? "#2563EB" : "#6B7280",
+              }}
+              onClick={() => setTab("ficha_obreiro")}
+            >
+              Ficha de obreiro
+            </Button>
           </div>
 
           <div className="flex items-center gap-2">
@@ -1935,7 +1970,7 @@ export default function PastorMembrosPage() {
         </Card>
       ) : null}
 
-      {tab !== "lista" && tab !== "presenca" && tab !== "ficha_obreiro" ? (
+      {tab !== "lista" && tab !== "presenca" ? (
         <Card className="rounded-2xl border border-slate-200 bg-white shadow-sm">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -2271,6 +2306,42 @@ export default function PastorMembrosPage() {
             {tab === "ficha_obreiro" ? (
               <div className="space-y-4 rounded-xl border border-slate-200 p-4">
                 <h4 className="text-sm font-semibold text-slate-800">Ficha de cadastro de obreiro(a) - dados pessoais</h4>
+                {fetchingFichaObreiroStatus ? (
+                  <div className="rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-500">
+                    Verificando status da ficha de obreiro...
+                  </div>
+                ) : null}
+                {fichaObreiroPronta ? (
+                  <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+                    <p className="text-sm font-semibold text-emerald-700">Documento da ficha de obreiro pronto.</p>
+                    <p className="mt-1 text-xs text-emerald-700">Status PRONTO com URL disponível.</p>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <Button
+                        size="sm"
+                        onClick={() => window.open(fichaObreiroUrl, "_blank", "noopener,noreferrer")}
+                      >
+                        Visualizar documento
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => window.open(fichaObreiroUrl, "_blank", "noopener,noreferrer")}
+                      >
+                        Baixar documento
+                      </Button>
+                    </div>
+                  </div>
+                ) : null}
+                {!fichaObreiroPronta && fichaObreiroStatus === "ERRO" ? (
+                  <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">
+                    Falha ao processar a ficha de obreiro. {String(fichaObreiroStatusData?.ficha_obreiro?.error_message || "").trim()}
+                  </div>
+                ) : null}
+                {!fichaObreiroPronta && fichaObreiroStatus && fichaObreiroStatus !== "ERRO" ? (
+                  <div className="rounded-xl border border-slate-200 bg-white p-3 text-sm text-slate-600">
+                    Status atual: <strong>{fichaObreiroStatus}</strong>. O documento será exibido aqui quando ficar pronto.
+                  </div>
+                ) : null}
                 <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
                   <div className="space-y-1">
                     <Label>Função no termo</Label>
@@ -2451,6 +2522,12 @@ export default function PastorMembrosPage() {
             ) : null}
 
             <div className="flex flex-wrap gap-2">
+              {tab === "ficha_obreiro" ? (
+                <Button onClick={sendToGenerateDocs} disabled={sending || !selectedMemberId}>
+                  {sending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
+                  {sending ? "Enviando..." : "Enviar ficha de obreiro"}
+                </Button>
+              ) : null}
               <Button variant="outline" onClick={saveDraft} disabled={savingDraft}>
                 <Save className="mr-2 h-4 w-4" /> {savingDraft ? "Salvando..." : "Salvar rascunho"}
               </Button>

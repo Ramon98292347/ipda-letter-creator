@@ -69,6 +69,9 @@ verify_jwt = false
 [functions.member-docs-api]
 verify_jwt = false
 
+[functions.ficha-obreiro-webhook]
+verify_jwt = false
+
 [functions.feedback-api]
 verify_jwt = false
 

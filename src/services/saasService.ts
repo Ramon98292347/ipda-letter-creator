@@ -3820,6 +3820,45 @@ export async function generateMemberDocs(payload: {
   return { ok: true };
 }
 
+export async function submitFichaObreiro(payload: {
+  member_id: string;
+  church_totvs_id?: string;
+  dados: Record<string, unknown>;
+}) {
+  if (!isMockMode()) {
+    try {
+      return await api.submitFichaObreiro(payload as unknown as Record<string, unknown>);
+    } catch (error) {
+      throw error;
+    }
+  }
+  return { ok: true };
+}
+
+export type FichaObreiroStatusItem = {
+  id?: string;
+  status?: "RASCUNHO" | "ENVIADO_WEBHOOK" | "PRONTO" | "PROCESSADO" | "ERRO";
+  status_raw?: string;
+  url?: string | null;
+  error_message?: string | null;
+  sent_at?: string | null;
+  processed_at?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+};
+
+export type FichaObreiroStatusResponse = {
+  ok: boolean;
+  ficha_obreiro: FichaObreiroStatusItem | null;
+};
+
+export async function getFichaObreiroStatus(payload: { member_id: string; church_totvs_id?: string }) {
+  if (!isMockMode()) {
+    return (await api.getFichaObreiroStatus(payload)) as FichaObreiroStatusResponse;
+  }
+  return { ok: true, ficha_obreiro: null } as FichaObreiroStatusResponse;
+}
+
 export type MemberDocStatusItem = {
   id?: string;
   status?: "RASCUNHO" | "ENVIADO_CONFECCAO" | "PRONTO" | "ERRO";
