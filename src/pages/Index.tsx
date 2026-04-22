@@ -337,6 +337,14 @@ const Index = () => {
   const telefonePastorResponsavel = String(
     pastorPorId?.phone || pastorPorTotvs?.phone || pastorResponsavelData?.phone || "",
   );
+  const activeChurch = useMemo(
+    () =>
+      igrejaOrigem ||
+      churches.find((c) => String(c.codigoTotvs || "") === String(activeTotvsForPastor || "")) ||
+      churches[0] ||
+      null,
+    [igrejaOrigem, churches, activeTotvsForPastor],
+  );
 
   // Origens permitidas: propria + mae + avo + bisavo (quando existir).
   const allowedOriginChurches = useMemo(() => {
