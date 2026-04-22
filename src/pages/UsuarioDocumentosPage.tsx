@@ -730,6 +730,7 @@ export default function UsuarioDocumentosPage() {
     "cpf",
     "rg",
     "passaporte",
+    "nacionalidade",
     "telefone",
     "email",
     "data_nascimento",
@@ -777,6 +778,7 @@ export default function UsuarioDocumentosPage() {
     "ordenacao_presbitero",
     "ordenacao_evangelista",
     "ordenacao_voluntario",
+    "endereco_igreja_completo",
     "endereco_atual_congregacao",
     "bairro_congregacao",
     "cidade_congregacao",
@@ -978,6 +980,7 @@ export default function UsuarioDocumentosPage() {
                         <div className="space-y-1"><Label>CPF</Label><Input value={fichaObreiroForm.cpf || ""} onChange={(e) => setFichaField("cpf", e.target.value)} /></div>
                         <div className="space-y-1"><Label>RG</Label><Input value={fichaObreiroForm.rg || ""} onChange={(e) => setFichaField("rg", e.target.value)} /></div>
                         <div className="space-y-1"><Label>Passaporte</Label><Input value={fichaObreiroForm.passaporte || ""} onChange={(e) => setFichaField("passaporte", e.target.value)} /></div>
+                        <div className="space-y-1"><Label>Nacionalidade</Label><Input value={fichaObreiroForm.nacionalidade || ""} onChange={(e) => setFichaField("nacionalidade", e.target.value)} /></div>
                         <div className="space-y-1"><Label>Telefone</Label><Input value={fichaObreiroForm.telefone || ""} onChange={(e) => setFichaField("telefone", e.target.value)} /></div>
                         <div className="space-y-1"><Label>E-mail</Label><Input value={fichaObreiroForm.email || ""} onChange={(e) => setFichaField("email", e.target.value)} /></div>
                         <div className="space-y-1"><Label>Data de nascimento</Label><Input type="date" value={fichaObreiroForm.data_nascimento || ""} onChange={(e) => setFichaField("data_nascimento", e.target.value)} /></div>
@@ -1140,6 +1143,7 @@ export default function UsuarioDocumentosPage() {
                         {dirigeAlgumaIpdaSim ? (
                           <div className="space-y-1"><Label>Qual IPDA dirige</Label><Input value={fichaObreiroForm.dirige_ipda_qual || ""} onChange={(e) => setFichaField("dirige_ipda_qual", e.target.value)} /></div>
                         ) : null}
+                        <div className="space-y-1 xl:col-span-2"><Label>Endereco igreja completo</Label><Input value={fichaObreiroForm.endereco_igreja_completo || ""} onChange={(e) => setFichaField("endereco_igreja_completo", e.target.value)} /></div>
                         <div className="space-y-1 xl:col-span-2"><Label>Endereço atual congregação</Label><Input value={fichaObreiroForm.endereco_atual_congregacao || ""} onChange={(e) => setFichaField("endereco_atual_congregacao", e.target.value)} /></div>
                         <div className="space-y-1"><Label>Bairro congregação</Label><Input value={fichaObreiroForm.bairro_congregacao || ""} onChange={(e) => setFichaField("bairro_congregacao", e.target.value)} /></div>
                         <div className="space-y-1"><Label>Cidade congregação</Label><Input value={fichaObreiroForm.cidade_congregacao || ""} onChange={(e) => setFichaField("cidade_congregacao", e.target.value)} /></div>
