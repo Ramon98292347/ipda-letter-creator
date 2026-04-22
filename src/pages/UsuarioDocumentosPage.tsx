@@ -5,12 +5,156 @@ import { toast } from "sonner";
 import { useUser } from "@/context/UserContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { ArrowLeft, IdCard, Loader2, Send, Trash2 } from "lucide-react";
-import { deleteMemberDocs, generateMemberDocs, getMemberDocsStatus, getPastorByTotvsPublic, workerDashboard } from "@/services/saasService";
+import { deleteMemberDocs, generateMemberDocs, getFichaObreiroStatus, getMemberDocsStatus, getPastorByTotvsPublic, submitFichaObreiro, workerDashboard } from "@/services/saasService";
 import { supabaseRealtime } from "@/lib/supabaseRealtime";
 import { formatCepBr, formatCpfBr, formatDateBr, formatPhoneBr } from "@/lib/br-format";
+import { BRAZIL_UF_OPTIONS } from "@/lib/brazil-ufs";
 
-type DocTab = "carteirinha" | "ficha";
+type DocTab = "carteirinha" | "ficha" | "ficha_obreiro";
+
+function normalizeMinisterRole(value: unknown) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
+const FICHA_OBREIRO_ALL_KEYS = [
+  "nome_completo",
+  "matricula",
+  "funcao_ministerial",
+  "data_nascimento",
+  "endereco",
+  "numero",
+  "bairro",
+  "cidade",
+  "estado",
+  "cep",
+  "cep_membro",
+  "estado_civil",
+  "data_batismo",
+  "cpf",
+  "rg",
+  "telefone",
+  "email",
+  "foto_3x4_url",
+  "carimbo_igreja_url",
+  "assinatura_pastor_url",
+  "qr_code_url",
+  "igreja_nome",
+  "ficha_titulo",
+  "ficha_subtitulo",
+  "ficha_rodape",
+  "compromisso_funcao",
+  "endereco_igreja_completo",
+  "pastor_responsavel_nome",
+  "pastor_responsavel_telefone",
+  "pastor_responsavel_email",
+  "congregacao_endereco",
+  "congregacao_numero",
+  "congregacao_bairro",
+  "congregacao_cidade",
+  "antiga_sede_central",
+  "data_termo_cidade",
+  "data_termo_dia",
+  "data_termo_mes",
+  "data_termo_ano",
+  "testemunha1_nome",
+  "testemunha1_documento",
+  "testemunha2_nome",
+  "testemunha2_documento",
+  "observacoes_termo",
+  "nacionalidade",
+  "cidade_nascimento",
+  "uf_nascimento",
+  "data_casamento",
+  "passaporte",
+  "profissao",
+  "ocupacao_atual",
+  "nome_pai",
+  "nome_mae",
+  "tem_filhos",
+  "dependentes_qtd",
+  "filho1_nome",
+  "filho1_nascimento",
+  "filho2_nome",
+  "filho2_nascimento",
+  "filho3_nome",
+  "filho3_nascimento",
+  "doenca_familia",
+  "doenca_familia_qual",
+  "nome_conjuge",
+  "conjuge_nascimento",
+  "conjuge_rg",
+  "conjuge_cpf",
+  "conjuge_e_crente",
+  "conjuge_outro_ministerio",
+  "denominacao_aceitou_jesus",
+  "data_conversao",
+  "data_batismo_aguas",
+  "funcao_ministerial_secundaria",
+  "ordenacao_cooperador",
+  "ordenacao_diacono",
+  "ordenacao_presbitero",
+  "ordenacao_evangelista",
+  "ordenacao_voluntario",
+  "possui_credencial",
+  "recebe_prebenda",
+  "prebenda_tempo",
+  "prebenda_desde",
+  "dirige_alguma_ipda",
+  "dirige_ipda_qual",
+  "endereco_atual_congregacao",
+  "bairro_congregacao",
+  "cidade_congregacao",
+  "uf_congregacao",
+  "cep_congregacao",
+  "dirigente_congregacao",
+  "tel_congregacao",
+  "sede_setorial",
+  "sucursal",
+  "ja_dirigiu_exterior",
+  "cidades_exterior",
+  "paises_exterior",
+  "doenca_exterior",
+  "doenca_exterior_quem",
+  "doenca_exterior_quais",
+  "motivo_volta_brasil",
+  "idioma_fluente",
+  "idioma_quais",
+  "escolaridade",
+  "desempenho_ministerio",
+  "desempenho_ano",
+  "foi_disciplinado",
+  "disciplinado_quantas_vezes",
+  "disciplinado_motivo",
+  "curso_ministerial",
+  "curso_ministerial_qual",
+  "historico_gestao_1_ano",
+  "historico_gestao_1_ipda",
+  "historico_gestao_1_uf",
+  "historico_gestao_1_tempo",
+  "historico_gestao_2_ano",
+  "historico_gestao_2_ipda",
+  "historico_gestao_2_uf",
+  "historico_gestao_2_tempo",
+  "historico_gestao_3_ano",
+  "historico_gestao_3_ipda",
+  "historico_gestao_3_uf",
+  "historico_gestao_3_tempo",
+];
+
+function fichaFieldLabel(key: string) {
+  return key
+    .replaceAll("conjuge", "esposa")
+    .replaceAll("_", " ")
+    .replace(/\b\w/g, (m) => m.toUpperCase());
+}
 
 function calcularIdade(dataIso: string) {
   if (!dataIso) return "";
@@ -170,6 +314,7 @@ export default function UsuarioDocumentosPage() {
   const [docTab, setDocTab] = useState<DocTab>("carteirinha");
   const [sendingDoc, setSendingDoc] = useState(false);
   const [deletingDoc, setDeletingDoc] = useState(false);
+  const [fichaObreiroForm, setFichaObreiroForm] = useState<Record<string, string>>({});
 
   const userId = String(usuario?.id || "");
   const { data } = useQuery({
@@ -193,6 +338,19 @@ export default function UsuarioDocumentosPage() {
     queryFn: () => getMemberDocsStatus({ member_id: userId, church_totvs_id: activeTotvs }),
     enabled: Boolean(userId && activeTotvs),
   });
+  const ministerRoleNormalized = normalizeMinisterRole(profile?.minister_role || usuario?.ministerial || "");
+  const roleNormalized = String(usuario?.role || session?.role || "").trim().toLowerCase();
+  const cargosComFichaObreiro = new Set(["cooperador", "obreiro", "diacono", "presbitero", "pastor", "evangelista", "missionario"]);
+  const canSeeFichaObreiro = roleNormalized === "pastor" || cargosComFichaObreiro.has(ministerRoleNormalized);
+
+  const { data: fichaObreiroStatusData, refetch: refetchFichaObreiroStatus, isFetching: fetchingFichaObreiroStatus } = useQuery({
+    queryKey: ["worker-ficha-obreiro-status", userId, activeTotvs],
+    queryFn: () => getFichaObreiroStatus({ member_id: userId, church_totvs_id: activeTotvs }),
+    enabled: Boolean(canSeeFichaObreiro && userId && activeTotvs),
+  });
+  const fichaObreiroStatus = String(fichaObreiroStatusData?.ficha_obreiro?.status || "").trim().toUpperCase();
+  const fichaObreiroUrl = String(fichaObreiroStatusData?.ficha_obreiro?.url || "").trim();
+  const fichaObreiroPronta = fichaObreiroStatus === "PRONTO" && fichaObreiroUrl.length > 0;
 
   const refetchDocsCb = useCallback(() => { void refetchDocsStatus(); }, [refetchDocsStatus]);
 
@@ -205,6 +363,21 @@ export default function UsuarioDocumentosPage() {
       .subscribe();
     return () => { void supabaseRealtime.removeChannel(channel); };
   }, [userId, refetchDocsCb]);
+
+  useEffect(() => {
+    if (!userId || !canSeeFichaObreiro) return;
+    const channel = supabaseRealtime
+      .channel(`worker-ficha-obreiro-${userId}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "member_ficha_obreiro_forms" }, () => { void refetchFichaObreiroStatus(); })
+      .subscribe();
+    return () => { void supabaseRealtime.removeChannel(channel); };
+  }, [userId, canSeeFichaObreiro, refetchFichaObreiroStatus]);
+
+  useEffect(() => {
+    if (docTab === "ficha_obreiro" && !canSeeFichaObreiro) {
+      setDocTab("carteirinha");
+    }
+  }, [docTab, canSeeFichaObreiro]);
 
   const fichaPronta = Boolean(
     docsStatus?.ficha && String(docsStatus?.ficha?.final_url || "").trim().length > 0,
@@ -226,6 +399,141 @@ export default function UsuarioDocumentosPage() {
     () => buildChurchFooterAddress((church || null) as Record<string, unknown> | null),
     [church],
   );
+  const setFichaField = (key: string, value: string) => {
+    setFichaObreiroForm((prev) => ({ ...prev, [key]: value }));
+  };
+
+  useEffect(() => {
+    if (!canSeeFichaObreiro) return;
+    const profileRawLocal = profile as Record<string, unknown> | undefined;
+    const ministerRoleAuto = normalizeMinisterRole(profile?.minister_role || usuario?.ministerial || "");
+    const ordinationDateAuto = String(profileRawLocal?.ordination_date || "");
+    const baptismDateAuto = String(profileRawLocal?.baptism_date || "");
+    const ordenacaoAuto = {
+      ordenacao_cooperador: ministerRoleAuto === "cooperador" || ministerRoleAuto === "obreiro" ? ordinationDateAuto : "",
+      ordenacao_diacono: ministerRoleAuto === "diacono" ? ordinationDateAuto : "",
+      ordenacao_presbitero: ministerRoleAuto === "presbitero" ? ordinationDateAuto : "",
+      ordenacao_evangelista: ministerRoleAuto === "evangelista" ? ordinationDateAuto : "",
+      ordenacao_voluntario: ministerRoleAuto === "voluntario" || ministerRoleAuto === "voluntario financeiro" ? ordinationDateAuto : "",
+    };
+    const baseDefaults = Object.fromEntries(FICHA_OBREIRO_ALL_KEYS.map((k) => [k, ""])) as Record<string, string>;
+    setFichaObreiroForm((prev) => ({
+      // mantém o que o usuário já digitou
+      ...baseDefaults,
+      ...{
+        nome_completo: String(profile?.full_name || usuario?.nome || ""),
+        matricula: String((profile as Record<string, unknown> | undefined)?.matricula || ""),
+        funcao_ministerial: String(profile?.minister_role || ""),
+        compromisso_funcao: String(profile?.minister_role || ""),
+        data_nascimento: String(profile?.birth_date || ""),
+        endereco: streetFinal,
+        numero: numberFinal,
+        bairro: neighborhoodFinal,
+        cidade: cityFinal,
+        estado: stateFinal,
+        cep: formatCepBr(zipFinal),
+        estado_civil: String((profile as Record<string, unknown> | undefined)?.marital_status || ""),
+        data_batismo: baptismDateAuto,
+        cpf: formatCpfBr(profile?.cpf || ""),
+        cep_membro: formatCepBr(zipFinal),
+        foto_3x4_url: String(profile?.avatar_url || ""),
+        rg: String((profile as Record<string, unknown> | undefined)?.rg || ""),
+        email: String(profile?.email || ""),
+        telefone: formatPhoneBr(profile?.phone || ""),
+        profissao: String((profile as Record<string, unknown> | undefined)?.profession || ""),
+        carimbo_igreja_url: String(church?.stamp_church_url || ""),
+        igreja_nome: String(session?.church_name || church?.church_name || ""),
+        endereco_igreja_completo: churchFooter,
+        pastor_responsavel_nome: String(pastor?.full_name || ""),
+        pastor_responsavel_telefone: formatPhoneBr(String(pastor?.phone || "")),
+        pastor_responsavel_email: String(pastor?.email || ""),
+        assinatura_pastor_url: String(pastor?.signature_url || ""),
+        ficha_titulo: "Ficha de cadastro de Membros",
+        ficha_subtitulo: String(session?.church_name || church?.church_name || "Setorial"),
+        ficha_rodape: churchFooter,
+        // campos complementares editáveis
+        passaporte: "",
+        cidade_nascimento: cityFinal,
+        uf_nascimento: stateFinal,
+        data_casamento: "",
+        nome_pai: "",
+        nome_mae: "",
+        ocupacao_atual: "",
+        tem_filhos: "",
+        dependentes_qtd: "",
+        filho1_nome: "",
+        filho1_nascimento: "",
+        filho2_nome: "",
+        filho2_nascimento: "",
+        filho3_nome: "",
+        filho3_nascimento: "",
+        doenca_familia: "",
+        doenca_familia_qual: "",
+        nome_conjuge: "",
+        conjuge_nascimento: "",
+        conjuge_rg: "",
+        conjuge_cpf: "",
+        conjuge_e_crente: "",
+        conjuge_outro_ministerio: "",
+        denominacao_aceitou_jesus: "",
+        data_conversao: "",
+        data_batismo_aguas: baptismDateAuto,
+        ...ordenacaoAuto,
+        possui_credencial: "",
+        recebe_prebenda: "",
+        prebenda_tempo: "",
+        prebenda_desde: "",
+        dirige_alguma_ipda: "",
+        dirige_ipda_qual: "",
+        endereco_atual_congregacao: streetFinal,
+        bairro_congregacao: neighborhoodFinal,
+        cidade_congregacao: cityFinal,
+        uf_congregacao: stateFinal,
+        cep_congregacao: formatCepBr(zipFinal),
+        dirigente_congregacao: "",
+        tel_congregacao: "",
+        sede_setorial: String(session?.church_name || church?.church_name || ""),
+        sucursal: "",
+        ja_dirigiu_exterior: "",
+        cidades_exterior: "",
+        paises_exterior: "",
+        doenca_exterior: "",
+        doenca_exterior_quem: "",
+        doenca_exterior_quais: "",
+        motivo_volta_brasil: "",
+        idioma_fluente: "",
+        idioma_quais: "",
+        escolaridade: "",
+        desempenho_ano: "",
+        desempenho_ministerio: "",
+        foi_disciplinado: "",
+        disciplinado_quantas_vezes: "",
+        disciplinado_motivo: "",
+        curso_ministerial: "",
+        curso_ministerial_qual: "",
+      },
+      ...prev,
+    }));
+  }, [
+    canSeeFichaObreiro,
+    profile,
+    usuario?.nome,
+    streetFinal,
+    numberFinal,
+    neighborhoodFinal,
+    cityFinal,
+    stateFinal,
+    zipFinal,
+    session?.church_name,
+    church?.church_name,
+    churchFooter,
+    church?.stamp_church_url,
+    pastor?.full_name,
+    pastor?.phone,
+    pastor?.email,
+    pastor?.signature_url,
+    usuario?.ministerial,
+  ]);
 
   const carteirinhaHtml = useMemo(
     () =>
@@ -327,6 +635,59 @@ export default function UsuarioDocumentosPage() {
     }
   }
 
+  async function enviarFichaObreiroParaConfeccao() {
+    if (isCadastroPendente) {
+      toast.error("Cadastro pendente. Aguarde aprovação para enviar documentos.");
+      return;
+    }
+    if (!userId || !activeTotvs) {
+      toast.error("Dados de sessão inválidos.");
+      return;
+    }
+    setSendingDoc(true);
+    try {
+      const dados = {
+        ...fichaObreiroForm,
+        nome_completo: String(fichaObreiroForm.nome_completo || profile?.full_name || usuario?.nome || ""),
+        matricula: String(fichaObreiroForm.matricula || (profile as Record<string, unknown> | undefined)?.matricula || ""),
+        funcao_ministerial: String(fichaObreiroForm.funcao_ministerial || profile?.minister_role || ""),
+        compromisso_funcao: String(fichaObreiroForm.compromisso_funcao || fichaObreiroForm.funcao_ministerial || profile?.minister_role || ""),
+        data_nascimento: String(fichaObreiroForm.data_nascimento || profile?.birth_date || ""),
+        data_batismo: String(fichaObreiroForm.data_batismo || (profile as Record<string, unknown> | undefined)?.baptism_date || ""),
+        cpf: formatCpfBr(fichaObreiroForm.cpf || profile?.cpf || ""),
+        rg: String(fichaObreiroForm.rg || (profile as Record<string, unknown> | undefined)?.rg || ""),
+        foto_3x4_url: String(fichaObreiroForm.foto_3x4_url || profile?.avatar_url || ""),
+        email: String(fichaObreiroForm.email || profile?.email || ""),
+        telefone: formatPhoneBr(fichaObreiroForm.telefone || profile?.phone || ""),
+        cep: formatCepBr(fichaObreiroForm.cep || zipFinal),
+        cep_membro: formatCepBr(fichaObreiroForm.cep_membro || fichaObreiroForm.cep || zipFinal),
+        cep_congregacao: formatCepBr(fichaObreiroForm.cep_congregacao || fichaObreiroForm.cep || zipFinal),
+        carimbo_igreja_url: String(fichaObreiroForm.carimbo_igreja_url || church?.stamp_church_url || ""),
+        igreja_nome: String(fichaObreiroForm.igreja_nome || session?.church_name || church?.church_name || ""),
+        endereco_igreja_completo: String(fichaObreiroForm.endereco_igreja_completo || churchFooter || ""),
+        pastor_responsavel_nome: String(fichaObreiroForm.pastor_responsavel_nome || pastor?.full_name || ""),
+        pastor_responsavel_telefone: formatPhoneBr(String(fichaObreiroForm.pastor_responsavel_telefone || pastor?.phone || "")),
+        pastor_responsavel_email: String(fichaObreiroForm.pastor_responsavel_email || pastor?.email || ""),
+        assinatura_pastor_url: String(fichaObreiroForm.assinatura_pastor_url || pastor?.signature_url || ""),
+        ficha_titulo: String(fichaObreiroForm.ficha_titulo || "Ficha de cadastro de Membros"),
+        ficha_subtitulo: String(fichaObreiroForm.ficha_subtitulo || session?.church_name || church?.church_name || "Setorial"),
+        ficha_rodape: String(fichaObreiroForm.ficha_rodape || churchFooter || ""),
+      };
+      await submitFichaObreiro({
+        member_id: userId,
+        church_totvs_id: activeTotvs,
+        dados,
+      });
+      await refetchFichaObreiroStatus();
+      toast.success("Ficha de obreiro enviada para confecção.");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Falha ao enviar ficha de obreiro.";
+      toast.error(message || "Falha ao enviar ficha de obreiro.");
+    } finally {
+      setSendingDoc(false);
+    }
+  }
+
   async function excluirMeusDocumentos() {
     if (!userId || !activeTotvs) {
       toast.error("Dados de sessão inválidos.");
@@ -353,6 +714,184 @@ export default function UsuarioDocumentosPage() {
     }
   }
 
+  const temFilhosSim = String(fichaObreiroForm.tem_filhos || "").trim().toUpperCase() === "SIM";
+  const doencaFamiliaSim = String(fichaObreiroForm.doenca_familia || "").trim().toUpperCase() === "SIM";
+  const jaDirigiuExteriorSim = String(fichaObreiroForm.ja_dirigiu_exterior || "").trim().toUpperCase() === "SIM";
+  const cursoMinisterialSim = String(fichaObreiroForm.curso_ministerial || "").trim().toUpperCase() === "SIM";
+  const idiomaFluenteSim = String(fichaObreiroForm.idioma_fluente || "").trim().toUpperCase() === "SIM";
+  const recebePrebendaSim = String(fichaObreiroForm.recebe_prebenda || "").trim().toUpperCase() === "SIM";
+  const dirigeAlgumaIpdaSim = String(fichaObreiroForm.dirige_alguma_ipda || "").trim().toUpperCase() === "SIM";
+  const currentYear = new Date().getFullYear();
+  const desempenhoYearOptions = Array.from({ length: 70 }, (_, idx) => String(currentYear - idx));
+  const [historicoGestaoVisibleCount, setHistoricoGestaoVisibleCount] = useState(1);
+  const fichaCamposJaVisiveis = new Set([
+    "nome_completo",
+    "funcao_ministerial",
+    "cpf",
+    "rg",
+    "passaporte",
+    "telefone",
+    "email",
+    "data_nascimento",
+    "estado_civil",
+    "data_casamento",
+    "endereco",
+    "numero",
+    "bairro",
+    "cidade",
+    "estado",
+    "cep",
+    "profissao",
+    "ocupacao_atual",
+    "cidade_nascimento",
+    "uf_nascimento",
+    "nome_pai",
+    "nome_mae",
+    "nome_conjuge",
+    "conjuge_nascimento",
+    "conjuge_rg",
+    "conjuge_cpf",
+    "conjuge_e_crente",
+    "conjuge_outro_ministerio",
+    "tem_filhos",
+    "dependentes_qtd",
+    "filho1_nome",
+    "filho1_nascimento",
+    "filho2_nome",
+    "filho2_nascimento",
+    "filho3_nome",
+    "filho3_nascimento",
+    "doenca_familia",
+    "doenca_familia_qual",
+    "denominacao_aceitou_jesus",
+    "data_conversao",
+    "data_batismo_aguas",
+    "possui_credencial",
+    "recebe_prebenda",
+    "prebenda_tempo",
+    "prebenda_desde",
+    "dirige_alguma_ipda",
+    "dirige_ipda_qual",
+    "ordenacao_cooperador",
+    "ordenacao_diacono",
+    "ordenacao_presbitero",
+    "ordenacao_evangelista",
+    "ordenacao_voluntario",
+    "endereco_atual_congregacao",
+    "bairro_congregacao",
+    "cidade_congregacao",
+    "uf_congregacao",
+    "cep_congregacao",
+  ]);
+  const fichaCamposOcultos = new Set([
+    "matricula",
+    "data_batismo",
+    "data_termo_cidade",
+    "data_termo_dia",
+    "data_termo_mes",
+    "data_termo_ano",
+    "testemunha1_nome",
+    "testemunha1_documento",
+    "testemunha2_nome",
+    "testemunha2_documento",
+    "ficha_titulo",
+    "ficha_subtitulo",
+    "ficha_rodape",
+    "foto_3x4_url",
+    "carimbo_igreja_url",
+    "igreja_nome",
+    "compromisso_funcao",
+    "funcao_ministerial_secundaria",
+    "cep_membro",
+    "antiga_sede_central",
+    "sede_setorial",
+    "sucursal",
+    "congregacao_endereco",
+    "congregacao_numero",
+    "congregacao_bairro",
+    "congregacao_cidade",
+    "pastor_responsavel_nome",
+    "pastor_responsavel_telefone",
+    "pastor_responsavel_email",
+    "dirigente_congregacao",
+    "tel_congregacao",
+    "observacoes_termo",
+  ]);
+  const fichaCamposAdicionais = FICHA_OBREIRO_ALL_KEYS.filter(
+    (k) =>
+      !fichaCamposJaVisiveis.has(k) &&
+      !fichaCamposOcultos.has(k) &&
+      k !== "assinatura_pastor_url" &&
+      k !== "qr_code_url",
+  );
+  const dateKeys = new Set([
+    "data_batismo",
+    "conjuge_nascimento",
+    "filho1_nascimento",
+    "filho2_nascimento",
+    "filho3_nascimento",
+    "ordenacao_voluntario",
+  ]);
+  const yesNoKeys = new Set([
+    "conjuge_e_crente",
+    "conjuge_outro_ministerio",
+    "tem_filhos",
+    "doenca_familia",
+    "possui_credencial",
+    "recebe_prebenda",
+    "dirige_alguma_ipda",
+    "ja_dirigiu_exterior",
+    "doenca_exterior",
+    "idioma_fluente",
+    "foi_disciplinado",
+    "curso_ministerial",
+  ]);
+  const ufKeys = new Set(["uf_nascimento", "uf_congregacao", "historico_gestao_1_uf", "historico_gestao_2_uf", "historico_gestao_3_uf"]);
+  const exteriorDependentes = new Set([
+    "cidades_exterior",
+    "paises_exterior",
+    "doenca_exterior",
+    "doenca_exterior_quem",
+    "doenca_exterior_quais",
+    "motivo_volta_brasil",
+    "idioma_fluente",
+    "idioma_quais",
+  ]);
+  const continuationOrderedKeys = [
+    "ja_dirigiu_exterior",
+    "cidades_exterior",
+    "paises_exterior",
+    "doenca_exterior",
+    "doenca_exterior_quem",
+    "doenca_exterior_quais",
+    "motivo_volta_brasil",
+    "idioma_fluente",
+    "idioma_quais",
+    "escolaridade",
+    "desempenho_ministerio",
+    "desempenho_ano",
+    "foi_disciplinado",
+    "disciplinado_quantas_vezes",
+    "disciplinado_motivo",
+    "curso_ministerial",
+    "curso_ministerial_qual",
+    "historico_gestao_1_ano",
+    "historico_gestao_1_ipda",
+    "historico_gestao_1_uf",
+    "historico_gestao_1_tempo",
+    "historico_gestao_2_ano",
+    "historico_gestao_2_ipda",
+    "historico_gestao_2_uf",
+    "historico_gestao_2_tempo",
+    "historico_gestao_3_ano",
+    "historico_gestao_3_ipda",
+    "historico_gestao_3_uf",
+    "historico_gestao_3_tempo",
+  ];
+  const continuationOrderedKeysSet = new Set(continuationOrderedKeys);
+  const fichaCamposAdicionaisRestantes = fichaCamposAdicionais.filter((key) => !continuationOrderedKeysSet.has(key));
+  const historicoGestaoRows = [1, 2, 3].slice(0, historicoGestaoVisibleCount);
+
   return (
     <div className="min-h-screen bg-slate-100">
       <main className="mx-auto w-full max-w-[1200px] space-y-4 px-4 py-4">
@@ -369,9 +908,12 @@ export default function UsuarioDocumentosPage() {
             <Button variant="outline" onClick={() => nav("/usuario")}><ArrowLeft className="mr-2 h-4 w-4" /> Voltar</Button>
           </CardHeader>
           <CardContent className="space-y-3">
-            <div className="flex gap-2">
-              <Button variant={docTab === "carteirinha" ? "default" : "outline"} onClick={() => setDocTab("carteirinha")}>Carteirinha</Button>
-              <Button variant={docTab === "ficha" ? "default" : "outline"} onClick={() => setDocTab("ficha")}>Ficha do membro</Button>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:flex">
+              <Button className="w-full md:w-auto" variant={docTab === "carteirinha" ? "default" : "outline"} onClick={() => setDocTab("carteirinha")}>Carteirinha</Button>
+              <Button className="w-full md:w-auto" variant={docTab === "ficha" ? "default" : "outline"} onClick={() => setDocTab("ficha")}>Ficha do membro</Button>
+              {canSeeFichaObreiro ? (
+                <Button className="w-full md:w-auto sm:col-span-2 md:col-auto" variant={docTab === "ficha_obreiro" ? "default" : "outline"} onClick={() => setDocTab("ficha_obreiro")}>Ficha de obreiro</Button>
+              ) : null}
             </div>
             {docTab === "ficha" && !fichaPronta ? (
               <div className="flex flex-wrap items-center gap-2">
@@ -423,6 +965,398 @@ export default function UsuarioDocumentosPage() {
                 A carteirinha ainda não está pronta. Aguarde a confecção para visualizar.
               </div>
             ) : null}
+            {docTab === "ficha_obreiro" ? (
+              <div className="space-y-3">
+                <div className="rounded-xl border border-slate-200 bg-white p-4">
+                  <p className="mb-3 text-sm font-semibold text-slate-800">Formulário da ficha de obreiro</p>
+                  <div className="space-y-5">
+                    <div>
+                      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-600">Dados Pessoais</p>
+                      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                        <div className="space-y-1"><Label>Nome completo</Label><Input value={fichaObreiroForm.nome_completo || ""} onChange={(e) => setFichaField("nome_completo", e.target.value)} /></div>
+                        <div className="space-y-1"><Label>Função ministerial</Label><Input value={fichaObreiroForm.funcao_ministerial || ""} onChange={(e) => setFichaField("funcao_ministerial", e.target.value)} /></div>
+                        <div className="space-y-1"><Label>CPF</Label><Input value={fichaObreiroForm.cpf || ""} onChange={(e) => setFichaField("cpf", e.target.value)} /></div>
+                        <div className="space-y-1"><Label>RG</Label><Input value={fichaObreiroForm.rg || ""} onChange={(e) => setFichaField("rg", e.target.value)} /></div>
+                        <div className="space-y-1"><Label>Passaporte</Label><Input value={fichaObreiroForm.passaporte || ""} onChange={(e) => setFichaField("passaporte", e.target.value)} /></div>
+                        <div className="space-y-1"><Label>Telefone</Label><Input value={fichaObreiroForm.telefone || ""} onChange={(e) => setFichaField("telefone", e.target.value)} /></div>
+                        <div className="space-y-1"><Label>E-mail</Label><Input value={fichaObreiroForm.email || ""} onChange={(e) => setFichaField("email", e.target.value)} /></div>
+                        <div className="space-y-1"><Label>Data de nascimento</Label><Input type="date" value={fichaObreiroForm.data_nascimento || ""} onChange={(e) => setFichaField("data_nascimento", e.target.value)} /></div>
+                        <div className="space-y-1"><Label>Estado civil</Label><Input value={fichaObreiroForm.estado_civil || ""} onChange={(e) => setFichaField("estado_civil", e.target.value)} /></div>
+                        <div className="space-y-1"><Label>Data de casamento</Label><Input type="date" value={fichaObreiroForm.data_casamento || ""} onChange={(e) => setFichaField("data_casamento", e.target.value)} /></div>
+                        <div className="space-y-1 xl:col-span-2"><Label>Endereço</Label><Input value={fichaObreiroForm.endereco || ""} onChange={(e) => setFichaField("endereco", e.target.value)} /></div>
+                        <div className="space-y-1"><Label>Número</Label><Input value={fichaObreiroForm.numero || ""} onChange={(e) => setFichaField("numero", e.target.value)} /></div>
+                        <div className="space-y-1"><Label>Bairro</Label><Input value={fichaObreiroForm.bairro || ""} onChange={(e) => setFichaField("bairro", e.target.value)} /></div>
+                        <div className="space-y-1"><Label>Cidade</Label><Input value={fichaObreiroForm.cidade || ""} onChange={(e) => setFichaField("cidade", e.target.value)} /></div>
+                        <div className="space-y-1"><Label>Estado</Label><Input value={fichaObreiroForm.estado || ""} onChange={(e) => setFichaField("estado", e.target.value)} /></div>
+                        <div className="space-y-1"><Label>CEP</Label><Input value={fichaObreiroForm.cep || ""} onChange={(e) => setFichaField("cep", e.target.value)} /></div>
+                        <div className="space-y-1"><Label>Profissão</Label><Input value={fichaObreiroForm.profissao || ""} onChange={(e) => setFichaField("profissao", e.target.value)} /></div>
+                        <div className="space-y-1"><Label>Ocupação atual</Label><Input value={fichaObreiroForm.ocupacao_atual || ""} onChange={(e) => setFichaField("ocupacao_atual", e.target.value)} /></div>
+                        <div className="space-y-1"><Label>Cidade nascimento</Label><Input value={fichaObreiroForm.cidade_nascimento || ""} onChange={(e) => setFichaField("cidade_nascimento", e.target.value)} /></div>
+                        <div className="space-y-1">
+                          <Label>UF nascimento</Label>
+                          <select
+                            className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                            value={fichaObreiroForm.uf_nascimento || ""}
+                            onChange={(e) => setFichaField("uf_nascimento", e.target.value)}
+                          >
+                            <option value="">Selecione</option>
+                            {BRAZIL_UF_OPTIONS.map((uf) => (
+                              <option key={uf} value={uf}>
+                                {uf}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="space-y-1"><Label>Nome do pai</Label><Input value={fichaObreiroForm.nome_pai || ""} onChange={(e) => setFichaField("nome_pai", e.target.value)} /></div>
+                        <div className="space-y-1"><Label>Nome da mãe</Label><Input value={fichaObreiroForm.nome_mae || ""} onChange={(e) => setFichaField("nome_mae", e.target.value)} /></div>
+                      </div>
+                    </div>
+
+                    <div>
+                      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-600">Dados Familiares</p>
+                      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                        <div className="space-y-1"><Label>Nome da esposa</Label><Input value={fichaObreiroForm.nome_conjuge || ""} onChange={(e) => setFichaField("nome_conjuge", e.target.value)} /></div>
+                        <div className="space-y-1"><Label>Nascimento da esposa</Label><Input type="date" value={fichaObreiroForm.conjuge_nascimento || ""} onChange={(e) => setFichaField("conjuge_nascimento", e.target.value)} /></div>
+                        <div className="space-y-1"><Label>RG esposa</Label><Input value={fichaObreiroForm.conjuge_rg || ""} onChange={(e) => setFichaField("conjuge_rg", e.target.value)} /></div>
+                        <div className="space-y-1"><Label>CPF esposa</Label><Input value={fichaObreiroForm.conjuge_cpf || ""} onChange={(e) => setFichaField("conjuge_cpf", e.target.value)} /></div>
+                        <div className="space-y-1">
+                          <Label>Esposa é crente</Label>
+                          <select
+                            className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                            value={fichaObreiroForm.conjuge_e_crente || ""}
+                            onChange={(e) => setFichaField("conjuge_e_crente", e.target.value)}
+                          >
+                            <option value="">Selecione</option>
+                            <option value="SIM">Sim</option>
+                            <option value="NÃO">Não</option>
+                          </select>
+                        </div>
+                        <div className="space-y-1">
+                          <Label>Esposa de outro ministério</Label>
+                          <select
+                            className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                            value={fichaObreiroForm.conjuge_outro_ministerio || ""}
+                            onChange={(e) => setFichaField("conjuge_outro_ministerio", e.target.value)}
+                          >
+                            <option value="">Selecione</option>
+                            <option value="SIM">Sim</option>
+                            <option value="NÃO">Não</option>
+                          </select>
+                        </div>
+                        <div className="space-y-1">
+                          <Label>Tem filhos</Label>
+                          <select
+                            className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                            value={fichaObreiroForm.tem_filhos || ""}
+                            onChange={(e) => setFichaField("tem_filhos", e.target.value)}
+                          >
+                            <option value="">Selecione</option>
+                            <option value="SIM">Sim</option>
+                            <option value="NÃO">Não</option>
+                          </select>
+                        </div>
+                        <div className="space-y-1"><Label>Nº dependentes</Label><Input value={fichaObreiroForm.dependentes_qtd || ""} onChange={(e) => setFichaField("dependentes_qtd", e.target.value)} /></div>
+                        <div className="space-y-1">
+                          <Label>Doença família</Label>
+                          <select
+                            className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                            value={fichaObreiroForm.doenca_familia || ""}
+                            onChange={(e) => setFichaField("doenca_familia", e.target.value)}
+                          >
+                            <option value="">Selecione</option>
+                            <option value="SIM">Sim</option>
+                            <option value="NÃO">Não</option>
+                          </select>
+                        </div>
+                        {temFilhosSim ? (
+                          <>
+                            <div className="space-y-1"><Label>Filho1 Nome</Label><Input value={fichaObreiroForm.filho1_nome || ""} onChange={(e) => setFichaField("filho1_nome", e.target.value)} /></div>
+                            <div className="space-y-1"><Label>Filho1 Nascimento</Label><Input type="date" value={fichaObreiroForm.filho1_nascimento || ""} onChange={(e) => setFichaField("filho1_nascimento", e.target.value)} /></div>
+                            <div className="space-y-1"><Label>Filho2 Nome</Label><Input value={fichaObreiroForm.filho2_nome || ""} onChange={(e) => setFichaField("filho2_nome", e.target.value)} /></div>
+                            <div className="space-y-1"><Label>Filho2 Nascimento</Label><Input type="date" value={fichaObreiroForm.filho2_nascimento || ""} onChange={(e) => setFichaField("filho2_nascimento", e.target.value)} /></div>
+                            <div className="space-y-1"><Label>Filho3 Nome</Label><Input value={fichaObreiroForm.filho3_nome || ""} onChange={(e) => setFichaField("filho3_nome", e.target.value)} /></div>
+                            <div className="space-y-1"><Label>Filho3 Nascimento</Label><Input type="date" value={fichaObreiroForm.filho3_nascimento || ""} onChange={(e) => setFichaField("filho3_nascimento", e.target.value)} /></div>
+                          </>
+                        ) : null}
+                        {doencaFamiliaSim ? (
+                          <div className="space-y-1 xl:col-span-2"><Label>Doença família qual</Label><Input value={fichaObreiroForm.doenca_familia_qual || ""} onChange={(e) => setFichaField("doenca_familia_qual", e.target.value)} /></div>
+                        ) : null}
+                      </div>
+                    </div>
+
+                    <div>
+                      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-600">Dados Ministeriais Do(a) Obreiro(a)</p>
+                      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                        <div className="space-y-1"><Label>Em qual denominação aceitou Jesus</Label><Input value={fichaObreiroForm.denominacao_aceitou_jesus || ""} onChange={(e) => setFichaField("denominacao_aceitou_jesus", e.target.value)} /></div>
+                        <div className="space-y-1"><Label>Data da conversão</Label><Input type="date" value={fichaObreiroForm.data_conversao || ""} onChange={(e) => setFichaField("data_conversao", e.target.value)} /></div>
+                        <div className="space-y-1"><Label>Data Batismo</Label><Input type="date" value={fichaObreiroForm.data_batismo_aguas || ""} onChange={(e) => setFichaField("data_batismo_aguas", e.target.value)} /></div>
+                        <div className="space-y-1"><Label>Ordenação cooperador</Label><Input type="date" value={fichaObreiroForm.ordenacao_cooperador || ""} onChange={(e) => setFichaField("ordenacao_cooperador", e.target.value)} /></div>
+                        <div className="space-y-1"><Label>Ordenação diácono</Label><Input type="date" value={fichaObreiroForm.ordenacao_diacono || ""} onChange={(e) => setFichaField("ordenacao_diacono", e.target.value)} /></div>
+                        <div className="space-y-1"><Label>Ordenação presbítero</Label><Input type="date" value={fichaObreiroForm.ordenacao_presbitero || ""} onChange={(e) => setFichaField("ordenacao_presbitero", e.target.value)} /></div>
+                        <div className="space-y-1"><Label>Ordenação evangelista</Label><Input type="date" value={fichaObreiroForm.ordenacao_evangelista || ""} onChange={(e) => setFichaField("ordenacao_evangelista", e.target.value)} /></div>
+                        <div className="space-y-1"><Label>Ordenação voluntário(a) financeiro(a)</Label><Input type="date" value={fichaObreiroForm.ordenacao_voluntario || ""} onChange={(e) => setFichaField("ordenacao_voluntario", e.target.value)} /></div>
+                        <div className="space-y-1">
+                          <Label>Possui credencial</Label>
+                          <select
+                            className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                            value={fichaObreiroForm.possui_credencial || ""}
+                            onChange={(e) => setFichaField("possui_credencial", e.target.value)}
+                          >
+                            <option value="">Selecione</option>
+                            <option value="SIM">Sim</option>
+                            <option value="NÃO">Não</option>
+                          </select>
+                        </div>
+                        <div className="space-y-1">
+                          <Label>Recebe prebenda</Label>
+                          <select
+                            className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                            value={fichaObreiroForm.recebe_prebenda || ""}
+                            onChange={(e) => setFichaField("recebe_prebenda", e.target.value)}
+                          >
+                            <option value="">Selecione</option>
+                            <option value="SIM">Sim</option>
+                            <option value="NÃO">Não</option>
+                          </select>
+                        </div>
+                        {recebePrebendaSim ? (
+                          <>
+                            <div className="space-y-1"><Label>Há quanto tempo</Label><Input value={fichaObreiroForm.prebenda_tempo || ""} onChange={(e) => setFichaField("prebenda_tempo", e.target.value)} /></div>
+                            <div className="space-y-1"><Label>Prebenda desde</Label><Input value={fichaObreiroForm.prebenda_desde || ""} onChange={(e) => setFichaField("prebenda_desde", e.target.value)} /></div>
+                          </>
+                        ) : null}
+                        <div className="space-y-1">
+                          <Label>Dirige alguma IPDA</Label>
+                          <select
+                            className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                            value={fichaObreiroForm.dirige_alguma_ipda || ""}
+                            onChange={(e) => setFichaField("dirige_alguma_ipda", e.target.value)}
+                          >
+                            <option value="">Selecione</option>
+                            <option value="SIM">Sim</option>
+                            <option value="NÃO">Não</option>
+                          </select>
+                        </div>
+                        {dirigeAlgumaIpdaSim ? (
+                          <div className="space-y-1"><Label>Qual IPDA dirige</Label><Input value={fichaObreiroForm.dirige_ipda_qual || ""} onChange={(e) => setFichaField("dirige_ipda_qual", e.target.value)} /></div>
+                        ) : null}
+                        <div className="space-y-1 xl:col-span-2"><Label>Endereço atual congregação</Label><Input value={fichaObreiroForm.endereco_atual_congregacao || ""} onChange={(e) => setFichaField("endereco_atual_congregacao", e.target.value)} /></div>
+                        <div className="space-y-1"><Label>Bairro congregação</Label><Input value={fichaObreiroForm.bairro_congregacao || ""} onChange={(e) => setFichaField("bairro_congregacao", e.target.value)} /></div>
+                        <div className="space-y-1"><Label>Cidade congregação</Label><Input value={fichaObreiroForm.cidade_congregacao || ""} onChange={(e) => setFichaField("cidade_congregacao", e.target.value)} /></div>
+                        <div className="space-y-1"><Label>UF congregação</Label><Input value={fichaObreiroForm.uf_congregacao || ""} onChange={(e) => setFichaField("uf_congregacao", e.target.value)} /></div>
+                        <div className="space-y-1"><Label>CEP congregação</Label><Input value={fichaObreiroForm.cep_congregacao || ""} onChange={(e) => setFichaField("cep_congregacao", e.target.value)} /></div>
+                      </div>
+                    </div>
+                  </div>
+                  {continuationOrderedKeys.length > 0 ? (
+                    <div className="mt-4">
+                      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-600">Continuação - Dados Ministeriais</p>
+                      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                      {continuationOrderedKeys.map((key) => {
+                        if (!Object.prototype.hasOwnProperty.call(fichaObreiroForm, key)) return null;
+                        if (exteriorDependentes.has(key) && !jaDirigiuExteriorSim) return null;
+                        if (key === "curso_ministerial_qual" && !cursoMinisterialSim) return null;
+                        if (key === "idioma_quais" && !idiomaFluenteSim) return null;
+                        if (key === "prebenda_tempo" && !recebePrebendaSim) return null;
+                        if (key === "prebenda_desde" && !recebePrebendaSim) return null;
+                        if (key === "dirige_ipda_qual" && !dirigeAlgumaIpdaSim) return null;
+                        if (key.startsWith("historico_gestao_")) return null;
+                        const isLong = key.includes("observacao") || key.includes("motivo") || key.includes("desempenho");
+                        const isDate = dateKeys.has(key);
+                        return (
+                          <div className={`space-y-1 ${isLong ? "xl:col-span-2" : ""}`} key={key}>
+                            <Label>{fichaFieldLabel(key)}</Label>
+                            {isLong ? (
+                              <Textarea value={fichaObreiroForm[key] || ""} onChange={(e) => setFichaField(key, e.target.value)} />
+                            ) : yesNoKeys.has(key) ? (
+                              <select
+                                className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                                value={fichaObreiroForm[key] || ""}
+                                onChange={(e) => setFichaField(key, e.target.value)}
+                              >
+                                <option value="">Selecione</option>
+                                <option value="SIM">Sim</option>
+                                <option value="NÃO">Não</option>
+                              </select>
+                            ) : ufKeys.has(key) ? (
+                              <select
+                                className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                                value={fichaObreiroForm[key] || ""}
+                                onChange={(e) => setFichaField(key, e.target.value)}
+                              >
+                                <option value="">Selecione</option>
+                                {BRAZIL_UF_OPTIONS.map((uf) => (
+                                  <option key={uf} value={uf}>
+                                    {uf}
+                                  </option>
+                                ))}
+                              </select>
+                            ) : key === "desempenho_ano" ? (
+                              <select
+                                className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                                value={fichaObreiroForm[key] || ""}
+                                onChange={(e) => setFichaField(key, e.target.value)}
+                              >
+                                <option value="">Selecione o ano</option>
+                                {desempenhoYearOptions.map((ano) => (
+                                  <option key={ano} value={ano}>
+                                    {ano}
+                                  </option>
+                                ))}
+                              </select>
+                            ) : (
+                              <Input type={isDate ? "date" : "text"} value={fichaObreiroForm[key] || ""} onChange={(e) => setFichaField(key, e.target.value)} />
+                            )}
+                          </div>
+                        );
+                      })}
+                      <div className="space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-3 md:col-span-2 xl:col-span-4">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-700">
+                          Abaixo escreva quais IPDAs você dirigiu, em que ano e quanto tempo durou sua gestão em cada uma delas:
+                        </p>
+                        {historicoGestaoRows.map((row) => {
+                          const anoKey = `historico_gestao_${row}_ano`;
+                          const ipdaKey = `historico_gestao_${row}_ipda`;
+                          const ufKey = `historico_gestao_${row}_uf`;
+                          const tempoKey = `historico_gestao_${row}_tempo`;
+                          return (
+                            <div className="grid gap-2 md:grid-cols-[160px_minmax(0,1fr)_140px_170px]" key={`historico-row-${row}`}>
+                              <div className="space-y-1">
+                                <Label>ANO</Label>
+                                <select
+                                  className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                                  value={fichaObreiroForm[anoKey] || ""}
+                                  onChange={(e) => setFichaField(anoKey, e.target.value)}
+                                >
+                                  <option value="">Selecione o ano</option>
+                                  {desempenhoYearOptions.map((ano) => (
+                                    <option key={`${anoKey}-${ano}`} value={ano}>
+                                      {ano}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+                              <div className="space-y-1">
+                                <Label>IPDA</Label>
+                                <Input value={fichaObreiroForm[ipdaKey] || ""} onChange={(e) => setFichaField(ipdaKey, e.target.value)} />
+                              </div>
+                              <div className="space-y-1">
+                                <Label>UF</Label>
+                                <select
+                                  className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                                  value={fichaObreiroForm[ufKey] || ""}
+                                  onChange={(e) => setFichaField(ufKey, e.target.value)}
+                                >
+                                  <option value="">Selecione</option>
+                                  {BRAZIL_UF_OPTIONS.map((uf) => (
+                                    <option key={`${ufKey}-${uf}`} value={uf}>
+                                      {uf}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+                              <div className="space-y-1">
+                                <Label>TEMPO</Label>
+                                <Input value={fichaObreiroForm[tempoKey] || ""} onChange={(e) => setFichaField(tempoKey, e.target.value)} />
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                      </div>
+                    </div>
+                  ) : null}
+                  {fichaCamposAdicionaisRestantes.length > 0 ? (
+                    <div className="mt-4">
+                      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-600">Dados Complementares</p>
+                      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                        {fichaCamposAdicionaisRestantes.map((key) => {
+                          const isLong = key.includes("observacao") || key.includes("motivo") || key.includes("desempenho");
+                          const isDate = dateKeys.has(key);
+                          return (
+                            <div className={`space-y-1 ${isLong ? "xl:col-span-2" : ""}`} key={key}>
+                              <Label>{fichaFieldLabel(key)}</Label>
+                              {isLong ? (
+                                <Textarea value={fichaObreiroForm[key] || ""} onChange={(e) => setFichaField(key, e.target.value)} />
+                              ) : yesNoKeys.has(key) ? (
+                                <select
+                                  className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                                  value={fichaObreiroForm[key] || ""}
+                                  onChange={(e) => setFichaField(key, e.target.value)}
+                                >
+                                  <option value="">Selecione</option>
+                                  <option value="SIM">Sim</option>
+                                  <option value="NÃO">Não</option>
+                                </select>
+                              ) : ufKeys.has(key) ? (
+                                <select
+                                  className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                                  value={fichaObreiroForm[key] || ""}
+                                  onChange={(e) => setFichaField(key, e.target.value)}
+                                >
+                                  <option value="">Selecione</option>
+                                  {BRAZIL_UF_OPTIONS.map((uf) => (
+                                    <option key={uf} value={uf}>
+                                      {uf}
+                                    </option>
+                                  ))}
+                                </select>
+                              ) : (
+                                <Input type={isDate ? "date" : "text"} value={fichaObreiroForm[key] || ""} onChange={(e) => setFichaField(key, e.target.value)} />
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ) : null}
+                  {historicoGestaoVisibleCount < 3 ? (
+                    <div className="mt-3">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setHistoricoGestaoVisibleCount((prev) => Math.min(3, prev + 1))}
+                      >
+                        Adicionar mais histórico
+                      </Button>
+                    </div>
+                  ) : null}
+                </div>
+                {!fichaObreiroPronta ? (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button onClick={enviarFichaObreiroParaConfeccao} disabled={sendingDoc || isCadastroPendente || !userId}>
+                      <Send className="mr-2 h-4 w-4" />
+                      Enviar ficha de obreiro
+                    </Button>
+                    {fetchingFichaObreiroStatus ? <span className="text-xs text-slate-500">Verificando status...</span> : null}
+                  </div>
+                ) : null}
+                {fichaObreiroPronta ? (
+                  <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+                    <p className="text-sm font-semibold text-emerald-700">Ficha de obreiro pronta.</p>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <Button size="sm" onClick={() => window.open(fichaObreiroUrl, "_blank", "noopener,noreferrer")}>
+                        Abrir ficha de obreiro
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={() => window.open(fichaObreiroUrl, "_blank", "noopener,noreferrer")}>
+                        Baixar ficha de obreiro
+                      </Button>
+                    </div>
+                  </div>
+                ) : null}
+                {!fichaObreiroPronta && fichaObreiroStatus === "ERRO" ? (
+                  <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
+                    Falha ao processar ficha de obreiro. {String(fichaObreiroStatusData?.ficha_obreiro?.error_message || "").trim()}
+                  </div>
+                ) : null}
+                {!fichaObreiroPronta && fichaObreiroStatus && fichaObreiroStatus !== "ERRO" ? (
+                  <div className="rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-600">
+                    Status atual: <strong>{fichaObreiroStatus}</strong>.
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
             {/* Ficha: mostra sempre a pré-visualização com todos os dados do membro */}
             {docTab === "ficha" ? (
               <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
@@ -435,4 +1369,3 @@ export default function UsuarioDocumentosPage() {
     </div>
   );
 }
-

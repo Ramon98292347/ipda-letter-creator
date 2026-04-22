@@ -4,9 +4,26 @@ import { jwtVerify } from "https://esm.sh/jose@5.2.4";
 
 type Role = "admin" | "pastor" | "obreiro" | "secretario" | "financeiro";
 type SessionClaims = { user_id: string; role: Role; active_totvs_id: string };
+const OBREIRO_ALLOWED_MINISTER_ROLES = new Set([
+  "cooperador",
+  "obreiro",
+  "diacono",
+  "presbitero",
+  "pastor",
+  "evangelista",
+  "missionario",
+]);
 
 function toText(value: unknown) {
   return String(value || "").trim();
+}
+
+function normalizeRoleValue(value: unknown) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
 }
 
 function digitsOnly(value: unknown) {
@@ -375,8 +392,18 @@ Deno.serve(async (req) => {
       }, 200);
     }
 
-    if (!["admin", "pastor", "secretario"].includes(session.role)) {
+    if (!["admin", "pastor", "secretario", "obreiro"].includes(session.role)) {
       return json({ ok: false, error: "forbidden" }, 403);
+    }
+
+    if (session.role === "obreiro") {
+      if (session.user_id !== memberId) {
+        return json({ ok: false, error: "forbidden_not_self" }, 403);
+      }
+      const actorRole = normalizeRoleValue((member as Record<string, unknown>)?.minister_role);
+      if (!OBREIRO_ALLOWED_MINISTER_ROLES.has(actorRole)) {
+        return json({ ok: false, error: "forbidden_minister_role" }, 403);
+      }
     }
 
     const dadosRaw = ((body.dados || {}) as Record<string, unknown>);

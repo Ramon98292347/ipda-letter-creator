@@ -852,3 +852,26 @@ Arquivo de referencia:
 - coluna de URL final: `url`
 - restricao de status atualmente aceita no banco: `RASCUNHO`, `ENVIADO_WEBHOOK`, `PROCESSADO`, `ERRO`
 - recomendacao de padronizacao futura: incluir `PRONTO` na constraint para alinhar com a UI
+
+### Regra operacional - ficha de obreiro (aba Documentos)
+
+- a aba `Ficha de obreiro` esta ativa para `pastor` e para `obreiro` com cargo ministerial `cooperador` ou acima
+- os botoes de abas em `Documentos` devem ser responsivos no celular (layout empilhado em telas pequenas)
+- o formulario da ficha foi dividido por blocos do documento oficial:
+  - `Dados Pessoais`
+  - `Dados Familiares`
+  - `Dados Ministeriais do(a) Obreiro(a)`
+  - `Continuacao - Dados Ministeriais`
+- `Data Batismo` deve preencher automaticamente com `baptism_date` do usuario logado
+- a data de ordenacao deve preencher automaticamente no campo do cargo ministerial correspondente ao usuario logado
+- campos removidos da UI por decisao operacional:
+  - `Matricula`
+  - `Carimbo Igreja Url`
+  - `Igreja Nome`
+  - `Pastor Responsavel Nome`
+  - `Pastor Responsavel Telefone`
+  - `Pastor Responsavel Email`
+  - `Dirigente Congregacao`
+  - `Tel Congregacao`
+  - `Observacoes Termo`
+- historico de gestao segue layout proprio com titulo e linhas `ANO | IPDA | UF | TEMPO`, com botao para adicionar mais linhas
