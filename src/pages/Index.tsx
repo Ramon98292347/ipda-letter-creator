@@ -115,6 +115,7 @@ const Index = () => {
     handleSubmit,
     reset,
     setValue,
+    clearErrors,
     watch,
     formState: { errors },
   } = useForm<FormData>({
@@ -530,24 +531,28 @@ const Index = () => {
     const loggedId = String(usuario?.id || "");
     if (!loggedId || selectedPreacherUserId) return;
     const me = preachersMap.get(loggedId);
+    const phone = String(me?.phone || telefoneUsuarioLogado || "").trim();
     setSelectedPreacherUserId(loggedId);
     setValue("preacherUserId", loggedId, { shouldValidate: false });
     setValue("pregadorNome", String(me?.full_name || usuario?.nome || ""), { shouldValidate: true });
-    setValue("telefone", String(me?.phone || telefoneUsuarioLogado || ""), { shouldValidate: true });
+    setValue("telefone", phone, { shouldValidate: Boolean(phone) });
+    if (phone) clearErrors("telefone");
     setUsuarioEmail(String(me?.email || (usuario as LegacyUsuarioExtra | null)?.email || ""));
     setUsuarioMinisterial(String(me?.minister_role || (usuario as LegacyUsuarioExtra | null)?.ministerial || "Obreiro"));
-  }, [preachersMap, selectedPreacherUserId, setValue, telefoneUsuarioLogado, usuario]);
+  }, [preachersMap, selectedPreacherUserId, setValue, clearErrors, telefoneUsuarioLogado, usuario]);
 
   useEffect(() => {
     if (!selectedPreacherUserId) return;
     const selected = preachersMap.get(selectedPreacherUserId);
     if (!selected) return;
+    const phone = String(selected.phone || "").trim();
     setValue("preacherUserId", selectedPreacherUserId, { shouldValidate: false });
     setValue("pregadorNome", String(selected.full_name || ""), { shouldValidate: true });
-    setValue("telefone", String(selected.phone || ""), { shouldValidate: true });
+    setValue("telefone", phone, { shouldValidate: Boolean(phone) });
+    if (phone) clearErrors("telefone");
     setUsuarioEmail(String(selected.email || ""));
     setUsuarioMinisterial(String(selected.minister_role || "Obreiro"));
-  }, [preachersMap, selectedPreacherUserId, setValue]);
+  }, [preachersMap, selectedPreacherUserId, setValue, clearErrors]);
 
   useEffect(() => {
     if (!allowedOriginChurches.length) return;
@@ -741,7 +746,7 @@ const Index = () => {
                     type="tel"
                     placeholder="Digite o telefone"
                     {...register("telefone")}
-                    disabled={Boolean(telefoneUsuarioLogado)}
+                    readOnly={Boolean(telefoneUsuarioLogado)}
                     className="h-11 rounded-xl border-slate-300 bg-slate-50 transition-colors focus:border-blue-500 focus:ring-blue-500"
                     required
                   />
