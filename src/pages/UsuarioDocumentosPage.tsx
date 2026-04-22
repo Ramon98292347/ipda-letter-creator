@@ -147,6 +147,18 @@ const FICHA_OBREIRO_ALL_KEYS = [
   "historico_gestao_3_ipda",
   "historico_gestao_3_uf",
   "historico_gestao_3_tempo",
+  "historico_gestao_4_ano",
+  "historico_gestao_4_ipda",
+  "historico_gestao_4_uf",
+  "historico_gestao_4_tempo",
+  "historico_gestao_5_ano",
+  "historico_gestao_5_ipda",
+  "historico_gestao_5_uf",
+  "historico_gestao_5_tempo",
+  "historico_gestao_6_ano",
+  "historico_gestao_6_ipda",
+  "historico_gestao_6_uf",
+  "historico_gestao_6_tempo",
 ];
 
 function fichaFieldLabel(key: string) {
@@ -889,10 +901,22 @@ export default function UsuarioDocumentosPage() {
     "historico_gestao_3_ipda",
     "historico_gestao_3_uf",
     "historico_gestao_3_tempo",
+    "historico_gestao_4_ano",
+    "historico_gestao_4_ipda",
+    "historico_gestao_4_uf",
+    "historico_gestao_4_tempo",
+    "historico_gestao_5_ano",
+    "historico_gestao_5_ipda",
+    "historico_gestao_5_uf",
+    "historico_gestao_5_tempo",
+    "historico_gestao_6_ano",
+    "historico_gestao_6_ipda",
+    "historico_gestao_6_uf",
+    "historico_gestao_6_tempo",
   ];
   const continuationOrderedKeysSet = new Set(continuationOrderedKeys);
   const fichaCamposAdicionaisRestantes = fichaCamposAdicionais.filter((key) => !continuationOrderedKeysSet.has(key));
-  const historicoGestaoRows = [1, 2, 3].slice(0, historicoGestaoVisibleCount);
+  const historicoGestaoRows = Array.from({ length: Math.min(6, historicoGestaoVisibleCount) }, (_, idx) => idx + 1);
 
   return (
     <div className="min-h-screen bg-slate-100">
@@ -1314,13 +1338,13 @@ export default function UsuarioDocumentosPage() {
                       </div>
                     </div>
                   ) : null}
-                  {historicoGestaoVisibleCount < 3 ? (
+                  {historicoGestaoVisibleCount < 6 ? (
                     <div className="mt-3">
                       <Button
                         type="button"
                         variant="outline"
                         size="sm"
-                        onClick={() => setHistoricoGestaoVisibleCount((prev) => Math.min(3, prev + 1))}
+                        onClick={() => setHistoricoGestaoVisibleCount((prev) => Math.min(6, prev + 1))}
                       >
                         Adicionar mais histórico
                       </Button>
