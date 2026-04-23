@@ -117,7 +117,7 @@ export function ReceiptModal({ open, onOpenChange, data }: ReceiptModalProps) {
   });
   const [bluetoothDeviceName, setBluetoothDeviceName] = useState("");
   const [isBluetoothPrinting, setIsBluetoothPrinting] = useState(false);
-  const [isDataPanelCollapsed, setIsDataPanelCollapsed] = useState(false);
+  const [isDataPanelCollapsed, setIsDataPanelCollapsed] = useState(true);
   const [qrDataUrl, setQrDataUrl] = useState("");
   const logoRef = useRef<HTMLImageElement | null>(null);
   const qrRef = useRef<HTMLImageElement | null>(null);
@@ -498,13 +498,13 @@ export function ReceiptModal({ open, onOpenChange, data }: ReceiptModalProps) {
       const boostStyle = document.createElement("style");
       boostStyle.setAttribute("data-capture-style", "receipt-font-boost");
       boostStyle.textContent = `
-        [data-capture-font-boost="1"] p,
-        [data-capture-font-boost="1"] span,
-        [data-capture-font-boost="1"] strong {
+        [data-capture-font-boost="1"] .capture-boost p,
+        [data-capture-font-boost="1"] .capture-boost span,
+        [data-capture-font-boost="1"] .capture-boost strong {
           font-size: 1.2em !important;
           line-height: 1.34 !important;
         }
-        [data-capture-font-boost="1"] .font-extrabold.uppercase {
+        [data-capture-font-boost="1"] .capture-boost .font-extrabold.uppercase {
           font-size: 1.28em !important;
           line-height: 1.3 !important;
         }
@@ -895,27 +895,28 @@ export function ReceiptModal({ open, onOpenChange, data }: ReceiptModalProps) {
                       alt="Logo Igreja"
                       className="block h-auto w-[calc(100%+8mm)] max-w-none -mx-[4mm] mb-[2mm]"
                     />
-                    <p className={`m-0 font-extrabold uppercase leading-[1.25] ${thermalWidth === "56" ? "text-[13px]" : "text-[14px]"}`}>Igreja Pentecostal Deus e Amor</p>
-                    <p className={`m-0 mt-[1mm] font-bold leading-[1.2] ${thermalWidth === "56" ? "text-[11px]" : "text-[12px]"}`}>CNPJ: 43.208.040/0001-36</p>
+                    <p className={`m-0 font-extrabold uppercase leading-[1.25] ${thermalWidth === "56" ? "text-[12px]" : "text-[13px]"}`}>Igreja Pentecostal Deus e Amor</p>
+                    <p className={`m-0 mt-[1mm] font-bold leading-[1.2] ${thermalWidth === "56" ? "text-[10px]" : "text-[11px]"}`}>CNPJ: 43.208.040/0001-36</p>
                     <p className={`m-0 mt-[2mm] font-extrabold uppercase leading-[1.25] ${thermalWidth === "56" ? "text-[12px]" : "text-[13px]"}`}>Apoio Evangelistico / Pregacao</p>
                     <p className={`m-0 mt-[1mm] leading-[1.2] ${thermalWidth === "56" ? "text-[10px]" : "text-[11px]"}`}>Comprovante oficial de recebimento</p>
                   </div>
 
                   <div className="border-t border-dashed border-black my-[3mm]" />
 
-                  <div className="text-center">
+                  <div className="text-center capture-boost">
                     <p className={`m-0 uppercase font-bold ${thermalWidth === "56" ? "text-[12px]" : "text-[13px]"}`}>Valor Recebido</p>
                     <p className={`m-0 mt-[1.2mm] font-black leading-[1.1] ${thermalWidth === "56" ? "text-[28px]" : "text-[32px]"}`}>R$ {valorValido.toFixed(2)}</p>
                   </div>
 
                   <div className="border-t border-dashed border-black my-[3mm]" />
 
-                  <p className={`m-0 leading-[1.5] text-center ${thermalWidth === "56" ? "text-[11px]" : "text-[12px]"}`}>
+                  <p className={`m-0 leading-[1.5] text-center capture-boost ${thermalWidth === "56" ? "text-[11px]" : "text-[12px]"}`}>
                     Recebi da <strong>IPDA</strong> a quantia de <strong>R$ {valorValido.toFixed(2)}</strong> ({valorExtenso}), referente a <strong>{obs || "Contribuicao"}</strong>.
                   </p>
 
                   <div className="border-t border-dashed border-black my-[3mm]" />
 
+                  <div className="capture-boost">
                   <p className={`m-0 font-extrabold uppercase text-center ${thermalWidth === "56" ? "text-[12px]" : "text-[13px]"}`}>Dados do Recibo</p>
                   <div className={`mt-[2mm] leading-[1.5] ${thermalWidth === "56" ? "text-[11px]" : "text-[12px]"}`}>
                     <div className="mb-[1.5mm]"><span className="font-extrabold uppercase">Codigo da Carta:</span><br /><span>{cartaId}</span></div>
@@ -923,14 +924,15 @@ export function ReceiptModal({ open, onOpenChange, data }: ReceiptModalProps) {
                     <div className="mb-[1.5mm]"><span className="font-extrabold uppercase">Funcao:</span><br /><span>{data.letter.minister_role}</span></div>
                     <div className="mb-[1.5mm]"><span className="font-extrabold uppercase">Local e Data:</span><br /><span className="capitalize">{dataAtual}</span></div>
                   </div>
+                  </div>
 
                   <div className="border-t border-dashed border-black my-[3mm]" />
 
-                  <div className="text-center mt-[2mm]">
+                  <div className="text-center mt-[2mm] capture-boost">
                     <img
                       ref={qrRef}
                       src={qrDataUrl}
-                      className={`object-contain mx-auto mb-[2mm] ${thermalWidth === "56" ? "w-[38mm] h-[38mm]" : "w-[50mm] h-[50mm]"}`}
+                      className={`object-contain mx-auto mb-[2mm] ${thermalWidth === "56" ? "w-[47mm] h-[47mm]" : "w-[68mm] h-[68mm]"}`}
                       alt="QR Code da carta"
                     />
                     <p className={`m-0 font-bold uppercase leading-[1.3] ${thermalWidth === "56" ? "text-[10px]" : "text-[11px]"}`}>Escaneie para abrir a carta</p>
@@ -940,10 +942,10 @@ export function ReceiptModal({ open, onOpenChange, data }: ReceiptModalProps) {
                   <div className="border-t border-dashed border-black my-[3mm]" />
 
                   <div className="text-center">
-                    <div className={`border-t border-black mx-auto mt-[7mm] mb-[2mm] ${thermalWidth === "56" ? "w-[42mm]" : "w-[64mm]"}`} />
-                    <p className={`m-0 font-extrabold uppercase leading-[1.3] ${thermalWidth === "56" ? "text-[11px]" : "text-[12px]"}`}>{data.letter.preacher_name}</p>
-                    {docNumber && <p className={`m-0 mt-[1mm] leading-[1.2] ${thermalWidth === "56" ? "text-[9.5px]" : "text-[10.5px]"}`}>{docType}: {docNumber}</p>}
-                    <p className={`m-0 mt-[1mm] uppercase leading-[1.2] ${thermalWidth === "56" ? "text-[9px]" : "text-[10px]"}`}>Assinatura do Recebedor</p>
+                    <div className="border-t border-black w-full mt-[10mm] mb-[2mm]" />
+                    <p className={`m-0 font-extrabold uppercase leading-[1.3] ${thermalWidth === "56" ? "text-[10px]" : "text-[11px]"}`}>{data.letter.preacher_name}</p>
+                    {docNumber && <p className={`m-0 mt-[1mm] leading-[1.2] ${thermalWidth === "56" ? "text-[9px]" : "text-[10px]"}`}>{docType}: {docNumber}</p>}
+                    <p className={`m-0 mt-[1mm] uppercase leading-[1.2] ${thermalWidth === "56" ? "text-[8.5px]" : "text-[9.5px]"}`}>Assinatura do Recebedor</p>
                   </div>
 
                 </div>
@@ -952,7 +954,7 @@ export function ReceiptModal({ open, onOpenChange, data }: ReceiptModalProps) {
               </div>
             )}
 
-            <div className={`sticky bottom-0 z-20 mt-6 w-full ${isCompactThermal ? "max-w-[56mm]" : isThermal ? "max-w-[80mm]" : "max-w-[182mm]"} mx-auto px-4 sm:px-0 bg-slate-100/95 backdrop-blur-sm pb-2`}>
+            <div className={`mt-6 w-full ${isCompactThermal ? "max-w-[56mm]" : isThermal ? "max-w-[80mm]" : "max-w-[182mm]"} mx-auto px-4 sm:px-0 pb-2`}>
               <div className={`flex items-center w-full ${isCompactThermal ? "justify-center gap-2" : "gap-3"}`}>
                 <Button
                   onClick={handlePrimaryPrint}
@@ -963,15 +965,17 @@ export function ReceiptModal({ open, onOpenChange, data }: ReceiptModalProps) {
                   <Printer className={isCompactThermal ? "h-5 w-5" : "mr-2 h-5 w-5"} />
                   {!isCompactThermal ? `${isBluetoothPrinting ? "Enviando..." : `Imprimir ${isThermal ? `Termica ${thermalWidth}mm` : "A4"}`}` : null}
                 </Button>
-                <Button
-                  variant="outline"
-                  onClick={handleBluetoothPairing}
-                  className={isCompactThermal ? "h-10 w-10 p-0 rounded-full border-slate-300 text-slate-700 hover:bg-slate-100" : "flex-1 font-bold h-12 shadow-sm border-slate-300 text-slate-700 hover:bg-slate-100"}
-                  title={isCompactThermal ? "Parear Bluetooth" : undefined}
-                >
-                  <Bluetooth className={isCompactThermal ? "h-5 w-5 text-blue-500" : "mr-2 h-5 w-5 text-blue-500"} />
-                  {!isCompactThermal ? "Bluetooth" : null}
-                </Button>
+                {!bluetoothDeviceName ? (
+                  <Button
+                    variant="outline"
+                    onClick={handleBluetoothPairing}
+                    className={isCompactThermal ? "h-10 w-10 p-0 rounded-full border-slate-300 text-slate-700 hover:bg-slate-100" : "flex-1 font-bold h-12 shadow-sm border-slate-300 text-slate-700 hover:bg-slate-100"}
+                    title={isCompactThermal ? "Parear Bluetooth" : undefined}
+                  >
+                    <Bluetooth className={isCompactThermal ? "h-5 w-5 text-blue-500" : "mr-2 h-5 w-5 text-blue-500"} />
+                    {!isCompactThermal ? "Bluetooth" : null}
+                  </Button>
+                ) : null}
               </div>
               {bluetoothDeviceName ? (
                 <p className="text-xs text-center text-emerald-700 mt-2">
