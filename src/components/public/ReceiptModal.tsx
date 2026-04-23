@@ -96,6 +96,7 @@ export function ReceiptModal({ open, onOpenChange, data }: ReceiptModalProps) {
   const [docNumber, setDocNumber] = useState("");
   const [receiptMode, setReceiptMode] = useState<ReceiptMode>("a4");
   const [thermalWidth, setThermalWidth] = useState<ThermalWidth>("80");
+  const [bluetoothDeviceName, setBluetoothDeviceName] = useState("");
   const [qrDataUrl, setQrDataUrl] = useState("");
   const logoRef = useRef<HTMLImageElement | null>(null);
   const qrRef = useRef<HTMLImageElement | null>(null);
@@ -288,6 +289,47 @@ export function ReceiptModal({ open, onOpenChange, data }: ReceiptModalProps) {
     };
   };
 
+  const handleBluetoothPairing = async () => {
+    try {
+      if (!window.isSecureContext) {
+        window.alert("Bluetooth exige HTTPS ou localhost.");
+        return;
+      }
+
+      const nav = navigator as Navigator & { bluetooth?: { requestDevice?: (options: unknown) => Promise<any> } };
+      if (!nav.bluetooth || typeof nav.bluetooth.requestDevice !== "function") {
+        window.alert("Bluetooth nao suportado neste navegador/dispositivo.");
+        return;
+      }
+
+      const device = await nav.bluetooth.requestDevice({
+        acceptAllDevices: true,
+        optionalServices: [
+          "battery_service",
+          "device_information",
+          "generic_access",
+          "000018f0-0000-1000-8000-00805f9b34fb",
+          "e7810a71-73ae-499d-8c15-faa9aef0c3f2",
+        ],
+      });
+
+      if (device?.gatt && !device.gatt.connected) {
+        await device.gatt.connect();
+      }
+
+      const name = String(device?.name || "Impressora Bluetooth");
+      setBluetoothDeviceName(name);
+      window.alert(`Pareamento iniciado com: ${name}`);
+    } catch (error) {
+      const name = String((error as { name?: string })?.name || "");
+      if (name === "NotFoundError") {
+        window.alert("Nenhuma impressora selecionada.");
+        return;
+      }
+      window.alert("Falha no pareamento Bluetooth. Verifique se a impressora esta ligada e visivel.");
+    }
+  };
+
   const dataAtual = new Date().toLocaleDateString("pt-BR", {
     day: "2-digit",
     month: "long",
@@ -296,6 +338,7 @@ export function ReceiptModal({ open, onOpenChange, data }: ReceiptModalProps) {
 
   const isThermal = receiptMode === "thermal";
   const thermalPaperWidth = thermalWidth === "56" ? "56mm" : "80mm";
+  const isCompactThermal = isThermal && thermalWidth === "56";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -397,7 +440,7 @@ export function ReceiptModal({ open, onOpenChange, data }: ReceiptModalProps) {
                   <img ref={logoRef} src="/logo-recibo.png" alt="Logo Igreja" className="mx-auto w-[80mm] h-auto mb-[1mm]" />
                   <p className="m-0 text-[12pt] font-extrabold uppercase text-[#24388d]">Igreja Pentecostal Deus e Amor</p>
                   <p className="m-0 mt-[1.2mm] text-[9pt] font-bold text-slate-600">CNPJ: 43.208.040/0001-36</p>
-                  <h2 className="m-0 mt-[2mm] text-[17pt] font-black uppercase text-slate-900">Recibo de Contribuicao / Pregacao</h2>
+                  <h2 className="m-0 mt-[2mm] text-[17pt] font-black uppercase text-slate-900">Apoio Evangelistico / Pregacao</h2>
                   <p className="m-0 mt-[1.5mm] text-[9pt] uppercase tracking-[0.5px] text-slate-500">Comprovante oficial de recebimento</p>
                 </div>
 
@@ -479,7 +522,7 @@ export function ReceiptModal({ open, onOpenChange, data }: ReceiptModalProps) {
                     <img ref={logoRef} src="/logo-recibo.png" alt="Logo Igreja" className="w-[22mm] h-auto mx-auto mb-[2mm]" />
                     <p className="m-0 text-[12px] font-extrabold uppercase leading-[1.25]">Igreja Pentecostal Deus e Amor</p>
                     <p className="m-0 mt-[1mm] text-[10px] font-bold leading-[1.2]">CNPJ: 43.208.040/0001-36</p>
-                    <p className="m-0 mt-[2mm] text-[11px] font-extrabold uppercase leading-[1.25]">Recibo de Contribuicao / Pregacao</p>
+                    <p className="m-0 mt-[2mm] text-[11px] font-extrabold uppercase leading-[1.25]">Apoio Evangelistico / Pregacao</p>
                     <p className="m-0 mt-[1mm] text-[9px] leading-[1.2]">Comprovante oficial de recebimento</p>
                   </div>
 
@@ -532,15 +575,31 @@ export function ReceiptModal({ open, onOpenChange, data }: ReceiptModalProps) {
               </div>
             )}
 
-            <div className={`mt-6 w-full ${isThermal ? "max-w-[80mm]" : "max-w-[182mm]"} mx-auto px-4 sm:px-0`}>
-              <div className="flex items-center gap-3 w-full">
-                <Button onClick={handlePrint} className="flex-1 font-bold h-12 shadow-sm bg-blue-600 hover:bg-blue-700">
-                  <Printer className="mr-2 h-5 w-5" /> Imprimir {isThermal ? `Termica ${thermalWidth}mm` : "A4"}
+            <div className={`mt-6 w-full ${isCompactThermal ? "max-w-[56mm]" : isThermal ? "max-w-[80mm]" : "max-w-[182mm]"} mx-auto px-4 sm:px-0`}>
+              <div className={`flex items-center w-full ${isCompactThermal ? "justify-center gap-2" : "gap-3"}`}>
+                <Button
+                  onClick={handlePrint}
+                  className={isCompactThermal ? "h-10 w-10 p-0 rounded-full shadow-sm bg-blue-600 hover:bg-blue-700" : "flex-1 font-bold h-12 shadow-sm bg-blue-600 hover:bg-blue-700"}
+                  title={isCompactThermal ? `Imprimir Termica ${thermalWidth}mm` : undefined}
+                >
+                  <Printer className={isCompactThermal ? "h-5 w-5" : "mr-2 h-5 w-5"} />
+                  {!isCompactThermal ? `Imprimir ${isThermal ? `Termica ${thermalWidth}mm` : "A4"}` : null}
                 </Button>
-                <Button variant="outline" className="flex-1 font-bold h-12 shadow-sm border-slate-300 text-slate-700 hover:bg-slate-100">
-                  <Bluetooth className="mr-2 h-5 w-5 text-blue-500" /> Bluetooth
+                <Button
+                  variant="outline"
+                  onClick={handleBluetoothPairing}
+                  className={isCompactThermal ? "h-10 w-10 p-0 rounded-full border-slate-300 text-slate-700 hover:bg-slate-100" : "flex-1 font-bold h-12 shadow-sm border-slate-300 text-slate-700 hover:bg-slate-100"}
+                  title={isCompactThermal ? "Parear Bluetooth" : undefined}
+                >
+                  <Bluetooth className={isCompactThermal ? "h-5 w-5 text-blue-500" : "mr-2 h-5 w-5 text-blue-500"} />
+                  {!isCompactThermal ? "Bluetooth" : null}
                 </Button>
               </div>
+              {bluetoothDeviceName ? (
+                <p className="text-xs text-center text-emerald-700 mt-2">
+                  Impressora pareada: {bluetoothDeviceName}
+                </p>
+              ) : null}
               <p className="text-xs text-center text-slate-500 mt-2">
                 * O QR e a logo sao gerados/carregados na pre-visualizacao antes da impressao.
               </p>
