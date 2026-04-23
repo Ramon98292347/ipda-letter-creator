@@ -512,13 +512,13 @@ export function ReceiptModal({ open, onOpenChange, data }: ReceiptModalProps) {
       const boostStyle = document.createElement("style");
       boostStyle.setAttribute("data-capture-style", "receipt-font-boost");
       boostStyle.textContent = `
-        [data-capture-font-boost="1"] .capture-boost p,
-        [data-capture-font-boost="1"] .capture-boost span,
-        [data-capture-font-boost="1"] .capture-boost strong {
+        [data-capture-font-boost="1"] p,
+        [data-capture-font-boost="1"] span,
+        [data-capture-font-boost="1"] strong {
           font-size: 1.2em !important;
           line-height: 1.34 !important;
         }
-        [data-capture-font-boost="1"] .capture-boost .font-extrabold.uppercase {
+        [data-capture-font-boost="1"] .font-extrabold.uppercase {
           font-size: 1.28em !important;
           line-height: 1.3 !important;
         }
@@ -890,10 +890,9 @@ export function ReceiptModal({ open, onOpenChange, data }: ReceiptModalProps) {
 
               </div>
             ) : (
-              <div className={isCompactThermal ? "pt-1 pb-44" : ""}>
+              <div className={isCompactThermal ? "pt-1 pb-28" : ""}>
                 <div
                   style={isCompactThermal ? { transform: `scale(${previewScale})`, transformOrigin: "top center" } : undefined}
-                  className={isCompactThermal ? "mb-36" : ""}
                 >
                   <div
                     id="receipt-preview-section"
@@ -947,7 +946,7 @@ export function ReceiptModal({ open, onOpenChange, data }: ReceiptModalProps) {
                     <img
                       ref={qrRef}
                       src={qrDataUrl}
-                      className={`object-contain mx-auto mb-[2mm] ${thermalWidth === "56" ? "w-[47mm] h-[47mm]" : "w-[68mm] h-[68mm]"}`}
+                      className={`object-contain mx-auto mb-[2mm] ${thermalWidth === "56" ? "w-[50mm] h-[50mm]" : "w-[72mm] h-[72mm]"}`}
                       alt="QR Code da carta"
                     />
                     <p className={`m-0 font-bold uppercase leading-[1.3] ${thermalWidth === "56" ? "text-[10px]" : "text-[11px]"}`}>Escaneie para abrir a carta</p>
@@ -969,7 +968,7 @@ export function ReceiptModal({ open, onOpenChange, data }: ReceiptModalProps) {
               </div>
             )}
 
-            <div className={`mt-8 w-full ${isCompactThermal ? "max-w-[56mm]" : isThermal ? "max-w-[80mm]" : "max-w-[182mm]"} mx-auto px-4 sm:px-0 pb-6`}>
+            <div className={`sticky bottom-0 z-20 mt-6 w-full ${isCompactThermal ? "max-w-[56mm]" : isThermal ? "max-w-[80mm]" : "max-w-[182mm]"} mx-auto px-4 sm:px-0 bg-slate-100/95 backdrop-blur-sm pb-2`}>
               <div className={`flex items-center w-full ${isCompactThermal ? "justify-center gap-2" : "gap-3"}`}>
                 <Button
                   onClick={handlePrimaryPrint}
