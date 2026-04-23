@@ -13,6 +13,8 @@ interface ReceiptModalProps {
 
 type ReceiptMode = "a4" | "thermal";
 type ThermalWidth = "80" | "56";
+const LS_RECEIPT_MODE = "ipda_receipt_mode";
+const LS_RECEIPT_THERMAL_WIDTH = "ipda_receipt_thermal_width";
 
 const UNIDADES = ["", "um", "dois", "tres", "quatro", "cinco", "seis", "sete", "oito", "nove"];
 const DEZ_A_DEZENOVE = ["dez", "onze", "doze", "treze", "quatorze", "quinze", "dezesseis", "dezessete", "dezoito", "dezenove"];
@@ -94,13 +96,25 @@ export function ReceiptModal({ open, onOpenChange, data }: ReceiptModalProps) {
   const [obs, setObs] = useState("");
   const [docType, setDocType] = useState("CPF");
   const [docNumber, setDocNumber] = useState("");
-  const [receiptMode, setReceiptMode] = useState<ReceiptMode>("a4");
-  const [thermalWidth, setThermalWidth] = useState<ThermalWidth>("80");
+  const [receiptMode, setReceiptMode] = useState<ReceiptMode>(() => {
+    if (typeof window === "undefined") return "a4";
+    const cached = String(window.localStorage.getItem(LS_RECEIPT_MODE) || "").trim();
+    return cached === "thermal" ? "thermal" : "a4";
+  });
+  const [thermalWidth, setThermalWidth] = useState<ThermalWidth>(() => {
+    if (typeof window === "undefined") return "80";
+    const cached = String(window.localStorage.getItem(LS_RECEIPT_THERMAL_WIDTH) || "").trim();
+    return cached === "56" ? "56" : "80";
+  });
   const [bluetoothDeviceName, setBluetoothDeviceName] = useState("");
+  const [isBluetoothPrinting, setIsBluetoothPrinting] = useState(false);
   const [qrDataUrl, setQrDataUrl] = useState("");
   const logoRef = useRef<HTMLImageElement | null>(null);
   const qrRef = useRef<HTMLImageElement | null>(null);
   const printSectionRef = useRef<HTMLDivElement | null>(null);
+  const bluetoothDeviceRef = useRef<any>(null);
+  const bluetoothCharRef = useRef<any>(null);
+  const serialPortRef = useRef<any>(null);
 
   if (!data?.letter) return null;
 
@@ -132,12 +146,24 @@ export function ReceiptModal({ open, onOpenChange, data }: ReceiptModalProps) {
 
   useEffect(() => {
     if (!open) return;
+    setDocType("CPF");
     const rawCpf = String(data?.member?.cpf || "").replace(/\D/g, "");
     if (rawCpf.length === 11) {
-      setDocType("CPF");
       setDocNumber(formatCpf(rawCpf));
+    } else {
+      setDocNumber("");
     }
   }, [open, data?.member?.cpf]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(LS_RECEIPT_MODE, receiptMode);
+  }, [receiptMode]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(LS_RECEIPT_THERMAL_WIDTH, thermalWidth);
+  }, [thermalWidth]);
 
   const handlePrint = async () => {
     await waitImageLoaded(logoRef.current);
@@ -313,13 +339,27 @@ export function ReceiptModal({ open, onOpenChange, data }: ReceiptModalProps) {
         ],
       });
 
-      if (device?.gatt && !device.gatt.connected) {
-        await device.gatt.connect();
+      if (!device?.gatt) throw new Error("GATT indisponivel");
+      const server = device.gatt.connected ? device.gatt : await device.gatt.connect();
+      const services = await server.getPrimaryServices();
+      let writable: any = null;
+      for (const service of services) {
+        const chars = await service.getCharacteristics();
+        writable =
+          chars.find((char: any) => Boolean(char?.properties?.writeWithoutResponse)) ||
+          chars.find((char: any) => Boolean(char?.properties?.write));
+        if (writable) break;
+      }
+      if (!writable) {
+        window.alert("Impressora pareada, mas nao foi encontrada caracteristica de escrita.");
+        return;
       }
 
       const name = String(device?.name || "Impressora Bluetooth");
+      bluetoothDeviceRef.current = device;
+      bluetoothCharRef.current = writable;
       setBluetoothDeviceName(name);
-      window.alert(`Pareamento iniciado com: ${name}`);
+      window.alert(`Pareamento concluido com: ${name}`);
     } catch (error) {
       const name = String((error as { name?: string })?.name || "");
       if (name === "NotFoundError") {
@@ -328,6 +368,193 @@ export function ReceiptModal({ open, onOpenChange, data }: ReceiptModalProps) {
       }
       window.alert("Falha no pareamento Bluetooth. Verifique se a impressora esta ligada e visivel.");
     }
+  };
+
+  const normalizePrintText = (value: string) =>
+    String(value || "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^\x20-\x7E]/g, "");
+
+  const wrapText = (value: string, width: number): string[] => {
+    const words = normalizePrintText(value).split(/\s+/).filter(Boolean);
+    if (words.length === 0) return [""];
+    const lines: string[] = [];
+    let line = "";
+    for (const word of words) {
+      const candidate = line ? `${line} ${word}` : word;
+      if (candidate.length <= width) {
+        line = candidate;
+        continue;
+      }
+      if (line) lines.push(line);
+      line = word.length > width ? word.slice(0, width) : word;
+    }
+    if (line) lines.push(line);
+    return lines;
+  };
+
+  const centerLine = (value: string, width: number) => {
+    const safe = normalizePrintText(value).slice(0, width);
+    const pad = Math.max(0, Math.floor((width - safe.length) / 2));
+    return `${" ".repeat(pad)}${safe}`;
+  };
+
+  const buildThermalReceiptText = (): string => {
+    const width = thermalWidth === "56" ? 32 : 48;
+    const dash = "-".repeat(width);
+    const lines: string[] = [];
+    lines.push(centerLine("IGREJA PENTECOSTAL DEUS E AMOR", width));
+    lines.push(centerLine("APOIO EVANGELISTICO / PREGACAO", width));
+    lines.push(dash);
+    lines.push(centerLine(`VALOR: R$ ${valorValido.toFixed(2)}`, width));
+    lines.push(dash);
+    lines.push(...wrapText(`Recebemos de ${data.letter.church_destination || "Igreja de Destino"}`, width));
+    lines.push(...wrapText(`a quantia de R$ ${valorValido.toFixed(2)} (${valorExtenso})`, width));
+    lines.push(...wrapText(`referente a ${obs || "Contribuicao"}.`, width));
+    lines.push(dash);
+    lines.push(...wrapText(`Codigo: ${cartaId}`, width));
+    lines.push(...wrapText(`Origem: ${data.letter.church_origin || "-"}`, width));
+    lines.push(...wrapText(`Funcao: ${data.letter.minister_role || "-"}`, width));
+    lines.push(...wrapText(`Data: ${dataAtual}`, width));
+    if (docNumber) lines.push(...wrapText(`${docType}: ${docNumber}`, width));
+    lines.push(dash);
+    lines.push(...wrapText(`Recebedor: ${data.letter.preacher_name || "-"}`, width));
+    lines.push("");
+    lines.push("");
+    lines.push("");
+    return `${lines.join("\n")}\n`;
+  };
+
+  const writeInChunks = async (characteristic: any, bytes: Uint8Array) => {
+    const CHUNK = 20;
+    for (let i = 0; i < bytes.length; i += CHUNK) {
+      const chunk = bytes.slice(i, i + CHUNK);
+      if (characteristic?.properties?.writeWithoutResponse) {
+        await characteristic.writeValueWithoutResponse(chunk);
+      } else {
+        await characteristic.writeValue(chunk);
+      }
+      await new Promise((resolve) => setTimeout(resolve, 12));
+    }
+  };
+
+  const buildEscPosPayload = () => {
+    const encoder = new TextEncoder();
+    const init = Uint8Array.from([0x1b, 0x40]);
+    const text = encoder.encode(buildThermalReceiptText());
+    const feedCut = Uint8Array.from([0x0a, 0x0a, 0x0a, 0x1d, 0x56, 0x42, 0x00]);
+    const payload = new Uint8Array(init.length + text.length + feedCut.length);
+    payload.set(init, 0);
+    payload.set(text, init.length);
+    payload.set(feedCut, init.length + text.length);
+    return payload;
+  };
+
+  const printViaWebSerial = async (payload: Uint8Array) => {
+    const nav = navigator as Navigator & {
+      serial?: {
+        requestPort?: (options?: unknown) => Promise<any>;
+      };
+    };
+    if (!nav.serial || typeof nav.serial.requestPort !== "function") return false;
+
+    const port = serialPortRef.current || await nav.serial.requestPort();
+    if (!serialPortRef.current) serialPortRef.current = port;
+
+    await port.open({ baudRate: 9600 });
+    const writer = port.writable?.getWriter?.();
+    if (!writer) throw new Error("serial_writer_unavailable");
+    await writer.write(payload);
+    writer.releaseLock();
+    await port.close();
+    return true;
+  };
+
+  const printViaWebUsb = async (payload: Uint8Array) => {
+    const nav = navigator as Navigator & {
+      usb?: {
+        requestDevice?: (options: unknown) => Promise<any>;
+      };
+    };
+    if (!nav.usb || typeof nav.usb.requestDevice !== "function") return false;
+
+    const device = await nav.usb.requestDevice({ filters: [] });
+    await device.open();
+    if (!device.configuration) await device.selectConfiguration(1);
+    await device.claimInterface(0);
+    await device.transferOut(1, payload);
+    try {
+      await device.releaseInterface(0);
+    } catch {
+      // noop
+    }
+    await device.close();
+    return true;
+  };
+
+  const ensureBluetoothCharacteristic = async () => {
+    if (bluetoothCharRef.current) return bluetoothCharRef.current;
+    const device = bluetoothDeviceRef.current;
+    if (!device?.gatt) throw new Error("Nenhuma impressora pareada");
+    const server = device.gatt.connected ? device.gatt : await device.gatt.connect();
+    const services = await server.getPrimaryServices();
+    for (const service of services) {
+      const chars = await service.getCharacteristics();
+      const writable =
+        chars.find((char: any) => Boolean(char?.properties?.writeWithoutResponse)) ||
+        chars.find((char: any) => Boolean(char?.properties?.write));
+      if (writable) {
+        bluetoothCharRef.current = writable;
+        return writable;
+      }
+    }
+    throw new Error("Caracteristica de escrita nao encontrada");
+  };
+
+  const handlePrimaryPrint = async () => {
+    if (isThermal) {
+      setIsBluetoothPrinting(true);
+      const payload = buildEscPosPayload();
+      try {
+        try {
+          const characteristic = await ensureBluetoothCharacteristic();
+          await writeInChunks(characteristic, payload);
+          window.alert("Recibo enviado para impressao Bluetooth.");
+          return;
+        } catch {
+          // tenta fallback
+        }
+
+        try {
+          const serialOk = await printViaWebSerial(payload);
+          if (serialOk) {
+            window.alert("Recibo enviado para impressao via Web Serial.");
+            return;
+          }
+        } catch {
+          // tenta fallback
+        }
+
+        try {
+          const usbOk = await printViaWebUsb(payload);
+          if (usbOk) {
+            window.alert("Recibo enviado para impressao via WebUSB.");
+            return;
+          }
+        } catch {
+          // fallback para print comum
+        }
+      } finally {
+        setIsBluetoothPrinting(false);
+      }
+
+      await handlePrint();
+      return;
+    }
+
+    setIsBluetoothPrinting(false);
+    await handlePrint();
   };
 
   const dataAtual = new Date().toLocaleDateString("pt-BR", {
@@ -339,6 +566,7 @@ export function ReceiptModal({ open, onOpenChange, data }: ReceiptModalProps) {
   const isThermal = receiptMode === "thermal";
   const thermalPaperWidth = thermalWidth === "56" ? "56mm" : "80mm";
   const isCompactThermal = isThermal && thermalWidth === "56";
+  const previewScale = isCompactThermal ? 1.42 : 1;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -397,28 +625,6 @@ export function ReceiptModal({ open, onOpenChange, data }: ReceiptModalProps) {
                   value={obs}
                   onChange={(e) => setObs(e.target.value)}
                 />
-              </div>
-
-              <div className="flex gap-3">
-                <div className="w-1/3">
-                  <label className="text-sm font-semibold text-slate-700 mb-1.5 block">Documento</label>
-                  <select
-                    value={docType}
-                    onChange={(e) => setDocType(e.target.value)}
-                    className="flex h-10 w-full items-center rounded-md border border-slate-200 bg-white px-3 py-2 text-sm"
-                  >
-                    <option value="CPF">CPF</option>
-                    <option value="RG">RG</option>
-                  </select>
-                </div>
-                <div className="w-2/3">
-                  <label className="text-sm font-semibold text-slate-700 mb-1.5 block">Numero</label>
-                  <Input
-                    placeholder={docType === "CPF" ? "000.000.000-00" : "00.000.000-X"}
-                    value={docNumber}
-                    onChange={(e) => setDocNumber(e.target.value)}
-                  />
-                </div>
               </div>
 
               <div className="text-xs text-slate-500 border border-slate-200 rounded-md p-3 bg-slate-50">
@@ -510,14 +716,18 @@ export function ReceiptModal({ open, onOpenChange, data }: ReceiptModalProps) {
 
               </div>
             ) : (
-              <div
-                id="receipt-preview-section"
-                ref={printSectionRef}
-                data-print-mode="thermal"
-                data-thermal-width={thermalWidth}
-                className={`bg-white border border-slate-300 shadow-xl mx-auto w-full ${thermalWidth === "56" ? "max-w-[56mm]" : "max-w-[80mm]"}`}
-              >
-                <div className="p-[4mm]">
+              <div className={isCompactThermal ? "pt-1 pb-16" : ""}>
+                <div
+                  style={isCompactThermal ? { transform: `scale(${previewScale})`, transformOrigin: "top center" } : undefined}
+                >
+                  <div
+                    id="receipt-preview-section"
+                    ref={printSectionRef}
+                    data-print-mode="thermal"
+                    data-thermal-width={thermalWidth}
+                    className={`bg-white border border-slate-300 shadow-xl mx-auto w-full ${thermalWidth === "56" ? "max-w-[56mm]" : "max-w-[80mm]"}`}
+                  >
+                    <div className="p-[4mm]">
                   <div className="text-center">
                     <img ref={logoRef} src="/logo-recibo.png" alt="Logo Igreja" className="w-[22mm] h-auto mx-auto mb-[2mm]" />
                     <p className="m-0 text-[12px] font-extrabold uppercase leading-[1.25]">Igreja Pentecostal Deus e Amor</p>
@@ -572,18 +782,21 @@ export function ReceiptModal({ open, onOpenChange, data }: ReceiptModalProps) {
                   </div>
 
                 </div>
+                  </div>
+                </div>
               </div>
             )}
 
             <div className={`mt-6 w-full ${isCompactThermal ? "max-w-[56mm]" : isThermal ? "max-w-[80mm]" : "max-w-[182mm]"} mx-auto px-4 sm:px-0`}>
               <div className={`flex items-center w-full ${isCompactThermal ? "justify-center gap-2" : "gap-3"}`}>
                 <Button
-                  onClick={handlePrint}
+                  onClick={handlePrimaryPrint}
                   className={isCompactThermal ? "h-10 w-10 p-0 rounded-full shadow-sm bg-blue-600 hover:bg-blue-700" : "flex-1 font-bold h-12 shadow-sm bg-blue-600 hover:bg-blue-700"}
                   title={isCompactThermal ? `Imprimir Termica ${thermalWidth}mm` : undefined}
+                  disabled={isBluetoothPrinting}
                 >
                   <Printer className={isCompactThermal ? "h-5 w-5" : "mr-2 h-5 w-5"} />
-                  {!isCompactThermal ? `Imprimir ${isThermal ? `Termica ${thermalWidth}mm` : "A4"}` : null}
+                  {!isCompactThermal ? `${isBluetoothPrinting ? "Enviando..." : `Imprimir ${isThermal ? `Termica ${thermalWidth}mm` : "A4"}`}` : null}
                 </Button>
                 <Button
                   variant="outline"
