@@ -826,11 +826,11 @@ export function ReceiptModal({ open, onOpenChange, data }: ReceiptModalProps) {
 
                 <div className="my-[5mm] border border-slate-300 rounded-[3mm] p-[4.5mm] text-center bg-slate-50">
                   <div className="text-[10pt] font-bold uppercase text-slate-500 mb-[2mm]">Valor Recebido</div>
-                  <p className="m-0 text-[26pt] font-black text-slate-900">R$ {valorValido.toFixed(2)}</p>
+                  <p className="m-0 text-[24pt] font-black text-slate-900">R$ {valorValido.toFixed(2)}</p>
                 </div>
 
                 <div className="border border-slate-200 rounded-[3mm] p-[5mm] mb-[5mm]">
-                  <p className="m-0 text-[11pt] leading-[1.6] text-center">
+                  <p className="m-0 text-[12pt] leading-[1.6] text-center">
                     Recebi da <strong>IPDA {churchDestinationLabel}</strong> a quantia de <strong>R$ {valorValido.toFixed(2)}</strong> ({valorExtenso}), referente a <strong>{obs || "Contribuicao"}</strong>.
                   </p>
                 </div>
@@ -918,13 +918,13 @@ export function ReceiptModal({ open, onOpenChange, data }: ReceiptModalProps) {
                   <div className="border-t border-dashed border-black my-[3mm]" />
 
                   <div className="text-center capture-boost">
-                    <p className={`m-0 uppercase font-bold ${thermalWidth === "56" ? "text-[13px]" : "text-[14px]"}`}>Valor Recebido</p>
-                    <p className={`m-0 mt-[1.2mm] font-black leading-[1.1] ${thermalWidth === "56" ? "text-[34px]" : "text-[40px]"}`}>R$ {valorValido.toFixed(2)}</p>
+                    <p className={`m-0 uppercase font-bold ${thermalWidth === "56" ? "text-[12px]" : "text-[13px]"}`}>Valor Recebido</p>
+                    <p className={`m-0 mt-[1.2mm] font-black leading-[1.1] ${thermalWidth === "56" ? "text-[30px]" : "text-[34px]"}`}>R$ {valorValido.toFixed(2)}</p>
                   </div>
 
                   <div className="border-t border-dashed border-black my-[3mm]" />
 
-                  <p className={`m-0 leading-[1.5] text-center ${thermalWidth === "56" ? "text-[10px]" : "text-[11px]"}`}>
+                  <p className={`m-0 leading-[1.5] text-center capture-boost ${thermalWidth === "56" ? "text-[11px]" : "text-[12px]"}`}>
                     Recebi da <strong>IPDA {churchDestinationLabel}</strong> a quantia de <strong>R$ {valorValido.toFixed(2)}</strong> ({valorExtenso}), referente a <strong>{obs || "Contribuicao"}</strong>.
                   </p>
 
