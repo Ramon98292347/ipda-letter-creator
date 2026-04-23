@@ -445,7 +445,7 @@ export function ReceiptModal({ open, onOpenChange, data }: ReceiptModalProps) {
     const dash = "-".repeat(width);
     const lines: string[] = [];
     lines.push(centerLine("IGREJA PENTECOSTAL DEUS E AMOR", width));
-    lines.push(centerLine("APOIO EVANGELISTICO / PREGACAO", width));
+    lines.push(centerLine("APOIO EVANGELISTICO / PREGAÇÃO", width));
     lines.push(dash);
     lines.push(centerLine(`VALOR: R$ ${valorValido.toFixed(2)}`, width));
     lines.push(dash);
@@ -785,7 +785,7 @@ export function ReceiptModal({ open, onOpenChange, data }: ReceiptModalProps) {
               <div>
                 <label className="text-sm font-semibold text-slate-700 mb-1.5 block">Observacao / Referente a</label>
                 <Input
-                  placeholder="Ex: Pregacao quarta-feira"
+                  placeholder="Ex: Pregação quarta-feira"
                   value={obs}
                   onChange={(e) => setObs(e.target.value)}
                 />
@@ -820,7 +820,7 @@ export function ReceiptModal({ open, onOpenChange, data }: ReceiptModalProps) {
                   <img ref={logoRef} src="/logo-recibo.png" alt="Logo Igreja" className="mx-auto w-[80mm] h-auto mb-[1mm]" />
                   <p className="m-0 text-[12pt] font-extrabold uppercase text-[#24388d]">Igreja Pentecostal Deus e Amor</p>
                   <p className="m-0 mt-[1.2mm] text-[9pt] font-bold text-slate-600">CNPJ: 43.208.040/0001-36</p>
-                  <h2 className="m-0 mt-[2mm] text-[17pt] font-black uppercase text-slate-900">Apoio Evangelistico / Pregacao</h2>
+                  <h2 className="m-0 mt-[2mm] text-[17pt] font-black uppercase text-slate-900">Apoio Evangelístico / Pregação</h2>
                   <p className="m-0 mt-[1.5mm] text-[9pt] uppercase tracking-[0.5px] text-slate-500">Comprovante oficial de recebimento</p>
                 </div>
 
@@ -830,7 +830,7 @@ export function ReceiptModal({ open, onOpenChange, data }: ReceiptModalProps) {
                 </div>
 
                 <div className="border border-slate-200 rounded-[3mm] p-[5mm] mb-[5mm]">
-                  <p className="m-0 text-[12pt] leading-[1.6] text-center">
+                  <p className="m-0 text-[11pt] leading-[1.6] text-center">
                     Recebi da <strong>IPDA {churchDestinationLabel}</strong> a quantia de <strong>R$ {valorValido.toFixed(2)}</strong> ({valorExtenso}), referente a <strong>{obs || "Contribuicao"}</strong>.
                   </p>
                 </div>
@@ -911,7 +911,7 @@ export function ReceiptModal({ open, onOpenChange, data }: ReceiptModalProps) {
                     />
                     <p className={`m-0 font-extrabold uppercase leading-[1.25] ${thermalWidth === "56" ? "text-[12px]" : "text-[13px]"}`}>Igreja Pentecostal Deus e Amor</p>
                     <p className={`m-0 mt-[1mm] font-bold leading-[1.2] ${thermalWidth === "56" ? "text-[10px]" : "text-[11px]"}`}>CNPJ: 43.208.040/0001-36</p>
-                    <p className={`m-0 mt-[2mm] font-extrabold uppercase leading-[1.25] ${thermalWidth === "56" ? "text-[12px]" : "text-[13px]"}`}>Apoio Evangelistico / Pregacao</p>
+                    <p className={`m-0 mt-[2mm] font-extrabold uppercase leading-[1.25] ${thermalWidth === "56" ? "text-[12px]" : "text-[13px]"}`}>Apoio Evangelístico / Pregação</p>
                     <p className={`m-0 mt-[1mm] leading-[1.2] ${thermalWidth === "56" ? "text-[10px]" : "text-[11px]"}`}>Comprovante oficial de recebimento</p>
                   </div>
 
@@ -924,7 +924,7 @@ export function ReceiptModal({ open, onOpenChange, data }: ReceiptModalProps) {
 
                   <div className="border-t border-dashed border-black my-[3mm]" />
 
-                  <p className={`m-0 leading-[1.5] text-center capture-boost ${thermalWidth === "56" ? "text-[11px]" : "text-[12px]"}`}>
+                  <p className={`m-0 leading-[1.5] text-center ${thermalWidth === "56" ? "text-[10px]" : "text-[11px]"}`}>
                     Recebi da <strong>IPDA {churchDestinationLabel}</strong> a quantia de <strong>R$ {valorValido.toFixed(2)}</strong> ({valorExtenso}), referente a <strong>{obs || "Contribuicao"}</strong>.
                   </p>
 
