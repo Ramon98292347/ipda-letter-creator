@@ -855,29 +855,29 @@ export function ReceiptModal({ open, onOpenChange, data }: ReceiptModalProps) {
                       alt="Logo Igreja"
                       className="block h-auto w-[calc(100%+8mm)] max-w-none -mx-[4mm] mb-[2mm]"
                     />
-                    <p className="m-0 text-[12px] font-extrabold uppercase leading-[1.25]">Igreja Pentecostal Deus e Amor</p>
-                    <p className="m-0 mt-[1mm] text-[10px] font-bold leading-[1.2]">CNPJ: 43.208.040/0001-36</p>
-                    <p className="m-0 mt-[2mm] text-[11px] font-extrabold uppercase leading-[1.25]">Apoio Evangelistico / Pregacao</p>
-                    <p className="m-0 mt-[1mm] text-[9px] leading-[1.2]">Comprovante oficial de recebimento</p>
+                    <p className={`m-0 font-extrabold uppercase leading-[1.25] ${thermalWidth === "56" ? "text-[13px]" : "text-[14px]"}`}>Igreja Pentecostal Deus e Amor</p>
+                    <p className={`m-0 mt-[1mm] font-bold leading-[1.2] ${thermalWidth === "56" ? "text-[11px]" : "text-[12px]"}`}>CNPJ: 43.208.040/0001-36</p>
+                    <p className={`m-0 mt-[2mm] font-extrabold uppercase leading-[1.25] ${thermalWidth === "56" ? "text-[12px]" : "text-[13px]"}`}>Apoio Evangelistico / Pregacao</p>
+                    <p className={`m-0 mt-[1mm] leading-[1.2] ${thermalWidth === "56" ? "text-[10px]" : "text-[11px]"}`}>Comprovante oficial de recebimento</p>
                   </div>
 
                   <div className="border-t border-dashed border-black my-[3mm]" />
 
                   <div className="text-center">
-                    <p className="m-0 text-[10px] uppercase font-bold">Valor Recebido</p>
-                    <p className="m-0 mt-[1.2mm] text-[24px] font-black leading-[1.1]">R$ {valorValido.toFixed(2)}</p>
+                    <p className={`m-0 uppercase font-bold ${thermalWidth === "56" ? "text-[12px]" : "text-[13px]"}`}>Valor Recebido</p>
+                    <p className={`m-0 mt-[1.2mm] font-black leading-[1.1] ${thermalWidth === "56" ? "text-[28px]" : "text-[32px]"}`}>R$ {valorValido.toFixed(2)}</p>
                   </div>
 
                   <div className="border-t border-dashed border-black my-[3mm]" />
 
-                  <p className="m-0 text-[10px] leading-[1.5] text-center">
+                  <p className={`m-0 leading-[1.5] text-center ${thermalWidth === "56" ? "text-[11px]" : "text-[12px]"}`}>
                     Recebi da <strong>IPDA</strong> a quantia de <strong>R$ {valorValido.toFixed(2)}</strong> ({valorExtenso}), referente a <strong>{obs || "Contribuicao"}</strong>.
                   </p>
 
                   <div className="border-t border-dashed border-black my-[3mm]" />
 
-                  <p className="m-0 text-[10px] font-extrabold uppercase text-center">Dados do Recibo</p>
-                  <div className="mt-[2mm] text-[9.5px] leading-[1.5]">
+                  <p className={`m-0 font-extrabold uppercase text-center ${thermalWidth === "56" ? "text-[11px]" : "text-[12px]"}`}>Dados do Recibo</p>
+                  <div className={`mt-[2mm] leading-[1.5] ${thermalWidth === "56" ? "text-[10.5px]" : "text-[11.5px]"}`}>
                     <div className="mb-[1.5mm]"><span className="font-extrabold uppercase">Codigo da Carta:</span><br /><span>{cartaId}</span></div>
                     <div className="mb-[1.5mm]"><span className="font-extrabold uppercase">Igreja de Origem:</span><br /><span>{data.letter.church_origin}</span></div>
                     <div className="mb-[1.5mm]"><span className="font-extrabold uppercase">Funcao:</span><br /><span>{data.letter.minister_role}</span></div>
@@ -890,20 +890,20 @@ export function ReceiptModal({ open, onOpenChange, data }: ReceiptModalProps) {
                     <img
                       ref={qrRef}
                       src={qrDataUrl}
-                      className="w-[28mm] h-[28mm] object-contain mx-auto mb-[2mm]"
+                      className={`object-contain mx-auto mb-[2mm] ${thermalWidth === "56" ? "w-[34mm] h-[34mm]" : "w-[44mm] h-[44mm]"}`}
                       alt="QR Code da carta"
                     />
-                    <p className="m-0 text-[9px] font-bold uppercase leading-[1.3]">Escaneie para abrir a carta</p>
-                    <p className="m-0 mt-[1.5mm] text-[8px] leading-[1.35] break-all">{cartaId}</p>
+                    <p className={`m-0 font-bold uppercase leading-[1.3] ${thermalWidth === "56" ? "text-[10px]" : "text-[11px]"}`}>Escaneie para abrir a carta</p>
+                    <p className={`m-0 mt-[1.5mm] leading-[1.35] break-all ${thermalWidth === "56" ? "text-[9px]" : "text-[10px]"}`}>{cartaId}</p>
                   </div>
 
                   <div className="border-t border-dashed border-black my-[3mm]" />
 
                   <div className="text-center">
-                    <div className="border-t border-black w-[42mm] mx-auto mt-[7mm] mb-[2mm]" />
-                    <p className="m-0 text-[10px] font-extrabold uppercase leading-[1.3]">{data.letter.preacher_name}</p>
-                    {docNumber && <p className="m-0 mt-[1mm] text-[8.5px] leading-[1.2]">{docType}: {docNumber}</p>}
-                    <p className="m-0 mt-[1mm] text-[8px] uppercase leading-[1.2]">Assinatura do Recebedor</p>
+                    <div className={`border-t border-black mx-auto mt-[7mm] mb-[2mm] ${thermalWidth === "56" ? "w-[42mm]" : "w-[64mm]"}`} />
+                    <p className={`m-0 font-extrabold uppercase leading-[1.3] ${thermalWidth === "56" ? "text-[11px]" : "text-[12px]"}`}>{data.letter.preacher_name}</p>
+                    {docNumber && <p className={`m-0 mt-[1mm] leading-[1.2] ${thermalWidth === "56" ? "text-[9.5px]" : "text-[10.5px]"}`}>{docType}: {docNumber}</p>}
+                    <p className={`m-0 mt-[1mm] uppercase leading-[1.2] ${thermalWidth === "56" ? "text-[9px]" : "text-[10px]"}`}>Assinatura do Recebedor</p>
                   </div>
 
                 </div>
