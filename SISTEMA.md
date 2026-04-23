@@ -875,3 +875,16 @@ Arquivo de referencia:
   - `Tel Congregacao`
   - `Observacoes Termo`
 - historico de gestao segue layout proprio com titulo e linhas `ANO | IPDA | UF | TEMPO`, com botao para adicionar mais linhas
+
+## 29. Regra Operacional - Layout do Recibo com fonte global unica (2026-04-23)
+
+- o recibo deve usar tamanho de fonte unico por modo de impressao, evitando variacoes entre titulo, subtitulo e blocos
+- padrao atual:
+  - A4: fonte global `text-[11pt]`
+  - termica (56mm/80mm): fonte global `text-[11px]`
+- a regra vale para todo o corpo do recibo: cabecalho, bloco de valor, frase principal, dados do recibo, area do QR e assinatura
+- o texto do titulo foi padronizado como `Apoio Evangelistico / Pregacao` no layout
+- qualquer ajuste futuro de tamanho deve alterar as constantes globais no componente, sem criar novos tamanhos locais
+
+Arquivo de referencia:
+- `src/components/public/ReceiptModal.tsx`
