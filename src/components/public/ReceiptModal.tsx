@@ -918,8 +918,8 @@ export function ReceiptModal({ open, onOpenChange, data }: ReceiptModalProps) {
                   <div className="border-t border-dashed border-black my-[3mm]" />
 
                   <div className="text-center capture-boost">
-                    <p className={`m-0 uppercase font-bold ${thermalWidth === "56" ? "text-[12px]" : "text-[13px]"}`}>Valor Recebido</p>
-                    <p className={`m-0 mt-[1.2mm] font-black leading-[1.1] ${thermalWidth === "56" ? "text-[28px]" : "text-[32px]"}`}>R$ {valorValido.toFixed(2)}</p>
+                    <p className={`m-0 uppercase font-bold ${thermalWidth === "56" ? "text-[13px]" : "text-[14px]"}`}>Valor Recebido</p>
+                    <p className={`m-0 mt-[1.2mm] font-black leading-[1.1] ${thermalWidth === "56" ? "text-[34px]" : "text-[40px]"}`}>R$ {valorValido.toFixed(2)}</p>
                   </div>
 
                   <div className="border-t border-dashed border-black my-[3mm]" />
