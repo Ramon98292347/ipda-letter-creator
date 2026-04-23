@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import QRCode from "qrcode";
+import html2canvas from "html2canvas";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Printer, Bluetooth, FileText } from "lucide-react";
@@ -434,7 +435,7 @@ export function ReceiptModal({ open, onOpenChange, data }: ReceiptModalProps) {
     lines.push(dash);
     lines.push(centerLine(`VALOR: R$ ${valorValido.toFixed(2)}`, width));
     lines.push(dash);
-    lines.push(...wrapText(`Recebemos de ${data.letter.church_destination || "Igreja de Destino"}`, width));
+    lines.push(...wrapText("Recebi da IPDA", width));
     lines.push(...wrapText(`a quantia de R$ ${valorValido.toFixed(2)} (${valorExtenso})`, width));
     lines.push(...wrapText(`referente a ${obs || "Contribuicao"}.`, width));
     lines.push(dash);
@@ -473,6 +474,73 @@ export function ReceiptModal({ open, onOpenChange, data }: ReceiptModalProps) {
     payload.set(init, 0);
     payload.set(text, init.length);
     payload.set(feedCut, init.length + text.length);
+    return payload;
+  };
+
+  const renderReceiptPreviewToCanvas = async (): Promise<HTMLCanvasElement> => {
+    const node = printSectionRef.current;
+    if (!node) throw new Error("preview_not_found");
+    const captured = await html2canvas(node, {
+      backgroundColor: "#ffffff",
+      scale: 2,
+      useCORS: true,
+      logging: false,
+    });
+    const targetWidth = thermalWidth === "56" ? 384 : 576;
+    const ratio = captured.height / captured.width;
+    const width = targetWidth;
+    const height = Math.max(1, Math.round(width * ratio));
+    const out = document.createElement("canvas");
+    out.width = width;
+    out.height = height;
+    const ctx = out.getContext("2d");
+    if (!ctx) throw new Error("canvas_context_unavailable");
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(0, 0, width, height);
+    ctx.drawImage(captured, 0, 0, width, height);
+    return out;
+  };
+
+  const canvasToEscPosRasterPayload = (canvas: HTMLCanvasElement): Uint8Array => {
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("canvas_context_unavailable");
+    const width = Math.max(8, Math.floor(canvas.width / 8) * 8);
+    const height = canvas.height;
+    const image = ctx.getImageData(0, 0, width, height);
+    const bytesPerRow = width / 8;
+    const raster = new Uint8Array(bytesPerRow * height);
+
+    for (let y = 0; y < height; y++) {
+      for (let xb = 0; xb < bytesPerRow; xb++) {
+        let byte = 0;
+        for (let bit = 0; bit < 8; bit++) {
+          const x = xb * 8 + bit;
+          const idx = (y * width + x) * 4;
+          const r = image.data[idx];
+          const g = image.data[idx + 1];
+          const b = image.data[idx + 2];
+          const a = image.data[idx + 3];
+          const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+          const isBlack = a > 20 && lum < 170;
+          if (isBlack) byte |= 0x80 >> bit;
+        }
+        raster[y * bytesPerRow + xb] = byte;
+      }
+    }
+
+    const header = Uint8Array.from([
+      0x1b, 0x40, // initialize
+      0x1d, 0x76, 0x30, 0x00, // GS v 0
+      bytesPerRow & 0xff,
+      (bytesPerRow >> 8) & 0xff,
+      height & 0xff,
+      (height >> 8) & 0xff,
+    ]);
+    const footer = Uint8Array.from([0x0a, 0x0a, 0x1d, 0x56, 0x42, 0x00]);
+    const payload = new Uint8Array(header.length + raster.length + footer.length);
+    payload.set(header, 0);
+    payload.set(raster, header.length);
+    payload.set(footer, header.length + raster.length);
     return payload;
   };
 
@@ -540,8 +608,15 @@ export function ReceiptModal({ open, onOpenChange, data }: ReceiptModalProps) {
   const handlePrimaryPrint = async () => {
     if (isThermal) {
       setIsBluetoothPrinting(true);
-      const payload = buildEscPosPayload();
+      let payload = buildEscPosPayload();
       try {
+        try {
+          const canvas = await renderReceiptPreviewToCanvas();
+          payload = canvasToEscPosRasterPayload(canvas);
+        } catch {
+          // fallback para texto puro
+        }
+
         try {
           const characteristic = await ensureBluetoothCharacteristic();
           await writeInChunks(characteristic, payload);
@@ -702,7 +777,7 @@ export function ReceiptModal({ open, onOpenChange, data }: ReceiptModalProps) {
 
                 <div className="border border-slate-200 rounded-[3mm] p-[5mm] mb-[5mm]">
                   <p className="m-0 text-[12pt] leading-[1.6] text-center">
-                    Recebemos de <strong>{data.letter.church_destination || "Igreja de Destino"}</strong> a quantia de <strong>R$ {valorValido.toFixed(2)}</strong> ({valorExtenso}), referente a <strong>{obs || "Contribuicao"}</strong>.
+                    Recebi da <strong>IPDA</strong> a quantia de <strong>R$ {valorValido.toFixed(2)}</strong> ({valorExtenso}), referente a <strong>{obs || "Contribuicao"}</strong>.
                   </p>
                 </div>
 
@@ -774,7 +849,12 @@ export function ReceiptModal({ open, onOpenChange, data }: ReceiptModalProps) {
                   >
                     <div className="p-[4mm]">
                   <div className="text-center">
-                    <img ref={logoRef} src="/logo-recibo.png" alt="Logo Igreja" className="w-[22mm] h-auto mx-auto mb-[2mm]" />
+                    <img
+                      ref={logoRef}
+                      src="/logo-recibo.png"
+                      alt="Logo Igreja"
+                      className="block h-auto w-[calc(100%+8mm)] max-w-none -mx-[4mm] mb-[2mm]"
+                    />
                     <p className="m-0 text-[12px] font-extrabold uppercase leading-[1.25]">Igreja Pentecostal Deus e Amor</p>
                     <p className="m-0 mt-[1mm] text-[10px] font-bold leading-[1.2]">CNPJ: 43.208.040/0001-36</p>
                     <p className="m-0 mt-[2mm] text-[11px] font-extrabold uppercase leading-[1.25]">Apoio Evangelistico / Pregacao</p>
@@ -791,7 +871,7 @@ export function ReceiptModal({ open, onOpenChange, data }: ReceiptModalProps) {
                   <div className="border-t border-dashed border-black my-[3mm]" />
 
                   <p className="m-0 text-[10px] leading-[1.5] text-center">
-                    Recebemos de <strong>{data.letter.church_destination || "Igreja de Destino"}</strong> a quantia de <strong>R$ {valorValido.toFixed(2)}</strong> ({valorExtenso}), referente a <strong>{obs || "Contribuicao"}</strong>.
+                    Recebi da <strong>IPDA</strong> a quantia de <strong>R$ {valorValido.toFixed(2)}</strong> ({valorExtenso}), referente a <strong>{obs || "Contribuicao"}</strong>.
                   </p>
 
                   <div className="border-t border-dashed border-black my-[3mm]" />
