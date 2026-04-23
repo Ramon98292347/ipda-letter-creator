@@ -94,6 +94,16 @@ function formatCpf(value: string): string {
   return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9, 11)}`;
 }
 
+function formatChurchLabelWithTotvs(totvs: unknown, name: unknown): string {
+  const code = String(totvs || "").trim();
+  const churchName = String(name || "").trim();
+  if (!code && !churchName) return "Igreja de Destino";
+  if (!code) return churchName;
+  if (!churchName) return `TOTVS ${code}`;
+  if (churchName.startsWith(code) || churchName.toUpperCase().includes(`TOTVS ${code}`)) return churchName;
+  return `${code} - ${churchName}`;
+}
+
 export function ReceiptModal({ open, onOpenChange, data }: ReceiptModalProps) {
   const [valor, setValor] = useState(() => {
     if (typeof window === "undefined") return "";
@@ -130,6 +140,10 @@ export function ReceiptModal({ open, onOpenChange, data }: ReceiptModalProps) {
 
   const cartaId = String(data.letter.id ?? "");
   const cartaUrl = `https://idipilrcaqittmnapmbq.supabase.co/storage/v1/object/public/cartas/documentos/cartas/${cartaId}.pdf`;
+  const churchDestinationLabel = formatChurchLabelWithTotvs(
+    data?.letter?.destination_totvs_id ?? data?.letter?.church_totvs_id,
+    data?.letter?.church_destination,
+  );
   const valorNumero = Number.parseFloat(String(valor).replace(",", "."));
   const valorValido = Number.isFinite(valorNumero) && valorNumero >= 0 ? valorNumero : 0;
   const valorExtenso = valorEmExtenso(valorValido);
@@ -435,7 +449,7 @@ export function ReceiptModal({ open, onOpenChange, data }: ReceiptModalProps) {
     lines.push(dash);
     lines.push(centerLine(`VALOR: R$ ${valorValido.toFixed(2)}`, width));
     lines.push(dash);
-    lines.push(...wrapText("Recebi da IPDA", width));
+    lines.push(...wrapText(`Recebi da IPDA ${churchDestinationLabel}`, width));
     lines.push(...wrapText(`a quantia de R$ ${valorValido.toFixed(2)} (${valorExtenso})`, width));
     lines.push(...wrapText(`referente a ${obs || "Contribuicao"}.`, width));
     lines.push(dash);
@@ -817,7 +831,7 @@ export function ReceiptModal({ open, onOpenChange, data }: ReceiptModalProps) {
 
                 <div className="border border-slate-200 rounded-[3mm] p-[5mm] mb-[5mm]">
                   <p className="m-0 text-[12pt] leading-[1.6] text-center">
-                    Recebi da <strong>IPDA</strong> a quantia de <strong>R$ {valorValido.toFixed(2)}</strong> ({valorExtenso}), referente a <strong>{obs || "Contribuicao"}</strong>.
+                    Recebi da <strong>IPDA {churchDestinationLabel}</strong> a quantia de <strong>R$ {valorValido.toFixed(2)}</strong> ({valorExtenso}), referente a <strong>{obs || "Contribuicao"}</strong>.
                   </p>
                 </div>
 
@@ -912,7 +926,7 @@ export function ReceiptModal({ open, onOpenChange, data }: ReceiptModalProps) {
                   <div className="border-t border-dashed border-black my-[3mm]" />
 
                   <p className={`m-0 leading-[1.5] text-center capture-boost ${thermalWidth === "56" ? "text-[11px]" : "text-[12px]"}`}>
-                    Recebi da <strong>IPDA</strong> a quantia de <strong>R$ {valorValido.toFixed(2)}</strong> ({valorExtenso}), referente a <strong>{obs || "Contribuicao"}</strong>.
+                    Recebi da <strong>IPDA {churchDestinationLabel}</strong> a quantia de <strong>R$ {valorValido.toFixed(2)}</strong> ({valorExtenso}), referente a <strong>{obs || "Contribuicao"}</strong>.
                   </p>
 
                   <div className="border-t border-dashed border-black my-[3mm]" />
