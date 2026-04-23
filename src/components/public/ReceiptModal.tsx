@@ -480,12 +480,48 @@ export function ReceiptModal({ open, onOpenChange, data }: ReceiptModalProps) {
   const renderReceiptPreviewToCanvas = async (): Promise<HTMLCanvasElement> => {
     const node = printSectionRef.current;
     if (!node) throw new Error("preview_not_found");
-    const captured = await html2canvas(node, {
-      backgroundColor: "#ffffff",
-      scale: 2,
-      useCORS: true,
-      logging: false,
-    });
+    const isThermalCapture = node.getAttribute("data-print-mode") === "thermal";
+    const sourceRect = node.getBoundingClientRect();
+    const clone = node.cloneNode(true) as HTMLDivElement;
+
+    clone.style.position = "fixed";
+    clone.style.left = "-10000px";
+    clone.style.top = "0";
+    clone.style.margin = "0";
+    clone.style.width = `${Math.max(1, sourceRect.width)}px`;
+    clone.style.maxWidth = "none";
+    clone.style.background = "#fff";
+    clone.style.zIndex = "-1";
+
+    if (isThermalCapture) {
+      clone.setAttribute("data-capture-font-boost", "1");
+      const boostStyle = document.createElement("style");
+      boostStyle.setAttribute("data-capture-style", "receipt-font-boost");
+      boostStyle.textContent = `
+        [data-capture-font-boost="1"] p,
+        [data-capture-font-boost="1"] span,
+        [data-capture-font-boost="1"] strong {
+          font-size: 1.14em !important;
+          line-height: 1.3 !important;
+        }
+      `;
+      clone.appendChild(boostStyle);
+    }
+
+    document.body.appendChild(clone);
+
+    let captured: HTMLCanvasElement;
+    try {
+      captured = await html2canvas(clone, {
+        backgroundColor: "#ffffff",
+        scale: 2,
+        useCORS: true,
+        logging: false,
+      });
+    } finally {
+      clone.remove();
+    }
+
     const targetWidth = thermalWidth === "56" ? 384 : 576;
     const ratio = captured.height / captured.width;
     const width = targetWidth;
