@@ -876,9 +876,10 @@ export function ReceiptModal({ open, onOpenChange, data }: ReceiptModalProps) {
 
               </div>
             ) : (
-              <div className={isCompactThermal ? "pt-1 pb-16" : ""}>
+              <div className={isCompactThermal ? "pt-1 pb-44" : ""}>
                 <div
                   style={isCompactThermal ? { transform: `scale(${previewScale})`, transformOrigin: "top center" } : undefined}
+                  className={isCompactThermal ? "mb-36" : ""}
                 >
                   <div
                     id="receipt-preview-section"
@@ -954,26 +955,26 @@ export function ReceiptModal({ open, onOpenChange, data }: ReceiptModalProps) {
               </div>
             )}
 
-            <div className={`mt-6 w-full ${isCompactThermal ? "max-w-[56mm]" : isThermal ? "max-w-[80mm]" : "max-w-[182mm]"} mx-auto px-4 sm:px-0 pb-2`}>
+            <div className={`mt-8 w-full ${isCompactThermal ? "max-w-[56mm]" : isThermal ? "max-w-[80mm]" : "max-w-[182mm]"} mx-auto px-4 sm:px-0 pb-6`}>
               <div className={`flex items-center w-full ${isCompactThermal ? "justify-center gap-2" : "gap-3"}`}>
                 <Button
                   onClick={handlePrimaryPrint}
-                  className={isCompactThermal ? "h-10 w-10 p-0 rounded-full shadow-sm bg-blue-600 hover:bg-blue-700" : "flex-1 font-bold h-12 shadow-sm bg-blue-600 hover:bg-blue-700"}
-                  title={isCompactThermal ? `Imprimir Termica ${thermalWidth}mm` : undefined}
+                  className={isCompactThermal ? "flex-1 font-bold h-11 shadow-sm bg-blue-600 hover:bg-blue-700" : "flex-1 font-bold h-12 shadow-sm bg-blue-600 hover:bg-blue-700"}
+                  title={isCompactThermal ? undefined : undefined}
                   disabled={isBluetoothPrinting}
                 >
-                  <Printer className={isCompactThermal ? "h-5 w-5" : "mr-2 h-5 w-5"} />
-                  {!isCompactThermal ? `${isBluetoothPrinting ? "Enviando..." : `Imprimir ${isThermal ? `Termica ${thermalWidth}mm` : "A4"}`}` : null}
+                  <Printer className="mr-2 h-5 w-5" />
+                  {isCompactThermal ? (isBluetoothPrinting ? "Enviando..." : "Imprimir") : `${isBluetoothPrinting ? "Enviando..." : `Imprimir ${isThermal ? `Termica ${thermalWidth}mm` : "A4"}`}`}
                 </Button>
                 {!bluetoothDeviceName ? (
                   <Button
                     variant="outline"
                     onClick={handleBluetoothPairing}
-                    className={isCompactThermal ? "h-10 w-10 p-0 rounded-full border-slate-300 text-slate-700 hover:bg-slate-100" : "flex-1 font-bold h-12 shadow-sm border-slate-300 text-slate-700 hover:bg-slate-100"}
-                    title={isCompactThermal ? "Parear Bluetooth" : undefined}
+                    className={isCompactThermal ? "flex-1 font-bold h-11 shadow-sm border-slate-300 text-slate-700 hover:bg-slate-100" : "flex-1 font-bold h-12 shadow-sm border-slate-300 text-slate-700 hover:bg-slate-100"}
+                    title={undefined}
                   >
-                    <Bluetooth className={isCompactThermal ? "h-5 w-5 text-blue-500" : "mr-2 h-5 w-5 text-blue-500"} />
-                    {!isCompactThermal ? "Bluetooth" : null}
+                    <Bluetooth className="mr-2 h-5 w-5 text-blue-500" />
+                    Bluetooth
                   </Button>
                 ) : null}
               </div>
