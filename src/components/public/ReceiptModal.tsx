@@ -721,6 +721,8 @@ export function ReceiptModal({ open, onOpenChange, data }: ReceiptModalProps) {
   const thermalPaperWidth = thermalWidth === "56" ? "56mm" : "80mm";
   const isCompactThermal = isThermal && thermalWidth === "56";
   const previewScale = isCompactThermal ? 1.42 : 1;
+  const unifiedA4Text = "text-[11pt]";
+  const unifiedThermalText = "text-[11px]";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -818,46 +820,46 @@ export function ReceiptModal({ open, onOpenChange, data }: ReceiptModalProps) {
               >
                 <div className="text-center border-b border-slate-300 pb-[5mm] mb-[5mm]">
                   <img ref={logoRef} src="/logo-recibo.png" alt="Logo Igreja" className="mx-auto w-[80mm] h-auto mb-[1mm]" />
-                  <p className="m-0 text-[12pt] font-extrabold uppercase text-[#24388d]">Igreja Pentecostal Deus e Amor</p>
-                  <p className="m-0 mt-[1.2mm] text-[9pt] font-bold text-slate-600">CNPJ: 43.208.040/0001-36</p>
-                  <h2 className="m-0 mt-[2mm] text-[17pt] font-black uppercase text-slate-900">Apoio Evangelístico / Pregação</h2>
-                  <p className="m-0 mt-[1.5mm] text-[9pt] uppercase tracking-[0.5px] text-slate-500">Comprovante oficial de recebimento</p>
+                  <p className={`m-0 ${unifiedA4Text} font-extrabold uppercase text-[#24388d]`}>Igreja Pentecostal Deus e Amor</p>
+                  <p className={`m-0 mt-[1.2mm] ${unifiedA4Text} font-bold text-slate-600`}>CNPJ: 43.208.040/0001-36</p>
+                  <h2 className={`m-0 mt-[2mm] ${unifiedA4Text} font-black uppercase text-slate-900`}>Apoio Evangelístico / Pregação</h2>
+                  <p className={`m-0 mt-[1.5mm] ${unifiedA4Text} uppercase tracking-[0.5px] text-slate-500`}>Comprovante oficial de recebimento</p>
                 </div>
 
                 <div className="my-[5mm] border border-slate-300 rounded-[3mm] p-[4.5mm] text-center bg-slate-50">
-                  <div className="text-[10pt] font-bold uppercase text-slate-500 mb-[2mm]">Valor Recebido</div>
-                  <p className="m-0 text-[24pt] font-black text-slate-900">R$ {valorValido.toFixed(2)}</p>
+                  <div className={`${unifiedA4Text} font-bold uppercase text-slate-500 mb-[2mm]`}>Valor Recebido</div>
+                  <p className={`m-0 ${unifiedA4Text} font-black text-slate-900`}>R$ {valorValido.toFixed(2)}</p>
                 </div>
 
                 <div className="border border-slate-200 rounded-[3mm] p-[5mm] mb-[5mm]">
-                  <p className="m-0 text-[12pt] leading-[1.6] text-center">
+                  <p className={`m-0 ${unifiedA4Text} leading-[1.6] text-center`}>
                     Recebi da <strong>IPDA {churchDestinationLabel}</strong> a quantia de <strong>R$ {valorValido.toFixed(2)}</strong> ({valorExtenso}), referente a <strong>{obs || "Contribuicao"}</strong>.
                   </p>
                 </div>
 
                 <div className="grid grid-cols-[1.25fr_0.75fr] gap-[5mm] mt-[3mm]">
                   <div className="border border-slate-200 rounded-[3mm] p-[4.5mm]">
-                    <h3 className="m-0 mb-[3mm] text-[11pt] font-extrabold uppercase text-[#24388d] border-l-4 border-[#24388d] pl-[3mm]">Dados do Recibo</h3>
+                    <h3 className={`m-0 mb-[3mm] ${unifiedA4Text} font-extrabold uppercase text-[#24388d] border-l-4 border-[#24388d] pl-[3mm]`}>Dados do Recibo</h3>
 
                     <div className="mb-[2.4mm]">
-                      <span className="block text-[8pt] text-slate-500 uppercase font-bold mb-[1mm]">Codigo da Carta</span>
-                      <span className="block text-[10.5pt] font-semibold break-all">{cartaId}</span>
+                      <span className={`block ${unifiedA4Text} text-slate-500 uppercase font-bold mb-[1mm]`}>Codigo da Carta</span>
+                      <span className={`block ${unifiedA4Text} font-semibold break-all`}>{cartaId}</span>
                     </div>
                     <div className="mb-[2.4mm]">
-                      <span className="block text-[8pt] text-slate-500 uppercase font-bold mb-[1mm]">Igreja de Origem</span>
-                      <span className="block text-[10.5pt] font-semibold break-words">{data.letter.church_origin}</span>
+                      <span className={`block ${unifiedA4Text} text-slate-500 uppercase font-bold mb-[1mm]`}>Igreja de Origem</span>
+                      <span className={`block ${unifiedA4Text} font-semibold break-words`}>{data.letter.church_origin}</span>
                     </div>
                     <div className="mb-[2.4mm]">
-                      <span className="block text-[8pt] text-slate-500 uppercase font-bold mb-[1mm]">Funcao</span>
-                      <span className="block text-[10.5pt] font-semibold">{data.letter.minister_role}</span>
+                      <span className={`block ${unifiedA4Text} text-slate-500 uppercase font-bold mb-[1mm]`}>Funcao</span>
+                      <span className={`block ${unifiedA4Text} font-semibold`}>{data.letter.minister_role}</span>
                     </div>
                     <div className="mb-[2.4mm]">
-                      <span className="block text-[8pt] text-slate-500 uppercase font-bold mb-[1mm]">Local e Data</span>
-                      <span className="block text-[10.5pt] font-semibold capitalize">{dataAtual}</span>
+                      <span className={`block ${unifiedA4Text} text-slate-500 uppercase font-bold mb-[1mm]`}>Local e Data</span>
+                      <span className={`block ${unifiedA4Text} font-semibold capitalize`}>{dataAtual}</span>
                     </div>
                     <div>
-                      <span className="block text-[8pt] text-slate-500 uppercase font-bold mb-[1mm]">Referencia</span>
-                      <span className="block text-[10.5pt] font-semibold break-words">{obs || "Contribuicao"}</span>
+                      <span className={`block ${unifiedA4Text} text-slate-500 uppercase font-bold mb-[1mm]`}>Referencia</span>
+                      <span className={`block ${unifiedA4Text} font-semibold break-words`}>{obs || "Contribuicao"}</span>
                     </div>
                   </div>
 
@@ -869,23 +871,23 @@ export function ReceiptModal({ open, onOpenChange, data }: ReceiptModalProps) {
                         className="w-[42mm] h-[42mm] object-contain block mx-auto mb-[3mm]"
                         alt="QR Code da carta"
                       />
-                      <p className="m-0 text-[8pt] text-slate-500 uppercase font-bold">Escaneie para abrir a carta</p>
-                      <p className="m-0 mt-[2mm] text-[8pt] text-slate-700 break-all leading-[1.4]">{cartaId}</p>
+                      <p className={`m-0 ${unifiedA4Text} text-slate-500 uppercase font-bold`}>Escaneie para abrir a carta</p>
+                      <p className={`m-0 mt-[2mm] ${unifiedA4Text} text-slate-700 break-all leading-[1.4]`}>{cartaId}</p>
                     </div>
                   </div>
                 </div>
 
                 <div className="mt-[5mm] border border-dashed border-slate-300 rounded-[3mm] py-[3.5mm] px-[4.5mm] bg-slate-50">
-                  <p className="m-0 text-[9pt] leading-[1.6] text-center text-slate-600">
+                  <p className={`m-0 ${unifiedA4Text} leading-[1.6] text-center text-slate-600`}>
                     Para maior clareza, firmamos o presente comprovante de recebimento, servindo este como documento de conferencia e registro.
                   </p>
                 </div>
 
                 <div className="mt-[11mm] text-center">
                   <div className="w-[85mm] mx-auto mb-[3mm] border-t border-slate-900" />
-                  <p className="m-0 text-[11pt] font-extrabold uppercase">{data.letter.preacher_name}</p>
-                  {docNumber && <p className="m-0 mt-[1mm] text-[9pt] text-slate-600">{docType}: {docNumber}</p>}
-                  <p className="m-0 mt-[1mm] text-[8pt] uppercase font-bold text-slate-500">Assinatura do Recebedor</p>
+                  <p className={`m-0 ${unifiedA4Text} font-extrabold uppercase`}>{data.letter.preacher_name}</p>
+                  {docNumber && <p className={`m-0 mt-[1mm] ${unifiedA4Text} text-slate-600`}>{docType}: {docNumber}</p>}
+                  <p className={`m-0 mt-[1mm] ${unifiedA4Text} uppercase font-bold text-slate-500`}>Assinatura do Recebedor</p>
                 </div>
 
               </div>
@@ -909,30 +911,30 @@ export function ReceiptModal({ open, onOpenChange, data }: ReceiptModalProps) {
                       alt="Logo Igreja"
                       className="block h-auto w-[calc(100%+8mm)] max-w-none -mx-[4mm] mb-[2mm]"
                     />
-                    <p className={`m-0 font-extrabold uppercase leading-[1.25] ${thermalWidth === "56" ? "text-[12px]" : "text-[13px]"}`}>Igreja Pentecostal Deus e Amor</p>
-                    <p className={`m-0 mt-[1mm] font-bold leading-[1.2] ${thermalWidth === "56" ? "text-[10px]" : "text-[11px]"}`}>CNPJ: 43.208.040/0001-36</p>
-                    <p className={`m-0 mt-[2mm] font-extrabold uppercase leading-[1.25] ${thermalWidth === "56" ? "text-[12px]" : "text-[13px]"}`}>Apoio Evangelístico / Pregação</p>
-                    <p className={`m-0 mt-[1mm] leading-[1.2] ${thermalWidth === "56" ? "text-[10px]" : "text-[11px]"}`}>Comprovante oficial de recebimento</p>
+                    <p className={`m-0 font-extrabold uppercase leading-[1.25] ${unifiedThermalText}`}>Igreja Pentecostal Deus e Amor</p>
+                    <p className={`m-0 mt-[1mm] font-bold leading-[1.2] ${unifiedThermalText}`}>CNPJ: 43.208.040/0001-36</p>
+                    <p className={`m-0 mt-[2mm] font-extrabold uppercase leading-[1.25] ${unifiedThermalText}`}>Apoio Evangelístico / Pregação</p>
+                    <p className={`m-0 mt-[1mm] leading-[1.2] ${unifiedThermalText}`}>Comprovante oficial de recebimento</p>
                   </div>
 
                   <div className="border-t border-dashed border-black my-[3mm]" />
 
                   <div className="text-center capture-boost">
-                    <p className={`m-0 uppercase font-bold ${thermalWidth === "56" ? "text-[12px]" : "text-[13px]"}`}>Valor Recebido</p>
-                    <p className={`m-0 mt-[1.2mm] font-black leading-[1.1] ${thermalWidth === "56" ? "text-[30px]" : "text-[34px]"}`}>R$ {valorValido.toFixed(2)}</p>
+                    <p className={`m-0 uppercase font-bold ${unifiedThermalText}`}>Valor Recebido</p>
+                    <p className={`m-0 mt-[1.2mm] font-black leading-[1.1] ${unifiedThermalText}`}>R$ {valorValido.toFixed(2)}</p>
                   </div>
 
                   <div className="border-t border-dashed border-black my-[3mm]" />
 
-                  <p className={`m-0 leading-[1.5] text-center capture-boost ${thermalWidth === "56" ? "text-[11px]" : "text-[12px]"}`}>
+                  <p className={`m-0 leading-[1.5] text-center capture-boost ${unifiedThermalText}`}>
                     Recebi da <strong>IPDA {churchDestinationLabel}</strong> a quantia de <strong>R$ {valorValido.toFixed(2)}</strong> ({valorExtenso}), referente a <strong>{obs || "Contribuicao"}</strong>.
                   </p>
 
                   <div className="border-t border-dashed border-black my-[3mm]" />
 
                   <div className="capture-boost">
-                  <p className={`m-0 font-extrabold uppercase text-center ${thermalWidth === "56" ? "text-[12px]" : "text-[13px]"}`}>Dados do Recibo</p>
-                  <div className={`mt-[2mm] leading-[1.5] ${thermalWidth === "56" ? "text-[11px]" : "text-[12px]"}`}>
+                  <p className={`m-0 font-extrabold uppercase text-center ${unifiedThermalText}`}>Dados do Recibo</p>
+                  <div className={`mt-[2mm] leading-[1.5] ${unifiedThermalText}`}>
                     <div className="mb-[1.5mm]"><span className="font-extrabold uppercase">Codigo da Carta:</span><br /><span>{cartaId}</span></div>
                     <div className="mb-[1.5mm]"><span className="font-extrabold uppercase">Igreja de Origem:</span><br /><span>{data.letter.church_origin}</span></div>
                     <div className="mb-[1.5mm]"><span className="font-extrabold uppercase">Funcao:</span><br /><span>{data.letter.minister_role}</span></div>
@@ -949,17 +951,17 @@ export function ReceiptModal({ open, onOpenChange, data }: ReceiptModalProps) {
                       className={`object-contain mx-auto mb-[2mm] ${thermalWidth === "56" ? "w-[50mm] h-[50mm]" : "w-[72mm] h-[72mm]"}`}
                       alt="QR Code da carta"
                     />
-                    <p className={`m-0 font-bold uppercase leading-[1.3] ${thermalWidth === "56" ? "text-[10px]" : "text-[11px]"}`}>Escaneie para abrir a carta</p>
-                    <p className={`m-0 mt-[1.5mm] leading-[1.35] break-all ${thermalWidth === "56" ? "text-[9px]" : "text-[10px]"}`}>{cartaId}</p>
+                    <p className={`m-0 font-bold uppercase leading-[1.3] ${unifiedThermalText}`}>Escaneie para abrir a carta</p>
+                    <p className={`m-0 mt-[1.5mm] leading-[1.35] break-all ${unifiedThermalText}`}>{cartaId}</p>
                   </div>
 
                   <div className="border-t border-dashed border-black my-[3mm]" />
 
                   <div className="text-center">
                     <div className="border-t border-black w-full mt-[10mm] mb-[2mm]" />
-                    <p className={`m-0 font-extrabold uppercase leading-[1.3] ${thermalWidth === "56" ? "text-[10px]" : "text-[11px]"}`}>{data.letter.preacher_name}</p>
-                    {docNumber && <p className={`m-0 mt-[1mm] leading-[1.2] ${thermalWidth === "56" ? "text-[9px]" : "text-[10px]"}`}>{docType}: {docNumber}</p>}
-                    <p className={`m-0 mt-[1mm] uppercase leading-[1.2] ${thermalWidth === "56" ? "text-[8.5px]" : "text-[9.5px]"}`}>Assinatura do Recebedor</p>
+                    <p className={`m-0 font-extrabold uppercase leading-[1.3] ${unifiedThermalText}`}>{data.letter.preacher_name}</p>
+                    {docNumber && <p className={`m-0 mt-[1mm] leading-[1.2] ${unifiedThermalText}`}>{docType}: {docNumber}</p>}
+                    <p className={`m-0 mt-[1mm] uppercase leading-[1.2] ${unifiedThermalText}`}>Assinatura do Recebedor</p>
                   </div>
 
                 </div>
@@ -1006,3 +1008,4 @@ export function ReceiptModal({ open, onOpenChange, data }: ReceiptModalProps) {
     </Dialog>
   );
 }
+
