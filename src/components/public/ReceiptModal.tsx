@@ -15,6 +15,8 @@ type ReceiptMode = "a4" | "thermal";
 type ThermalWidth = "80" | "56";
 const LS_RECEIPT_MODE = "ipda_receipt_mode";
 const LS_RECEIPT_THERMAL_WIDTH = "ipda_receipt_thermal_width";
+const LS_RECEIPT_VALOR = "ipda_receipt_valor";
+const LS_RECEIPT_OBS = "ipda_receipt_obs";
 
 const UNIDADES = ["", "um", "dois", "tres", "quatro", "cinco", "seis", "sete", "oito", "nove"];
 const DEZ_A_DEZENOVE = ["dez", "onze", "doze", "treze", "quatorze", "quinze", "dezesseis", "dezessete", "dezoito", "dezenove"];
@@ -92,8 +94,14 @@ function formatCpf(value: string): string {
 }
 
 export function ReceiptModal({ open, onOpenChange, data }: ReceiptModalProps) {
-  const [valor, setValor] = useState("");
-  const [obs, setObs] = useState("");
+  const [valor, setValor] = useState(() => {
+    if (typeof window === "undefined") return "";
+    return String(window.localStorage.getItem(LS_RECEIPT_VALOR) || "");
+  });
+  const [obs, setObs] = useState(() => {
+    if (typeof window === "undefined") return "";
+    return String(window.localStorage.getItem(LS_RECEIPT_OBS) || "");
+  });
   const [docType, setDocType] = useState("CPF");
   const [docNumber, setDocNumber] = useState("");
   const [receiptMode, setReceiptMode] = useState<ReceiptMode>(() => {
@@ -108,6 +116,7 @@ export function ReceiptModal({ open, onOpenChange, data }: ReceiptModalProps) {
   });
   const [bluetoothDeviceName, setBluetoothDeviceName] = useState("");
   const [isBluetoothPrinting, setIsBluetoothPrinting] = useState(false);
+  const [isDataPanelCollapsed, setIsDataPanelCollapsed] = useState(false);
   const [qrDataUrl, setQrDataUrl] = useState("");
   const logoRef = useRef<HTMLImageElement | null>(null);
   const qrRef = useRef<HTMLImageElement | null>(null);
@@ -164,6 +173,22 @@ export function ReceiptModal({ open, onOpenChange, data }: ReceiptModalProps) {
     if (typeof window === "undefined") return;
     window.localStorage.setItem(LS_RECEIPT_THERMAL_WIDTH, thermalWidth);
   }, [thermalWidth]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(LS_RECEIPT_VALOR, valor);
+  }, [valor]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(LS_RECEIPT_OBS, obs);
+  }, [obs]);
+
+  const handleRecoverManualData = () => {
+    if (typeof window === "undefined") return;
+    setValor(String(window.localStorage.getItem(LS_RECEIPT_VALOR) || ""));
+    setObs(String(window.localStorage.getItem(LS_RECEIPT_OBS) || ""));
+  };
 
   const handlePrint = async () => {
     await waitImageLoaded(logoRef.current);
@@ -576,10 +601,20 @@ export function ReceiptModal({ open, onOpenChange, data }: ReceiptModalProps) {
             <span className="flex items-center gap-2">
               <FileText className="h-5 w-5 text-blue-600" /> Emissao de Recibo
             </span>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setIsDataPanelCollapsed((prev) => !prev)}
+              className="border-slate-300 text-slate-700"
+            >
+              {isDataPanelCollapsed ? "Mostrar dados" : "Recolher dados"}
+            </Button>
           </DialogTitle>
         </DialogHeader>
 
-        <div className="flex flex-col md:flex-row md:h-[82vh] max-h-[88vh] overflow-y-auto md:overflow-hidden">
+        <div className={`flex flex-col md:h-[82vh] max-h-[88vh] overflow-y-auto md:overflow-hidden ${isDataPanelCollapsed ? "" : "md:flex-row"}`}>
+          {!isDataPanelCollapsed ? (
           <div className="w-full md:w-1/3 flex flex-col border-r border-slate-200 bg-white">
             <div className="p-6 flex flex-col gap-5 overflow-y-visible md:overflow-y-auto flex-shrink-0">
               <div>
@@ -627,14 +662,24 @@ export function ReceiptModal({ open, onOpenChange, data }: ReceiptModalProps) {
                 />
               </div>
 
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full border-slate-300 text-slate-700 hover:bg-slate-100"
+                onClick={handleRecoverManualData}
+              >
+                Recuperar dados salvos
+              </Button>
+
               <div className="text-xs text-slate-500 border border-slate-200 rounded-md p-3 bg-slate-50">
                 QR local (sem URL externa na hora do print):<br />
                 <span className="font-mono break-all">{cartaId}</span>
               </div>
             </div>
           </div>
+          ) : null}
 
-          <div className="w-full md:w-2/3 p-4 md:p-6 bg-slate-100 flex flex-col items-center justify-start overflow-auto">
+          <div className={`w-full p-4 md:p-6 bg-slate-100 flex flex-col items-center justify-start overflow-auto ${isDataPanelCollapsed ? "" : "md:w-2/3"}`}>
             {!isThermal ? (
               <div
                 id="receipt-preview-section"
@@ -787,7 +832,7 @@ export function ReceiptModal({ open, onOpenChange, data }: ReceiptModalProps) {
               </div>
             )}
 
-            <div className={`mt-6 w-full ${isCompactThermal ? "max-w-[56mm]" : isThermal ? "max-w-[80mm]" : "max-w-[182mm]"} mx-auto px-4 sm:px-0`}>
+            <div className={`sticky bottom-0 z-20 mt-6 w-full ${isCompactThermal ? "max-w-[56mm]" : isThermal ? "max-w-[80mm]" : "max-w-[182mm]"} mx-auto px-4 sm:px-0 bg-slate-100/95 backdrop-blur-sm pb-2`}>
               <div className={`flex items-center w-full ${isCompactThermal ? "justify-center gap-2" : "gap-3"}`}>
                 <Button
                   onClick={handlePrimaryPrint}
