@@ -501,7 +501,11 @@ export function ReceiptModal({ open, onOpenChange, data }: ReceiptModalProps) {
         [data-capture-font-boost="1"] p,
         [data-capture-font-boost="1"] span,
         [data-capture-font-boost="1"] strong {
-          font-size: 1.14em !important;
+          font-size: 1.2em !important;
+          line-height: 1.34 !important;
+        }
+        [data-capture-font-boost="1"] .font-extrabold.uppercase {
+          font-size: 1.28em !important;
           line-height: 1.3 !important;
         }
       `;
@@ -912,8 +916,8 @@ export function ReceiptModal({ open, onOpenChange, data }: ReceiptModalProps) {
 
                   <div className="border-t border-dashed border-black my-[3mm]" />
 
-                  <p className={`m-0 font-extrabold uppercase text-center ${thermalWidth === "56" ? "text-[11px]" : "text-[12px]"}`}>Dados do Recibo</p>
-                  <div className={`mt-[2mm] leading-[1.5] ${thermalWidth === "56" ? "text-[10.5px]" : "text-[11.5px]"}`}>
+                  <p className={`m-0 font-extrabold uppercase text-center ${thermalWidth === "56" ? "text-[12px]" : "text-[13px]"}`}>Dados do Recibo</p>
+                  <div className={`mt-[2mm] leading-[1.5] ${thermalWidth === "56" ? "text-[11px]" : "text-[12px]"}`}>
                     <div className="mb-[1.5mm]"><span className="font-extrabold uppercase">Codigo da Carta:</span><br /><span>{cartaId}</span></div>
                     <div className="mb-[1.5mm]"><span className="font-extrabold uppercase">Igreja de Origem:</span><br /><span>{data.letter.church_origin}</span></div>
                     <div className="mb-[1.5mm]"><span className="font-extrabold uppercase">Funcao:</span><br /><span>{data.letter.minister_role}</span></div>
@@ -926,7 +930,7 @@ export function ReceiptModal({ open, onOpenChange, data }: ReceiptModalProps) {
                     <img
                       ref={qrRef}
                       src={qrDataUrl}
-                      className={`object-contain mx-auto mb-[2mm] ${thermalWidth === "56" ? "w-[34mm] h-[34mm]" : "w-[44mm] h-[44mm]"}`}
+                      className={`object-contain mx-auto mb-[2mm] ${thermalWidth === "56" ? "w-[38mm] h-[38mm]" : "w-[50mm] h-[50mm]"}`}
                       alt="QR Code da carta"
                     />
                     <p className={`m-0 font-bold uppercase leading-[1.3] ${thermalWidth === "56" ? "text-[10px]" : "text-[11px]"}`}>Escaneie para abrir a carta</p>
