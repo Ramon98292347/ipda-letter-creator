@@ -396,9 +396,62 @@ export default function PhoneIdentify() {
     nav("/cadastro");
   }
 
+  const showShutdownNotice = true;
+  if (showShutdownNotice) {
+    return (
+      <div className="min-h-screen w-full bg-red-100 px-4 py-8">
+        <div className="mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-5xl items-center justify-center">
+          <div className="w-full rounded-2xl border-2 border-red-300 bg-red-50 p-6 text-center shadow-lg sm:p-10">
+            <h1 className="text-2xl font-extrabold text-red-800 sm:text-3xl">Comunicado Importante</h1>
+            <div className="mx-auto mt-5 max-w-3xl space-y-3 text-sm leading-relaxed text-red-900 sm:text-base">
+              <p>
+                Por motivo de forca maior, informamos que este sistema foi desativado definitivamente.
+              </p>
+              <p>
+                Todos os dados que estavam armazenados na plataforma foram excluidos. Pedimos sinceras desculpas por qualquer transtorno que essa situacao possa causar.
+              </p>
+              <p>
+                Agradecemos a todos pela confianca, pelo apoio e pelo tempo em que estiveram conosco.
+              </p>
+              <p className="font-semibold">
+                "Nao to mandei eu? Esforca-te, e tem bom animo; nao temas, nem te espantes, porque o Senhor teu Deus e contigo, por onde quer que andares."
+              </p>
+              <p className="font-semibold">Josue 1:9</p>
+              <p>Seguimos confiando que Deus permanece no controle de todas as coisas.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-[#f3f5f9] p-6">
-      <div className="mx-auto grid w-full max-w-5xl gap-4 lg:grid-cols-[1fr_620px]">
+    <div className="min-h-screen bg-[#f3f5f9]">
+      <div className="fixed inset-x-0 top-0 z-50 w-full border-b border-red-200 bg-red-50 px-6 py-5 shadow-sm">
+        <div className="mx-auto w-full max-w-7xl">
+          <h2 className="text-lg font-bold text-red-800">Comunicado Importante</h2>
+          <div className="mt-3 space-y-2 text-sm text-red-900">
+            <p>
+              Por motivo de forca maior, informamos que este sistema foi desativado definitivamente.
+            </p>
+            <p>
+              Todos os dados que estavam armazenados na plataforma foram excluidos. Pedimos sinceras desculpas por qualquer transtorno que essa situacao possa causar.
+            </p>
+            <p>
+              Agradecemos a todos pela confianca, pelo apoio e pelo tempo em que estiveram conosco.
+            </p>
+            <p className="font-semibold">
+              "Nao to mandei eu? Esforca-te, e tem bom animo; nao temas, nem te espantes, porque o Senhor teu Deus e contigo, por onde quer que andares."
+            </p>
+            <p className="font-semibold">Josue 1:9</p>
+            <p>
+              Seguimos confiando que Deus permanece no controle de todas as coisas.
+            </p>
+          </div>
+        </div>
+      </div>
+      <div className="p-6 pt-[340px] sm:pt-[300px]">
+        <div className="mx-auto grid w-full max-w-5xl gap-4 lg:grid-cols-[1fr_620px]">
         <form
           className="space-y-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-lg"
           onSubmit={(e) => {
@@ -550,6 +603,7 @@ export default function PhoneIdentify() {
             birthdays={birthdays.slice(0, 10).map((b) => b.full_name)}
             heightClass="min-h-[610px]"
           />
+        </div>
         </div>
       </div>
     </div>
