@@ -14,7 +14,7 @@ import {
   useNavigate,
   Outlet,
 } from "react-router-dom";
-import { lazy, Suspense, useEffect } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import NotFound from "./pages/NotFound";
 import PhoneIdentify from "./pages/PhoneIdentify";
 import CadastroRapido from "./pages/CadastroRapido";
@@ -166,8 +166,11 @@ const CaravanasPage = lazy(() => import("./pages/CaravanasPage"));
 const CaravanaLandingPage = lazy(() => import("./pages/CaravanaLandingPage"));
 const CaravanaByChurchPage = lazy(() => import("./pages/CaravanaByChurchPage"));
 const CaravanaEventPage = lazy(() => import("./pages/CaravanaEventPage"));
+const SYSTEM_SHUTDOWN_MODE = true;
+const AUTH_CLEARED_EVENT = "ipda-auth-cleared";
 
 function RequireAuth({ children }: { children: JSX.Element }) {
+  if (SYSTEM_SHUTDOWN_MODE) return <Navigate to="/" replace />;
   const { usuario, token } = useUser();
   if (!usuario || !token) return <Navigate to="/" replace />;
   return children;
@@ -185,6 +188,7 @@ function redirectByRole(role?: AppRole | null) {
 }
 
 function RequireRole({ children, role }: { children: JSX.Element; role: AppRole }) {
+  if (SYSTEM_SHUTDOWN_MODE) return <Navigate to="/" replace />;
   const { usuario, token } = useUser();
   if (!usuario || !token) return <Navigate to="/" replace />;
   if (usuario.role !== role) return redirectByRole(usuario.role as AppRole);
@@ -192,6 +196,7 @@ function RequireRole({ children, role }: { children: JSX.Element; role: AppRole 
 }
 
 function RequireAnyRole({ children, roles }: { children: JSX.Element; roles: AppRole[] }) {
+  if (SYSTEM_SHUTDOWN_MODE) return <Navigate to="/" replace />;
   const { usuario, token } = useUser();
   if (!usuario || !token) return <Navigate to="/" replace />;
   if (!roles.includes(usuario.role as AppRole)) return redirectByRole(usuario.role as AppRole);
@@ -224,11 +229,19 @@ function OnReloadRedirect() {
 }
 
 const RootLayout = () => (
-  <>
-    <OnReloadRedirect />
-    <Outlet />
-  </>
+  <RootGuard />
 );
+
+function RootGuard() {
+  const loc = useLocation();
+  if (SYSTEM_SHUTDOWN_MODE && loc.pathname !== "/") return <Navigate to="/" replace />;
+  return (
+    <>
+      <OnReloadRedirect />
+      <Outlet />
+    </>
+  );
+}
 
 const router = createBrowserRouter(
   createRoutesFromElements(
@@ -657,8 +670,39 @@ import { PwaOnboarding } from "@/components/shared/PwaOnboarding";
 
 function AppBootstrap() {
   const queryClient = useQueryClient();
+  const [resetDone, setResetDone] = useState(!SYSTEM_SHUTDOWN_MODE);
 
   useEffect(() => {
+    if (!SYSTEM_SHUTDOWN_MODE || typeof window === "undefined") return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        queryClient.clear();
+        localStorage.clear();
+        sessionStorage.clear();
+        window.dispatchEvent(new Event(AUTH_CLEARED_EVENT));
+
+        if ("caches" in window) {
+          const cacheNames = await caches.keys();
+          await Promise.all(cacheNames.map((cacheName) => caches.delete(cacheName)));
+        }
+
+        if ("serviceWorker" in navigator) {
+          const registrations = await navigator.serviceWorker.getRegistrations();
+          await Promise.all(registrations.map((registration) => registration.unregister()));
+        }
+      } finally {
+        if (!cancelled) setResetDone(true);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [queryClient]);
+
+  useEffect(() => {
+    if (SYSTEM_SHUTDOWN_MODE) return;
     registerDefaultOfflineHandlers();
     const stop = startOfflineSyncLoop();
     return () => stop();
@@ -703,11 +747,17 @@ function AppBootstrap() {
     };
   }, [queryClient]);
 
+  if (!resetDone) return null;
+
   return (
     <>
       <RouterProvider router={router} />
-      <PwaUpdater />
-      <PwaOnboarding />
+      {!SYSTEM_SHUTDOWN_MODE ? (
+        <>
+          <PwaUpdater />
+          <PwaOnboarding />
+        </>
+      ) : null}
     </>
   );
 }
@@ -736,7 +786,7 @@ const App = () => {
       persistOptions={{
         persister: queryPersister,
         maxAge: 24 * 60 * 60 * 1000,
-        buster: "v1",
+        buster: SYSTEM_SHUTDOWN_MODE ? "shutdown-2026-04-23" : "v1",
       }}
     >
       <AppProviders />
